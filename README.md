@@ -1,24 +1,31 @@
 # ChamuyoCheck 1.0
 
-MVP funcional para Vercel: landing, analizador con OpenAI y checkout con Mercado Pago Argentina.
+**La IA que detecta el chamuyo.**
+
+Aplicación Next.js lista para Vercel con:
+- Landing profesional.
+- Analizador con OpenAI.
+- Modo demo si falta API key.
+- Checkout con Mercado Pago Argentina.
+- Webhook básico de Mercado Pago.
 
 ## Variables de entorno en Vercel
 
 En Project Settings > Environment Variables cargar:
 
-- `OPENAI_API_KEY`: clave de OpenAI. Si falta, el sitio funciona en modo demo.
+- `OPENAI_API_KEY`: clave de OpenAI.
 - `MERCADOPAGO_ACCESS_TOKEN`: token productivo de Mercado Pago Developers.
-- `NEXT_PUBLIC_APP_URL`: URL pública de Vercel. Ej: `https://chamuyocheck.vercel.app`
-- `PRO_PRICE_ARS`: precio. Ej: `6900`
+- `NEXT_PUBLIC_APP_URL`: URL pública de Vercel, ejemplo `https://chamuyocheck.vercel.app`
+- `PRO_PRICE_ARS`: ejemplo `6900`
 
-## Deploy en Vercel
+## Deploy
 
-1. Descomprimir esta carpeta.
-2. Subirla a un repositorio de GitHub o arrastrar el ZIP en Vercel si la cuenta lo permite.
-3. En Vercel, elegir framework Next.js.
+1. Subir estos archivos al repositorio GitHub.
+2. Importar el repositorio en Vercel.
+3. Elegir preset Next.js.
 4. Cargar variables de entorno.
 5. Deploy.
 
-## Importante
+## Próxima versión
 
-La primera versión cobra con Mercado Pago y recibe el webhook, pero no guarda usuarios Pro todavía porque falta una base de datos. La versión 1.1 debe sumar Supabase para usuarios, historial y permisos Pro.
+ChamuyoCheck 1.1 debería sumar Supabase para usuarios, login con Google, historial de análisis, permisos Pro y panel administrador.
