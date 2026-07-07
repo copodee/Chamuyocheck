@@ -1,0 +1,7 @@
+import { NextResponse } from 'next/server';
+export async function POST(req: Request) {
+  const body = await req.json().catch(()=>({}));
+  console.log('Mercado Pago webhook', body);
+  // En la versión 1.1 esto debe guardar el pago aprobado en una base de datos.
+  return NextResponse.json({ received: true });
+}
