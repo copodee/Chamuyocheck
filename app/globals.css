@@ -249,3 +249,58 @@ textarea{min-height:210px;resize:vertical;font-family:ui-monospace,SFMono-Regula
   .panel,.card,.section,.verifyBand{break-inside:avoid;background:white!important;color:#111!important;border:1px solid #ddd}
   .panel *,.card *,.section *,.verifyBand *{color:#111!important}
 }
+
+
+/* V12 - Informe PDF y comparador */
+.compareBox{
+  margin-top:14px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.03);
+  border-radius:16px;
+  padding:14px;
+}
+.compareBox summary{
+  cursor:pointer;
+  color:#dffff6;
+  font-weight:950;
+}
+.compareBox textarea{
+  margin-top:12px;
+  min-height:150px;
+}
+.compareReport{
+  border-color:rgba(39,239,189,.24);
+  background:rgba(39,239,189,.045);
+}
+@media print{
+  body.printingReport .sidebar,
+  body.printingReport .topbar,
+  body.printingReport .inputPanel,
+  body.printingReport .legalFooter,
+  body.printingReport .productRoadmap,
+  body.printingReport .reportTabs,
+  body.printingReport .ghost,
+  body.printingReport .primary,
+  body.printingReport .iconBtn{
+    display:none!important;
+  }
+  body.printingReport .appShell{display:block!important}
+  body.printingReport .main{padding:0!important}
+  body.printingReport #informe{display:block!important}
+  body.printingReport{
+    background:#fff!important;
+    color:#111!important;
+  }
+  body.printingReport .panel,
+  body.printingReport .card,
+  body.printingReport .section,
+  body.printingReport .verifyBand{
+    background:#fff!important;
+    color:#111!important;
+    border:1px solid #ddd!important;
+    box-shadow:none!important;
+  }
+  body.printingReport *{
+    color:#111!important;
+  }
+}

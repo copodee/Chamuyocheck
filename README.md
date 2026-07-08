@@ -110,3 +110,13 @@ V12 debería conectar servicios reales:
 - Base de datos para historial.
 - Mercado Pago web / Google Play Billing Android.
 - PDF export real con branding.
+
+
+# V12 Informe PDF + Comparador
+
+Incluye:
+- Botón "Descargar informe PDF" usando impresión limpia del navegador.
+- Estilos especiales para exportar informe sin sidebar ni controles.
+- Comparador preliminar: permite pegar una segunda fuente, versión o documento.
+- Sección de comparación documental dentro del informe.
+- Base técnica para exportación PDF profesional posterior.
