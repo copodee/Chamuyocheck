@@ -1,46 +1,331 @@
-'use client';
-import { useState } from 'react';
 
-type Category={name:string;score:number;explanation:string};
-type FlaggedPhrase={phrase:string;problem:string;severity:'Baja'|'Media'|'Alta'};
-type IntelligenceModule={id:string;title:string;detected:boolean;risk:number;summary:string;signals:string[];missingInformation:string[];questions:string[]};
-type FinancialMath={detected:boolean;amount?:number|null;installment?:number|null;months?:number|null;totalPaid?:number|null;hiddenCost?:number|null;monthlyImpliedRate?:number|null;annualImpliedRate?:number|null;missingFields:string[];warnings:string[];questions:string[];plainEnglish:string};
-type PyramidRisk={detected:boolean;risk:number;level:string;signals:string[];explanation:string;questions:string[]};
-type AIDetection={detected:boolean;risk:number;confidence:string;signals:string[];explanation:string;questions:string[];legalNote:string};
-type LegalGuard={disclaimer:string;prohibitedLanguagePolicy:string;confidence:'Baja'|'Media'|'Alta'};
-type Analysis={documentType:string;decisionQuestion:string;score:number;risk:string;confidence:string;summary:string;categoryScores?:Category[];modules?:IntelligenceModule[];flaggedPhrases?:FlaggedPhrase[];issues:string[];questions:string[];missingInformation?:string[];worstReasonableScenario?:string;improved:string;verdict?:string;financialMath?:FinancialMath;pyramidRisk?:PyramidRisk;aiDetection?:AIDetection;legalGuard?:LegalGuard;source?:{kind:string;fileName?:string;chars:number}};
-function ars(n?:number|null){if(typeof n!=='number'||!Number.isFinite(n))return'No informado';return'$'+Math.round(n).toLocaleString('es-AR')}
-function tone(score:number){if(score>=80)return'danger';if(score>=60)return'warn';if(score>=35)return'mid';return'safe'}
-function sev(s?:string){return s==='Alta'?'sev alta':s==='Baja'?'sev baja':'sev media'}
-function barStyle(score?:number){return{width:`${Math.max(0,Math.min(100,score||0))}%`}}
-export default function Home(){
- const [text,setText]=useState('');const [file,setFile]=useState<File|null>(null);const [loading,setLoading]=useState(false);const [analysis,setAnalysis]=useState<Analysis|null>(null);const [error,setError]=useState('');
- async function analyze(){setLoading(true);setError('');setAnalysis(null);try{let body:BodyInit;let headers:HeadersInit|undefined; if(file){const fd=new FormData();fd.append('text',text);fd.append('file',file);body=fd}else{headers={'Content-Type':'application/json'};body=JSON.stringify({text})}const r=await fetch('/api/analyze',{method:'POST',headers,body});const j=await r.json();if(!r.ok)throw new Error(j.error||'No se pudo analizar');setAnalysis(j);setTimeout(()=>document.getElementById('resultado')?.scrollIntoView({behavior:'smooth',block:'start'}),80)}catch(e:any){setError(e.message)}finally{setLoading(false)}}
- async function pay(){const r=await fetch('/api/checkout',{method:'POST'});const j=await r.json();if(j.url)location.href=j.url;else alert(j.error||'No se pudo iniciar el pago')}
- return <main className="wrap">
-  <nav className="nav"><div className="brand">Chamuyo<span className="gradient">Check</span></div><a className="pill" href="#analizar">Probar gratis</a></nav>
-  <section className="heroV5">
-   <div className="heroCopy"><span className="badge">V5 · Comité de auditoría prudente</span><h1 className="h1">Detecta el chamuyo <span className="gradient">sin acusar:</span> audita, calcula, pregunta y revisa PDF.</h1><p className="lead">Analiza promesas comerciales, préstamos, inversiones, contratos y trabajos académicos. El resultado no acusa: muestra indicadores, información faltante, cálculos, preguntas críticas y resguardo legal.</p><div className="trust"><span>✓ Resguardo legal</span><span>✓ PDF</span><span>✓ Cálculo financiero</span><span>✓ Radar piramidal</span><span>✓ Señales de posible IA</span></div></div>
-   <div id="analizar" className="analyzerCard"><p className="small">Pegá texto o subí un PDF</p><textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Pegá una propuesta, préstamo, contrato, publicación o trabajo académico..."/><label className="upload"><input type="file" accept="application/pdf,.pdf" onChange={e=>setFile(e.target.files?.[0]||null)}/><span>{file?`PDF cargado: ${file.name}`:'Subir PDF para analizar'}</span></label><div className="cta"><button className="btn" onClick={analyze} disabled={loading||(!file&&text.length<20)}>{loading?'Analizando...':'Analizar con V5'}</button><button onClick={pay} className="btn secondary">Pasarme a Pro</button></div>{error&&<p className="err">{error}</p>}<p className="tiny">Para detectar posible IA en trabajos escolares o universitarios, el sistema solo da señales orientativas. No prueba autoría.</p></div>
-  </section>
-  {analysis&&<section id="resultado" className="analysisShell">
-   <div className="resultHeader"><div><span className="badge">Resultado V5</span><h2>{analysis.documentType}</h2><p>{analysis.summary}</p>{analysis.source&&<p className="small">Fuente: {analysis.source.kind}{analysis.source.fileName?` · ${analysis.source.fileName}`:''} · {analysis.source.chars?.toLocaleString('es-AR')} caracteres</p>}</div><div className={`bigScore ${tone(analysis.score)}`}>{analysis.score}<small>/100</small></div></div>
-   <div className="bar"><span style={barStyle(analysis.score)}/></div>
-   <div className="decisionGrid"><div><span>Riesgo</span><b>{analysis.risk}</b></div><div><span>Confianza</span><b>{analysis.confidence}</b></div><div><span>Pregunta central</span><b>{analysis.decisionQuestion}</b></div></div>
-   {analysis.verdict&&<div className="verdict"><b>Conclusión prudente:</b> {analysis.verdict}</div>}
-   <div className="contentGrid">
-    <section className="panel priority"><h3>Prioridad para decidir</h3><ul>{analysis.issues.slice(0,5).map((x,i)=><li key={i}>{x}</li>)}</ul></section>
-    {analysis.financialMath?.detected&&<section className="panel financeBox"><h3>Inteligencia matemática financiera</h3><p>{analysis.financialMath.plainEnglish}</p><div className="financeGrid"><div><span>Monto</span><b>{ars(analysis.financialMath.amount)}</b></div><div><span>Cuota</span><b>{ars(analysis.financialMath.installment)}</b></div><div><span>Plazo</span><b>{analysis.financialMath.months?`${analysis.financialMath.months} meses`:'No informado'}</b></div><div><span>Total</span><b>{ars(analysis.financialMath.totalPaid)}</b></div><div><span>Costo extra</span><b>{ars(analysis.financialMath.hiddenCost)}</b></div><div><span>Tasa implícita</span><b>{analysis.financialMath.monthlyImpliedRate?`${analysis.financialMath.monthlyImpliedRate}% mensual`:'No calculable'}</b></div></div><p className="small"><b>Datos que faltan:</b> {analysis.financialMath.missingFields.join(', ')}</p></section>}
-    {analysis.aiDetection?.detected&&<section className="panel aiBox"><h3>Posible redacción con IA</h3><div className="riskLine"><b>{analysis.aiDetection.risk}/100</b><span>Confianza: {analysis.aiDetection.confidence}</span></div><p>{analysis.aiDetection.explanation}</p><ul>{analysis.aiDetection.signals.map((x,i)=><li key={i}>{x}</li>)}</ul><p className="small"><b>Resguardo:</b> {analysis.aiDetection.legalNote}</p></section>}
-    {analysis.pyramidRisk?.detected&&<section className="panel pyramidBox"><h3>Radar piramidal / Ponzi</h3><div className="riskLine"><b>{analysis.pyramidRisk.level}</b><span>{analysis.pyramidRisk.risk}/100</span></div><p>{analysis.pyramidRisk.explanation}</p><ul>{analysis.pyramidRisk.signals.map((x,i)=><li key={i}>{x}</li>)}</ul></section>}
-   </div>
-   {analysis.categoryScores?.length? <section className="full"><h3>Índices de auditoría</h3><div className="miniGrid">{analysis.categoryScores.map((c,i)=><div className="mini" key={i}><div className="miniTop"><b>{c.name}</b><span>{c.score}/100</span></div><div className="miniBar"><span style={barStyle(c.score)}/></div><p className="small">{c.explanation}</p></div>)}</div></section>:null}
-   {analysis.modules?.length? <section className="full"><h3>Comité de análisis</h3><div className="moduleGrid">{analysis.modules.map((m,i)=><div className="module" key={i}><div className="miniTop"><b>{m.title}</b><span>{m.risk}/100</span></div><p>{m.summary}</p>{m.signals?.length?<ul>{m.signals.slice(0,3).map((x,j)=><li key={j}>{x}</li>)}</ul>:null}</div>)}</div></section>:null}
-   <div className="contentGrid"><section className="panel"><h3>Preguntas para decidir mejor</h3><ul>{analysis.questions.map((x,i)=><li key={i}>{x}</li>)}</ul></section><section className="panel"><h3>Información faltante</h3><ul>{analysis.missingInformation?.map((x,i)=><li key={i}>{x}</li>)}</ul></section></div>
-   {analysis.flaggedPhrases?.length?<section className="full"><h3>Frases bajo sospecha</h3><div className="phrases">{analysis.flaggedPhrases.map((f,i)=><div className="phrase" key={i}><span className={sev(f.severity)}>{f.severity}</span><p><b>“{f.phrase}”</b></p><p className="small">{f.problem}</p></div>)}</div></section>:null}
-   <div className="contentGrid"><section className="panel"><h3>Peor escenario razonable</h3><p>{analysis.worstReasonableScenario}</p></section><section className="panel"><h3>Versión más transparente</h3><p>{analysis.improved}</p></section></div>
-   {analysis.legalGuard&&<section className="legal"><h3>Resguardo legal del análisis</h3><p>{analysis.legalGuard.disclaimer}</p><p className="small">{analysis.legalGuard.prohibitedLanguagePolicy}</p></section>}
-  </section>}
-  <section className="grid"><div className="feature"><h3>Diseño equilibrado</h3><p>El resultado ya no queda encerrado a la derecha: se abre como tablero completo.</p></div><div className="feature"><h3>Subida de PDF</h3><p>Extrae texto de PDF y lo analiza con los mismos módulos.</p></div><div className="feature"><h3>Uso de IA en trabajos</h3><p>Detecta señales compatibles, pero no acusa ni prueba autoría.</p></div><div className="feature"><h3>Chamuyo financiero</h3><p>Calcula costo total visible, tasa implícita y omisiones críticas.</p></div></section>
- </main>
+'use client';
+
+import { useMemo, useRef, useState } from 'react';
+
+type Category = { name: string; score: number; explanation: string };
+type FlaggedPhrase = { phrase: string; problem: string; severity: 'Baja'|'Media'|'Alta' };
+type Financial = {
+  detected: boolean;
+  amount?: number | null;
+  installment?: number | null;
+  months?: number | null;
+  totalPaid?: number | null;
+  hiddenCost?: number | null;
+  hiddenCostPercent?: number | null;
+  monthlyImpliedRate?: number | null;
+  annualEffectiveRate?: number | null;
+  missingData?: string[];
+  summary: string;
+};
+type Analysis = {
+  score: number;
+  risk: string;
+  confidence: string;
+  detectedType: string;
+  centralQuestion: string;
+  summary: string;
+  prudentConclusion: string;
+  verdict: string;
+  categoryScores: Category[];
+  specialistCommittee: Category[];
+  flaggedPhrases: FlaggedPhrase[];
+  issues: string[];
+  questions: string[];
+  missingInformation: string[];
+  worstCase: string;
+  improved: string;
+  financial: Financial;
+  pyramidRisk: Category;
+  academicAI: Category;
+  plagiarism: Category;
+  sourceComparison: Category;
+  legalSafeguard: string;
+};
+
+const examples: Record<string,string> = {
+  text: 'Garantizamos que con nuestro curso online te harás millonario en 1 semana sin esfuerzo.',
+  finance: 'Préstamo de $5.000.000. 120 cuotas de $180.000. Sin requisitos. Aprobación inmediata.',
+  academic: 'Trabajo práctico de Historia: En la actualidad, es importante mencionar que la Revolución Industrial transformó profundamente la sociedad. En conclusión, este proceso tuvo múltiples consecuencias económicas y sociales.',
+  pyramid: 'Generá ingresos pasivos invitando a tres personas. Rentabilidad mensual garantizada y sin vender productos. Mientras más referidos sumes, más ganás.',
+  web: 'https://ejemplo.com/oferta-increible\nPegá también el texto visible de la página para un análisis más preciso.',
+  youtube: 'https://youtube.com/watch?v=...\nPegá la descripción, transcripción o claims principales del video.',
+  compare: 'Documento del alumno: El presente trabajo tiene como objetivo analizar...\n\nFuente usada: ...'
+};
+
+function money(n?: number | null) {
+  if (n == null || !Number.isFinite(Number(n))) return 'No informado';
+  return `$${Math.round(Number(n)).toLocaleString('es-AR')}`;
+}
+
+function percent(n?: number | null, digits = 2) {
+  if (n == null || !Number.isFinite(Number(n))) return 'No calculado';
+  return `${Number(n).toFixed(digits)}%`;
+}
+
+function ScoreBar({ score }: { score: number }) {
+  const width = Math.max(0, Math.min(100, score || 0));
+  return <div className="bar"><div className="fill" style={{ ['--w' as any]: `${width}%` }} /></div>;
+}
+
+function CategoryCard({ c }: { c: Category }) {
+  return (
+    <div className="info-card">
+      <div style={{display:'flex', justifyContent:'space-between', gap:12, alignItems:'start'}}>
+        <h4>{c.name}</h4>
+        <strong>{Math.round(c.score)}/100</strong>
+      </div>
+      <ScoreBar score={c.score} />
+      <p>{c.explanation}</p>
+    </div>
+  );
+}
+
+export default function Page() {
+  const [mode, setMode] = useState('text');
+  const [text, setText] = useState(examples.text);
+  const [compareText, setCompareText] = useState('');
+  const [url, setUrl] = useState('');
+  const [files, setFiles] = useState<{name:string; type:string; size:number}[]>([]);
+  const [drag, setDrag] = useState(false);
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [loading, setLoading] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const placeholder = useMemo(() => {
+    if (mode === 'pdf') return 'Arrastrá un PDF o pegá el texto del documento. En esta versión web el archivo se registra; para análisis profundo pegá el texto extraído si el PDF no se procesa automáticamente.';
+    if (mode === 'image') return 'Arrastrá una captura de WhatsApp, Instagram o anuncio. Pegá también el texto visible si querés máxima precisión.';
+    if (mode === 'youtube') return 'Pegá el link de YouTube y, si podés, la transcripción o las frases principales del video.';
+    if (mode === 'web') return 'Pegá una URL y el texto visible de la página, oferta o landing.';
+    if (mode === 'academic') return 'Pegá un trabajo académico. El detector de IA es una estimación, no una prueba.';
+    if (mode === 'compare') return 'Pegá el documento principal. Abajo podés pegar la fuente, segundo documento o trabajo a comparar.';
+    return 'Pegá una propuesta, posteo, préstamo, inversión, contrato, promesa comercial o discurso.';
+  }, [mode]);
+
+  function onFiles(list: FileList | null) {
+    if (!list) return;
+    const mapped = Array.from(list).map(f => ({ name: f.name, type: f.type || 'archivo', size: f.size }));
+    setFiles(prev => [...prev, ...mapped].slice(0, 8));
+  }
+
+  async function analyze() {
+    setLoading(true);
+    setAnalysis(null);
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, compareText, url, files, mode })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Error');
+      setAnalysis(data);
+      setTimeout(() => document.getElementById('resultado')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    } catch (e:any) {
+      alert(e.message || 'No se pudo analizar.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const modes = [
+    ['text','Texto'],
+    ['pdf','PDF'],
+    ['image','Imagen/captura'],
+    ['youtube','YouTube'],
+    ['web','Página web'],
+    ['academic','Académico/IA'],
+    ['compare','Comparar docs'],
+    ['finance','Financiero'],
+    ['pyramid','Pirámide']
+  ];
+
+  function loadExample(key: string) {
+    setMode(key);
+    setText(examples[key] || examples.text);
+    if (key === 'compare') setCompareText('Fuente o segundo documento:\n');
+    if (key === 'web') setUrl('https://ejemplo.com/oferta');
+    if (key === 'youtube') setUrl('https://youtube.com/watch?v=');
+  }
+
+  return (
+    <>
+      <main className="shell">
+        <nav className="nav">
+          <div className="logo">Chamuyo<span>Check</span></div>
+          <div className="nav-actions">
+            <a className="pill" href="#resultado">Ver análisis</a>
+            <button className="secondary">Pasarme a Pro</button>
+          </div>
+        </nav>
+
+        <section className="hero">
+          <div className="hero-copy">
+            <div className="badge">Sistema inteligente de auditoría de credibilidad</div>
+            <h1>La IA que detecta el chamuyo <span className="grad">sin acusar:</span> audita, calcula y pregunta.</h1>
+            <p className="lead">
+              V6 analiza textos, PDFs, capturas, enlaces, videos, préstamos, inversiones, trabajos académicos y documentos comparados. No condena: mide respaldo, transparencia, costos ocultos, señales de IA, plagio estimativo y riesgos.
+            </p>
+            <div className="hero-buttons">
+              <button className="primary" onClick={() => document.getElementById('panel')?.scrollIntoView({ behavior:'smooth' })}>Analizar ahora</button>
+              <button className="secondary" onClick={() => loadExample('finance')}>Probar préstamo</button>
+            </div>
+            <div className="chips">
+              <span className="chip">📄 PDF</span>
+              <span className="chip">📷 Capturas</span>
+              <span className="chip">🎥 YouTube</span>
+              <span className="chip">🌐 Web</span>
+              <span className="chip">📊 Indicadores</span>
+              <span className="chip">🤖 IA académica</span>
+              <span className="chip">📑 Comparador</span>
+              <span className="chip">🔍 Plagio estimativo</span>
+            </div>
+          </div>
+
+          <div id="panel" className="workspace">
+            <div className="mode-tabs">
+              {modes.map(([id,label]) => (
+                <button key={id} className={`mode ${mode === id ? 'active' : ''}`} onClick={() => setMode(id)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div
+              className={`dropzone ${drag ? 'drag' : ''}`}
+              onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+              onDragLeave={() => setDrag(false)}
+              onDrop={(e) => { e.preventDefault(); setDrag(false); onFiles(e.dataTransfer.files); }}
+              onClick={() => fileRef.current?.click()}
+            >
+              <input ref={fileRef} type="file" multiple accept=".pdf,image/*,.txt,.doc,.docx" style={{display:'none'}} onChange={(e) => onFiles(e.target.files)} />
+              <div className="drop-title">Arrastrá PDF, imagen, captura o documento</div>
+              <div className="drop-help">También podés pegar texto, URL de YouTube o página web. Para máxima precisión, pegá el texto visible del archivo.</div>
+              {!!files.length && (
+                <div className="file-list">
+                  {files.map((f,i) => <span className="file-tag" key={`${f.name}-${i}`}>{f.name}</span>)}
+                </div>
+              )}
+            </div>
+
+            {(mode === 'web' || mode === 'youtube') && (
+              <input className="input" placeholder="Pegá el enlace..." value={url} onChange={e => setUrl(e.target.value)} />
+            )}
+
+            <textarea value={text} onChange={e => setText(e.target.value)} placeholder={placeholder} />
+
+            {mode === 'compare' && (
+              <div className="compare-grid">
+                <textarea value={compareText} onChange={e => setCompareText(e.target.value)} placeholder="Pegá acá la fuente, el segundo documento o el trabajo a comparar." />
+              </div>
+            )}
+
+            <div className="row">
+              <button className="primary" onClick={analyze} disabled={loading}>{loading ? 'Analizando...' : 'Ayudame a decidir'}</button>
+              <button className="secondary" onClick={() => loadExample('academic')}>Ejemplo académico</button>
+              <button className="secondary" onClick={() => loadExample('pyramid')}>Ejemplo piramidal</button>
+              <span className="small">Mínimo 20 caracteres. El resultado es orientativo.</span>
+            </div>
+
+            {analysis && (
+              <div id="resultado" className="result-top">
+                <div className="score-card">
+                  <div className="score-title">Riesgo general</div>
+                  <div className="big-score">{analysis.score}/100</div>
+                  <ScoreBar score={analysis.score} />
+                  <p><b>Tipo detectado:</b> {analysis.detectedType}</p>
+                  <p><b>Riesgo:</b> {analysis.risk} · <b>Confianza:</b> {analysis.confidence}</p>
+                </div>
+                <div className="score-card">
+                  <div className="score-title">Pregunta central</div>
+                  <h3>{analysis.centralQuestion}</h3>
+                  <p>{analysis.summary}</p>
+                  <div className="notice"><b>Conclusión prudente:</b> {analysis.prudentConclusion}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {analysis && (
+          <section className="report">
+            {analysis.financial?.detected && (
+              <div className="section wide">
+                <h2>Inteligencia matemática financiera</h2>
+                <p>{analysis.financial.summary}</p>
+                <div className="metric-grid">
+                  <div className="metric">Monto publicado<b>{money(analysis.financial.amount)}</b></div>
+                  <div className="metric">Cuota<b>{money(analysis.financial.installment)}</b></div>
+                  <div className="metric">Plazo<b>{analysis.financial.months ? `${analysis.financial.months} meses` : 'No informado'}</b></div>
+                  <div className="metric">Total a pagar<b>{money(analysis.financial.totalPaid)}</b></div>
+                  <div className="metric">Costo sobre capital<b>{money(analysis.financial.hiddenCost)}</b></div>
+                  <div className="metric">Tasa implícita<b>{percent(analysis.financial.monthlyImpliedRate)} mensual</b></div>
+                </div>
+                <p><b>Datos que faltan:</b> {(analysis.financial.missingData || []).join(', ')}</p>
+              </div>
+            )}
+
+            <div className="section">
+              <h2>Índices de auditoría</h2>
+              <div className="cards">{analysis.categoryScores.map((c,i) => <CategoryCard c={c} key={i} />)}</div>
+            </div>
+
+            <div className="section">
+              <h2>Comité de análisis</h2>
+              <div className="cards">{analysis.specialistCommittee.map((c,i) => <CategoryCard c={c} key={i} />)}</div>
+            </div>
+
+            <div className="section">
+              <h2>Frases bajo sospecha</h2>
+              {analysis.flaggedPhrases.length ? analysis.flaggedPhrases.map((f,i) => (
+                <div className="info-card" key={i}>
+                  <div className="chip">{f.severity}</div>
+                  <h4>“{f.phrase}”</h4>
+                  <p>{f.problem}</p>
+                </div>
+              )) : <p>No se detectaron frases críticas específicas.</p>}
+            </div>
+
+            <div className="section">
+              <h2>Alertas principales</h2>
+              <ul>{analysis.issues.map((x,i) => <li key={i}>{x}</li>)}</ul>
+              <h3>Información faltante</h3>
+              <ul>{analysis.missingInformation.map((x,i) => <li key={i}>{x}</li>)}</ul>
+            </div>
+
+            <div className="section">
+              <h2>Módulos especiales</h2>
+              <div className="cards">
+                <CategoryCard c={analysis.pyramidRisk} />
+                <CategoryCard c={analysis.academicAI} />
+                <CategoryCard c={analysis.plagiarism} />
+                <CategoryCard c={analysis.sourceComparison} />
+              </div>
+            </div>
+
+            <div className="section">
+              <h2>Preguntas para decidir mejor</h2>
+              <ul>{analysis.questions.map((x,i) => <li key={i}>{x}</li>)}</ul>
+              <h3>Peor escenario razonable</h3>
+              <p>{analysis.worstCase}</p>
+              <h3>Versión más transparente</h3>
+              <p>{analysis.improved}</p>
+            </div>
+
+            <div className="section wide">
+              <h2>Resguardo legal del análisis</h2>
+              <div className="notice">
+                <p>{analysis.legalSafeguard}</p>
+                <p>El sistema debe evitar afirmaciones categóricas como “es estafa”, “miente”, “es fraude”, “es plagio” o “fue hecho con IA” salvo prueba suficiente. Debe usar formulaciones prudentes: “presenta indicadores”, “requiere evidencia”, “podría inducir a error” o “conviene verificar”.</p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        <footer className="footer">
+          ChamuyoCheck V6 · Auditoría automatizada orientativa. No reemplaza criterio humano ni asesoramiento profesional.
+        </footer>
+      </main>
+    </>
+  );
 }

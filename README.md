@@ -1,34 +1,22 @@
-# ChamuyoCheck V5
+# ChamuyoCheck V6 Full
 
-Versión 5 del MVP: **Comité de auditoría prudente**.
+Interfaz tipo ChatGPT + Perplexity para auditoría prudente de credibilidad.
 
-## Qué agrega
-
-- Rediseño visual: el resultado ya no queda encerrado en la columna derecha; se muestra como tablero completo y equilibrado.
-- Upload de PDF: extrae texto de archivos PDF y lo analiza.
-- Detector prudente de posible redacción con IA para trabajos escolares/universitarios.
-- Resguardo legal reforzado: no acusa, no afirma delitos, no prueba autoría.
-- Módulo financiero con costo total visible, tasa implícita, CFT faltante y cargos omitidos.
+Incluye:
+- Diseño más equilibrado y centrado.
+- Resultado principal junto al formulario e informe completo debajo.
+- Drag & drop de PDF, imágenes, documentos y capturas.
+- Análisis de URLs y YouTube cuando se pega enlace y texto visible/transcripción.
+- Indicadores con barras de riesgo.
+- Detector prudente de posible IA académica.
+- Detector estimativo de plagio/copiar-pegar.
+- Comparador de documentos.
+- Módulo financiero con matemática básica de cuotas, total a pagar, costo sobre capital y tasa implícita estimada.
 - Radar piramidal/Ponzi/referidos.
-- Comité de análisis con evidencia, psicología, promesas, finanzas, pirámide e IA académica.
+- Resguardo legal reforzado.
 
-## Regla central
-
-ChamuyoCheck **no afirma que alguien miente, estafa o usó IA**. Evalúa señales de riesgo, respaldo visible, información faltante y preguntas que conviene hacer antes de decidir.
-
-## PDFs
-
-La versión V5 usa `pdf-parse` para extraer texto de PDFs. Si un PDF es una imagen escaneada, puede no extraer texto. En esa etapa futura se podrá sumar OCR.
-
-## Variables
-
-```env
-OPENAI_API_KEY=...
-MERCADOPAGO_ACCESS_TOKEN=...
-NEXT_PUBLIC_PRO_PRICE=6900
-NEXT_PUBLIC_SITE_URL=https://chamuyocheck.vercel.app
-```
-
-## Deploy
-
-Copiar el contenido de esta carpeta al repositorio local, hacer commit y push desde GitHub Desktop. Vercel redeploya automáticamente.
+Importante:
+- La detección de IA académica no prueba autoría.
+- La detección de plagio requiere fuente de comparación o búsqueda externa para ser concluyente.
+- Para PDF/imagen/video/web, esta versión registra archivos y analiza texto ingresado. Para máxima precisión, pegar el texto visible, transcripción o contenido extraído.
+- Si no hay OPENAI_API_KEY, funciona con heurísticas locales de demostración.
