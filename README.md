@@ -35,3 +35,37 @@ Importante:
 - Agrega botones visuales "Refutar este documento" y "Mejorar documento".
 - Reduce el aviso legal a aproximadamente 25% del tamaño anterior.
 - Mantiene enfoque prudente: analiza, no acusa.
+
+
+# Release Candidate 1
+
+RC1 consolida ChamuyoCheck como base de producto:
+
+## Incluye
+- V11 Intelligence Edition.
+- ChamuyoScore™.
+- Explicación del puntaje.
+- Evidencias encontradas.
+- Qué deberías verificar.
+- Cómo mejorar el documento.
+- Lectura de PDF con `pdf-parse`.
+- Resguardo legal ultracompacto.
+- Estructura modular inicial en `src/`.
+
+## Nueva arquitectura preparada
+- `src/analysis/engines`
+- `src/analysis/guards`
+- `src/analysis/types`
+- `src/analysis/utils`
+- `src/lib/pdf`
+- `src/lib/finance`
+- `src/lib/history`
+- `src/lib/billing`
+
+## Próximo paso recomendado
+RC2 debería conectar usuarios reales:
+- Auth con Google.
+- Base de datos.
+- Historial persistente.
+- Plan Starter / Pro en servidor.
+- Preparación para Google Play Billing.

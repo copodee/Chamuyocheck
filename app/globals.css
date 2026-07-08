@@ -229,3 +229,7 @@ h1{font-size:clamp(52px,7vw,108px);line-height:.9;letter-spacing:-.09em;margin:2
   .legalCompact,.legalCompact p{font-size:6px !important}
   .legalCompact h2{font-size:7px !important}
 }
+
+/* RC1 - legal mínimo */
+.legalCompact,.legalCompact p{font-size:2px !important;line-height:1.05 !important;opacity:.45 !important}
+.legalCompact h2{font-size:3px !important;line-height:1.05 !important;opacity:.5 !important}
