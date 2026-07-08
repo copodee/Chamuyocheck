@@ -13,3 +13,27 @@ h1{font-size:clamp(52px,7vw,108px);line-height:.9;letter-spacing:-.09em;margin:2
 .extracted{margin-top:14px;border:1px solid rgba(105,183,255,.28);background:rgba(105,183,255,.07);border-radius:22px;padding:16px}.extracted h3{margin:0 0 8px}.extracted p{margin:4px 0;color:#d8eaff}.counter{margin-top:8px;color:var(--soft);font-size:14px;text-align:right}.counter.bad{color:var(--danger)}.ctaRow{display:flex;align-items:center;gap:14px;margin-top:18px;flex-wrap:wrap}.primary{border:0;border-radius:20px;background:var(--accent);color:#04100d;font-weight:1000;padding:18px 34px;box-shadow:0 18px 35px rgba(39,239,189,.16);cursor:pointer}.primary:disabled{opacity:.55;cursor:not-allowed}.hint{color:#a99fc3;font-size:14px}.paywall{margin-top:18px;border:1px solid rgba(255,232,107,.42);background:rgba(255,232,107,.08);border-radius:24px;padding:20px}.paywall h3{margin:0 0 10px}.proGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.proItem{border:1px solid var(--border);border-radius:16px;padding:12px;background:rgba(255,255,255,.04);color:#eee8ff}.loadingBox{margin-top:18px;border:1px solid var(--border);border-radius:22px;padding:18px;background:rgba(255,255,255,.035)}.loadingBox p{margin:8px 0;color:#ddd4f4}
 .result{padding:70px 0;display:grid;grid-template-columns:.9fr 1.1fr;gap:24px;align-items:start}.scoreCard,.section{border:1px solid var(--border);border-radius:30px;background:rgba(21,18,35,.88);padding:26px}.docId{border:1px solid rgba(39,239,189,.28);background:rgba(39,239,189,.08);border-radius:22px;padding:18px;margin-bottom:18px}.docId small{color:#aef6e4}.docId h2{margin:6px 0 0}.score{font-size:76px;font-weight:1000;line-height:1;color:#edff63;letter-spacing:-.08em}.bar{height:12px;border-radius:999px;overflow:hidden;background:#281d43;margin:14px 0}.fill{height:100%;width:var(--w);background:linear-gradient(90deg,var(--ok),var(--warn),var(--danger));border-radius:999px}.rings{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}.ring{border:1px solid var(--border);border-radius:22px;background:rgba(255,255,255,.04);padding:16px;text-align:center}.circle{width:82px;height:82px;border-radius:50%;margin:0 auto 10px;background:conic-gradient(var(--accent) calc(var(--p)*1%),#281d43 0);display:grid;place-items:center}.circle span{width:62px;height:62px;border-radius:50%;background:#151223;display:grid;place-items:center;font-weight:1000}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}.kpi{border:1px solid var(--border);border-radius:18px;padding:15px;background:rgba(255,255,255,.04)}.kpi small{color:#b9aed5}.kpi b{display:block;margin-top:7px;font-size:18px}.report{display:grid;grid-template-columns:1fr 1fr;gap:22px}.wide{grid-column:1/-1}.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}.card{border:1px solid var(--border);border-radius:22px;background:rgba(255,255,255,.035);padding:18px}.cardTop{display:flex;justify-content:space-between;gap:12px}.card h3{margin:0 0 8px}.card p,.section p,li{color:#ddd4f4;line-height:1.5}.notice{border:1px solid rgba(39,239,189,.35);background:rgba(39,239,189,.08);border-radius:22px;padding:18px}.footer{padding:50px 0 80px;color:#8e84aa}
 @media(max-width:1100px){.hero,.result{grid-template-columns:1fr}.report{grid-template-columns:1fr}}@media(max-width:720px){.wrap{width:calc(100% - 24px)}.console{padding:18px;border-radius:26px}.kpis,.cards,.proGrid,.rings{grid-template-columns:1fr}h1{font-size:50px}.lead{font-size:18px}.score{font-size:58px}}
+
+
+/* V9.2 - Resguardo legal compacto */
+.legalCompact{
+  border-top:1px solid rgba(255,255,255,.10);
+  margin-top:18px;
+  padding-top:14px;
+  color:#a99fc3;
+  font-size:12px;
+  line-height:1.45;
+  opacity:.86;
+}
+.legalCompact h2{
+  font-size:13px;
+  margin:0 0 8px;
+  color:#cfc4e8;
+  letter-spacing:0;
+}
+.legalCompact p{
+  font-size:12px;
+  line-height:1.45;
+  color:#a99fc3;
+  margin:0;
+}

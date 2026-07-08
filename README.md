@@ -9,3 +9,10 @@ Cambio clave:
 
 Importante:
 - PDFs escaneados o solo imagen pueden requerir OCR. Eso queda para V9.5/V10.
+
+
+## V9.2
+- Resguardo legal visualmente más compacto.
+- Tipografía menor.
+- Se muestra como nota legal al pie del informe.
+- Mantiene protección legal sin competir visualmente con el análisis principal.
