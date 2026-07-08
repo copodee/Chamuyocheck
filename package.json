@@ -6,8 +6,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@mercadopago/sdk-react": "latest",
-    "mercadopago": "latest",
     "next": "latest",
     "openai": "latest",
     "react": "latest",

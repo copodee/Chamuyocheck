@@ -1,12 +1,20 @@
-# ChamuyoCheck V7 App Ready
+# ChamuyoCheck V7.1 Starter / Pro
 
-Cambios principales:
-- Se eliminaron botones temáticos innecesarios.
-- Queda un solo botón: Analizar.
-- El usuario solo elige formato de entrada: Texto, PDF, Imagen, Web o YouTube.
-- La temática se detecta automáticamente: salud, finanzas, educación, plagio, inversión, contrato, piramidal, etc.
-- Layout más simple y más cercano a producto comercial.
-- Base pensada para futura app Play Store.
+Implementa el modelo acordado:
 
-Nota sobre Play Store:
-Para pagos dentro de una app Android publicada en Google Play, lo correcto es migrar la suscripción Pro a Google Play Billing / Google Pay dentro de la app nativa o wrapper Android. Mercado Pago puede quedar para la versión web, pero la app de Play Store debería usar el sistema de facturación de Google para productos digitales.
+## Starter
+- Solo texto.
+- Hasta 250 caracteres.
+- 3 análisis totales.
+- PDF, imagen, web y YouTube aparecen con candado.
+- Al superar límite muestra pantalla Pro.
+
+## Pro demo
+- Botón "Desbloquear Pro" habilita Pro en modo demo local.
+- En producción se debe reemplazar por autenticación + base de datos + Google Play Billing para Android.
+
+## Próximo paso real
+- Supabase/Auth para usuarios.
+- Tabla de usuarios: plan, análisis usados, fecha alta.
+- Google Play Billing en app Android.
+- Web puede usar otro medio de pago, pero Play Store debe usar Google Play Billing para bienes digitales.
