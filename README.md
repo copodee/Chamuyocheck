@@ -120,3 +120,18 @@ Incluye:
 - Comparador preliminar: permite pegar una segunda fuente, versión o documento.
 - Sección de comparación documental dentro del informe.
 - Base técnica para exportación PDF profesional posterior.
+
+
+# V13 Beta - Motor inteligente
+
+Incluye:
+- Router de dominio inicial: académico, financiero, contrato, salud, noticia, política, ciencia, redes, inversión, publicidad o general.
+- Especialistas activados según temática detectada.
+- Motor de señales de evidencia: URLs, montos, porcentajes, fechas y afirmaciones fuertes.
+- Vista previa de temática en la interfaz antes de analizar.
+- Etiqueta BETA visible en la marca.
+- Base real para reemplazar análisis genérico por motores especializados.
+
+## Nota técnica
+Esta beta introduce motores internos en `src/analysis/engines`.
+Próxima evolución: conectar OCR real, scraping seguro de URLs, transcripción de YouTube y base de datos.

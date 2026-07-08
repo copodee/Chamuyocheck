@@ -304,3 +304,34 @@ textarea{min-height:210px;resize:vertical;font-family:ui-monospace,SFMono-Regula
     color:#111!important;
   }
 }
+
+
+/* V13 Beta - Motor inteligente */
+.betaTag{
+  font-size:10px;
+  letter-spacing:.02em;
+  border:1px solid rgba(39,239,189,.35);
+  background:rgba(39,239,189,.10);
+  color:#27efbd;
+  border-radius:999px;
+  padding:3px 7px;
+  font-style:normal;
+  vertical-align:middle;
+  margin-left:6px;
+}
+.domainPreview{
+  border:1px solid rgba(39,239,189,.20);
+  background:rgba(39,239,189,.055);
+  border-radius:14px;
+  padding:13px 15px;
+  margin-bottom:12px;
+}
+.domainPreview b{
+  display:block;
+  margin-bottom:4px;
+  color:#dffff6;
+}
+.domainPreview span{
+  color:#b9b0cd;
+  font-size:13px;
+}
