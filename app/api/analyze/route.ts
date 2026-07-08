@@ -1,12 +1,63 @@
 
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { detectDomain } from '../../../src/analysis/engines/domainRouter';
-import { extractEvidenceSignals } from '../../../src/analysis/engines/evidenceEngine';
-import { extractWebText } from '../../../src/lib/extractors/webExtractor';
-import { extractYouTubeMetadata } from '../../../src/lib/extractors/youtubeExtractor';
-import { extractImageTextPlaceholder } from '../../../src/lib/extractors/ocrExtractor';
 export const runtime='nodejs';
+
+function detectDomainLocal(text:string,inputType='Texto'){
+  const rules=[
+    {label:'Trabajo académico',modules:['Originalidad','IA académica','Plagio estimativo','Bibliografía','Coherencia'],rx:/tesis|monograf|ensayo|universidad|facultad|colegio|alumno|bibliograf|referencias|marco te[oó]rico|abstract|paper|docente/i},
+    {label:'Oferta financiera / préstamo',modules:['Costo total','CFT','Tasas','Cargos ocultos','Condiciones'],rx:/pr[eé]stamo|cr[eé]dito|cuota|cft|tea|tna|inter[eé]s|financiaci[oó]n|mora|comisi[oó]n|seguro|iva|\$\s?\d/i},
+    {label:'Inversión o rentabilidad prometida',modules:['Riesgo piramidal','Rentabilidad','Referidos','Sustento económico','Regulación'],rx:/inversi[oó]n|rentabilidad|ganancia|referidos|ponzi|piramid|multinivel|ingresos pasivos|trading|cripto|retorno garantizado/i},
+    {label:'Contrato / documento legal',modules:['Cláusulas','Obligaciones','Penalidades','Jurisdicción','Vacíos'],rx:/contrato|cl[aá]usula|partes|jurisdicci[oó]n|penalidad|rescisi[oó]n|incumplimiento|obligaci[oó]n|t[eé]rminos y condiciones/i},
+    {label:'Contenido de salud',modules:['Evidencia médica','Riesgo sanitario','Fuentes científicas','Advertencias','Consenso'],rx:/salud|m[eé]dico|medicamento|tratamiento|cura|c[aá]ncer|dolor|síntoma|suplemento|dosis|paciente|diagn[oó]stico/i},
+    {label:'Noticia / artículo',modules:['Fuente original','Autor','Fecha','Citas','Lenguaje emocional'],rx:/noticia|seg[uú]n fuentes|diario|periodista|comunicado|prensa|redacci[oó]n|exclusivo|último momento/i},
+    {label:'Contenido político',modules:['Propaganda','Datos verificables','Lenguaje emocional','Fuente','Contexto'],rx:/gobierno|presidente|ministro|elecci[oó]n|campaña|partido|diputado|senador|municipio|pol[ií]tica/i},
+    {label:'Contenido científico',modules:['Paper','Metodología','Muestra','Resultados','Revisión'],rx:/estudio|investigaci[oó]n|paper|ensayo clínico|muestra|metodolog[ií]a|doi|revista científica|universidad/i},
+    {label:'Publicación de redes sociales',modules:['Viralidad','Captura','Fuente','Contexto','Manipulación'],rx:/instagram|whatsapp|facebook|tiktok|x\.com|tweet|posteo|viral|captura/i},
+    {label:'Publicidad / promesa comercial',modules:['Promesas','Condiciones','Garantías','Costo real','Letra chica'],rx:/garantizado|sin esfuerzo|aprobaci[oó]n inmediata|oferta|promoci[oó]n|descuento|compr[aá]|curso|millonario/i},
+  ];
+  const hit=rules.find(r=>r.rx.test(text));
+  if(!hit)return {label:inputType==='PDF'?'Documento general':'Credibilidad general',confidence:52,recommendedModules:['Credibilidad','Evidencia','Transparencia','Manipulación']};
+  return {label:hit.label,confidence:82,recommendedModules:hit.modules};
+}
+
+function extractEvidenceSignalsLocal(text:string){
+  const urls=text.match(/https?:\/\/\S+/g)||[];
+  const money=text.match(/\$\s?[0-9\.]+/g)||[];
+  const percents=text.match(/[0-9]+(?:,[0-9]+|\.[0-9]+)?\s?%/g)||[];
+  const dates=text.match(/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b|\b20\d{2}\b/g)||[];
+  const strong=text.match(/garantizad[oa]s?|sin riesgo|sin esfuerzo|100%|comprobado|millonario|cura|definitivo/gi)||[];
+  return {signals:[
+    urls.length?`${urls.length} enlaces visibles`:'No se observan enlaces visibles',
+    money.length?`${money.length} montos detectados`:'No se observan montos relevantes',
+    percents.length?`${percents.length} porcentajes detectados`:'No se observan porcentajes relevantes',
+    dates.length?`${dates.length} fechas o años detectados`:'No se observan fechas claras',
+    strong.length?`${strong.length} afirmaciones fuertes o absolutas`:'No se detectan afirmaciones absolutas dominantes'
+  ]};
+}
+
+async function extractWebTextLocal(url:string){
+  try{
+    if(!/^https?:\/\//i.test(url))return {text:'',note:'URL inválida o incompleta.'};
+    const res=await fetch(url,{headers:{'User-Agent':'ChamuyoCheckBot/1.0'},cache:'no-store'});
+    const html=await res.text();
+    const title=(html.match(/<title[^>]*>(.*?)<\/title>/is)?.[1]||'').replace(/\s+/g,' ').trim();
+    const cleaned=html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
+    return {text:cleaned.slice(0,12000),title,note:cleaned.length>80?'Texto web extraído automáticamente.':'No se pudo extraer suficiente texto de la página.'};
+  }catch{
+    return {text:'',note:'No se pudo leer la página web.'};
+  }
+}
+
+function extractYouTubeMetadataLocal(url:string){
+  const id=url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/)?.[1]||url.match(/[?&]v=([a-zA-Z0-9_-]+)/)?.[1]||url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/)?.[1]||'';
+  return {videoId:id,note:id?'Video de YouTube identificado. Falta conectar transcripción automática.':'No se pudo identificar el ID del video.'};
+}
+
+async function extractImageTextPlaceholderLocal(fileName:string,size:number){
+  return {note:`Imagen recibida: ${fileName} (${size} bytes). OCR real preparado para integración posterior.`};
+}
+
 
 function clamp(n:any,f=50){const x=Number(n);return Number.isFinite(x)?Math.max(0,Math.min(100,Math.round(x))):f}
 async function extractPdfText(file: File){
@@ -96,11 +147,11 @@ export async function POST(req:Request){
   let webExtractionNote='';
   if(url){
     if(/youtu\.be|youtube\.com/i.test(url)){
-      const yt=extractYouTubeMetadata(url);
+      const yt=extractYouTubeMetadataLocal(url);
       webExtractionText=`YOUTUBE DETECTADO: ${url}. Video ID: ${yt.videoId || 'no identificado'}. ${yt.note}`;
       webExtractionNote=yt.note;
     } else if(/^https?:\/\//i.test(url)){
-      const web=await extractWebText(url);
+      const web=await extractWebTextLocal(url);
       webExtractionText=web.text ? `TEXTO EXTRAÍDO DE LA WEB ${url}:\n${web.title ? 'Título: '+web.title+'\n' : ''}${web.text}` : `URL indicada: ${url}. ${web.note}`;
       webExtractionNote=web.note;
     }
@@ -116,7 +167,7 @@ export async function POST(req:Request){
       extracted = extraction.text ? `TEXTO EXTRAÍDO DEL PDF ${fileName}:\n${extraction.text}` : `Archivo PDF recibido: ${fileName}. ${extraction.note}`;
     } else if(file.type?.startsWith('image/')){
       extraction={ok:false,text:'',pages:null,chars:0,note:'Imagen recibida. OCR real queda para próxima versión.'};
-      const ocr=await extractImageTextPlaceholder(fileName,file.size); extracted=`${ocr.note}`;
+      const ocr=await extractImageTextPlaceholderLocal(fileName,file.size); extracted=`${ocr.note}`;
     } else {
       extraction={ok:false,text:'',pages:null,chars:0,note:'Archivo recibido; extracción profunda no disponible.'};
       extracted=`Archivo recibido: ${fileName}. Tamaño aproximado: ${file.size} bytes.`;
@@ -126,7 +177,7 @@ export async function POST(req:Request){
   if(full.length<20)return NextResponse.json({error:'Ingresá texto, URL o cargá un archivo.'},{status:400});
   if(!process.env.OPENAI_API_KEY)return NextResponse.json(local(full,input,fileName,extraction));
   const openai=new OpenAI({apiKey:process.env.OPENAI_API_KEY});
-  const prompt=`Actuá como ChamuyoCheck V14 Alpha, auditor documental. Ahora SÍ debés priorizar el contenido extraído del PDF por encima de la pregunta del usuario. Primero identificá el tipo de documento/contenido antes del score. Si el PDF no tiene texto extraíble, decí que necesita OCR. Si el usuario pregunta si fue hecho con IA, respondé como estimación no concluyente: nunca acuses ni afirmes uso de IA/plagio. Detectá si corresponde académico, financiero, salud, contrato, inversión, web, YouTube, imagen, publicidad, política, noticia o nota. Respondé SOLO JSON con: documentIcon, documentType, documentFocus, extractionStatus, extractedChars, extractedPreview, score,risk,confidence,detectedTheme,detectedInput,centralQuestion,summary: `${summary} Tema detectado: ${domain.label}.`,prudentConclusion,verdict,categoryScores,modules,flaggedPhrases,issues,questions,missingInformation,worstCase,improved,evidenceFound,scoreExplanation,refutationPoints,improvementPlan.\\nContenido:\\n${full.slice(0,18000)}`;
+  const prompt=`Actuá como ChamuyoCheck V14 Alpha, auditor documental. Ahora SÍ debés priorizar el contenido extraído del PDF por encima de la pregunta del usuario. Primero identificá el tipo de documento/contenido antes del score. Si el PDF no tiene texto extraíble, decí que necesita OCR. Si el usuario pregunta si fue hecho con IA, respondé como estimación no concluyente: nunca acuses ni afirmes uso de IA/plagio. Detectá si corresponde académico, financiero, salud, contrato, inversión, web, YouTube, imagen, publicidad, política, noticia o nota. Respondé SOLO JSON con: documentIcon, documentType, documentFocus, extractionStatus, extractedChars, extractedPreview, score,risk,confidence,detectedTheme,detectedInput,centralQuestion,summary,prudentConclusion,verdict,categoryScores,modules,flaggedPhrases,issues,questions,missingInformation,worstCase,improved,evidenceFound,scoreExplanation,refutationPoints,improvementPlan.\\nContenido:\\n${full.slice(0,18000)}`;
   const completion=await openai.chat.completions.create({model:'gpt-4o-mini',messages:[{role:'system',content:'Respondés solo JSON válido y prudente. Nunca afirmes mentira, estafa, plagio, IA o ilegalidad como certeza.'},{role:'user',content:prompt}],response_format:{type:'json_object'}});
   return NextResponse.json(norm(JSON.parse(completion.choices[0]?.message?.content||'{}'),full,input,fileName,extraction));
  }catch(e){return NextResponse.json({error:'No se pudo analizar el documento.'},{status:500})}

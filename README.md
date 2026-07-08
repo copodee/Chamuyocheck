@@ -173,3 +173,12 @@ Incluye:
    - NEXT_PUBLIC_SUPABASE_ANON_KEY
    - SUPABASE_SERVICE_ROLE_KEY
 4. Conectar llamadas reales desde la UI.
+
+
+# V15.1 Build Fix
+
+Corrige el error de compilación en Vercel:
+- Elimina imports relativos frágiles desde `app/api/analyze/route.ts`.
+- Incrusta helpers seguros dentro del endpoint.
+- Corrige el prompt que contenía variables no definidas.
+- Mantiene las carpetas `src/` como arquitectura futura.
