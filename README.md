@@ -16,3 +16,11 @@ Importante:
 - Tipografía menor.
 - Se muestra como nota legal al pie del informe.
 - Mantiene protección legal sin competir visualmente con el análisis principal.
+
+
+## V9.3
+- Agrega encabezado premium del resultado: primero "Documento identificado".
+- Muestra cantidad de caracteres leídos del PDF.
+- Agrega extracto del texto leído por ChamuyoCheck para que el usuario vea que analizó el documento y no solo la pregunta.
+- Cambia "Módulos" por "Especialistas activados automáticamente".
+- Mejora jerarquía visual del informe.
