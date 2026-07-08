@@ -204,3 +204,13 @@ Corrige el error de build por MercadoPago:
 
 Motivo:
 El checkout no debe romper el deploy mientras todavía estamos conectando Supabase/Auth.
+
+
+# V15.4 Regex Build Fix
+
+Corrige el error de TypeScript:
+
+`This regular expression flag is only available when targeting 'es2018' or later.`
+
+Cambio:
+- Reemplaza el flag regex `s` por una expresión compatible `[\s\S]*?`.

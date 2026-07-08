@@ -41,7 +41,7 @@ async function extractWebTextLocal(url:string){
     if(!/^https?:\/\//i.test(url))return {text:'',note:'URL inválida o incompleta.'};
     const res=await fetch(url,{headers:{'User-Agent':'ChamuyoCheckBot/1.0'},cache:'no-store'});
     const html=await res.text();
-    const title=(html.match(/<title[^>]*>(.*?)<\/title>/is)?.[1]||'').replace(/\s+/g,' ').trim();
+    const title=(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]||'').replace(/\s+/g,' ').trim();
     const cleaned=html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
     return {text:cleaned.slice(0,12000),title,note:cleaned.length>80?'Texto web extraído automáticamente.':'No se pudo extraer suficiente texto de la página.'};
   }catch{
