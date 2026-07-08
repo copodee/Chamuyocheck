@@ -1,14 +1,10 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'ChamuyoCheck V6',
-  description: 'Auditor inteligente de credibilidad, evidencia, costos ocultos, IA académica y señales de riesgo.'
+  title: 'ChamuyoCheck',
+  description: 'Auditor inteligente de credibilidad.'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="es">
-      <body>{children}</body>
-    </html>
-  );
+  return <html lang="es"><body>{children}</body></html>;
 }
