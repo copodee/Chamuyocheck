@@ -69,3 +69,14 @@ RC2 debería conectar usuarios reales:
 - Historial persistente.
 - Plan Starter / Pro en servidor.
 - Preparación para Google Play Billing.
+
+
+# RC2 Dashboard Premium
+
+Actualización visual inspirada en dashboard profesional:
+- Sidebar izquierda.
+- ChamuyoScore circular.
+- Semáforo de decisiones.
+- Tabs de informe: Resumen, Evidencias, Riesgos, IA, Finanzas, Recomendaciones, Fuentes.
+- Aviso legal reducido a barra inferior fija y desplegable.
+- El resguardo legal grande del informe queda eliminado visualmente.

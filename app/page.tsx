@@ -1,14 +1,19 @@
 
 'use client';
 import {useEffect,useRef,useState} from 'react';
+
 type Cat={name:string;score:number;explanation:string};
-type Analysis={documentIcon:string;documentType:string;documentFocus:string;extractionStatus:string;extractedChars:number;extractedPreview?:string;score:number;risk:string;confidence:string;detectedTheme:string;detectedInput:string;centralQuestion:string;summary:string;prudentConclusion:string;verdict:string;categoryScores:Cat[];modules:Cat[];flaggedPhrases:{phrase:string;problem:string;severity:string}[];issues:string[];questions:string[];missingInformation:string[];worstCase:string;improved:string;legalSafeguard:string;evidenceFound?:string[];scoreExplanation?:string[];refutationPoints?:string[];improvementPlan?:string[]};
-const FREE_LIMIT=3; const FREE_CHARS=250;
+type Analysis={
+  documentIcon:string;documentType:string;documentFocus:string;extractionStatus:string;extractedChars:number;extractedPreview?:string;
+  score:number;risk:string;confidence:string;detectedTheme:string;detectedInput:string;centralQuestion:string;summary:string;prudentConclusion:string;verdict:string;
+  categoryScores:Cat[];modules:Cat[];flaggedPhrases:{phrase:string;problem:string;severity:string}[];issues:string[];questions:string[];missingInformation:string[];
+  worstCase:string;improved:string;legalSafeguard:string;evidenceFound?:string[];scoreExplanation?:string[];refutationPoints?:string[];improvementPlan?:string[];
+};
+const FREE_LIMIT=3, FREE_CHARS=250;
+
 function Bar({score}:{score:number}){return <div className="bar"><div className="fill" style={{['--w' as any]:`${Math.max(0,Math.min(100,score||0))}%`}}/></div>}
-function Card({c}:{c:Cat}){return <div className="card"><div className="cardTop"><h3>{c.name}</h3><b>{Math.round(c.score)}/100</b></div><Bar score={c.score}/><p>{c.explanation}</p></div>}
-function Ring({label,score}:{label:string;score:number}){return <div className="ring"><div className="circle" style={{['--p' as any]:score}}><span>{score}</span></div><b>{label}</b></div>}
-function fmt(bytes:number){if(!bytes)return ''; if(bytes<1024*1024)return `${Math.round(bytes/1024)} KB`; return `${(bytes/1024/1024).toFixed(1)} MB`}
 function detectUrlType(s:string){if(/youtu\.be|youtube\.com/i.test(s))return 'YouTube'; if(/^https?:\/\//i.test(s))return 'Web'; return 'Texto'}
+function fmt(bytes:number){if(!bytes)return ''; return bytes<1024*1024?`${Math.round(bytes/1024)} KB`:`${(bytes/1024/1024).toFixed(1)} MB`}
 function inferLocalDoc(text:string,file:any,url:string){
  const source=(text+' '+(file?.name||'')+' '+url).toLowerCase();
  if(file?.type?.includes('pdf')||file?.name?.toLowerCase().endsWith('.pdf')) return {icon:'📄', label:'PDF recibido', focus:'Se leerá el contenido real del PDF antes de responder'};
@@ -16,113 +21,120 @@ function inferLocalDoc(text:string,file:any,url:string){
  if(/youtu\.be|youtube\.com/.test(source)) return {icon:'▶️', label:'Video de YouTube detectado', focus:'Analizando enlace y texto disponible'};
  if(/^https?:\/\//.test(url)) return {icon:'🌐', label:'Página web detectada', focus:'Analizando enlace y texto disponible'};
  if(/facultad|colegio|alumno|tesis|monograf|trabajo|bibliograf|hecha con ia|hecho con ia/.test(source)) return {icon:'🎓', label:'Trabajo académico posible', focus:'IA/plagio solo como estimación'};
- if(/nota|period|articulo|artículo/.test(source)) return {icon:'📰', label:'Nota o artículo posible', focus:'Veracidad, fuentes y posible IA'};
  if(/pr[eé]stamo|cuota|cft|tea|tna|\$/.test(source)) return {icon:'💳', label:'Oferta financiera posible', focus:'Costos ocultos y CFT'};
  return {icon:'📝', label:'Texto recibido', focus:'Clasificación automática'};
 }
+function moduleCard(c:Cat,i:number){return <div className="module" key={i}><b>{c.name}</b><Bar score={c.score}/><p>{c.explanation}</p></div>}
+
 export default function Page(){
  const [plan,setPlan]=useState<'starter'|'pro'>('pro');
  const [used,setUsed]=useState(0);
  const [text,setText]=useState('');
  const [url,setUrl]=useState('');
  const [file,setFile]=useState<File|null>(null);
- const [drag,setDrag]=useState(false); const [loading,setLoading]=useState(false); const [steps,setSteps]=useState<string[]>([]); const [analysis,setAnalysis]=useState<Analysis|null>(null);
- const fileRef=useRef<HTMLInputElement|null>(null); const textRef=useRef<HTMLTextAreaElement|null>(null);
- useEffect(()=>{const u=Number(localStorage.getItem('cc_used')||'0');setUsed(Number.isFinite(u)?u:0);},[]);
+ const [drag,setDrag]=useState(false);
+ const [loading,setLoading]=useState(false);
+ const [steps,setSteps]=useState<string[]>([]);
+ const [analysis,setAnalysis]=useState<Analysis|null>(null);
+ const [tab,setTab]=useState('Resumen');
+ const fileRef=useRef<HTMLInputElement|null>(null);
+ useEffect(()=>{setUsed(Number(localStorage.getItem('cc_used')||'0'))},[]);
  function setUsage(n:number){setUsed(n);localStorage.setItem('cc_used',String(n))}
+ const isPro=plan==='pro';
+ const detected=file?(file.type.includes('pdf')||file.name.toLowerCase().endsWith('.pdf')?'PDF':file.type.startsWith('image/')?'Imagen':'Archivo'):url?detectUrlType(url):'Texto';
  const localDoc=inferLocalDoc(text,file,url);
- const detected= file ? (file.type.includes('pdf')||file.name.toLowerCase().endsWith('.pdf')?'PDF':file.type.startsWith('image/')?'Imagen':'Archivo') : url ? detectUrlType(url) : 'Texto';
- const isPro=plan==='pro'; const locked=!isPro && used>=FREE_LIMIT; const textTooLong=!isPro && text.length>FREE_CHARS; const proInput=!isPro && detected!=='Texto';
- const percent=Math.min(100,(used/FREE_LIMIT)*100);
- function onFile(f:File|undefined|null){if(!f)return; setFile(f); setAnalysis(null)}
+ const locked=!isPro&&used>=FREE_LIMIT, textTooLong=!isPro&&text.length>FREE_CHARS, proInput=!isPro&&detected!=='Texto';
+ function onFile(f:File|undefined|null){if(!f)return;setFile(f);setAnalysis(null)}
  function onDrop(e:React.DragEvent){e.preventDefault();setDrag(false);onFile(e.dataTransfer.files?.[0])}
- function onPaste(e:React.ClipboardEvent<HTMLTextAreaElement>){const pasted=e.clipboardData.getData('text'); if(/^https?:\/\//i.test(pasted.trim())) setUrl(pasted.trim())}
  async function analyze(){
   if(locked||textTooLong||proInput)return;
-  setLoading(true);setAnalysis(null);setSteps([]);
-  const seq=file?['Documento recibido','Extrayendo texto real del PDF','Identificando tipo documental','Separando pregunta del usuario del contenido','Activando módulos adecuados','Generando informe prudente']:['Contenido recibido','Detectando tipo automáticamente','Identificando temática','Activando especialistas','Generando informe prudente'];
-  for(const s of seq){setSteps(p=>[...p,'✓ '+s]); await new Promise(r=>setTimeout(r,210))}
+  setLoading(true);setSteps([]);setAnalysis(null);
+  const seq=['Contenido recibido','Extrayendo texto del documento','Detectando tipo de contenido','Activando especialistas','Calculando ChamuyoScore™','Generando informe'];
+  for(const s of seq){setSteps(p=>[...p,'✓ '+s]); await new Promise(r=>setTimeout(r,180))}
   try{
-   const form=new FormData();
-   form.append('text',text);
-   form.append('url',url);
-   form.append('inputType',detected);
-   if(file) form.append('file',file);
-   const res=await fetch('/api/analyze',{method:'POST',body:form});
-   const data=await res.json(); if(!res.ok) throw new Error(data.error||'Error');
-   setAnalysis(data); if(!isPro)setUsage(used+1);
-   setTimeout(()=>document.getElementById('resultado')?.scrollIntoView({behavior:'smooth',block:'start'}),120);
+    const form=new FormData(); form.append('text',text); form.append('url',url); form.append('inputType',detected); if(file)form.append('file',file);
+    const res=await fetch('/api/analyze',{method:'POST',body:form}); const data=await res.json(); if(!res.ok)throw new Error(data.error||'Error');
+    setAnalysis(data); if(!isPro)setUsage(used+1);
+    setTimeout(()=>document.getElementById('informe')?.scrollIntoView({behavior:'smooth'}),100);
   }catch(e:any){alert(e.message||'No se pudo analizar')}finally{setLoading(false)}
  }
- function paywallText(){
-  if(locked)return 'Ya usaste tus 3 análisis Starter. Pasá a Pro para seguir analizando sin límites.';
-  if(textTooLong)return `Starter permite hasta ${FREE_CHARS} caracteres. Tu texto tiene ${text.length}.`;
-  if(proInput)return `${detected} está disponible en ChamuyoCheck Pro. Starter solo permite texto.`;
-  return '';
- }
- const heroDoc=analysis?{icon:analysis.documentIcon,label:analysis.documentType,focus:analysis.documentFocus}:localDoc;
- return <main className="wrap">
-  <nav className="top"><div className="logo">Chamuyo<span>Check</span></div><div className="topBtns"><button className="pill" onClick={()=>{localStorage.removeItem('cc_used');setUsed(0)}}>Reset demo</button><button className="ghost" onClick={()=>setPlan(plan==='pro'?'starter':'pro')}>{isPro?'Modo Starter':'Ver Pro'}</button></div></nav>
+ const score=analysis?.score??81;
+ const semaforo=score>=75?{txt:'Podés avanzar con verificación',color:'var(--green)'}:score>=45?{txt:'Verificá antes de decidir',color:'var(--yellow)'}:{txt:'No decidas todavía',color:'var(--red)'};
+ return <div className="appShell">
   <input ref={fileRef} type="file" accept=".pdf,image/*,.txt,.doc,.docx" hidden onChange={e=>onFile(e.target.files?.[0])}/>
-  <section className="hero">
-   <div><div className="badge">Análisis documental inteligente</div><h1>{heroDoc.icon} {heroDoc.label}</h1><p className="lead">{heroDoc.focus}. En V9.1 el sistema prioriza el contenido extraído del PDF por encima de la pregunta escrita por el usuario.</p><div className="documentHero"><small>Estado del documento</small><b>{analysis?analysis.extractionStatus:'Esperando archivo o contenido'}</b></div><div className="features"><span className="chip on">Lectura PDF real</span><span className="chip">Identificación previa</span><span className="chip">IA prudente</span><span className="chip">Finanzas</span><span className="chip">Notas</span><span className="chip">Contratos</span></div></div>
-   <div className="console">
-    <div className="planBox"><div className="usage"><strong>{isPro?'ChamuyoCheck Pro':'ChamuyoCheck Starter'}</strong><span>{isPro?'Sin límites demo':`${used} de ${FREE_LIMIT} análisis usados`}</span></div>{!isPro&&<div className="usageBar"><div className="usageFill" style={{['--w' as any]:`${percent}%`}}/></div>}</div>
-    <div className="ask">Subí el documento</div>
-    <div className={`smartDrop ${drag?'drag':''}`} onClick={()=>fileRef.current?.click()} onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)} onDrop={onDrop}>
-      <div className="smartHead"><div className="smartIcon">{localDoc.icon}</div><div><h2>{localDoc.label}</h2><p>{file?'El archivo fue recibido. Ahora ChamuyoCheck leerá el contenido del PDF antes de clasificarlo.':'Arrastrá PDF/imagen o hacé clic para seleccionar. También podés pegar texto, URL o YouTube abajo.'}</p></div></div>
-      <div className="smartActions"><button type="button" onClick={(e)=>{e.stopPropagation();fileRef.current?.click()}}>Seleccionar archivo</button><button type="button" onClick={(e)=>{e.stopPropagation();setFile(null);setUrl('');setText('');setAnalysis(null);setTimeout(()=>textRef.current?.focus(),50)}}>Limpiar</button></div>
-      {file&&<div className="preview"><div><b>{file.name}</b><small>{file.type || 'archivo'} · {fmt(file.size)}</small></div><button className="remove" onClick={(e)=>{e.stopPropagation();setFile(null)}}>Quitar</button></div>}
+  <aside className="sidebar">
+    <div className="brand"><div className="shield">✓</div><div><div className="logo">CHAMUYO<span>CHECK</span></div><div className="tag">Analizá antes de decidir.</div></div></div>
+    <button className="newBtn" onClick={()=>{setAnalysis(null);setText('');setUrl('');setFile(null)}}>＋ Nuevo análisis</button>
+    <div className="nav">
+      <a className="active">⌂ Inicio</a><a>◴ Historial</a><a>☆ Favoritos</a><a>▤ Plantillas</a><a>⚖ Comparar <small>PRO</small></a><a>↑ Mejorar documento</a><a>⚙ Ajustes</a><a>? Ayuda</a>
     </div>
-    {file&&<div className="extracted"><h3>📌 Análisis sobre contenido real</h3><p>La pregunta de abajo solo orienta. El motor usará primero el texto extraído del archivo.</p></div>}
-    <div className="inputBox">
-     <input className="urlInput" value={url} onChange={e=>setUrl(e.target.value)} placeholder="Opcional: pegá URL de web o YouTube"/>
-     <textarea ref={textRef} value={text} onPaste={onPaste} onChange={e=>setText(e.target.value)} placeholder="Opcional: pregunta o contexto. Ej.: ¿esta nota es real o parece hecha con IA?"/>
+    <div className="proBox"><b>👑 CHAMUYOCHECK PRO</b><p>Análisis ilimitados, informes avanzados y más.</p><button onClick={()=>setPlan('pro')}>Ver planes</button></div>
+    <div className="userBox"><div className="avatar">N</div><div><b>Nicolás Scioli</b><div className="hint">{isPro?'Plan Pro':'Plan Starter'}</div></div></div>
+  </aside>
+  <main className="main">
+    <div className="topbar">
+      <div className="status"><div className="check">✓</div><div><b>{analysis?'Análisis finalizado':'Nuevo análisis'}</b><div className="hint">8 de julio de 2026</div></div></div>
+      <div className="topActions"><button className="ghost" onClick={()=>setAnalysis(null)}>Analizar otro</button><button className="ghost">Descargar informe⌄</button><button className="iconBtn">⋮</button></div>
     </div>
-    {!isPro&&<div className={`counter ${textTooLong?'bad':''}`}>{text.length}/{FREE_CHARS} caracteres Starter</div>}
-    <div className="ctaRow"><button className="primary" onClick={analyze} disabled={loading||locked||textTooLong||proInput}>{loading?'Leyendo documento':'Analizar documento'}</button><span className="hint">Entrada detectada: {detected}</span></div>
-    {(locked||textTooLong||proInput)&&<div className="paywall"><h3>Desbloqueá ChamuyoCheck Pro</h3><p>{paywallText()}</p><div className="proGrid"><div className="proItem">Texto ilimitado</div><div className="proItem">Lectura de PDF</div><div className="proItem">Web y YouTube</div><div className="proItem">Comparador</div><div className="proItem">Historial</div><div className="proItem">Informes PDF</div></div><button className="primary" onClick={()=>setPlan('pro')}>Desbloquear Pro demo</button></div>}
-    {loading&&<div className="loadingBox">{steps.map((s,i)=><p key={i}>{s}</p>)}</div>}
-   </div>
-  </section>
-  {analysis&&<section id="resultado" className="result">
-  <div className="resultHeader">
-    <div className="resultIcon">{analysis.documentIcon}</div>
-    <div>
-      <small>Documento identificado antes del análisis</small>
-      <h2>{analysis.documentType}</h2>
-      <p>{analysis.documentFocus}</p>
-    </div>
-    <div className="resultBadge">{analysis.extractedChars?`${analysis.extractedChars} caracteres leídos`:'lectura preliminar'}</div>
-  </div>
-  <div className="scoreCard"><div className="docId"><small>📄 Lectura del documento</small><h2>{analysis.documentIcon} {analysis.documentType}</h2><p>{analysis.documentFocus}</p><p><b>Lectura:</b> {analysis.extractionStatus} {analysis.extractedChars?`(${analysis.extractedChars} caracteres)`:''}</p>{analysis.extractedPreview&&<div className="excerptBox"><h3>Extracto leído por ChamuyoCheck</h3><pre>{analysis.extractedPreview}</pre></div>}</div><div className="chamuyoScoreBox"><small>ChamuyoScore™</small><strong>{analysis.score}/100</strong><p>{analysis.detectedTheme}</p></div><Bar score={analysis.score}/><div className="kpis"><div className="kpi"><small>Riesgo</small><b>{analysis.risk}</b></div><div className="kpi"><small>Confianza</small><b>{analysis.confidence}</b></div><div className="kpi"><small>Entrada</small><b>{analysis.detectedInput}</b></div></div><div className="rings"><Ring label="Lectura" score={analysis.categoryScores?.[0]?.score||0}/><Ring label="Credibilidad" score={analysis.categoryScores?.[1]?.score||0}/><Ring label="Faltante" score={analysis.categoryScores?.[2]?.score||0}/></div><p>{analysis.summary}</p><div className="notice"><b>Conclusión prudente:</b> {analysis.prudentConclusion}</div></div><div className="report"><div className="section wide"><h2>Pregunta central</h2><p>{analysis.centralQuestion}</p><p>{analysis.verdict}</p></div><div className="section wide"><h2>Especialistas activados automáticamente</h2><div className="cards">{analysis.modules.map((c,i)=><Card c={c} key={i}/>)}</div></div><div className="section wide"><h2>Indicadores del informe</h2><div className="cards">{analysis.categoryScores.map((c,i)=><Card c={c} key={i}/>)}</div></div><div className="section"><h2>Alertas</h2><ul>{analysis.issues.map((x,i)=><li key={i}>{x}</li>)}</ul><h2>Información faltante</h2><ul>{analysis.missingInformation.map((x,i)=><li key={i}>{x}</li>)}</ul></div><div className="section"><h2>Preguntas para decidir mejor</h2><ul>{analysis.questions.map((x,i)=><li key={i}>{x}</li>)}</ul><h2>Peor escenario razonable</h2><p>{analysis.worstCase}</p></div>
-<div className="section wide compactSection">
-  <h2>Por qué obtuvo este puntaje</h2>
-  <div className="explainGrid">
-    <div className="explainBox">
-      <h3>Factores que influyeron</h3>
-      <ul>{(analysis.scoreExplanation||[]).map((x,i)=><li key={i}>{x}</li>)}</ul>
-    </div>
-    <div className="explainBox">
-      <h3>Evidencias encontradas</h3>
-      <ul>{(analysis.evidenceFound||[]).map((x,i)=><li key={i}>{x}</li>)}</ul>
-    </div>
-  </div>
-</div>
-<div className="section wide compactSection">
-  <h2>Qué deberías verificar</h2>
-  <div className="evidenceList">{(analysis.refutationPoints||[]).map((x,i)=><div className="evidenceItem" key={i}><b>Punto {i+1}</b>{x}</div>)}</div>
-  <div className="actionRow">
-    <button className="refuteButton" type="button">Refutar este documento</button>
-    <button className="improveButton" type="button">Mejorar documento</button>
-  </div>
-</div>
-<div className="section wide compactSection">
-  <h2>Cómo mejorar este documento</h2>
-  <ul>{(analysis.improvementPlan||[]).map((x,i)=><li key={i}>{x}</li>)}</ul>
-</div>
-<div className="section wide legalCompact"><h2>⚖️ Aviso legal</h2><p>{analysis.legalSafeguard}</p></div>
-</div></section>}
-  <footer className="footer">ChamuyoCheck V9.1 · Lee el texto real del PDF antes de analizar.</footer>
- </main>
+    {!analysis && <section className="heroGrid">
+      <div className="panel inputPanel">
+        <div className="tabs">{['Texto','PDF','Imagen','Web','YouTube'].map(x=><button key={x} className={`tab ${detected===x?'active':''}`} onClick={()=>{if(x==='PDF'||x==='Imagen')fileRef.current?.click();}}>{x}</button>)}</div>
+        <div className={`drop ${drag?'drag':''}`} onClick={()=>fileRef.current?.click()} onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)} onDrop={onDrop}>
+          <h3>Pegá o arrastrá cualquier contenido</h3>
+          <p>Texto · PDF · imágenes · capturas · páginas web · videos de YouTube. La temática se detecta automáticamente.</p>
+          {file&&<span className="filePill">{file.name} · {fmt(file.size)}</span>}
+        </div>
+        <input className="urlInput" value={url} onChange={e=>setUrl(e.target.value)} placeholder="Opcional: pegá URL de web o YouTube"/>
+        <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Pegá texto o agregá una pregunta sobre el documento."/>
+        {!isPro&&<div className={`counter ${textTooLong?'bad':''}`}>{text.length}/{FREE_CHARS}</div>}
+        <div className="ctaRow"><button className="primary" onClick={analyze} disabled={loading||locked||textTooLong||proInput}>{loading?'Analizando':'Analizar'}</button><span className="hint">Entrada: {detected}</span></div>
+        {(locked||textTooLong||proInput)&&<div className="paywall">Starter permite 3 análisis de texto de hasta 250 caracteres. Pasá a Pro para todas las funciones.</div>}
+        {loading&&<div className="loading">{steps.map((s,i)=><p key={i}>{s}</p>)}</div>}
+      </div>
+      <div className="scorePanel">
+        <div className="panel scoreCard">
+          <div className="scoreWrap">
+            <div className="circleScore" style={{['--p' as any]:81}}><div><span>81</span><small>/100</small></div></div>
+            <div className="scoreText"><h2>ChamuyoScore™</h2><h3>Vista previa del informe</h3><p>Subí un documento o pegá contenido para generar un análisis con evidencia, riesgos, recomendaciones y aviso legal reducido.</p></div>
+          </div>
+        </div>
+        <div className="panel decisionCard"><div className="light"></div><div><h2>Semáforo de decisiones</h2><h3>Verificá antes de decidir</h3><p>ChamuyoCheck no acusa: muestra qué conviene revisar antes de confiar.</p></div></div>
+      </div>
+    </section>}
+    {analysis && <section id="informe">
+      <div className="heroGrid">
+        <div className="panel scoreCard">
+          <div className="scoreWrap">
+            <div className="circleScore" style={{['--p' as any]:score}}><div><span>{score}</span><small>/100</small></div></div>
+            <div className="scoreText"><h2>ChamuyoScore™</h2><h3>{score>=75?'Buena confiabilidad':score>=45?'Confiabilidad media':'Requiere alta verificación'}</h3><p>{analysis.summary}</p><button className="ghost">Ver explicación del puntaje⌄</button></div>
+          </div>
+        </div>
+        <div className="panel decisionCard"><div className="light" style={{background:semaforo.color}}></div><div><h2>Semáforo de decisiones</h2><h3 style={{color:semaforo.color}}>{semaforo.txt}</h3><p>{analysis.prudentConclusion}</p></div></div>
+        <div className="panel metaCard">
+          <div className="meta"><small>Tipo</small><b>{analysis.documentType}</b></div>
+          <div className="meta"><small>Entrada</small><b>{analysis.detectedInput}</b></div>
+          <div className="meta"><small>Caracteres</small><b>{analysis.extractedChars||text.length}</b></div>
+          <div className="meta"><small>Idioma</small><b>Español</b></div>
+          <div className="meta"><small>Confianza</small><b>{analysis.confidence}</b></div>
+        </div>
+      </div>
+      <div className="reportTabs">{['Resumen','Evidencias','Riesgos','IA y Originalidad','Finanzas','Recomendaciones','Fuentes','Datos extraídos'].map(x=><button key={x} className={tab===x?'active':''} onClick={()=>setTab(x)}>{x}</button>)}</div>
+      <div className="cards">
+        <div className="card"><h3>▣ Resumen ejecutivo</h3><p>{analysis.verdict}</p><button className="ghost">Leer resumen completo</button></div>
+        <div className="card"><h3 className="ok">✓ Fortalezas</h3><ul>{(analysis.evidenceFound||[]).slice(0,5).map((x,i)=><li key={i}>{x}</li>)}</ul></div>
+        <div className="card"><h3 className="warn">! Debilidades</h3><ul>{analysis.missingInformation.slice(0,5).map((x,i)=><li key={i}>{x}</li>)}</ul></div>
+        <div className="card"><h3 className="bad">◇ Riesgos principales</h3><ul>{analysis.issues.slice(0,5).map((x,i)=><li key={i}>{x}</li>)}</ul></div>
+      </div>
+      <div className="verifyBand">
+        <div><h3>💡 ¿Qué deberías verificar?</h3><p>Antes de confiar o tomar una decisión basada en este documento, verificá estos puntos clave.</p><button className="ghost">Ver lista completa</button></div>
+        <div className="verifyList">{analysis.questions.slice(0,6).map((x,i)=><div key={i}><span className="num">{i+1}</span>{x}</div>)}</div>
+        <div><h3>↗ ¿Querés mejorar este documento?</h3><p>Obtené sugerencias específicas para aumentar calidad y confiabilidad.</p><button className="ghost">Mejorar documento</button></div>
+      </div>
+      <div className="section"><h2>Especialistas activados</h2><div className="moduleGrid">{analysis.modules.map(moduleCard)}</div></div>
+      <div className="section"><h2>Por qué obtuvo este puntaje</h2><ul>{(analysis.scoreExplanation||[]).map((x,i)=><li key={i}>{x}</li>)}</ul></div>
+      {analysis.extractedPreview&&<div className="section"><h2>Datos extraídos</h2><p>{analysis.extractedPreview}</p></div>}
+    </section>}
+  </main>
+  <div className="legalFooter"><details><summary>🔒 Aviso legal</summary><p>{analysis?.legalSafeguard||'ChamuyoCheck genera una evaluación automatizada y orientativa. No afirma veracidad, falsedad, autoría, plagio, uso de IA ni ilegalidad; no reemplaza asesoramiento profesional.'}</p></details><span>ChamuyoCheck no afirma la veracidad de la información analizada.</span></div>
+ </div>
 }
