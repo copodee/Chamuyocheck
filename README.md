@@ -182,3 +182,14 @@ Corrige el error de compilación en Vercel:
 - Incrusta helpers seguros dentro del endpoint.
 - Corrige el prompt que contenía variables no definidas.
 - Mantiene las carpetas `src/` como arquitectura futura.
+
+
+# V15.2 MercadoPago Build Fix
+
+Corrige el nuevo error de build en Vercel:
+
+`Module not found: Can't resolve 'mercadopago'`
+
+Cambios:
+- Agrega `mercadopago` a dependencies en `package.json`.
+- Mantiene las correcciones de V15.1.
