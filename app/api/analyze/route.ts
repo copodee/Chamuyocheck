@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { detectDomain } from '../../../src/analysis/engines/domainRouter';
 import { extractEvidenceSignals } from '../../../src/analysis/engines/evidenceEngine';
+import { extractWebText } from '../../../src/lib/extractors/webExtractor';
+import { extractYouTubeMetadata } from '../../../src/lib/extractors/youtubeExtractor';
+import { extractImageTextPlaceholder } from '../../../src/lib/extractors/ocrExtractor';
 export const runtime='nodejs';
 
 function clamp(n:any,f=50){const x=Number(n);return Number.isFinite(x)?Math.max(0,Math.min(100,Math.round(x))):f}
@@ -89,6 +92,19 @@ export async function POST(req:Request){
   const text=String(form.get('text')||'').trim();
   const input=String(form.get('inputType')||'Automático');
   const url=String(form.get('url')||'').trim();
+  let webExtractionText='';
+  let webExtractionNote='';
+  if(url){
+    if(/youtu\.be|youtube\.com/i.test(url)){
+      const yt=extractYouTubeMetadata(url);
+      webExtractionText=`YOUTUBE DETECTADO: ${url}. Video ID: ${yt.videoId || 'no identificado'}. ${yt.note}`;
+      webExtractionNote=yt.note;
+    } else if(/^https?:\/\//i.test(url)){
+      const web=await extractWebText(url);
+      webExtractionText=web.text ? `TEXTO EXTRAÍDO DE LA WEB ${url}:\n${web.title ? 'Título: '+web.title+'\n' : ''}${web.text}` : `URL indicada: ${url}. ${web.note}`;
+      webExtractionNote=web.note;
+    }
+  }
   const file=form.get('file') as File | null;
   let fileName='';
   let extracted='';
@@ -100,17 +116,17 @@ export async function POST(req:Request){
       extracted = extraction.text ? `TEXTO EXTRAÍDO DEL PDF ${fileName}:\n${extraction.text}` : `Archivo PDF recibido: ${fileName}. ${extraction.note}`;
     } else if(file.type?.startsWith('image/')){
       extraction={ok:false,text:'',pages:null,chars:0,note:'Imagen recibida. OCR real queda para próxima versión.'};
-      extracted=`Imagen/captura recibida: ${fileName}. Tamaño aproximado: ${file.size} bytes.`;
+      const ocr=await extractImageTextPlaceholder(fileName,file.size); extracted=`${ocr.note}`;
     } else {
       extraction={ok:false,text:'',pages:null,chars:0,note:'Archivo recibido; extracción profunda no disponible.'};
       extracted=`Archivo recibido: ${fileName}. Tamaño aproximado: ${file.size} bytes.`;
     }
   }
-  const full=[extracted,text?`PREGUNTA O CONTEXTO DEL USUARIO:\n${text}`:'',url?`URL indicada: ${url}`:''].filter(Boolean).join('\\n\\n');
+  const full=[extracted,text?`PREGUNTA O CONTEXTO DEL USUARIO:\n${text}`:'',webExtractionText || (url?`URL indicada: ${url}`:'')].filter(Boolean).join('\\n\\n');
   if(full.length<20)return NextResponse.json({error:'Ingresá texto, URL o cargá un archivo.'},{status:400});
   if(!process.env.OPENAI_API_KEY)return NextResponse.json(local(full,input,fileName,extraction));
   const openai=new OpenAI({apiKey:process.env.OPENAI_API_KEY});
-  const prompt=`Actuá como ChamuyoCheck V9.1, auditor documental. Ahora SÍ debés priorizar el contenido extraído del PDF por encima de la pregunta del usuario. Primero identificá el tipo de documento/contenido antes del score. Si el PDF no tiene texto extraíble, decí que necesita OCR. Si el usuario pregunta si fue hecho con IA, respondé como estimación no concluyente: nunca acuses ni afirmes uso de IA/plagio. Detectá si corresponde académico, financiero, salud, contrato, inversión, web, YouTube, imagen, publicidad, política, noticia o nota. Respondé SOLO JSON con: documentIcon, documentType, documentFocus, extractionStatus, extractedChars, extractedPreview, score,risk,confidence,detectedTheme,detectedInput,centralQuestion,summary: `${summary} Tema detectado: ${domain.label}.`,prudentConclusion,verdict,categoryScores,modules,flaggedPhrases,issues,questions,missingInformation,worstCase,improved,evidenceFound,scoreExplanation,refutationPoints,improvementPlan.\\nContenido:\\n${full.slice(0,18000)}`;
+  const prompt=`Actuá como ChamuyoCheck V14 Alpha, auditor documental. Ahora SÍ debés priorizar el contenido extraído del PDF por encima de la pregunta del usuario. Primero identificá el tipo de documento/contenido antes del score. Si el PDF no tiene texto extraíble, decí que necesita OCR. Si el usuario pregunta si fue hecho con IA, respondé como estimación no concluyente: nunca acuses ni afirmes uso de IA/plagio. Detectá si corresponde académico, financiero, salud, contrato, inversión, web, YouTube, imagen, publicidad, política, noticia o nota. Respondé SOLO JSON con: documentIcon, documentType, documentFocus, extractionStatus, extractedChars, extractedPreview, score,risk,confidence,detectedTheme,detectedInput,centralQuestion,summary: `${summary} Tema detectado: ${domain.label}.`,prudentConclusion,verdict,categoryScores,modules,flaggedPhrases,issues,questions,missingInformation,worstCase,improved,evidenceFound,scoreExplanation,refutationPoints,improvementPlan.\\nContenido:\\n${full.slice(0,18000)}`;
   const completion=await openai.chat.completions.create({model:'gpt-4o-mini',messages:[{role:'system',content:'Respondés solo JSON válido y prudente. Nunca afirmes mentira, estafa, plagio, IA o ilegalidad como certeza.'},{role:'user',content:prompt}],response_format:{type:'json_object'}});
   return NextResponse.json(norm(JSON.parse(completion.choices[0]?.message?.content||'{}'),full,input,fileName,extraction));
  }catch(e){return NextResponse.json({error:'No se pudo analizar el documento.'},{status:500})}

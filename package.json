@@ -10,7 +10,9 @@
     "openai": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "pdf-parse": "latest"
+    "pdf-parse": "latest",
+    "mammoth": "latest",
+    "cheerio": "latest"
   },
   "devDependencies": {
     "eslint": "latest",

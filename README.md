@@ -135,3 +135,19 @@ Incluye:
 ## Nota técnica
 Esta beta introduce motores internos en `src/analysis/engines`.
 Próxima evolución: conectar OCR real, scraping seguro de URLs, transcripción de YouTube y base de datos.
+
+
+# V14 Alpha - OCR, Web y YouTube
+
+Incluye:
+- Extractor web inicial: intenta leer texto de URLs públicas.
+- Identificador de YouTube: detecta ID del video y deja preparado el flujo de transcripción.
+- OCR preparado: recibe imágenes/capturas y devuelve estado claro para futura integración OCR real.
+- Mantiene lectura de PDF con texto mediante pdf-parse.
+- Mantiene motor inteligente por dominio de V13 Beta.
+- UI con etiqueta ALPHA y panel de capacidades.
+
+## Limitaciones conocidas
+- Algunos sitios bloquean extracción web o requieren JavaScript.
+- YouTube aún no descarga subtítulos automáticamente.
+- OCR real requiere servicio adicional o backend especializado.

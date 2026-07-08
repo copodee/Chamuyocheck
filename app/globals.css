@@ -335,3 +335,27 @@ textarea{min-height:210px;resize:vertical;font-family:ui-monospace,SFMono-Regula
   color:#b9b0cd;
   font-size:13px;
 }
+
+
+/* V14 Alpha - OCR, Web y YouTube */
+.alphaPanel{
+  border:1px solid rgba(255,201,40,.26);
+  background:rgba(255,201,40,.07);
+  border-radius:14px;
+  padding:13px 15px;
+  margin-bottom:12px;
+}
+.alphaPanel b{
+  display:block;
+  color:#ffe089;
+  margin-bottom:4px;
+}
+.alphaPanel span{
+  color:#d8cdf2;
+  font-size:13px;
+}
+.betaTag{
+  border-color:rgba(255,201,40,.38)!important;
+  background:rgba(255,201,40,.10)!important;
+  color:#ffe089!important;
+}
