@@ -161,3 +161,91 @@ textarea{min-height:210px;resize:vertical;font-family:ui-monospace,SFMono-Regula
   font-size:12px;
   font-weight:900;
 }
+
+
+/* V11 - Producto comercial */
+.productRoadmap{
+  margin-top:18px;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+}
+.roadCard{
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.035);
+  border-radius:14px;
+  padding:16px;
+}
+.roadCard b{display:block;margin-bottom:8px}
+.roadCard p{margin:0;color:#b9b0cd;line-height:1.4;font-size:13px}
+.modalBackdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.72);
+  backdrop-filter:blur(10px);
+  z-index:50;
+  display:grid;
+  place-items:center;
+  padding:20px;
+}
+.plansModal{
+  width:min(760px,100%);
+  border:1px solid rgba(255,255,255,.13);
+  background:linear-gradient(180deg,#121827,#070b14);
+  border-radius:24px;
+  padding:28px;
+  position:relative;
+  box-shadow:0 30px 100px rgba(0,0,0,.55);
+}
+.close{
+  position:absolute;
+  top:14px;
+  right:14px;
+  width:38px;
+  height:38px;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.05);
+  color:white;
+  font-size:24px;
+  cursor:pointer;
+}
+.plansModal h2{margin:0 0 10px;font-size:34px}
+.plansModal p{color:#d8cdf2;line-height:1.5}
+.plansGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+  margin:18px 0;
+}
+.planCard{
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.04);
+  border-radius:18px;
+  padding:20px;
+}
+.planCard.pro{
+  border-color:rgba(39,239,189,.35);
+  background:rgba(39,239,189,.06);
+}
+.planCard h3{margin:0 0 12px}
+.planCard strong{display:block;font-size:34px;margin-bottom:10px}
+.planCard button{
+  width:100%;
+  border:0;
+  border-radius:12px;
+  padding:13px;
+  font-weight:950;
+  color:#03130f;
+  background:#27efbd;
+  cursor:pointer;
+}
+@media(max-width:1180px){.productRoadmap{grid-template-columns:1fr 1fr}}
+@media(max-width:720px){.productRoadmap,.plansGrid{grid-template-columns:1fr}}
+@media print{
+  .sidebar,.topbar,.inputPanel,.legalFooter,.productRoadmap{display:none!important}
+  .appShell{display:block}
+  body{background:white;color:#111}
+  .panel,.card,.section,.verifyBand{break-inside:avoid;background:white!important;color:#111!important;border:1px solid #ddd}
+  .panel *,.card *,.section *,.verifyBand *{color:#111!important}
+}

@@ -90,3 +90,23 @@ Incluye:
 - Plan Starter: 3 usos gratis de texto hasta 250 caracteres.
 - Bloqueo visual de funciones Pro cuando no corresponde.
 - Botón de prueba para alternar Starter / Pro hasta conectar login y billing real.
+
+
+# V11 Producto Comercial
+
+Incluye:
+- Dashboard premium RC2.
+- Historial local RC3.
+- Plan Starter / Pro visual.
+- Modal de suscripción Pro.
+- Botón Conectar Google visual.
+- Exportación de informe vía impresión/PDF del navegador.
+- Placeholders técnicos para Google Auth, Google Play Billing y exportación de informes.
+- Preparado para conectar backend real en la próxima versión.
+
+## Próximo paso
+V12 debería conectar servicios reales:
+- Auth con Google.
+- Base de datos para historial.
+- Mercado Pago web / Google Play Billing Android.
+- PDF export real con branding.
