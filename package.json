@@ -13,8 +13,7 @@
     "pdf-parse": "latest",
     "mammoth": "latest",
     "cheerio": "latest",
-    "@supabase/supabase-js": "latest",
-    "mercadopago": "latest"
+    "@supabase/supabase-js": "latest"
   },
   "devDependencies": {
     "eslint": "latest",

@@ -193,3 +193,14 @@ Corrige el nuevo error de build en Vercel:
 Cambios:
 - Agrega `mercadopago` a dependencies en `package.json`.
 - Mantiene las correcciones de V15.1.
+
+
+# V15.3 Checkout Stub Fix
+
+Corrige el error de build por MercadoPago:
+- Reemplaza `app/api/checkout/route.ts` por un endpoint seguro sin dependencia externa.
+- Elimina `mercadopago` de `package.json`.
+- Deja el checkout como integración pendiente hasta completar usuarios, planes y variables reales.
+
+Motivo:
+El checkout no debe romper el deploy mientras todavía estamos conectando Supabase/Auth.
