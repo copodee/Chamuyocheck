@@ -9,7 +9,7 @@ function local(text:string,input:string){
  const academic=/(trabajo pr[aá]ctico|facultad|colegio|alumno|ensayo|monograf|tesis|bibliograf|docente)/i.test(text);
  const promise=/(garantiz|asegur|sin esfuerzo|millonari|duplic|triplic|100%|riesgo cero|resultado|aprobaci[oó]n inmediata)/i.test(text);
  const missing=!/(fuente|estudio|metodolog|contrato|bases|condiciones|cft|tea|tna|bibliograf|reglamento)/i.test(text);
- let theme=fin?'Finanzas / préstamo':pyramid?'Inversiones / referidos':academic?'Educación / posible IA o plagio':'Comercial / credibilidad general';
+ let theme=fin?'Finanzas / préstamo':pyramid?'Inversiones / referidos':academic?'Educación / posible IA o plagio':input==='PDF'?'Documento PDF / revisión general':input==='Imagen'?'Imagen o captura / revisión visual':input==='Web'?'Página web / contenido online':input==='YouTube'?'Video YouTube / contenido audiovisual':'Comercial / credibilidad general';
  const score=clamp(22+(promise?25:0)+(missing?20:0)+(fin?25:0)+(pyramid?30:0));
  const categoryScores=[
   {name:'Credibilidad',score:clamp(100-score),explanation:'Mide respaldo, coherencia y verificabilidad con la información visible.'},
@@ -25,12 +25,13 @@ function local(text:string,input:string){
 function norm(raw:any,text:string,input:string){const f=local(text,input);return {...f,...raw,score:clamp(raw?.score,f.score),categoryScores:Array.isArray(raw?.categoryScores)?raw.categoryScores.map((c:any)=>({name:String(c.name||'Categoría'),score:clamp(c.score),explanation:String(c.explanation||'')})).slice(0,8):f.categoryScores,modules:Array.isArray(raw?.modules)?raw.modules.map((c:any)=>({name:String(c.name||'Módulo'),score:clamp(c.score),explanation:String(c.explanation||'')})).slice(0,8):f.modules,legalSafeguard:f.legalSafeguard}}
 export async function POST(req:Request){
  try{
-  const body=await req.json();const text=String(body?.text||'').trim();const input=String(body?.inputType||'Texto');
-  if(text.length<20)return NextResponse.json({error:'Ingresá al menos 20 caracteres.'},{status:400});
-  if(!process.env.OPENAI_API_KEY)return NextResponse.json(local(text,input));
+  const body=await req.json();const text=String(body?.text||'').trim();const input=String(body?.inputType||'Texto');const fileName=String(body?.fileName||'').trim();const url=String(body?.url||'').trim();
+  const full=[text,url?`URL indicada: ${url}`:'',fileName?`Archivo cargado: ${fileName}`:''].filter(Boolean).join('\\n\\n');
+  if(full.length<20)return NextResponse.json({error:'Ingresá al menos 20 caracteres o cargá un archivo/enlace.'},{status:400});
+  if(!process.env.OPENAI_API_KEY)return NextResponse.json(local(full,input));
   const openai=new OpenAI({apiKey:process.env.OPENAI_API_KEY});
-  const prompt=`Actuá como ChamuyoCheck V7.1. Detectá automáticamente temática. No acuses ni afirmes mentira, estafa, plagio o IA como certeza. Respondé SOLO JSON con: score,risk,confidence,detectedTheme,detectedInput,centralQuestion,summary,prudentConclusion,verdict,categoryScores,modules,flaggedPhrases,issues,questions,missingInformation,worstCase,improved.\nContenido:\n${text.slice(0,12000)}`;
+  const prompt=`Actuá como ChamuyoCheck V7.2. El usuario puede ingresar texto, PDF, imagen, web o YouTube. Detectá automáticamente temática. Si solo hay nombre de archivo o URL, advertí que el análisis es preliminar hasta leer el contenido completo. No acuses ni afirmes mentira, estafa, plagio o IA como certeza. Respondé SOLO JSON con: score,risk,confidence,detectedTheme,detectedInput,centralQuestion,summary,prudentConclusion,verdict,categoryScores,modules,flaggedPhrases,issues,questions,missingInformation,worstCase,improved.\\nContenido:\\n${full.slice(0,12000)}`;
   const completion=await openai.chat.completions.create({model:'gpt-4o-mini',messages:[{role:'system',content:'Respondés solo JSON válido y prudente.'},{role:'user',content:prompt}],response_format:{type:'json_object'}});
-  return NextResponse.json(norm(JSON.parse(completion.choices[0]?.message?.content||'{}'),text,input));
+  return NextResponse.json(norm(JSON.parse(completion.choices[0]?.message?.content||'{}'),full,input));
  }catch(e){return NextResponse.json({error:'No se pudo analizar.'},{status:500})}
 }

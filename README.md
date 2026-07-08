@@ -1,20 +1,15 @@
-# ChamuyoCheck V7.1 Starter / Pro
+# ChamuyoCheck V7.2 - Entradas funcionales
 
-Implementa el modelo acordado:
+Cambios:
+- Botón Texto enfoca el editor.
+- Botón PDF abre selector de PDF.
+- Botón Imagen abre selector de imagen.
+- Botón Web muestra campo URL.
+- Botón YouTube muestra campo URL.
+- Drag & Drop para PDF/imagen.
+- Vista previa de archivo: nombre, tipo, tamaño y quitar.
+- Mantiene Starter: 3 análisis, texto 250 caracteres.
+- En modo demo, botón Pro habilita formatos.
 
-## Starter
-- Solo texto.
-- Hasta 250 caracteres.
-- 3 análisis totales.
-- PDF, imagen, web y YouTube aparecen con candado.
-- Al superar límite muestra pantalla Pro.
-
-## Pro demo
-- Botón "Desbloquear Pro" habilita Pro en modo demo local.
-- En producción se debe reemplazar por autenticación + base de datos + Google Play Billing para Android.
-
-## Próximo paso real
-- Supabase/Auth para usuarios.
-- Tabla de usuarios: plan, análisis usados, fecha alta.
-- Google Play Billing en app Android.
-- Web puede usar otro medio de pago, pero Play Store debe usar Google Play Billing para bienes digitales.
+Nota:
+V7.2 carga entradas y prepara el flujo. La lectura real de PDF, OCR de imágenes, extracción web y subtítulos de YouTube quedan para V7.3.
