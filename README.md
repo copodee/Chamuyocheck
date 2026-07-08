@@ -80,3 +80,13 @@ Actualización visual inspirada en dashboard profesional:
 - Tabs de informe: Resumen, Evidencias, Riesgos, IA, Finanzas, Recomendaciones, Fuentes.
 - Aviso legal reducido a barra inferior fija y desplegable.
 - El resguardo legal grande del informe queda eliminado visualmente.
+
+
+# RC3 Free Plan + Historial local
+
+Incluye:
+- Historial local visible en sidebar.
+- Guarda últimos 8 análisis en localStorage.
+- Plan Starter: 3 usos gratis de texto hasta 250 caracteres.
+- Bloqueo visual de funciones Pro cuando no corresponde.
+- Botón de prueba para alternar Starter / Pro hasta conectar login y billing real.

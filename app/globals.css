@@ -107,3 +107,57 @@ textarea{min-height:210px;resize:vertical;font-family:ui-monospace,SFMono-Regula
 .counter{margin-top:8px;color:var(--muted);font-size:13px;text-align:right}.counter.bad{color:var(--red)}
 @media(max-width:1180px){.appShell{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.legalFooter{left:0}.heroGrid,.cards,.verifyBand{grid-template-columns:1fr}.metaCard{grid-template-columns:1fr 1fr}.scoreWrap{grid-template-columns:1fr}.circleScore{margin:auto}}
 @media(max-width:720px){.main{padding:18px 14px 80px}.topbar{align-items:flex-start;gap:14px;flex-direction:column}.metaCard,.moduleGrid,.verifyList{grid-template-columns:1fr}.circleScore{width:150px;height:150px}.circleScore:before{width:120px;height:120px}.circleScore span{font-size:46px}}
+
+
+/* RC3 - Plan gratuito e historial */
+.historyMini{
+  border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.025);
+  border-radius:14px;
+  padding:14px;
+  max-height:260px;
+  overflow:auto;
+}
+.historyMini>b{
+  display:block;
+  margin-bottom:10px;
+}
+.historyMini p{
+  color:#8b819c;
+  font-size:13px;
+  line-height:1.35;
+  margin:0;
+}
+.historyItem{
+  display:grid;
+  grid-template-columns:52px 1fr;
+  gap:10px;
+  padding:10px 0;
+  border-top:1px solid rgba(255,255,255,.06);
+}
+.historyItem:first-of-type{border-top:0}
+.historyItem span{
+  color:#edff63;
+  font-weight:1000;
+  font-size:13px;
+}
+.historyItem div{
+  color:#eee8ff;
+  font-weight:850;
+  font-size:13px;
+}
+.historyItem small{
+  display:block;
+  color:#8b819c;
+  font-weight:500;
+  margin-top:2px;
+}
+.freeBadge{
+  border:1px solid rgba(255,201,40,.35);
+  color:#ffe089;
+  background:rgba(255,201,40,.08);
+  border-radius:999px;
+  padding:8px 11px;
+  font-size:12px;
+  font-weight:900;
+}
