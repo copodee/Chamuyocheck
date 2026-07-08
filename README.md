@@ -1,18 +1,11 @@
-# ChamuyoCheck V9 - Auditor documental
+# ChamuyoCheck V9.1 - Lee PDF real
 
-Cambios principales:
-- El sistema primero identifica el tipo de documento.
-- El cartel principal izquierdo cambia dinámicamente:
-  - PDF recibido
-  - Trabajo académico posible
-  - Oferta financiera
-  - Contrato
-  - Imagen/captura
-  - Web / YouTube
-- Resultado con bloque: "Documento identificado".
-- Mejor respuesta ante PDF académico: no clasifica como comercial si la pregunta es sobre IA.
-- Resguardo legal reforzado: no afirma mentira, estafa, plagio, uso de IA, autoría ni ilicitud.
-- Soporte FormData para enviar archivo al backend.
+Cambio clave:
+- El backend recibe FormData.
+- Si se sube un PDF, intenta extraer texto con pdf-parse.
+- El análisis prioriza el texto extraído del PDF por encima de la pregunta del usuario.
+- Muestra estado de lectura: caracteres extraídos, páginas si están disponibles y advertencia si requiere OCR.
+- Mejora clasificación de notas, trabajos académicos, contratos, préstamos y documentos.
 
-Nota:
-V9 mejora la inteligencia documental y el flujo. Lectura profunda de PDF/OCR real puede profundizarse en V9.1/V10.
+Importante:
+- PDFs escaneados o solo imagen pueden requerir OCR. Eso queda para V9.5/V10.

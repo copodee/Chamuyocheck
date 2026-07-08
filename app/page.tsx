@@ -2,7 +2,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 type Cat={name:string;score:number;explanation:string};
-type Analysis={documentIcon:string;documentType:string;documentFocus:string;score:number;risk:string;confidence:string;detectedTheme:string;detectedInput:string;centralQuestion:string;summary:string;prudentConclusion:string;verdict:string;categoryScores:Cat[];modules:Cat[];flaggedPhrases:{phrase:string;problem:string;severity:string}[];issues:string[];questions:string[];missingInformation:string[];worstCase:string;improved:string;legalSafeguard:string};
+type Analysis={documentIcon:string;documentType:string;documentFocus:string;extractionStatus:string;extractedChars:number;score:number;risk:string;confidence:string;detectedTheme:string;detectedInput:string;centralQuestion:string;summary:string;prudentConclusion:string;verdict:string;categoryScores:Cat[];modules:Cat[];flaggedPhrases:{phrase:string;problem:string;severity:string}[];issues:string[];questions:string[];missingInformation:string[];worstCase:string;improved:string;legalSafeguard:string};
 const FREE_LIMIT=3; const FREE_CHARS=250;
 function Bar({score}:{score:number}){return <div className="bar"><div className="fill" style={{['--w' as any]:`${Math.max(0,Math.min(100,score||0))}%`}}/></div>}
 function Card({c}:{c:Cat}){return <div className="card"><div className="cardTop"><h3>{c.name}</h3><b>{Math.round(c.score)}/100</b></div><Bar score={c.score}/><p>{c.explanation}</p></div>}
@@ -11,18 +11,19 @@ function fmt(bytes:number){if(!bytes)return ''; if(bytes<1024*1024)return `${Mat
 function detectUrlType(s:string){if(/youtu\.be|youtube\.com/i.test(s))return 'YouTube'; if(/^https?:\/\//i.test(s))return 'Web'; return 'Texto'}
 function inferLocalDoc(text:string,file:any,url:string){
  const source=(text+' '+(file?.name||'')+' '+url).toLowerCase();
- if(file?.type?.includes('pdf')||file?.name?.toLowerCase().endsWith('.pdf')) return {icon:'📄', label:'PDF recibido', focus:'Leyendo como documento'};
+ if(file?.type?.includes('pdf')||file?.name?.toLowerCase().endsWith('.pdf')) return {icon:'📄', label:'PDF recibido', focus:'Se leerá el contenido real del PDF antes de responder'};
  if(file?.type?.startsWith('image/')) return {icon:'🖼️', label:'Imagen/captura recibida', focus:'Preparada para análisis visual'};
  if(/youtu\.be|youtube\.com/.test(source)) return {icon:'▶️', label:'Video de YouTube detectado', focus:'Analizando enlace y texto disponible'};
  if(/^https?:\/\//.test(url)) return {icon:'🌐', label:'Página web detectada', focus:'Analizando enlace y texto disponible'};
  if(/facultad|colegio|alumno|tesis|monograf|trabajo|bibliograf|hecha con ia|hecho con ia/.test(source)) return {icon:'🎓', label:'Trabajo académico posible', focus:'IA/plagio solo como estimación'};
+ if(/nota|period|articulo|artículo/.test(source)) return {icon:'📰', label:'Nota o artículo posible', focus:'Veracidad, fuentes y posible IA'};
  if(/pr[eé]stamo|cuota|cft|tea|tna|\$/.test(source)) return {icon:'💳', label:'Oferta financiera posible', focus:'Costos ocultos y CFT'};
  return {icon:'📝', label:'Texto recibido', focus:'Clasificación automática'};
 }
 export default function Page(){
- const [plan,setPlan]=useState<'starter'|'pro'>('starter');
+ const [plan,setPlan]=useState<'starter'|'pro'>('pro');
  const [used,setUsed]=useState(0);
- const [text,setText]=useState('Garantizamos que con nuestro curso online te harás millonario en 1 semana sin esfuerzo.');
+ const [text,setText]=useState('');
  const [url,setUrl]=useState('');
  const [file,setFile]=useState<File|null>(null);
  const [drag,setDrag]=useState(false); const [loading,setLoading]=useState(false); const [steps,setSteps]=useState<string[]>([]); const [analysis,setAnalysis]=useState<Analysis|null>(null);
@@ -39,8 +40,8 @@ export default function Page(){
  async function analyze(){
   if(locked||textTooLong||proInput)return;
   setLoading(true);setAnalysis(null);setSteps([]);
-  const seq=file?['Documento recibido','Identificando tipo de documento','Leyendo metadatos y notas','Activando módulos adecuados','Generando informe documental prudente']:['Contenido recibido','Detectando tipo automáticamente','Identificando temática','Activando especialistas','Generando informe prudente'];
-  for(const s of seq){setSteps(p=>[...p,'✓ '+s]); await new Promise(r=>setTimeout(r,180))}
+  const seq=file?['Documento recibido','Extrayendo texto real del PDF','Identificando tipo documental','Separando pregunta del usuario del contenido','Activando módulos adecuados','Generando informe prudente']:['Contenido recibido','Detectando tipo automáticamente','Identificando temática','Activando especialistas','Generando informe prudente'];
+  for(const s of seq){setSteps(p=>[...p,'✓ '+s]); await new Promise(r=>setTimeout(r,210))}
   try{
    const form=new FormData();
    form.append('text',text);
@@ -61,30 +62,30 @@ export default function Page(){
  }
  const heroDoc=analysis?{icon:analysis.documentIcon,label:analysis.documentType,focus:analysis.documentFocus}:localDoc;
  return <main className="wrap">
-  <nav className="top"><div className="logo">Chamuyo<span>Check</span></div><div className="topBtns"><button className="pill" onClick={()=>{localStorage.removeItem('cc_used');setUsed(0)}}>Reset demo</button><button className="ghost" onClick={()=>setPlan('pro')}>Ver Pro</button></div></nav>
+  <nav className="top"><div className="logo">Chamuyo<span>Check</span></div><div className="topBtns"><button className="pill" onClick={()=>{localStorage.removeItem('cc_used');setUsed(0)}}>Reset demo</button><button className="ghost" onClick={()=>setPlan(plan==='pro'?'starter':'pro')}>{isPro?'Modo Starter':'Ver Pro'}</button></div></nav>
   <input ref={fileRef} type="file" accept=".pdf,image/*,.txt,.doc,.docx" hidden onChange={e=>onFile(e.target.files?.[0])}/>
   <section className="hero">
-   <div><div className="badge">Auditor documental inteligente</div><h1>{heroDoc.icon} {heroDoc.label}</h1><p className="lead">{heroDoc.focus}. ChamuyoCheck primero identifica qué recibió y después aplica el análisis adecuado: académico, financiero, salud, contrato, inversión, web, YouTube, imagen o publicidad.</p><div className="documentHero"><small>Estado del documento</small><b>{analysis?'Documento clasificado por ChamuyoCheck':'Esperando análisis documental'}</b></div><div className="features"><span className="chip on">Identificación previa</span><span className="chip">PDF</span><span className="chip">Imagen</span><span className="chip">Web</span><span className="chip">YouTube</span><span className="chip">IA académica prudente</span></div></div>
+   <div><div className="badge">Auditor documental con lectura de PDF</div><h1>{heroDoc.icon} {heroDoc.label}</h1><p className="lead">{heroDoc.focus}. En V9.1 el sistema prioriza el contenido extraído del PDF por encima de la pregunta escrita por el usuario.</p><div className="documentHero"><small>Estado del documento</small><b>{analysis?analysis.extractionStatus:'Esperando archivo o contenido'}</b></div><div className="features"><span className="chip on">Lectura PDF real</span><span className="chip">Identificación previa</span><span className="chip">IA prudente</span><span className="chip">Finanzas</span><span className="chip">Notas</span><span className="chip">Contratos</span></div></div>
    <div className="console">
-    <div className="planBox"><div className="usage"><strong>{isPro?'ChamuyoCheck Pro':'ChamuyoCheck Starter'}</strong><span>{isPro?'Sin límites':`${used} de ${FREE_LIMIT} análisis usados`}</span></div>{!isPro&&<div className="usageBar"><div className="usageFill" style={{['--w' as any]:`${percent}%`}}/></div>}</div>
-    <div className="ask">Subí, pegá o escribí</div>
+    <div className="planBox"><div className="usage"><strong>{isPro?'ChamuyoCheck Pro':'ChamuyoCheck Starter'}</strong><span>{isPro?'Sin límites demo':`${used} de ${FREE_LIMIT} análisis usados`}</span></div>{!isPro&&<div className="usageBar"><div className="usageFill" style={{['--w' as any]:`${percent}%`}}/></div>}</div>
+    <div className="ask">Subí el documento</div>
     <div className={`smartDrop ${drag?'drag':''}`} onClick={()=>fileRef.current?.click()} onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)} onDrop={onDrop}>
-      <div className="smartHead"><div className="smartIcon">{localDoc.icon}</div><div><h2>{localDoc.label}</h2><p>{file?'El archivo fue recibido. Agregá una pregunta opcional abajo o analizalo directamente.':'Arrastrá PDF/imagen o hacé clic para seleccionar. También podés pegar texto, URL o YouTube abajo.'}</p></div></div>
-      <div className="smartActions"><button type="button" onClick={(e)=>{e.stopPropagation();fileRef.current?.click()}}>Seleccionar archivo</button><button type="button" onClick={(e)=>{e.stopPropagation();setFile(null);setUrl('');setText('');setTimeout(()=>textRef.current?.focus(),50)}}>Limpiar</button></div>
+      <div className="smartHead"><div className="smartIcon">{localDoc.icon}</div><div><h2>{localDoc.label}</h2><p>{file?'El archivo fue recibido. Ahora ChamuyoCheck leerá el contenido del PDF antes de clasificarlo.':'Arrastrá PDF/imagen o hacé clic para seleccionar. También podés pegar texto, URL o YouTube abajo.'}</p></div></div>
+      <div className="smartActions"><button type="button" onClick={(e)=>{e.stopPropagation();fileRef.current?.click()}}>Seleccionar archivo</button><button type="button" onClick={(e)=>{e.stopPropagation();setFile(null);setUrl('');setText('');setAnalysis(null);setTimeout(()=>textRef.current?.focus(),50)}}>Limpiar</button></div>
       {file&&<div className="preview"><div><b>{file.name}</b><small>{file.type || 'archivo'} · {fmt(file.size)}</small></div><button className="remove" onClick={(e)=>{e.stopPropagation();setFile(null)}}>Quitar</button></div>}
     </div>
-    {file&&<div className="docStatus"><h3>📌 Primero se clasificará el documento</h3><p>Luego ChamuyoCheck mostrará el módulo correcto: académico, financiero, contrato, salud, inversión, web, imagen u otro.</p></div>}
+    {file&&<div className="extracted"><h3>📌 Análisis sobre contenido real</h3><p>La pregunta de abajo solo orienta. El motor usará primero el texto extraído del archivo.</p></div>}
     <div className="inputBox">
      <input className="urlInput" value={url} onChange={e=>setUrl(e.target.value)} placeholder="Opcional: pegá URL de web o YouTube"/>
-     <textarea ref={textRef} value={text} onPaste={onPaste} onChange={e=>setText(e.target.value)} placeholder="Opcional: pregunta, texto visible o contexto. Ej.: ¿este trabajo parece hecho con IA?"/>
+     <textarea ref={textRef} value={text} onPaste={onPaste} onChange={e=>setText(e.target.value)} placeholder="Opcional: pregunta o contexto. Ej.: ¿esta nota es real o parece hecha con IA?"/>
     </div>
     {!isPro&&<div className={`counter ${textTooLong?'bad':''}`}>{text.length}/{FREE_CHARS} caracteres Starter</div>}
-    <div className="ctaRow"><button className="primary" onClick={analyze} disabled={loading||locked||textTooLong||proInput}>{loading?'Analizando':'Analizar documento'}</button><span className="hint">Entrada detectada: {detected}</span></div>
-    {(locked||textTooLong||proInput)&&<div className="paywall"><h3>Desbloqueá ChamuyoCheck Pro</h3><p>{paywallText()}</p><div className="proGrid"><div className="proItem">Texto ilimitado</div><div className="proItem">PDF e imágenes</div><div className="proItem">Web y YouTube</div><div className="proItem">Comparador</div><div className="proItem">Historial</div><div className="proItem">Informes PDF</div></div><button className="primary" onClick={()=>setPlan('pro')}>Desbloquear Pro demo</button></div>}
+    <div className="ctaRow"><button className="primary" onClick={analyze} disabled={loading||locked||textTooLong||proInput}>{loading?'Leyendo documento':'Analizar documento'}</button><span className="hint">Entrada detectada: {detected}</span></div>
+    {(locked||textTooLong||proInput)&&<div className="paywall"><h3>Desbloqueá ChamuyoCheck Pro</h3><p>{paywallText()}</p><div className="proGrid"><div className="proItem">Texto ilimitado</div><div className="proItem">Lectura de PDF</div><div className="proItem">Web y YouTube</div><div className="proItem">Comparador</div><div className="proItem">Historial</div><div className="proItem">Informes PDF</div></div><button className="primary" onClick={()=>setPlan('pro')}>Desbloquear Pro demo</button></div>}
     {loading&&<div className="loadingBox">{steps.map((s,i)=><p key={i}>{s}</p>)}</div>}
    </div>
   </section>
-  {analysis&&<section id="resultado" className="result"><div className="scoreCard"><div className="docId"><small>📄 Documento identificado</small><h2>{analysis.documentIcon} {analysis.documentType}</h2><p>{analysis.documentFocus}</p></div><p className="hint">Resultado contextual</p><h2>{analysis.detectedTheme}</h2><div className="score">{analysis.score}/100</div><Bar score={analysis.score}/><div className="kpis"><div className="kpi"><small>Riesgo</small><b>{analysis.risk}</b></div><div className="kpi"><small>Confianza</small><b>{analysis.confidence}</b></div><div className="kpi"><small>Entrada</small><b>{analysis.detectedInput}</b></div></div><div className="rings"><Ring label="Comprensión" score={analysis.categoryScores?.[0]?.score||0}/><Ring label="Evidencia" score={analysis.categoryScores?.[1]?.score||0}/><Ring label="Faltante" score={analysis.categoryScores?.[2]?.score||0}/></div><p>{analysis.summary}</p><div className="notice"><b>Conclusión prudente:</b> {analysis.prudentConclusion}</div></div><div className="report"><div className="section wide"><h2>Pregunta central</h2><p>{analysis.centralQuestion}</p><p>{analysis.verdict}</p></div><div className="section wide"><h2>Módulos activados automáticamente</h2><div className="cards">{analysis.modules.map((c,i)=><Card c={c} key={i}/>)}</div></div><div className="section wide"><h2>Índices de auditoría</h2><div className="cards">{analysis.categoryScores.map((c,i)=><Card c={c} key={i}/>)}</div></div><div className="section"><h2>Alertas</h2><ul>{analysis.issues.map((x,i)=><li key={i}>{x}</li>)}</ul><h2>Información faltante</h2><ul>{analysis.missingInformation.map((x,i)=><li key={i}>{x}</li>)}</ul></div><div className="section"><h2>Preguntas para decidir mejor</h2><ul>{analysis.questions.map((x,i)=><li key={i}>{x}</li>)}</ul><h2>Peor escenario razonable</h2><p>{analysis.worstCase}</p></div><div className="section wide"><h2>Resguardo legal</h2><div className="notice"><p>{analysis.legalSafeguard}</p></div></div></div></section>}
-  <footer className="footer">ChamuyoCheck V9 · Auditor documental: primero identifica, después analiza.</footer>
+  {analysis&&<section id="resultado" className="result"><div className="scoreCard"><div className="docId"><small>📄 Documento identificado</small><h2>{analysis.documentIcon} {analysis.documentType}</h2><p>{analysis.documentFocus}</p><p><b>Lectura:</b> {analysis.extractionStatus} {analysis.extractedChars?`(${analysis.extractedChars} caracteres)`:''}</p></div><p className="hint">Resultado contextual</p><h2>{analysis.detectedTheme}</h2><div className="score">{analysis.score}/100</div><Bar score={analysis.score}/><div className="kpis"><div className="kpi"><small>Riesgo</small><b>{analysis.risk}</b></div><div className="kpi"><small>Confianza</small><b>{analysis.confidence}</b></div><div className="kpi"><small>Entrada</small><b>{analysis.detectedInput}</b></div></div><div className="rings"><Ring label="Lectura" score={analysis.categoryScores?.[0]?.score||0}/><Ring label="Credibilidad" score={analysis.categoryScores?.[1]?.score||0}/><Ring label="Faltante" score={analysis.categoryScores?.[2]?.score||0}/></div><p>{analysis.summary}</p><div className="notice"><b>Conclusión prudente:</b> {analysis.prudentConclusion}</div></div><div className="report"><div className="section wide"><h2>Pregunta central</h2><p>{analysis.centralQuestion}</p><p>{analysis.verdict}</p></div><div className="section wide"><h2>Módulos activados automáticamente</h2><div className="cards">{analysis.modules.map((c,i)=><Card c={c} key={i}/>)}</div></div><div className="section wide"><h2>Índices de auditoría</h2><div className="cards">{analysis.categoryScores.map((c,i)=><Card c={c} key={i}/>)}</div></div><div className="section"><h2>Alertas</h2><ul>{analysis.issues.map((x,i)=><li key={i}>{x}</li>)}</ul><h2>Información faltante</h2><ul>{analysis.missingInformation.map((x,i)=><li key={i}>{x}</li>)}</ul></div><div className="section"><h2>Preguntas para decidir mejor</h2><ul>{analysis.questions.map((x,i)=><li key={i}>{x}</li>)}</ul><h2>Peor escenario razonable</h2><p>{analysis.worstCase}</p></div><div className="section wide"><h2>Resguardo legal</h2><div className="notice"><p>{analysis.legalSafeguard}</p></div></div></div></section>}
+  <footer className="footer">ChamuyoCheck V9.1 · Lee el texto real del PDF antes de analizar.</footer>
  </main>
 }
