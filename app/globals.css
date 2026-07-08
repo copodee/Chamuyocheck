@@ -115,3 +115,117 @@ h1{font-size:clamp(52px,7vw,108px);line-height:.9;letter-spacing:-.09em;margin:2
   .resultIcon{width:60px;height:60px}
   .resultBadge{width:max-content}
 }
+
+
+/* V11 - Intelligence Edition */
+.chamuyoScoreBox{
+  border:1px solid rgba(39,239,189,.36);
+  background:linear-gradient(135deg,rgba(39,239,189,.12),rgba(168,85,247,.08));
+  border-radius:26px;
+  padding:20px;
+  margin:18px 0;
+}
+.chamuyoScoreBox small{
+  display:block;
+  color:#aef6e4;
+  font-weight:900;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+}
+.chamuyoScoreBox strong{
+  display:block;
+  font-size:54px;
+  line-height:1;
+  letter-spacing:-.07em;
+  color:#edff63;
+  margin-top:6px;
+}
+.explainGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+.explainBox{
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.035);
+  border-radius:20px;
+  padding:16px;
+}
+.explainBox h3{
+  margin:0 0 10px;
+  font-size:17px;
+}
+.explainBox ul{
+  margin:0;
+}
+.refuteButton{
+  border:1px solid rgba(255,232,107,.38);
+  background:rgba(255,232,107,.10);
+  color:#fff3a8;
+  border-radius:18px;
+  padding:14px 18px;
+  font-weight:950;
+  cursor:pointer;
+}
+.improveButton{
+  border:1px solid rgba(39,239,189,.38);
+  background:rgba(39,239,189,.10);
+  color:#dffff6;
+  border-radius:18px;
+  padding:14px 18px;
+  font-weight:950;
+  cursor:pointer;
+}
+.actionRow{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-top:14px;
+}
+.evidenceList{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.evidenceItem{
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.035);
+  border-radius:18px;
+  padding:14px;
+  color:#e9e0ff;
+}
+.evidenceItem b{
+  display:block;
+  margin-bottom:6px;
+}
+.legalCompact{
+  border-top:1px solid rgba(255,255,255,.06) !important;
+  margin-top:12px !important;
+  padding-top:8px !important;
+  background:transparent !important;
+  border-left:0 !important;
+  border-right:0 !important;
+  border-bottom:0 !important;
+  color:#7d738f !important;
+  font-size:3px !important;
+  line-height:1.2 !important;
+  opacity:.62 !important;
+}
+.legalCompact h2{
+  font-size:4px !important;
+  line-height:1.1 !important;
+  margin:0 0 3px !important;
+  color:#8b819c !important;
+  font-weight:600 !important;
+}
+.legalCompact p{
+  font-size:3px !important;
+  line-height:1.2 !important;
+  color:#7d738f !important;
+  margin:0 !important;
+}
+@media(max-width:720px){
+  .explainGrid,.evidenceList{grid-template-columns:1fr}
+  .legalCompact,.legalCompact p{font-size:6px !important}
+  .legalCompact h2{font-size:7px !important}
+}

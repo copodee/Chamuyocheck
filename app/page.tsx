@@ -2,7 +2,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 type Cat={name:string;score:number;explanation:string};
-type Analysis={documentIcon:string;documentType:string;documentFocus:string;extractionStatus:string;extractedChars:number;extractedPreview?:string;score:number;risk:string;confidence:string;detectedTheme:string;detectedInput:string;centralQuestion:string;summary:string;prudentConclusion:string;verdict:string;categoryScores:Cat[];modules:Cat[];flaggedPhrases:{phrase:string;problem:string;severity:string}[];issues:string[];questions:string[];missingInformation:string[];worstCase:string;improved:string;legalSafeguard:string};
+type Analysis={documentIcon:string;documentType:string;documentFocus:string;extractionStatus:string;extractedChars:number;extractedPreview?:string;score:number;risk:string;confidence:string;detectedTheme:string;detectedInput:string;centralQuestion:string;summary:string;prudentConclusion:string;verdict:string;categoryScores:Cat[];modules:Cat[];flaggedPhrases:{phrase:string;problem:string;severity:string}[];issues:string[];questions:string[];missingInformation:string[];worstCase:string;improved:string;legalSafeguard:string;evidenceFound?:string[];scoreExplanation?:string[];refutationPoints?:string[];improvementPlan?:string[]};
 const FREE_LIMIT=3; const FREE_CHARS=250;
 function Bar({score}:{score:number}){return <div className="bar"><div className="fill" style={{['--w' as any]:`${Math.max(0,Math.min(100,score||0))}%`}}/></div>}
 function Card({c}:{c:Cat}){return <div className="card"><div className="cardTop"><h3>{c.name}</h3><b>{Math.round(c.score)}/100</b></div><Bar score={c.score}/><p>{c.explanation}</p></div>}
@@ -65,7 +65,7 @@ export default function Page(){
   <nav className="top"><div className="logo">Chamuyo<span>Check</span></div><div className="topBtns"><button className="pill" onClick={()=>{localStorage.removeItem('cc_used');setUsed(0)}}>Reset demo</button><button className="ghost" onClick={()=>setPlan(plan==='pro'?'starter':'pro')}>{isPro?'Modo Starter':'Ver Pro'}</button></div></nav>
   <input ref={fileRef} type="file" accept=".pdf,image/*,.txt,.doc,.docx" hidden onChange={e=>onFile(e.target.files?.[0])}/>
   <section className="hero">
-   <div><div className="badge">Auditor documental con lectura de PDF</div><h1>{heroDoc.icon} {heroDoc.label}</h1><p className="lead">{heroDoc.focus}. En V9.1 el sistema prioriza el contenido extraído del PDF por encima de la pregunta escrita por el usuario.</p><div className="documentHero"><small>Estado del documento</small><b>{analysis?analysis.extractionStatus:'Esperando archivo o contenido'}</b></div><div className="features"><span className="chip on">Lectura PDF real</span><span className="chip">Identificación previa</span><span className="chip">IA prudente</span><span className="chip">Finanzas</span><span className="chip">Notas</span><span className="chip">Contratos</span></div></div>
+   <div><div className="badge">Análisis documental inteligente</div><h1>{heroDoc.icon} {heroDoc.label}</h1><p className="lead">{heroDoc.focus}. En V9.1 el sistema prioriza el contenido extraído del PDF por encima de la pregunta escrita por el usuario.</p><div className="documentHero"><small>Estado del documento</small><b>{analysis?analysis.extractionStatus:'Esperando archivo o contenido'}</b></div><div className="features"><span className="chip on">Lectura PDF real</span><span className="chip">Identificación previa</span><span className="chip">IA prudente</span><span className="chip">Finanzas</span><span className="chip">Notas</span><span className="chip">Contratos</span></div></div>
    <div className="console">
     <div className="planBox"><div className="usage"><strong>{isPro?'ChamuyoCheck Pro':'ChamuyoCheck Starter'}</strong><span>{isPro?'Sin límites demo':`${used} de ${FREE_LIMIT} análisis usados`}</span></div>{!isPro&&<div className="usageBar"><div className="usageFill" style={{['--w' as any]:`${percent}%`}}/></div>}</div>
     <div className="ask">Subí el documento</div>
@@ -95,7 +95,34 @@ export default function Page(){
     </div>
     <div className="resultBadge">{analysis.extractedChars?`${analysis.extractedChars} caracteres leídos`:'lectura preliminar'}</div>
   </div>
-  <div className="scoreCard"><div className="docId"><small>📄 Lectura del documento</small><h2>{analysis.documentIcon} {analysis.documentType}</h2><p>{analysis.documentFocus}</p><p><b>Lectura:</b> {analysis.extractionStatus} {analysis.extractedChars?`(${analysis.extractedChars} caracteres)`:''}</p>{analysis.extractedPreview&&<div className="excerptBox"><h3>Extracto leído por ChamuyoCheck</h3><pre>{analysis.extractedPreview}</pre></div>}</div><p className="hint">Resultado contextual</p><h2>{analysis.detectedTheme}</h2><div className="score">{analysis.score}/100</div><Bar score={analysis.score}/><div className="kpis"><div className="kpi"><small>Riesgo</small><b>{analysis.risk}</b></div><div className="kpi"><small>Confianza</small><b>{analysis.confidence}</b></div><div className="kpi"><small>Entrada</small><b>{analysis.detectedInput}</b></div></div><div className="rings"><Ring label="Lectura" score={analysis.categoryScores?.[0]?.score||0}/><Ring label="Credibilidad" score={analysis.categoryScores?.[1]?.score||0}/><Ring label="Faltante" score={analysis.categoryScores?.[2]?.score||0}/></div><p>{analysis.summary}</p><div className="notice"><b>Conclusión prudente:</b> {analysis.prudentConclusion}</div></div><div className="report"><div className="section wide"><h2>Pregunta central</h2><p>{analysis.centralQuestion}</p><p>{analysis.verdict}</p></div><div className="section wide"><h2>Especialistas activados automáticamente</h2><div className="cards">{analysis.modules.map((c,i)=><Card c={c} key={i}/>)}</div></div><div className="section wide"><h2>Indicadores del informe</h2><div className="cards">{analysis.categoryScores.map((c,i)=><Card c={c} key={i}/>)}</div></div><div className="section"><h2>Alertas</h2><ul>{analysis.issues.map((x,i)=><li key={i}>{x}</li>)}</ul><h2>Información faltante</h2><ul>{analysis.missingInformation.map((x,i)=><li key={i}>{x}</li>)}</ul></div><div className="section"><h2>Preguntas para decidir mejor</h2><ul>{analysis.questions.map((x,i)=><li key={i}>{x}</li>)}</ul><h2>Peor escenario razonable</h2><p>{analysis.worstCase}</p></div><div className="section wide legalCompact"><h2>⚖️ Aviso legal</h2><p>{analysis.legalSafeguard}</p></div></div></section>}
+  <div className="scoreCard"><div className="docId"><small>📄 Lectura del documento</small><h2>{analysis.documentIcon} {analysis.documentType}</h2><p>{analysis.documentFocus}</p><p><b>Lectura:</b> {analysis.extractionStatus} {analysis.extractedChars?`(${analysis.extractedChars} caracteres)`:''}</p>{analysis.extractedPreview&&<div className="excerptBox"><h3>Extracto leído por ChamuyoCheck</h3><pre>{analysis.extractedPreview}</pre></div>}</div><div className="chamuyoScoreBox"><small>ChamuyoScore™</small><strong>{analysis.score}/100</strong><p>{analysis.detectedTheme}</p></div><Bar score={analysis.score}/><div className="kpis"><div className="kpi"><small>Riesgo</small><b>{analysis.risk}</b></div><div className="kpi"><small>Confianza</small><b>{analysis.confidence}</b></div><div className="kpi"><small>Entrada</small><b>{analysis.detectedInput}</b></div></div><div className="rings"><Ring label="Lectura" score={analysis.categoryScores?.[0]?.score||0}/><Ring label="Credibilidad" score={analysis.categoryScores?.[1]?.score||0}/><Ring label="Faltante" score={analysis.categoryScores?.[2]?.score||0}/></div><p>{analysis.summary}</p><div className="notice"><b>Conclusión prudente:</b> {analysis.prudentConclusion}</div></div><div className="report"><div className="section wide"><h2>Pregunta central</h2><p>{analysis.centralQuestion}</p><p>{analysis.verdict}</p></div><div className="section wide"><h2>Especialistas activados automáticamente</h2><div className="cards">{analysis.modules.map((c,i)=><Card c={c} key={i}/>)}</div></div><div className="section wide"><h2>Indicadores del informe</h2><div className="cards">{analysis.categoryScores.map((c,i)=><Card c={c} key={i}/>)}</div></div><div className="section"><h2>Alertas</h2><ul>{analysis.issues.map((x,i)=><li key={i}>{x}</li>)}</ul><h2>Información faltante</h2><ul>{analysis.missingInformation.map((x,i)=><li key={i}>{x}</li>)}</ul></div><div className="section"><h2>Preguntas para decidir mejor</h2><ul>{analysis.questions.map((x,i)=><li key={i}>{x}</li>)}</ul><h2>Peor escenario razonable</h2><p>{analysis.worstCase}</p></div>
+<div className="section wide compactSection">
+  <h2>Por qué obtuvo este puntaje</h2>
+  <div className="explainGrid">
+    <div className="explainBox">
+      <h3>Factores que influyeron</h3>
+      <ul>{(analysis.scoreExplanation||[]).map((x,i)=><li key={i}>{x}</li>)}</ul>
+    </div>
+    <div className="explainBox">
+      <h3>Evidencias encontradas</h3>
+      <ul>{(analysis.evidenceFound||[]).map((x,i)=><li key={i}>{x}</li>)}</ul>
+    </div>
+  </div>
+</div>
+<div className="section wide compactSection">
+  <h2>Qué deberías verificar</h2>
+  <div className="evidenceList">{(analysis.refutationPoints||[]).map((x,i)=><div className="evidenceItem" key={i}><b>Punto {i+1}</b>{x}</div>)}</div>
+  <div className="actionRow">
+    <button className="refuteButton" type="button">Refutar este documento</button>
+    <button className="improveButton" type="button">Mejorar documento</button>
+  </div>
+</div>
+<div className="section wide compactSection">
+  <h2>Cómo mejorar este documento</h2>
+  <ul>{(analysis.improvementPlan||[]).map((x,i)=><li key={i}>{x}</li>)}</ul>
+</div>
+<div className="section wide legalCompact"><h2>⚖️ Aviso legal</h2><p>{analysis.legalSafeguard}</p></div>
+</div></section>}
   <footer className="footer">ChamuyoCheck V9.1 · Lee el texto real del PDF antes de analizar.</footer>
  </main>
 }

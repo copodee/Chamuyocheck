@@ -24,3 +24,14 @@ Importante:
 - Agrega extracto del texto leído por ChamuyoCheck para que el usuario vea que analizó el documento y no solo la pregunta.
 - Cambia "Módulos" por "Especialistas activados automáticamente".
 - Mejora jerarquía visual del informe.
+
+
+## V11 Intelligence Edition
+- Agrega ChamuyoScore™ como índice principal.
+- Agrega explicación del puntaje.
+- Agrega evidencias encontradas.
+- Agrega sección "Qué deberías verificar".
+- Agrega sección "Cómo mejorar este documento".
+- Agrega botones visuales "Refutar este documento" y "Mejorar documento".
+- Reduce el aviso legal a aproximadamente 25% del tamaño anterior.
+- Mantiene enfoque prudente: analiza, no acusa.
