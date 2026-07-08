@@ -1,31 +1,34 @@
-# ChamuyoCheck 1.0
+# ChamuyoCheck V3 Integral
 
 **La IA que detecta el chamuyo.**
 
-Aplicación Next.js lista para Vercel con:
-- Landing profesional.
-- Analizador con OpenAI.
-- Modo demo si falta API key.
-- Checkout con Mercado Pago Argentina.
-- Webhook básico de Mercado Pago.
+Esta versión mantiene el análisis general y suma el módulo financiero-matemático solo cuando corresponde.
 
-## Variables de entorno en Vercel
+## Qué analiza siempre
 
-En Project Settings > Environment Variables cargar:
+- Promesas exageradas.
+- Evidencia insuficiente.
+- Manipulación emocional.
+- Falacias y frases vagas.
+- Urgencia artificial.
+- Claridad comercial.
+- Riesgos y condiciones omitidas.
+- Frases bajo sospecha.
+- Preguntas incómodas para pedir evidencia.
+- Versión más honesta del texto.
 
-- `OPENAI_API_KEY`: clave de OpenAI.
-- `MERCADOPAGO_ACCESS_TOKEN`: token productivo de Mercado Pago Developers.
-- `NEXT_PUBLIC_APP_URL`: URL pública de Vercel, ejemplo `https://chamuyocheck.vercel.app`
-- `PRO_PRICE_ARS`: ejemplo `6900`
+## Qué se activa solo si detecta préstamos, crédito, financiación o inversiones
+
+- Monto publicado.
+- Cuota informada.
+- Plazo.
+- Total a pagar.
+- Costo real por encima del capital.
+- Tasa implícita estimada.
+- CFT/TNA/TEA ausentes.
+- Comisiones, seguros, IVA, gastos, mora y cancelación anticipada.
+- Preguntas financieras concretas.
 
 ## Deploy
 
-1. Subir estos archivos al repositorio GitHub.
-2. Importar el repositorio en Vercel.
-3. Elegir preset Next.js.
-4. Cargar variables de entorno.
-5. Deploy.
-
-## Próxima versión
-
-ChamuyoCheck 1.1 debería sumar Supabase para usuarios, login con Google, historial de análisis, permisos Pro y panel administrador.
+Copiar el contenido completo de esta carpeta dentro del repositorio local con GitHub Desktop, hacer commit y push. Vercel desplegará automáticamente.

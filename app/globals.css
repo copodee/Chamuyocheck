@@ -13,3 +13,8 @@
 .sev.media{background:rgba(255,228,122,.18);color:#ffe47a}
 .sev.baja{background:rgba(42,240,189,.16);color:#2af0bd}
 @media(max-width:800px){.miniGrid{grid-template-columns:1fr}}
+.financeBox{margin:18px 0 22px;padding:18px;border:1px solid rgba(42,240,189,.25);background:rgba(42,240,189,.07);border-radius:20px}
+.financeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.financeGrid div{border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:12px;background:rgba(0,0,0,.18)}
+.financeGrid span{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}.financeGrid b{font-size:18px}
+@media(max-width:800px){.financeGrid{grid-template-columns:1fr}}

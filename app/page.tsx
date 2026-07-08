@@ -3,6 +3,21 @@ import { useState } from 'react';
 
 type Category = { name: string; score: number; explanation: string };
 type FlaggedPhrase = { phrase: string; problem: string; severity: 'Baja' | 'Media' | 'Alta' };
+type FinancialMath = {
+  detected:boolean;
+  amount?:number|null;
+  installment?:number|null;
+  months?:number|null;
+  totalPaid?:number|null;
+  hiddenCost?:number|null;
+  hiddenCostPercent?:number|null;
+  monthlyImpliedRate?:number|null;
+  annualImpliedRate?:number|null;
+  missingFields:string[];
+  warnings:string[];
+  questions:string[];
+  plainEnglish:string;
+};
 type Analysis = {
   score:number;
   risk:string;
@@ -13,7 +28,13 @@ type Analysis = {
   questions:string[];
   improved:string;
   verdict?:string;
+  financialMath?:FinancialMath;
 };
+
+function ars(n?: number | null) {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return 'No informado';
+  return '$' + Math.round(n).toLocaleString('es-AR');
+}
 
 function severityClass(severity?: string) {
   if (severity === 'Alta') return 'sev alta';
@@ -61,7 +82,7 @@ export default function Home(){
 
       <div id="analizar" className="card">
         <p className="small">Pegá el texto a revisar</p>
-        <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Ej: Garantizamos duplicar tus ingresos en 30 días sin esfuerzo..." />
+        <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Ej: Préstamo de $1.000.000 en 24 cuotas de $95.000. Sin vueltas, aprobación inmediata..." />
         <div className="cta"><button className="btn" onClick={analyze} disabled={loading||text.length<20}>{loading?'Analizando...':'Analizar chamuyo'}</button><span className="small">Mínimo 20 caracteres</span></div>
         {error && <p style={{color:'#ff4976'}}>{error}</p>}
 
@@ -71,6 +92,20 @@ export default function Home(){
           <p><b>Riesgo:</b> {analysis.risk}</p>
           <p>{analysis.summary}</p>
           {analysis.verdict && <p className="verdict"><b>Veredicto:</b> {analysis.verdict}</p>}
+
+          {analysis.financialMath?.detected ? <div className="financeBox">
+            <h3>Inteligencia matemática financiera</h3>
+            <p>{analysis.financialMath.plainEnglish}</p>
+            <div className="financeGrid">
+              <div><span>Monto publicado</span><b>{ars(analysis.financialMath.amount)}</b></div>
+              <div><span>Cuota</span><b>{ars(analysis.financialMath.installment)}</b></div>
+              <div><span>Plazo</span><b>{analysis.financialMath.months ? `${analysis.financialMath.months} meses` : 'No informado'}</b></div>
+              <div><span>Total a pagar</span><b>{ars(analysis.financialMath.totalPaid)}</b></div>
+              <div><span>Costo sobre capital</span><b>{ars(analysis.financialMath.hiddenCost)}</b></div>
+              <div><span>Tasa implícita estimada</span><b>{analysis.financialMath.monthlyImpliedRate ? `${analysis.financialMath.monthlyImpliedRate}% mensual` : 'No calculable'}</b></div>
+            </div>
+            {analysis.financialMath.missingFields?.length ? <p className="small"><b>Datos que faltan:</b> {analysis.financialMath.missingFields.join(', ')}</p> : null}
+          </div> : null}
 
           {analysis.categoryScores?.length ? <>
             <h3>Mapa de chamuyo</h3>
@@ -108,6 +143,7 @@ export default function Home(){
       <div className="feature"><h3>Promesas vacías</h3><p className="small">Detecta resultados garantizados, cifras sin fuente y claims exagerados.</p></div>
       <div className="feature"><h3>Manipulación emocional</h3><p className="small">Marca presión, urgencia artificial y miedo a quedarse afuera.</p></div>
       <div className="feature"><h3>Preguntas incómodas</h3><p className="small">Genera preguntas concretas para pedir evidencia antes de comprar.</p></div>
+      <div className="feature"><h3>Chamuyo financiero</h3><p className="small">Detecta préstamos, cuotas, tasas omitidas, CFT ausente y calcula el costo real cuando hay datos.</p></div>
     </section>
 
     <section className="section pricing">
