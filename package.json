@@ -12,7 +12,8 @@
     "react-dom": "latest",
     "pdf-parse": "latest",
     "mammoth": "latest",
-    "cheerio": "latest"
+    "cheerio": "latest",
+    "@supabase/supabase-js": "latest"
   },
   "devDependencies": {
     "eslint": "latest",

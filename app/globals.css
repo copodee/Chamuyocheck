@@ -359,3 +359,54 @@ textarea{min-height:210px;resize:vertical;font-family:ui-monospace,SFMono-Regula
   background:rgba(255,201,40,.10)!important;
   color:#ffe089!important;
 }
+
+
+/* V15 Beta - Usuarios e historial */
+.statsGrid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+  margin-bottom:18px;
+}
+.statCard{
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.035);
+  border-radius:14px;
+  padding:16px;
+}
+.statCard small{
+  color:#b9b0cd;
+}
+.statCard b{
+  display:block;
+  margin-top:6px;
+  font-size:26px;
+}
+.cloudBadge{
+  display:inline-block;
+  margin:6px 0 10px;
+  border:1px solid rgba(39,239,189,.28);
+  background:rgba(39,239,189,.08);
+  color:#dffff6;
+  border-radius:999px;
+  padding:4px 8px;
+  font-size:11px;
+  font-weight:900;
+}
+.loginOptions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin:18px 0;
+}
+.loginOptions button{
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.05);
+  color:white;
+  border-radius:14px;
+  padding:16px;
+  font-weight:950;
+  cursor:pointer;
+}
+@media(max-width:1180px){.statsGrid{grid-template-columns:1fr 1fr}}
+@media(max-width:720px){.statsGrid,.loginOptions{grid-template-columns:1fr}}

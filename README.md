@@ -151,3 +151,25 @@ Incluye:
 - Algunos sitios bloquean extracción web o requieren JavaScript.
 - YouTube aún no descarga subtítulos automáticamente.
 - OCR real requiere servicio adicional o backend especializado.
+
+
+# V15 Beta - Usuarios e Historial
+
+Incluye:
+- Preparación real para Supabase Auth.
+- Cliente Supabase en `src/lib/supabase/client.ts`.
+- SQL schema para perfiles y análisis en `src/lib/supabase/schema.sql`.
+- Historial cloud-ready en `src/lib/history/cloudHistory.ts`.
+- Modal de login visual: Google / email.
+- Dashboard con métricas: análisis guardados, plan, modo historial y usos gratis.
+- Historial indica modo Local o Nube.
+- Mantiene Starter / Pro.
+
+## Para activar Supabase real
+1. Crear proyecto en Supabase.
+2. Ejecutar `src/lib/supabase/schema.sql`.
+3. Configurar:
+   - NEXT_PUBLIC_SUPABASE_URL
+   - NEXT_PUBLIC_SUPABASE_ANON_KEY
+   - SUPABASE_SERVICE_ROLE_KEY
+4. Conectar llamadas reales desde la UI.
