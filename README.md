@@ -246,3 +246,14 @@ Corrige el error de build:
 Cambio:
 - Declara `const evidence = extractEvidenceSignalsLocal(text)` antes de usarlo.
 - Convierte las señales en texto seguro dentro del prompt.
+
+
+# V15.9 Prompt Variable Fix
+
+Corrige el error de build:
+
+`Cannot find name 'evidence'`
+
+Cambios:
+- Declara `evidence` y `evidenceSignals` antes del prompt.
+- Reemplaza referencias inseguras del prompt por `evidenceSignals.join('; ')`.
