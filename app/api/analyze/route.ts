@@ -7,6 +7,7 @@ import { buildRiskItems } from '../../../src/analysis/engines/riskEngine';
 import { buildRecommendations } from '../../../src/analysis/engines/recommendationEngine';
 import { buildScoreExplanation } from '../../../src/analysis/engines/scoreExplanationEngine';
 import { verifyFactualContent } from '../../../src/analysis/engines/externalVerificationEngine';
+import { runCoreReasoning } from '../../../src/analysis/engines/coreReasoningEngine';
 
 export const runtime = 'nodejs';
 
@@ -189,9 +190,20 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       (health ? 16 : 0)
   );
 
+  // Core reasoning: run before factual verification, can force score to 100
+  const reasoning = runCoreReasoning(text);
+
   // Verificación factual: detectar preguntas y ajustar score
   const verification = verifyFactualContent(text);
-  const finalScore = clamp(riskScore + verification.scoreAdjustment);
+
+  let finalScore: number;
+  if (reasoning.forcedScore !== null) {
+    finalScore = reasoning.forcedScore;
+  } else if (reasoning.scoreBoost > 0) {
+    finalScore = clamp(riskScore + reasoning.scoreBoost);
+  } else {
+    finalScore = clamp(riskScore + verification.scoreAdjustment);
+  }
 
   const categoryScores: CategoryScore[] = [
     {
@@ -259,7 +271,8 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       promise ? 'Promesa o resultado atractivo sin margen claro de incertidumbre.' : '',
       missing ? (shortText ? 'La afirmación requiere verificación externa y contexto adicional.' : 'Faltan fuentes o metodología verificable.') : '',
       financial ? 'Faltan costos financieros completos.' : '',
-      pyramid ? 'Posible estructura basada en referidos o rentabilidad prometida.' : ''
+      pyramid ? 'Posible estructura basada en referidos o rentabilidad prometida.' : '',
+      ...reasoning.risks
     ].filter(Boolean),
     questions: [
       '¿Qué fuente independiente respalda la afirmación?',
@@ -289,7 +302,7 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       promise ? 'Hay promesas fuertes o lenguaje absoluto.' : '',
       financial ? 'Faltan costos financieros completos.' : '',
       academic ? 'Falta trazabilidad o contexto metodológico.' : ''
-    ].filter(Boolean), verification),
+    ].filter(Boolean), verification, reasoning),
     refutationPoints: [
       'Verificar autor, fecha, fuente original y trazabilidad del contenido.',
       'Pedir respaldo para las afirmaciones centrales.',
@@ -297,7 +310,7 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       financial ? 'Exigir contrato completo y costo financiero total.' : '',
       academic ? 'Pedir borradores, fuentes y defensa oral antes de concluir uso de IA.' : ''
     ].filter(Boolean),
-    improvementPlan: buildRecommendations(text, topic.key, inputKind).concat(buildRiskItems(text, inputKind)).slice(0, 8),
+    improvementPlan: [...reasoning.recommendations, ...buildRecommendations(text, topic.key, inputKind), ...buildRiskItems(text, inputKind)].filter(Boolean).slice(0, 8),
     topic: topic.key,
     topicLabel: topic.label,
     topicHint: topic.hint

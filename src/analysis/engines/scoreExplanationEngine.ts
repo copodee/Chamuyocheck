@@ -1,12 +1,50 @@
 import { extractEvidenceHints } from './evidenceExtractor';
 import type { VerificationResult } from './externalVerificationEngine';
+import type { ReasoningResult } from './coreReasoningEngine';
 
-export function buildScoreExplanation(text: string, topic: string | undefined, inputKind: string, score: number, issues: string[], verification?: VerificationResult) {
+export function buildScoreExplanation(text: string, topic: string | undefined, inputKind: string, score: number, issues: string[], verification?: VerificationResult, reasoning?: ReasoningResult) {
   const hints = extractEvidenceHints(text);
   const items = [
     `El ChamuyoScore mide el nivel de señales de manipulación, falta de evidencia o contenido dudoso.`,
     `Mayor puntaje = más señales de chamuyo. Menor puntaje = contenido más sólido y verificable.`
   ];
+
+  // Core reasoning: financial math inconsistency
+  if (reasoning && reasoning.inconsistencySeverity !== 'none' && reasoning.domain === 'finance') {
+    const fin = reasoning.financial;
+    const lines = [
+      '⚠️ FUNDAMENTO DEL PUNTAJE EXTREMO - INCONSISTENCIA FINANCIERA',
+      '',
+      'CONCLUSIÓN PRINCIPAL:',
+      reasoning.explanation,
+      '',
+    ];
+    if (fin.claim.isAdvanceFee) {
+      lines.push('TIPO DE SEÑAL: Estafa de anticipo (advance fee).');
+      lines.push('Nadie regala un premio que requiere pago previo para ser entregado.');
+    } else {
+      if (fin.expectedAmount !== null && fin.claim.initialAmount !== null && fin.claim.annualRatePercent !== null) {
+        lines.push(`MATEMÁTICA VERIFICABLE:`);
+        lines.push(`• Capital inicial: $${fin.claim.initialAmount.toLocaleString('es-AR')}`);
+        lines.push(`• Tasa declarada: ${fin.claim.annualRatePercent}% anual`);
+        const periodLabel = fin.claim.timeframeDays !== null ? `${fin.claim.timeframeDays} días` : fin.claim.timeframeMonths !== null ? `${fin.claim.timeframeMonths} meses` : `${fin.claim.timeframeYears} años`;
+        lines.push(`• Plazo: ${periodLabel}`);
+        lines.push(`• Resultado esperado según tasa: $${fin.expectedAmount.toLocaleString('es-AR')}`);
+        lines.push(`• Resultado prometido: $${(fin.claim.promisedAmount ?? 0).toLocaleString('es-AR')}`);
+        if (fin.discrepancyFactor !== null) lines.push(`• Factor de discrepancia: ${fin.discrepancyFactor}x`);
+      }
+    }
+    lines.push('');
+    lines.push('POR QUÉ EL PUNTAJE ES 100:');
+    lines.push('La afirmación contradice su propia matemática; el retorno prometido es incompatible con la tasa declarada.');
+    lines.push('El puntaje no representa probabilidad inversa de verdad, sino severidad de la inconsistencia.');
+    lines.push('');
+    lines.push('QUÉ EVIDENCIA SERÍA NECESARIA:');
+    lines.push('• Contrato con tasa, plazo y retorno real verificables.');
+    lines.push('• Entidad registrada ante el organismo regulador (CNV, BCRA).');
+    lines.push('• Cálculo auditado por un contador o asesor financiero independiente.');
+    return lines.filter((_, i) => i < 32);
+  }
 
   // High severity score (>= 95): special justification for scientific impossibilities
   if (score >= 95 && !verification?.isFactualQuestion && verification?.domain === 'science') {
