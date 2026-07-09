@@ -1,4 +1,5 @@
 import { describeInput } from './inputClassifier';
+import { detectReproductiveBiologyQuestion } from './healthBiologyEngine';
 
 const employmentSignals = /\b(vacante|vacancy|postulaci[oó]n|enviar cv|curriculum vitae|curriculum|recruiter|reclutador|entrevista laboral|entrevista|requisitos para el puesto|requisitos del puesto|requisitos para el cargo|requisitos del cargo|contrataci[oó]n individual|oferta de trabajo|oferta laboral|beneficios del puesto|sueldo ofrecido para una posici[oó]n|puesto vacante|cargo vacante|candidato|empleador|empleado)\b/i;
 
@@ -17,6 +18,21 @@ const productSignals = /producto|servicio|garant[ií]a|comparativa|reseña|calid
 export function detectTopic(text: string, inputKind: string) {
   const all = text.toLowerCase();
   const input = describeInput(inputKind);
+
+  const reproductiveBio = detectReproductiveBiologyQuestion(all);
+
+  if (reproductiveBio.isReproductiveBiology) {
+    return {
+      key: 'health-biology-question',
+      label: 'Salud / biología / reproducción',
+      hint: 'Pregunta factual sobre biología humana y reproducción.',
+      summary: `El análisis responde una pregunta de biología humana. ${reproductiveBio.contextualAnswer}`,
+      prudentConclusion: `La respuesta se apoya en conocimiento biomédico. ${reproductiveBio.ambiguity}`,
+      verdict: `Pregunta factual sobre ${input.noun}: podés avanzar con verificación básica de contexto.`,
+      modules: ['Biología humana', 'Reproducción', 'Contexto de identidad', 'Bases médicas'],
+      recommendations: ['Si es situación personal, consultá con especialistas en salud o reproducción.', 'Aclaá el contexto: ¿se refiere a varón cisgénero, persona trans o intersex?']
+    };
+  }
 
   if (healthSignals.test(all)) {
     return {
