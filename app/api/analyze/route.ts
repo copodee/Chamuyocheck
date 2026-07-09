@@ -48,7 +48,8 @@ function detectTopic(text: string, inputKind: string) {
   const all = text.toLowerCase();
   const input = describeInput(inputKind);
   const isPublicRelease = /(comunicado|comunicación|nota de prensa|press release|prensa|institucional|declaración|afirmación pública|comunicado de prensa|anuncio institucional|boletín|nota oficial|nota|public statement|company note|empresa|gobierno|grupo)/i.test(all);
-  const hasEmploymentSignals = /\b(vacante|vacancy|hiring|cv|curriculum vitae|curriculum|postulaci[oó]n|job application|salario|salary|recruiter|reclutador|entrevista|interview|puesto|position|contrato de trabajo|employment contract|requisitos (para|del|de) (el )?(puesto|cargo|rol)|requirements for (a|the) (role|position)|oferta de empleo|oferta laboral|candidato|empleador|empleado)\b/i.test(all);
+  const isEconomicPublicNote = /(salario real|inflaci[oó]n|empleo registrado|sipa|convenios colectivos|remuneraciones|secretar[ií]a de trabajo|poder adquisitivo|nota period[ií]stica|informe econ[oó]mico|econom[ií]a|empleo formal|remuneraci[oó]n real)/i.test(all);
+  const hasEmploymentSignals = /\b(vacante|vacancy|postulaci[oó]n|enviar cv|curriculum vitae|curriculum|recruiter|reclutador|entrevista laboral|entrevista|requisitos para el puesto|requisitos del puesto|requisitos para el cargo|requisitos del cargo|contrataci[oó]n individual|oferta de trabajo|oferta laboral|beneficios del puesto|sueldo ofrecido para una posici[oó]n|puesto vacante|cargo vacante|candidato|empleador|empleado)\b/i.test(all);
 
   if (/salud|medicamento|tratamiento|cura|c[aá]ncer|dolor|s[ií]ntoma|suplemento|dosis|paciente|diagn[oó]stico/.test(all)) {
     return {
@@ -102,7 +103,7 @@ function detectTopic(text: string, inputKind: string) {
     };
   }
 
-  if (isPublicRelease && !hasEmploymentSignals) {
+  if ((isPublicRelease || isEconomicPublicNote) && !hasEmploymentSignals) {
     return {
       key: 'public-claim',
       label: 'Afirmación pública',
@@ -216,6 +217,15 @@ function detectDomain(text: string, inputKind: string) {
       label: 'Contenido de salud',
       focus: 'Evidencia médica, riesgos, fuentes y advertencias.',
       modules: ['Evidencia médica', 'Riesgo sanitario', 'Fuentes científicas', 'Advertencias']
+    };
+  }
+
+  if (/(salario real|inflaci[oó]n|empleo registrado|sipa|convenios colectivos|remuneraciones|secretar[ií]a de trabajo|poder adquisitivo|nota period[ií]stica|informe econ[oó]mico|econom[ií]a|empleo formal|remuneraci[oó]n real)/.test(all)) {
+    return {
+      icon: '📈',
+      label: 'Economía / información pública / nota periodística',
+      focus: 'Fuente, contexto económico, fechas y trazabilidad.',
+      modules: ['Fuente original', 'Contexto económico', 'Fecha', 'Trazabilidad']
     };
   }
 
