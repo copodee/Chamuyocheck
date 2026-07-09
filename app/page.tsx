@@ -228,32 +228,62 @@ function getTopicSectionTemplates(topic: string | undefined, inputLabel: string,
   }
 }
 
+function buildEvidenceBasedSections(text: string, inputKind: string) {
+  const lowerText = text.toLowerCase();
+  const strengths: string[] = [];
+  const weaknesses: string[] = [];
+  const risks: string[] = [];
+
+  const hasStatistics = /%|porcentaje|estad|cifra|cifras|promedio|monto|millones|miles|crec[ií]o|ca[ií]da/.test(lowerText);
+  const hasTemporal = /\b(año|años|mes|meses|semana|trimestre|cuatrimestre|per[ií]odo|fecha|agosto|enero|febrero|marzo|abril|mayo|junio|julio|septiembre|octubre|noviembre|diciembre)\b|\b\d{4}\b/i.test(text);
+  const hasInstitutionalSource = /(secretar[ií]a|ministerio|sipa|banco|instituto|organismo|gobierno|oficina|comisi[oó]n|consejo|autoridad|federal|provincial|nacional|municipal)/i.test(text);
+  const hasAuthor = /\bautor\b|\bfirma\b|\bfirma[s]?\b|\bresponsable\b|\bredacci[oó]n\b/i.test(text);
+  const hasSource = /\bfuente\b|\bfuentes\b|\bseg[uú]n\b|\binforme\b|\bcomunicado\b|\bnota\b/i.test(text);
+  const hasMethodology = /metodolog|m[eé]todo|muestra|encuesta|c[aá]lculo|criterio|procedimiento|muestreo/i.test(lowerText);
+  const hasLinks = /https?:\/\//i.test(text);
+  const hasDate = /\b\d{4}\b|\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b|\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/i.test(text);
+
+  if (hasStatistics) strengths.push('Se citan estadísticas y porcentajes.');
+  if (hasTemporal) strengths.push('Se identifica un período temporal.');
+  if (hasInstitutionalSource) strengths.push('Se mencionan organismos oficiales o fuentes institucionales.');
+  if (hasLinks) strengths.push('Se incluyen enlaces a fuentes o referencias.');
+  if (hasMethodology) strengths.push('Se explicita una metodología o criterio de análisis.');
+  if (hasSource) strengths.push('Se identifica una fuente o referencia.');
+  if (hasAuthor) strengths.push('Se identifica un autor o responsable.');
+
+  if (!strengths.length) strengths.push('No se identificaron fortalezas objetivas.');
+
+  if (!hasSource) weaknesses.push('No hay una fuente o referencia claramente identificada.');
+  if (!hasLinks) weaknesses.push('No hay enlace a la fuente original.');
+  if (!hasMethodology) weaknesses.push('Falta metodología o criterio explícito.');
+  if (!hasDate) weaknesses.push('No se especifica la fecha.');
+  if (!hasAuthor) weaknesses.push('No se identifica el autor o responsable.');
+
+  if (text.trim().length < 220) risks.push('Puede omitir contexto relevante.');
+  if (hasStatistics && !hasLinks) risks.push('Requiere contrastar con la fuente oficial.');
+  if (inputKind === 'PDF' && text.trim().length > 0) risks.push('Puede resumir información sin el informe completo.');
+  if (!risks.length) risks.push('Requiere contrastar la interpretación con la fuente original.');
+
+  return {
+    strengths: strengths.slice(0, 4),
+    weaknesses: weaknesses.slice(0, 4),
+    risks: risks.slice(0, 4)
+  };
+}
+
 function buildReportSections(analysis: Analysis, inputKind: string, text: string, hasRealFile = false) {
   const shortText = inputKind === 'Texto' && text.trim().length < 220;
   const topic = getTopicMeta(analysis.topic);
   const inputLabel = getInputLabel(inputKind, hasRealFile);
   const templates = getTopicSectionTemplates(analysis.topic, inputLabel, shortText, inputKind);
+  const evidenceSections = buildEvidenceBasedSections(text, inputKind);
 
-  const strengths = (analysis.evidenceFound || []).filter(Boolean).slice(0, 4);
-  const weaknesses = (analysis.missingInformation || []).filter(Boolean).map((item) => {
-    if (shortText && inputKind === 'Texto' && /fuente|fuentes/i.test(item)) {
-      return 'La afirmación requiere verificación externa y contexto adicional.';
-    }
-    return item;
-  }).slice(0, 4);
-  const risks = (analysis.issues || []).filter(Boolean).slice(0, 4);
+  const strengths = evidenceSections.strengths;
+  const weaknesses = evidenceSections.weaknesses;
+  const risks = evidenceSections.risks;
   const verify = (analysis.questions || []).filter(Boolean).slice(0, 4);
   const recommendations = (analysis.improvementPlan || []).filter(Boolean).slice(0, 4);
 
-  if (strengths.length < 2) {
-    strengths.push(...templates.strengths.filter((item) => !strengths.includes(item)).slice(0, 2));
-  }
-  if (weaknesses.length < 2) {
-    weaknesses.push(...templates.weaknesses.filter((item) => !weaknesses.includes(item)).slice(0, 2));
-  }
-  if (risks.length < 2) {
-    risks.push(...templates.risks.filter((item) => !risks.includes(item)).slice(0, 2));
-  }
   if (verify.length < 2) {
     verify.push(...templates.verify.filter((item) => !verify.includes(item)).slice(0, 2));
   }
