@@ -8,6 +8,39 @@ export function buildScoreExplanation(text: string, topic: string | undefined, i
     `Mayor puntaje = más señales de chamuyo. Menor puntaje = contenido más sólido y verificable.`
   ];
 
+  // High severity score (>= 95): special justification
+  if (score >= 95 && !verification?.isFactualQuestion && verification?.domain === 'health-biology') {
+    return [
+      '⚠️ FUNDAMENTO DEL PUNTAJE EXTREMO',
+      '',
+      'CONCLUSIÓN PRINCIPAL:',
+      'La afirmación sostiene una premisa biológicamente imposible bajo evidencia médica actual.',
+      '',
+      'HECHOS VERIFICABLES:',
+      '• La gestación humana requiere implantación embrionaria en tejido uterino funcional.',
+      '• Un varón cis no posee útero ni ovarios funcionales.',
+      '• La terapia hormonal modifica características sexuales secundarias pero NO crea órganos reproductivos nuevos.',
+      '• Los embarazos documentados en hombres trans corresponden a personas que conservaban útero y ovarios funcionales.',
+      '',
+      'INTERPRETACIÓN LITERAL:',
+      'Bajo una interpretación literal de la afirmación, no existe respaldo biomédico verificable.',
+      '',
+      'CRITERIOS MÉDICOS APLICADOS:',
+      '• Definición de gestación: implantación embrionaria en endometrio uterino.',
+      '• Diferencia anatómica: varón cis vs. persona con capacidad reproductiva.',
+      '• Alcance de la terapia hormonal: no es generativa de órganos nuevos.',
+      '• Contexto de personas trans: requiere conservación de órganos reproduc activos.',
+      '',
+      'LIMITACIÓN DEL ANÁLISIS:',
+      'Este análisis se basa en criterios de plausibilidad biomédica y coherencia con conocimiento médico ampliamente aceptado. ',
+      'Si la pregunta intenta referirse a tecnologías futuras (implante uterino, etc.), la evaluación no las cubre.',
+      '',
+      'POR QUÉ EL PUNTAJE ES 100:',
+      'El contenido contradice de manera fundamental conocimiento biomédico establecido, sin dejar margen a interpretación compatible.',
+      'No se encontró respaldo verificable en criterios médicos considerados.'      
+    ];
+  }
+
   if (verification?.isFactualQuestion && verification?.domain === 'health-biology') {
     items.pop();
     items.pop();
@@ -15,6 +48,16 @@ export function buildScoreExplanation(text: string, topic: string | undefined, i
     items.push(`El puntaje de ${score}/100 refleja que la pregunta tiene respuesta clara y verificable.`);
     items.push('La ambigüedad principal es el término "hombre", que puede referirse a varón cis, hombre trans o persona intersex.');
     items.push('No se trata de una afirmación dudosa sino de una pregunta factual sobre biología.');
+    return items.slice(0, 8);
+  }
+
+  if (!verification?.isFactualQuestion && verification?.domain === 'health-biology') {
+    items.pop();
+    items.pop();
+    items.push('⚠️ PREMISA FALSA DETECTADA: Esta pregunta asume algo biológicamente imposible.');
+    items.push(`El puntaje de ${score}/100 refleja contenido dudoso o engañoso sobre biología reproductiva.`);
+    items.push('Tratamientos hormonales NO pueden crear órganos reproductivos (útero, ovarios) en personas que no los tienen.');
+    items.push('El embarazo en personas trans solo es posible si conservan útero y ovarios funcionales.');
     return items.slice(0, 8);
   }
 

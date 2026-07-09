@@ -29,6 +29,21 @@ export function verifyFactualContent(text: string): VerificationResult {
   const reproductiveBio = detectReproductiveBiologyQuestion(text);
 
   if (reproductiveBio.isReproductiveBiology) {
+    // False premise: increase score to extreme (higher chamuyo)
+    if (reproductiveBio.hasFalsePremise) {
+      return {
+        verificationMode: 'conceptual-local',
+        isFactualQuestion: false,
+        domain: 'health-biology',
+        scoreAdjustment: +64,
+        contextualResponse: reproductiveBio.contextualAnswer,
+        externalSources: [],
+        confidence: 95,
+        recommendedLabel: 'Salud / biología / reproducción (premisa falsa)'
+      };
+    }
+
+    // Genuine factual question: decrease score (lower chamuyo)
     return {
       verificationMode: 'conceptual-local',
       isFactualQuestion: true,
