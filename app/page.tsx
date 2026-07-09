@@ -551,7 +551,13 @@ export default function Page() {
     </aside>
     <main className="main">
       <div className="mobileTopbar">
-        <div className="brand"><div className="shield">✓</div><div><div className="logo">CHAMUYO<span>CHECK</span></div><div className="tag">Analizá antes de decidir</div></div></div>
+        <div className="mobileTopbarBrand">
+          <div className="shield">✓</div>
+          <div>
+            <div className="logo">CHAMUYO<span>CHECK</span></div>
+            <div className="tag">Analizá antes de decidir</div>
+          </div>
+        </div>
         <div className="mobileTopbarActions">
           <button type="button" className="newBtn" onClick={startNewAnalysis}>＋ Nuevo análisis</button>
           <button type="button" className="ghost mobileMenuBtn" onClick={() => setMobileMenuOpen((value) => !value)}>{mobileMenuOpen ? '✕' : '☰ Menú'}</button>
