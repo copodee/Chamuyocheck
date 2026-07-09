@@ -214,3 +214,14 @@ Corrige el error de TypeScript:
 
 Cambio:
 - Reemplaza el flag regex `s` por una expresión compatible `[\s\S]*?`.
+
+
+# V15.6 PDF Parse Fix
+
+Corrige el error de build:
+
+`Property 'default' does not exist on type 'typeof import("pdf-parse")'`
+
+Cambios:
+- Ajusta la importación dinámica de `pdf-parse`.
+- Mantiene `target` en `ES2018`.

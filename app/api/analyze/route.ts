@@ -63,7 +63,8 @@ function clamp(n:any,f=50){const x=Number(n);return Number.isFinite(x)?Math.max(
 async function extractPdfText(file: File){
   try{
     const buffer = Buffer.from(await file.arrayBuffer());
-    const pdfParse = (await import('pdf-parse')).default;
+    const pdfParseModule = await import('pdf-parse') as any;
+    const pdfParse = pdfParseModule.default || pdfParseModule;
     const data = await pdfParse(buffer);
     const text = String(data.text || '').replace(/\s+\n/g,'\n').trim();
     return { ok: true, text: text.slice(0, 18000), pages: data.numpages || null, chars: text.length, note: text.length ? 'Texto extraído del PDF.' : 'PDF recibido, pero no se pudo extraer texto visible. Puede ser escaneado o imagen.' };
