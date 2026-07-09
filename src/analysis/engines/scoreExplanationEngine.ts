@@ -8,7 +8,35 @@ export function buildScoreExplanation(text: string, topic: string | undefined, i
     `Mayor puntaje = más señales de chamuyo. Menor puntaje = contenido más sólido y verificable.`
   ];
 
-  // High severity score (>= 95): special justification
+  // High severity score (>= 95): special justification for scientific impossibilities
+  if (score >= 95 && !verification?.isFactualQuestion && verification?.domain === 'science') {
+    return [
+      '⚠️ FUNDAMENTO DEL PUNTAJE EXTREMO - IMPOSIBILIDAD CIENTÍFICA',
+      '',
+      'CONCLUSIÓN PRINCIPAL:',
+      'La afirmación describe un fenómeno incompatible con principios científicos verificados.',
+      '',
+      'ANÁLISIS CIENTÍFICO:',
+      '• La premisa contradice leyes naturales y mecanismos conocidos.',
+      '• No existe evidencia experimental o reproducible que la respalde.',
+      '• Los consensos científicos se basan en observación, experimentación y revisión por pares.',
+      '',
+      'POR QUÉ EL PUNTAJE ES 100:',
+      'La gravedad de la imposibilidad científica refleja el máximo nivel de señales de chamuyo.',
+      'El puntaje no representa probabilidad inversa de verdad, sino severidad de inconsistencia.',
+      '',
+      'QUÉ EVIDENCIA SERÍA NECESARIA:',
+      '• Reproducción experimental verificable de la afirmación.',
+      '• Mecanismo científico plausible respaldado por investigación.',
+      '• Publicación en revistas científicas con revisión por pares.',
+      '• Confirmación independiente por múltiples investigadores.',
+      '',
+      'LÍMITES DEL ANÁLISIS:',
+      'Este análisis no cubre tecnologías futuras especulativas, solo hechos científicos actuales.'
+    ];
+  }
+
+  // High severity score (>= 95): special justification for reproductive impossibilities
   if (score >= 95 && !verification?.isFactualQuestion && verification?.domain === 'health-biology') {
     return [
       '⚠️ FUNDAMENTO DEL PUNTAJE EXTREMO',

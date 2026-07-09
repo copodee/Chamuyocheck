@@ -1,8 +1,9 @@
 import { detectFactualQuestion } from './factualQuestionDetector';
 import { detectReproductiveBiologyQuestion } from './healthBiologyEngine';
+import { validateScientificPremise } from './scientificPremiseValidator';
 
 export type VerificationResult = {
-  verificationMode: 'conceptual-local' | 'requires-external' | 'standard';
+  verificationMode: 'conceptual-local' | 'requires-external' | 'standard' | 'conceptual-local-scientific';
   isFactualQuestion: boolean;
   domain: 'health-biology' | 'science' | 'factual' | 'general';
   scoreAdjustment: number; // -30 to +30, applied to base score
@@ -13,6 +14,22 @@ export type VerificationResult = {
 };
 
 export function verifyFactualContent(text: string): VerificationResult {
+  // Scientific premise validation: check first before other logic
+  const scientificValidation = validateScientificPremise(text);
+
+  if (scientificValidation.hasInvalidPremise && scientificValidation.severity === 'extreme') {
+    return {
+      verificationMode: 'conceptual-local-scientific',
+      isFactualQuestion: false,
+      domain: 'science',
+      scoreAdjustment: +64,
+      contextualResponse: scientificValidation.conclusion,
+      externalSources: [],
+      confidence: scientificValidation.confidence * 100,
+      recommendedLabel: `Afirmación científicamente imposible (${scientificValidation.category})`
+    };
+  }
+
   const factualQ = detectFactualQuestion(text);
 
   if (!factualQ.isFactualQuestion) {
