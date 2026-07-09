@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { detectInputKind, describeInput } from '../../../src/analysis/engines/inputClassifier';
+import { detectTopic } from '../../../src/analysis/engines/topicClassifier';
+import { extractEvidenceSignals } from '../../../src/analysis/engines/evidenceExtractor';
+import { buildRiskItems } from '../../../src/analysis/engines/riskEngine';
+import { buildRecommendations } from '../../../src/analysis/engines/recommendationEngine';
+import { buildScoreExplanation } from '../../../src/analysis/engines/scoreExplanationEngine';
 
 export const runtime = 'nodejs';
 
@@ -19,165 +25,6 @@ type Extraction = {
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Math.round(value)));
-}
-
-function detectInputKind(fileName: string, url: string, fileType: string) {
-  if (url && /youtu\.be|youtube\.com/i.test(url)) return 'YouTube';
-  if (url) return 'Web';
-  if (/\.pdf$/i.test(fileName) || /pdf/i.test(fileType)) return 'PDF';
-  if (/image\//i.test(fileType) || /\.(png|jpg|jpeg|webp)$/i.test(fileName)) return 'Imagen';
-  return 'Texto';
-}
-
-function describeInput(inputKind: string) {
-  switch (inputKind) {
-    case 'PDF':
-      return { noun: 'documento PDF', phrase: 'el documento PDF' };
-    case 'Imagen':
-      return { noun: 'imagen', phrase: 'la imagen' };
-    case 'Web':
-      return { noun: 'página web', phrase: 'la página web' };
-    case 'YouTube':
-      return { noun: 'video de YouTube', phrase: 'el video de YouTube' };
-    default:
-      return { noun: 'texto ingresado', phrase: 'el texto ingresado' };
-  }
-}
-
-function detectTopic(text: string, inputKind: string) {
-  const all = text.toLowerCase();
-  const input = describeInput(inputKind);
-  const isPublicRelease = /(comunicado|comunicación|nota de prensa|press release|prensa|institucional|declaración|afirmación pública|comunicado de prensa|anuncio institucional|boletín|nota oficial|nota|public statement|company note|empresa|gobierno|grupo)/i.test(all);
-  const isEconomicPublicNote = /(salario real|inflaci[oó]n|empleo registrado|sipa|convenios colectivos|remuneraciones|secretar[ií]a de trabajo|poder adquisitivo|nota period[ií]stica|informe econ[oó]mico|econom[ií]a|empleo formal|remuneraci[oó]n real)/i.test(all);
-  const hasEmploymentSignals = /\b(vacante|vacancy|postulaci[oó]n|enviar cv|curriculum vitae|curriculum|recruiter|reclutador|entrevista laboral|entrevista|requisitos para el puesto|requisitos del puesto|requisitos para el cargo|requisitos del cargo|contrataci[oó]n individual|oferta de trabajo|oferta laboral|beneficios del puesto|sueldo ofrecido para una posici[oó]n|puesto vacante|cargo vacante|candidato|empleador|empleado)\b/i.test(all);
-
-  if (/salud|medicamento|tratamiento|cura|c[aá]ncer|dolor|s[ií]ntoma|suplemento|dosis|paciente|diagn[oó]stico/.test(all)) {
-    return {
-      key: 'health',
-      label: 'Salud',
-      hint: 'Revisá evidencia médica, riesgos y advertencias.',
-      summary: `El análisis se enfoca en ${input.noun} y conviene contrastar cualquier recomendación con evidencia médica y contexto clínico.`,
-      prudentConclusion: `No afirmaría que la recomendación es fiable; pediría verificación médica, fuentes y contexto antes de actuar.`,
-      verdict: `Evaluación prudente para ${input.noun}: conviene verificar fuentes, riesgos y contexto antes de actuar.`,
-      modules: ['Evidencia médica', 'Riesgos', 'Fuentes clínicas', 'Advertencias'],
-      recommendations: ['Verificá si la recomendación está respaldada por fuentes médicas.', 'Contrastá riesgos, dosis y contexto clínico.']
-    };
-  }
-
-  if (/pr[eé]stamo|cr[eé]dito|cuota|cft|tea|tna|inter[eé]s|financiaci[oó]n|comisi[oó]n|seguro|\$\s?\d/.test(all)) {
-    return {
-      key: 'finance',
-      label: 'Finanzas',
-      hint: 'Revisá costos reales, tasas y condiciones.',
-      summary: `El análisis se acerca a una oferta financiera y conviene verificar costos, tasas y condiciones antes de decidir.`,
-      prudentConclusion: `No lo trataría como una verdad financiera; pediría el costo total, contrato y condiciones antes de decidir.`,
-      verdict: `Evaluación prudente para ${input.noun}: conviene revisar costos, tasas y letra chica.`,
-      modules: ['Costo total', 'CFT', 'Tasas', 'Cargos ocultos', 'Condiciones'],
-      recommendations: ['Pedí el costo total y las condiciones completas.', 'Verificá tasas, comisiones, seguros y cláusulas relevantes.']
-    };
-  }
-
-  if (/contrato|cl[aá]usula|jurisdicci[oó]n|penalidad|rescisi[oó]n|incumplimiento|obligaci[oó]n|t[eé]rminos y condiciones/.test(all)) {
-    return {
-      key: 'legal',
-      label: 'Legal',
-      hint: 'Revisá obligaciones, penalidades y cláusulas.',
-      summary: `El contenido parece legal o contractual; conviene revisar cláusulas, obligaciones y contexto antes de actuar.`,
-      prudentConclusion: `No concluiría sobre validez o cumplimiento sin revisar el contrato y el marco aplicable.`,
-      verdict: `Evaluación prudente para ${input.noun}: conviene verificar cláusulas y obligaciones.`,
-      modules: ['Cláusulas', 'Obligaciones', 'Penalidades', 'Jurisdicción'],
-      recommendations: ['Contrastá las cláusulas con el contrato y la normativa aplicable.', 'Pedí aclaraciones sobre obligaciones y penalidades.']
-    };
-  }
-
-  if (/tesis|monograf|ensayo|universidad|facultad|colegio|alumno|bibliograf|referencias|docente|hecho con ia|hecha con ia|chatgpt/.test(all)) {
-    return {
-      key: 'academic',
-      label: 'Académico',
-      hint: 'Revisá fuentes, métodos y trazabilidad.',
-      summary: `El contenido se analiza como posible contexto académico y conviene revisar fuentes, método y trazabilidad.`,
-      prudentConclusion: `No afirmaría autoría ni uso de IA sin respaldo; pediría fuentes, método y defensa del trabajo.`,
-      verdict: `Evaluación prudente para ${input.noun}: conviene revisar fuentes, método y contexto.`,
-      modules: ['Fuentes', 'Método', 'Originalidad', 'Trazabilidad'],
-      recommendations: ['Pedí fuentes y contexto metodológico.', 'No concluyas uso de IA sin respaldo.']
-    };
-  }
-
-  if ((isPublicRelease || isEconomicPublicNote) && !hasEmploymentSignals) {
-    return {
-      key: 'public-claim',
-      label: 'Afirmación pública',
-      hint: 'Revisá la fuente, el contexto y la fecha.',
-      summary: `El contenido se analiza como una afirmación pública y conviene contrastar fuente, contexto y fecha.`,
-      prudentConclusion: `No lo trataría como comprobado; pediría la fuente original y el contexto antes de compartirlo.`,
-      verdict: `Evaluación prudente para ${input.noun}: conviene verificar fuente y contexto.`,
-      modules: ['Fuente', 'Autor', 'Fecha', 'Contexto'],
-      recommendations: ['Buscá la fuente original y la fecha de publicación.', 'Verificá si la afirmación se sostiene en varias fuentes.']
-    };
-  }
-
-  if (hasEmploymentSignals) {
-    return {
-      key: 'employment',
-      label: 'Empleo',
-      hint: 'Revisá condiciones, sueldo y contexto de contratación.',
-      summary: `El contenido se analiza como una oferta o propuesta de empleo y conviene verificar condiciones reales.`,
-      prudentConclusion: `No lo tomaría como certeza de contratación o condiciones; pediría contexto y detalles concretos.`,
-      verdict: `Evaluación prudente para ${input.noun}: conviene verificar condiciones y contexto.`,
-      modules: ['Condiciones', 'Sueldo', 'Responsabilidades', 'Empresa'],
-      recommendations: ['Pedí detalles sobre el puesto y la empresa.', 'Contrastá lo anunciado con condiciones reales.']
-    };
-  }
-
-  if (/promesa|garant[aí]a|oferta|publicidad|descuento|promo|producto|servicio|marketing|venta/.test(all)) {
-    return {
-      key: 'commercial-promise',
-      label: 'Promesa comercial',
-      hint: 'Revisá garantías, urgencia y respaldo.',
-      summary: `El contenido parece una promesa comercial y conviene verificar la oferta, el respaldo y los términos.`,
-      prudentConclusion: `No asumiría que la promesa es cierta sin revisar respaldo, condiciones y contexto.`,
-      verdict: `Evaluación prudente para ${input.noun}: conviene verificar la oferta y sus condiciones.`,
-      modules: ['Garantías', 'Términos', 'Respaldo', 'Contexto'],
-      recommendations: ['Pedí el respaldo de la promesa y los términos.', 'Contrastá la oferta con el producto o servicio real.']
-    };
-  }
-
-  if (/noticia|periodista|comunicado|prensa|redacci[oó]n|exclusivo|último momento|nota|declaraci[oó]n|afirmaci[oó]n/.test(all)) {
-    return {
-      key: 'public-claim',
-      label: 'Afirmación pública',
-      hint: 'Revisá la fuente, el contexto y la fecha.',
-      summary: `El contenido se analiza como una afirmación pública y conviene contrastar fuente, contexto y fecha.`,
-      prudentConclusion: `No lo trataría como comprobado; pediría la fuente original y el contexto antes de compartirlo.`,
-      verdict: `Evaluación prudente para ${input.noun}: conviene verificar fuente y contexto.`,
-      modules: ['Fuente', 'Autor', 'Fecha', 'Contexto'],
-      recommendations: ['Buscá la fuente original y la fecha de publicación.', 'Verificá si la afirmación se sostiene en varias fuentes.']
-    };
-  }
-
-  if (/producto|servicio|garant[ií]a|comparativa|reseña|calidad|rendimiento/.test(all)) {
-    return {
-      key: 'product-service',
-      label: 'Producto o servicio',
-      hint: 'Revisá desempeño, garantías y comparativas.',
-      summary: `El contenido se analiza como una referencia sobre producto o servicio y conviene revisar desempeño y respaldo.`,
-      prudentConclusion: `No lo tomaría como prueba de calidad o desempeño sin comparar y verificar.`,
-      verdict: `Evaluación prudente para ${input.noun}: conviene revisar garantías y contexto.`,
-      modules: ['Garantías', 'Comparativas', 'Respaldo', 'Desempeño'],
-      recommendations: ['Pedí pruebas reales o reseñas verificables.', 'Contrastá la promesa con experiencia o datos.']
-    };
-  }
-
-  return {
-    key: 'general-credibility',
-    label: 'Credibilidad general',
-    hint: 'Conviene verificar la afirmación y su contexto.',
-    summary: `El contenido se analiza con criterio prudente para ${input.noun}; conviene contrastar lo que se afirma con evidencia externa.`,
-    prudentConclusion: `No lo trataría como verdadero o falso; pediría contexto, fuente y verificación antes de decidir.`,
-    verdict: `Evaluación prudente para ${input.noun}: conviene comprobar la afirmación con evidencia externa.`,
-    modules: ['Credibilidad', 'Evidencia faltante', 'Transparencia', 'Manipulación'],
-    recommendations: ['Pedí una fuente secundaria o primaria para contrastar.', 'Tomá la conclusión como orientación y no como verdad absoluta.']
-  };
 }
 
 function detectDomain(text: string, inputKind: string) {
@@ -244,22 +91,6 @@ function detectDomain(text: string, inputKind: string) {
     focus: topic.hint,
     modules: topic.modules
   };
-}
-
-function evidenceSignals(text: string) {
-  const urls = text.match(/https?:\/\/\S+/g) || [];
-  const money = text.match(/\$\s?[0-9.]+/g) || [];
-  const percents = text.match(/[0-9]+(?:,[0-9]+|\.[0-9]+)?\s?%/g) || [];
-  const dates = text.match(/\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b|\b20\d{2}\b/g) || [];
-  const strong = text.match(/garantizad[oa]s?|sin riesgo|sin esfuerzo|100%|comprobado|millonario|cura|definitivo/gi) || [];
-
-  return [
-    urls.length ? `${urls.length} enlaces visibles` : 'No se observan enlaces visibles',
-    money.length ? `${money.length} montos detectados` : 'No se observan montos relevantes',
-    percents.length ? `${percents.length} porcentajes detectados` : 'No se observan porcentajes relevantes',
-    dates.length ? `${dates.length} fechas o años detectados` : 'No se observan fechas claras',
-    strong.length ? `${strong.length} afirmaciones fuertes o absolutas` : 'No se detectan afirmaciones absolutas dominantes'
-  ];
 }
 
 async function extractPdfText(file: File): Promise<Extraction> {
@@ -337,6 +168,7 @@ function youtubeNote(url: string) {
 function buildLocalAnalysis(text: string, inputKind: string, fileName: string, extraction: Extraction | null) {
   const domain = detectDomain(text, inputKind);
   const topic = detectTopic(text, inputKind);
+  const evidence = extractEvidenceSignals(text);
   const all = `${text} ${fileName}`.toLowerCase();
 
   const missing = !/(fuente|estudio|metodolog|contrato|bases|condiciones|cft|tea|tna|bibliograf|reglamento)/i.test(all);
@@ -394,7 +226,6 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
     }
   ];
 
-  const signals = evidenceSignals(text);
   const inputText = describeInput(inputKind);
   const shortText = inputKind === 'Texto' && text.trim().length < 220;
 
@@ -442,18 +273,18 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
     worstCase: academic ? 'Acusar erróneamente a un alumno sin evidencia concluyente.' : 'Tomar una decisión impulsiva con información incompleta.',
     improved: academic ? 'Pedir al alumno una breve defensa oral, fuentes usadas, borradores y explicación del proceso.' : 'Explicar alcance, límites, requisitos, evidencia, costos, riesgos y condiciones verificables.',
     evidenceFound: [
-      ...signals,
+      ...evidence.signals,
       `Elementos verificables detectados: revisar nombres, fechas, cifras y fuentes dentro de ${inputText.phrase}.`,
       missing ? 'Afirmaciones que requieren fuente o metodología adicional.' : 'El contenido incluye algunos elementos que pueden contrastarse.',
       academic ? 'Señales académicas: revisar bibliografía, coherencia del estilo y defensa oral.' : 'No se activó como eje académico principal.',
       financial ? 'Señales financieras: verificar CFT, TEA, TNA, comisiones, seguros e IVA.' : 'No se activó como oferta financiera principal.'
     ].filter(Boolean),
-    scoreExplanation: [
-      'El puntaje se calcula ponderando evidencia visible, transparencia, consistencia, riesgos y señales de manipulación.',
-      missing ? 'Baja porque faltan fuentes, metodología o respaldo verificable.' : 'Sube porque hay más elementos contrastables.',
-      promise ? 'Baja por promesas fuertes o lenguaje absoluto.' : 'No se detectó una promesa extraordinaria dominante.',
-      extraction?.chars ? `Sube la confianza porque se pudo leer contenido real de ${inputText.phrase}.` : `Baja la confianza porque no se pudo leer completo ${inputText.phrase}.`
-    ].filter(Boolean),
+    scoreExplanation: buildScoreExplanation(text, topic.key, inputKind, riskScore, [
+      missing ? 'Faltan fuentes o metodología verificable.' : '',
+      promise ? 'Hay promesas fuertes o lenguaje absoluto.' : '',
+      financial ? 'Faltan costos financieros completos.' : '',
+      academic ? 'Falta trazabilidad o contexto metodológico.' : ''
+    ].filter(Boolean)),
     refutationPoints: [
       'Verificar autor, fecha, fuente original y trazabilidad del contenido.',
       'Pedir respaldo para las afirmaciones centrales.',
@@ -461,7 +292,7 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       financial ? 'Exigir contrato completo y costo financiero total.' : '',
       academic ? 'Pedir borradores, fuentes y defensa oral antes de concluir uso de IA.' : ''
     ].filter(Boolean),
-    improvementPlan: topic.recommendations.concat(domain.modules).slice(0, 8),
+    improvementPlan: buildRecommendations(text, topic.key, inputKind).concat(buildRiskItems(text, inputKind)).slice(0, 8),
     topic: topic.key,
     topicLabel: topic.label,
     topicHint: topic.hint

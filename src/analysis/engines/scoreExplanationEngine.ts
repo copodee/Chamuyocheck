@@ -1,0 +1,35 @@
+import { extractEvidenceHints } from './evidenceExtractor';
+
+export function buildScoreExplanation(text: string, topic: string | undefined, inputKind: string, score: number, issues: string[]) {
+  const hints = extractEvidenceHints(text);
+  const items = [
+    `El score base se ajusta por evidencia visible, contexto y señales de manipulación.`,
+    `El puntaje sube cuando aparecen datos verificables, fechas, links o metodología.`
+  ];
+
+  if (score >= 70) {
+    items.push('El puntaje refleja que hay más riesgo de interpretación o falta de trazabilidad.');
+  } else {
+    items.push('El puntaje refleja que la información es más prudente y requiere corroboración.');
+  }
+
+  if (hints.length) {
+    items.push(`Se encontró ${hints.join(', ')}.`);
+  }
+
+  if (issues.length) {
+    items.push(`Lo que bajó el puntaje: ${issues.slice(0, 3).join(' ')}`);
+  }
+
+  if (topic === 'finance') {
+    items.push('El riesgo más pesado es la falta de costos completos, tasas o condiciones visibles.');
+  } else if (topic === 'employment') {
+    items.push('El riesgo más pesado es la ausencia de datos verificables sobre el puesto o la empresa.');
+  } else if (topic === 'academic') {
+    items.push('El riesgo más pesado es la falta de trazabilidad del método o de las fuentes.');
+  } else {
+    items.push('El riesgo más pesado suele ser la falta de fuente original, fecha o contexto.');
+  }
+
+  return items.slice(0, 6);
+}
