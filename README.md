@@ -235,3 +235,14 @@ Corrige el error de build:
 Cambio:
 - Reemplaza la variable inexistente `evidenceSignals`.
 - Usa el resultado real del helper local `extractEvidenceSignalsLocal(text)`.
+
+
+# V15.8 Evidence Variable Fix
+
+Corrige el error de build:
+
+`Cannot find name 'evidence'`
+
+Cambio:
+- Declara `const evidence = extractEvidenceSignalsLocal(text)` antes de usarlo.
+- Convierte las señales en texto seguro dentro del prompt.
