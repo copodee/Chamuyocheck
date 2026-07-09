@@ -68,7 +68,7 @@ function inferLocalDoc(text: string, file: File | null, url: string) {
   return { icon: '📝', label: 'Texto recibido', focus: 'Clasificación automática' };
 }
 
-function getInputLabel(kind: string) {
+function getInputLabel(kind: string, hasRealFile = false) {
   switch (kind) {
     case 'PDF':
       return 'documento PDF';
@@ -78,6 +78,8 @@ function getInputLabel(kind: string) {
       return 'sitio web';
     case 'YouTube':
       return 'video de YouTube';
+    case 'Archivo':
+      return hasRealFile ? 'archivo' : 'texto ingresado';
     default:
       return 'texto ingresado';
   }
@@ -157,10 +159,81 @@ function getTopicMeta(topic?: string) {
   }
 }
 
-function buildReportSections(analysis: Analysis, inputKind: string, text: string) {
+function getTopicSectionTemplates(topic: string | undefined, inputLabel: string, shortText: boolean, inputKind: string) {
+  switch (topic) {
+    case 'health':
+      return {
+        strengths: ['Se identifican señales de riesgo o contexto clínico que conviene revisar.', 'La revisión prioriza respaldo médico y advertencias de seguridad.'],
+        weaknesses: ['Faltan referencias clínicas, contexto del paciente o contraindicaciones visibles.', 'No se observan dosis, duración ni límites claros del uso.'],
+        risks: ['La recomendación podría implicar riesgos si se toma sin verificación médica.', 'Hay margen para confusión entre evidencia y consejo clínico.'],
+        verify: ['¿Qué guías o fuentes médicas respaldan la recomendación?', '¿Hay dosis, contraindicaciones o contexto de uso explícitos?'],
+        recommendations: ['Pedí respaldo médico o fuentes científicas antes de actuar.', 'Contrastá la recomendación con guías clínicas y contexto real.']
+      };
+    case 'finance':
+      return {
+        strengths: ['Se reconoce el intento de mostrar costos y condiciones de forma explícita.', 'La revisión resalta la necesidad de ver la letra chica y el costo total.'],
+        weaknesses: ['Faltan CFT, TEA, TNA, comisiones, seguros o IVA visibles.', 'No se observan condiciones completas del contrato o del financiamiento.'],
+        risks: ['La oferta puede esconder costos o condiciones desfavorables.', 'Hay riesgo de asumir una promesa sin revisar el costo real.'],
+        verify: ['¿Cuál es el costo total real con todas las cargas incluidas?', '¿Qué condiciones, comisiones y límites aparecen en el contrato?'],
+        recommendations: ['Pedí el costo total y la letra chica antes de decidir.', 'Verificá tasas, cargos y condiciones regulatorias.']
+      };
+    case 'legal':
+      return {
+        strengths: ['Se identifican cláusulas, derechos o obligaciones que merecen revisión.', 'La lectura pone foco en obligaciones y contexto contractual.'],
+        weaknesses: ['Faltan términos claros, excepciones o jurisdicción visible.', 'No se observan obligaciones, penalidades o alcance completo.'],
+        risks: ['Una cláusula ambigua puede generar obligaciones o pérdidas inesperadas.', 'La decisión puede basarse en un texto incompleto o poco claro.'],
+        verify: ['¿Qué cláusulas son clave y qué obligaciones implican?', '¿Qué marco legal o jurisdicción rige el documento?'],
+        recommendations: ['Contrastá cláusulas con el contrato real y el marco aplicable.', 'Pedí aclaraciones sobre obligaciones, penalidades y derechos.']
+      };
+    case 'employment':
+      return {
+        strengths: ['Se identifican detalles del puesto, empresa o condiciones que conviene revisar.', 'La revisión señala si hay elementos de contratación o responsabilidades visibles.'],
+        weaknesses: ['Faltan salario, requisitos, responsabilidades o contexto de contratación.', 'No se observan condiciones claras de contratación o empresa.'],
+        risks: ['La oferta puede ser engañosa o incompleta si no se revisan los detalles.', 'Hay riesgo de asumir condiciones reales sin respaldo.'],
+        verify: ['¿Qué salario, requisitos o condiciones de contratación aparecen?', '¿Qué datos de la empresa o del puesto están faltando?'],
+        recommendations: ['Pedí detalles del puesto, empresa y condiciones reales.', 'Contrastá la oferta con información verificable antes de postularte.']
+      };
+    case 'academic':
+      return {
+        strengths: ['Se nota estructura, argumentación o referencias que pueden respaldar la revisión.', 'La evaluación aprovecha fuentes, método o trazabilidad cuando existen.'],
+        weaknesses: ['Faltan fuentes, método, bibliografía o defensa del trabajo.', 'No se observan pruebas de autoría, trazabilidad o proceso claro.'],
+        risks: ['La conclusión puede ser excesiva si no hay base metodológica o bibliográfica.', 'Hay riesgo de asumir autoría o uso de IA sin pruebas.'],
+        verify: ['¿Qué fuentes, método o borradores sostienen el trabajo?', '¿Puede el autor defender el resultado con evidencia concreta?'],
+        recommendations: ['Pedí fuentes y contexto metodológico antes de concluir.', 'No tomes como prueba de autoría o IA sin respaldo.']
+      };
+    case 'public-claim':
+      return {
+        strengths: ['Se reconocen señales de fuente, fecha o contexto que conviene revisar.', 'La revisión prioriza la trazabilidad del mensaje y su origen.'],
+        weaknesses: ['Faltan fuente original, fecha o contexto verificable.', 'No se observa contraste con otras fuentes o referencias.'],
+        risks: ['La afirmación puede circular sin respaldo suficiente.', 'Hay riesgo de compartir información fuera de contexto.'],
+        verify: ['¿Cuál es la fuente original y la fecha de publicación?', '¿Se sostiene la afirmación en otras fuentes independientes?'],
+        recommendations: ['Buscá la fuente original y el contexto antes de compartirla.', 'Contrastá la afirmación con fuentes independientes.']
+      };
+    case 'product-service':
+      return {
+        strengths: ['Se reconocen características, garantías o datos de producto o servicio.', 'La revisión pone foco en desempeño, respaldo y comparativas.'],
+        weaknesses: ['Faltan pruebas reales, reseñas verificables o garantías claras.', 'No se observan comparativas o respaldo del desempeño.'],
+        risks: ['La promesa puede ser exagerada o no verificable.', 'Hay riesgo de asumir calidad o rendimiento sin comprobación.'],
+        verify: ['¿Qué pruebas reales o testimonios verificables respaldan la oferta?', '¿Qué garantías, condiciones o comparativas están evidenciadas?'],
+        recommendations: ['Pedí pruebas reales o reseñas verificables antes de decidir.', 'Contrastá la promesa con la experiencia o los datos del producto.']
+      };
+    default:
+      return {
+        strengths: [`El ${inputLabel} aporta contexto suficiente para orientar la revisión.`],
+        weaknesses: [shortText && inputKind === 'Texto' ? 'La afirmación requiere verificación externa y contexto adicional.' : `Conviene completar la verificación del ${inputLabel} con fuentes o condiciones claras.`],
+        risks: [`El ${inputLabel} necesita contraste antes de tomar una decisión.`],
+        verify: [`¿Qué evidencia externa respalda esta afirmación sobre ${inputLabel}?`],
+        recommendations: ['Pedí una fuente secundaria o primaria para contrastar la afirmación.']
+      };
+  }
+}
+
+function buildReportSections(analysis: Analysis, inputKind: string, text: string, hasRealFile = false) {
   const shortText = inputKind === 'Texto' && text.trim().length < 220;
   const topic = getTopicMeta(analysis.topic);
-  const inputLabel = getInputLabel(inputKind);
+  const inputLabel = getInputLabel(inputKind, hasRealFile);
+  const templates = getTopicSectionTemplates(analysis.topic, inputLabel, shortText, inputKind);
+
   const strengths = (analysis.evidenceFound || []).filter(Boolean).slice(0, 4);
   const weaknesses = (analysis.missingInformation || []).filter(Boolean).map((item) => {
     if (shortText && inputKind === 'Texto' && /fuente|fuentes/i.test(item)) {
@@ -172,20 +245,20 @@ function buildReportSections(analysis: Analysis, inputKind: string, text: string
   const verify = (analysis.questions || []).filter(Boolean).slice(0, 4);
   const recommendations = (analysis.improvementPlan || []).filter(Boolean).slice(0, 4);
 
-  if (!strengths.length) {
-    strengths.push(`El ${inputLabel} aporta contexto suficiente para orientar la revisión.`);
+  if (strengths.length < 2) {
+    strengths.push(...templates.strengths.filter((item) => !strengths.includes(item)).slice(0, 2));
   }
-  if (!weaknesses.length) {
-    weaknesses.push(shortText && inputKind === 'Texto' ? 'La afirmación requiere verificación externa y contexto adicional.' : `Conviene completar la verificación del ${inputLabel} con fuentes o condiciones claras.`);
+  if (weaknesses.length < 2) {
+    weaknesses.push(...templates.weaknesses.filter((item) => !weaknesses.includes(item)).slice(0, 2));
   }
-  if (!risks.length) {
-    risks.push(`El ${inputLabel} necesita contraste antes de tomar una decisión.`);
+  if (risks.length < 2) {
+    risks.push(...templates.risks.filter((item) => !risks.includes(item)).slice(0, 2));
   }
-  if (!verify.length) {
-    verify.push(`¿Qué evidencia externa respalda esta afirmación sobre ${inputLabel}?`);
+  if (verify.length < 2) {
+    verify.push(...templates.verify.filter((item) => !verify.includes(item)).slice(0, 2));
   }
-  if (!recommendations.length) {
-    recommendations.push(topic.advice[0]);
+  if (recommendations.length < 2) {
+    recommendations.push(...templates.recommendations.filter((item) => !recommendations.includes(item)).slice(0, 2));
   }
 
   return {
@@ -202,9 +275,9 @@ function moduleCard(c: Cat, i: number) {
   return <div className="module" key={i}><b>{c.name}</b><Bar score={c.score} /><p>{c.explanation}</p></div>;
 }
 
-function getScoreExplanationItems(analysis: Analysis, inputKind: string, text: string) {
+function getScoreExplanationItems(analysis: Analysis, inputKind: string, text: string, hasRealFile = false) {
   const items: string[] = [];
-  const inputLabel = getInputLabel(inputKind);
+  const inputLabel = getInputLabel(inputKind, hasRealFile);
 
   (analysis.categoryScores || []).slice(0, 6).forEach((cat) => {
     if (cat?.name) {
@@ -225,6 +298,22 @@ function getScoreExplanationItems(analysis: Analysis, inputKind: string, text: s
     if (hints.length) {
       items.push(`Contexto detectado: el ${inputLabel} ${hints.join(', ')}.`);
     }
+  }
+
+  if (analysis.topic === 'health') {
+    items.push('Se penaliza cuando la afirmación promete efectos o seguridad sin una base clínica clara.');
+  } else if (analysis.topic === 'finance') {
+    items.push('Se penaliza cuando faltan costos, tasas, cargos o condiciones visibles.');
+  } else if (analysis.topic === 'legal') {
+    items.push('Se penaliza cuando hay cláusulas ambiguas o ausencia de contexto contractual.');
+  } else if (analysis.topic === 'employment') {
+    items.push('Se penaliza cuando no hay condiciones de contratación, puesto o empresa verificables.');
+  } else if (analysis.topic === 'academic') {
+    items.push('Se penaliza cuando faltan fuentes, método o trazabilidad del trabajo.');
+  } else if (analysis.topic === 'public-claim') {
+    items.push('Se penaliza cuando la afirmación carece de fuente original, fecha o contexto.');
+  } else if (analysis.topic === 'product-service') {
+    items.push('Se penaliza cuando la oferta carece de pruebas reales o garantías verificables.');
   }
 
   if (!items.length) {
@@ -323,8 +412,11 @@ export default function Page() {
 
   const score = analysis?.score ?? 81;
   const semaforo = score >= 75 ? { txt: 'Podés avanzar con verificación', color: 'var(--green)' } : score >= 45 ? { txt: 'Verificá antes de decidir', color: 'var(--yellow)' } : { txt: 'No decidas todavía', color: 'var(--red)' };
-  const reportSections = analysis ? buildReportSections(analysis, detected, text) : null;
-  const scoreExplanationItems = analysis ? getScoreExplanationItems(analysis, analysis.detectedInput || detected, text) : [];
+  const reportSections = analysis ? buildReportSections(analysis, detected, text, Boolean(file)) : null;
+  const scoreExplanationItems = analysis ? getScoreExplanationItems(analysis, analysis.detectedInput || detected, text, Boolean(file)) : [];
+  const shouldShowScoreExplanationPanel = showScoreExplanation && scoreExplanationItems.length > 0;
+  const toggleScoreExplanation = () => setShowScoreExplanation((value) => !value);
+  const executiveSummaryText = showFullSummary ? analysis?.summary : analysis?.verdict;
 
   return <div className="appShell">
     <input ref={fileRef} type="file" accept=".pdf,image/*,.txt,.doc,.docx" hidden onChange={(e) => onFile(e.target.files?.[0])} />
@@ -364,17 +456,17 @@ export default function Page() {
           {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}
           <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Agregá contexto o la pregunta que querés verificar sobre el video.' : activeInput === 'Web' ? 'Agregá contexto o una pregunta sobre el sitio web.' : 'Pegá texto o agregá una pregunta sobre el documento.'} />
           {!isPro && <div className={`counter ${textTooLong ? 'bad' : ''}`}>{text.length}/{FREE_CHARS}</div>}
-          <div className="ctaRow"><button type="button" className="primary" onClick={analyze} disabled={loading || locked || textTooLong || proInput}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">Entrada: {getInputLabel(detected)}</span></div>
+          <div className="ctaRow"><button type="button" className="primary" onClick={analyze} disabled={loading || locked || textTooLong || proInput}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">Entrada: {getInputLabel(detected, Boolean(file))}</span></div>
           {(locked || textTooLong || proInput) && <div className="paywall">Starter permite 3 análisis de texto de hasta 250 caracteres. Pasá a Pro para todas las funciones.</div>}
           {loading && <div className="loading">{steps.map((s, i) => <p key={i}>{s}</p>)}</div>}
         </div>
       </section>
-      {analysis && <section id="informe">
+      {analysis && <section id="informe" className="analysisSection">
         <div className="heroGrid">
           <div className="panel scoreCard">
             <div className="scoreWrap">
               <div className="circleScore" style={{ ['--p' as any]: score }}><div><span>{score}</span><small>/100</small></div></div>
-              <div className="scoreText"><h2>ChamuyoScore™</h2><h3>{score >= 75 ? 'Buena confiabilidad' : score >= 45 ? 'Confiabilidad media' : 'Requiere alta verificación'}</h3><p>{analysis.summary}</p><button type="button" className="ghost" onClick={() => setShowScoreExplanation((v) => !v)}>{showScoreExplanation ? 'Ocultar explicación del puntaje' : 'Ver explicación del puntaje'}</button>{showScoreExplanation && <div className="scoreExplanationPanel"><ul>{scoreExplanationItems.map((item, i) => <li key={i}>{item}</li>)}</ul></div>}</div>
+              <div className="scoreText"><h2>ChamuyoScore™</h2><h3>{score >= 75 ? 'Buena confiabilidad' : score >= 45 ? 'Confiabilidad media' : 'Requiere alta verificación'}</h3><p>{analysis.summary}</p><button type="button" className="ghost" onClick={toggleScoreExplanation} aria-expanded={showScoreExplanation}>{showScoreExplanation ? 'Ocultar explicación del puntaje' : 'Ver explicación del puntaje'}</button>{shouldShowScoreExplanationPanel && <div className="scoreExplanationPanel" role="region" aria-live="polite"><ul>{scoreExplanationItems.map((item, i) => <li key={i}>{item}</li>)}</ul></div>}</div>
             </div>
           </div>
           <div className="panel decisionCard"><div className="light" style={{ background: semaforo.color }}></div><div><h2>Semáforo de decisiones</h2><h3 style={{ color: semaforo.color }}>{semaforo.txt}</h3><p>{analysis.prudentConclusion}</p></div></div>
@@ -393,8 +485,7 @@ export default function Page() {
               <h3>▣ Resumen ejecutivo</h3>
               <button type="button" className="ghost" onClick={() => setShowFullSummary((v) => !v)}>{showFullSummary ? 'Ocultar resumen' : 'Leer resumen completo'}</button>
             </div>
-            <p>{showFullSummary ? analysis.summary : analysis.verdict}</p>
-            {showFullSummary && analysis.summary && <p className="summaryExpanded">{analysis.summary}</p>}
+            <p>{executiveSummaryText}</p>
           </div>
           <div className="card"><h3 className="ok">✓ Fortalezas</h3><ul>{reportSections?.strengths.slice(0, 5).map((x, i) => <li key={i}>{x}</li>)}</ul></div>
           <div className="card"><h3 className="warn">! Debilidades</h3><ul>{reportSections?.weaknesses.slice(0, 5).map((x, i) => <li key={i}>{x}</li>)}</ul></div>

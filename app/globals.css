@@ -45,7 +45,7 @@ button,input,textarea{font:inherit}
 .proBox button{width:100%;border:1px solid rgba(124,58,237,.5);background:rgba(124,58,237,.22);color:#eee8ff;border-radius:10px;padding:12px;font-weight:900}
 .userBox{border-top:1px solid var(--border);padding-top:18px;display:flex;gap:12px;align-items:center}
 .avatar{width:44px;height:44px;border-radius:50%;background:#1f2937;display:grid;place-items:center;font-weight:900}
-.main{min-width:0;padding:34px 28px 80px}
+.main{min-width:0;padding:34px 28px 80px;display:flex;flex-direction:column}
 .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
 .status{display:flex;gap:12px;align-items:center}
 .check{width:40px;height:40px;border-radius:50%;border:1px solid rgba(34,229,139,.45);background:rgba(34,229,139,.10);display:grid;place-items:center;color:var(--green);font-weight:1000}
@@ -113,7 +113,7 @@ textarea{min-height:210px;resize:vertical;font-family:ui-monospace,SFMono-Regula
 .paywall{margin-top:14px;border:1px solid rgba(255,201,40,.35);background:rgba(255,201,40,.08);border-radius:14px;padding:16px}
 .counter{margin-top:8px;color:var(--muted);font-size:13px;text-align:right}.counter.bad{color:var(--red)}
 @media(max-width:1180px){.appShell{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.legalFooter{left:0}.heroGrid,.cards,.verifyBand{grid-template-columns:1fr}.heroIntroGrid{grid-template-columns:1fr}.metaCard{grid-template-columns:1fr 1fr}.scoreWrap{grid-template-columns:1fr}.circleScore{margin:auto}}
-@media(max-width:720px){.main{padding:18px 14px 80px}.topbar{align-items:flex-start;gap:14px;flex-direction:column}.heroIntroPanel,.inputPanel{padding:20px}.heroHighlights{grid-template-columns:1fr}.metaCard,.moduleGrid,.verifyList{grid-template-columns:1fr}.circleScore{width:150px;height:150px}.circleScore:before{width:120px;height:120px}.circleScore span{font-size:46px}.cards{gap:10px}}
+@media(max-width:720px){.main{padding:18px 14px 80px}.topbar{align-items:flex-start;gap:14px;flex-direction:column}.heroIntroPanel,.inputPanel{padding:20px}.heroHighlights{grid-template-columns:1fr}.metaCard,.moduleGrid,.verifyList{grid-template-columns:1fr}.circleScore{width:150px;height:150px}.circleScore:before{width:120px;height:120px}.circleScore span{font-size:46px}.cards{gap:10px}.heroIntroGrid{display:flex;flex-direction:column}.analysisSection{order:2}}
 
 
 /* RC3 - Plan gratuito e historial */

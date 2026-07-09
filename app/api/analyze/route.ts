@@ -47,8 +47,8 @@ function describeInput(inputKind: string) {
 function detectTopic(text: string, inputKind: string) {
   const all = text.toLowerCase();
   const input = describeInput(inputKind);
-  const isPublicRelease = /(comunicado|comunicación|nota de prensa|press release|prensa|institucional|declaración|afirmación pública|comunicado de prensa|anuncio institucional|boletín|nota oficial|empresa|gobierno|grupo)/i.test(all);
-  const hasEmploymentSignals = /(puesto|vacante|salario|contrataci[oó]n|cv|curriculum|postulaci[oó]n|requisitos laborales|entrevista|empleo|trabajo|recruiter|reclutador|job)/i.test(all);
+  const isPublicRelease = /(comunicado|comunicación|nota de prensa|press release|prensa|institucional|declaración|afirmación pública|comunicado de prensa|anuncio institucional|boletín|nota oficial|nota|public statement|company note|empresa|gobierno|grupo)/i.test(all);
+  const hasEmploymentSignals = /\b(vacante|vacancy|hiring|cv|curriculum vitae|curriculum|postulaci[oó]n|job application|salario|salary|recruiter|reclutador|entrevista|interview|puesto|position|contrato de trabajo|employment contract|requisitos (para|del|de) (el )?(puesto|cargo|rol)|requirements for (a|the) (role|position)|oferta de empleo|oferta laboral|candidato|empleador|empleado)\b/i.test(all);
 
   if (/salud|medicamento|tratamiento|cura|c[aá]ncer|dolor|s[ií]ntoma|suplemento|dosis|paciente|diagn[oó]stico/.test(all)) {
     return {
@@ -488,7 +488,7 @@ export async function POST(req: Request) {
     let extraction: Extraction | null = null;
 
     if (file instanceof File && file.size > 0) {
-      fileName = file.name || 'archivo';
+      fileName = file.name || '';
       fileType = file.type || '';
 
       if (/\.pdf$/i.test(fileName) || /pdf/i.test(fileType)) {
@@ -541,7 +541,7 @@ export async function POST(req: Request) {
     }
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const prompt = `Actuá como ChamuyoCheck, auditor documental prudente. Priorizá el contenido extraído del archivo por encima de la pregunta del usuario. Identificá el tipo de documento/contenido antes del score. Si el PDF no tiene texto extraíble, indicá que necesita OCR. Si el usuario pregunta si fue hecho con IA, respondé como estimación no concluyente: nunca acuses ni afirmes uso de IA/plagio. Respondé SOLO JSON con estas claves: documentIcon, documentType, documentFocus, extractionStatus, extractedChars, extractedPreview, score, risk, confidence, detectedTheme, detectedInput, centralQuestion, summary, prudentConclusion, verdict, categoryScores, modules, flaggedPhrases, issues, questions, missingInformation, worstCase, improved, evidenceFound, scoreExplanation, refutationPoints, improvementPlan, topic, topicLabel, topicHint.
+    const prompt = `Actuá como ChamuyoCheck, auditor documental prudente. Priorizá el contenido extraído del documento o del archivo por encima de la pregunta del usuario. Identificá el tipo de documento/contenido antes del score. Si el PDF no tiene texto extraíble, indicá que necesita OCR. Si el usuario pregunta si fue hecho con IA, respondé como estimación no concluyente: nunca acuses ni afirmes uso de IA/plagio. Respondé SOLO JSON con estas claves: documentIcon, documentType, documentFocus, extractionStatus, extractedChars, extractedPreview, score, risk, confidence, detectedTheme, detectedInput, centralQuestion, summary, prudentConclusion, verdict, categoryScores, modules, flaggedPhrases, issues, questions, missingInformation, worstCase, improved, evidenceFound, scoreExplanation, refutationPoints, improvementPlan, topic, topicLabel, topicHint.
 
 Contenido:
 ${fullText.slice(0, 18000)}`;
