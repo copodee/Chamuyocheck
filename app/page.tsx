@@ -1,6 +1,7 @@
 
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { readLocalHistory, type HistoryItem } from '../src/lib/history/localHistory';
 
 type Cat = { name: string; score: number; explanation: string };
 type Analysis = {
@@ -367,9 +368,24 @@ export default function Page() {
   const [activeInput, setActiveInput] = useState<InputMode>('Texto');
   const [showFullSummary, setShowFullSummary] = useState(false);
   const [showScoreExplanation, setShowScoreExplanation] = useState(false);
+  const [activeView, setActiveView] = useState<'inicio' | 'historial' | 'favoritos' | 'plantillas' | 'comparar' | 'mejorar' | 'ajustes'>('inicio');
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [favoritesItems, setFavoritesItems] = useState<string[]>([]);
+  const [templatesItems, setTemplatesItems] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { setUsed(Number(localStorage.getItem('cc_used') || '0')); }, []);
+  useEffect(() => {
+    setHistoryItems(readLocalHistory());
+    if (typeof window === 'undefined') return;
+    try {
+      setFavoritesItems(JSON.parse(localStorage.getItem('cc_favorites') || '[]'));
+      setTemplatesItems(JSON.parse(localStorage.getItem('cc_templates') || '[]'));
+    } catch {
+      setFavoritesItems([]);
+      setTemplatesItems([]);
+    }
+  }, []);
 
   function setUsage(n: number) {
     setUsed(n);
@@ -447,14 +463,53 @@ export default function Page() {
   const shouldShowScoreExplanationPanel = showScoreExplanation && scoreExplanationItems.length > 0;
   const toggleScoreExplanation = () => setShowScoreExplanation((value) => !value);
   const executiveSummaryText = showFullSummary ? analysis?.summary : analysis?.verdict;
+  const openHome = () => {
+    setActiveView('inicio');
+    setShowFullSummary(false);
+    setShowScoreExplanation(false);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => document.getElementById('inicio-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    }
+  };
+  const startNewAnalysis = () => {
+    setAnalysis(null);
+    setText('');
+    setUrl('');
+    setFile(null);
+    setActiveInput('Texto');
+    setShowFullSummary(false);
+    setShowScoreExplanation(false);
+    setActiveView('inicio');
+    setTab('Resumen');
+    setLoading(false);
+    setSteps([]);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => document.getElementById('inicio-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    }
+  };
+  const openHistory = () => setActiveView('historial');
+  const openFavorites = () => setActiveView('favoritos');
+  const openTemplates = () => setActiveView('plantillas');
+  const openCompare = () => setActiveView('comparar');
+  const openImprove = () => setActiveView('mejorar');
+  const openSettings = () => setActiveView('ajustes');
 
   return <div className="appShell">
     <input ref={fileRef} type="file" accept=".pdf,image/*,.txt,.doc,.docx" hidden onChange={(e) => onFile(e.target.files?.[0])} />
     <aside className="sidebar">
       <div className="brand"><div className="shield">✓</div><div><div className="logo">CHAMUYO<span>CHECK</span></div><div className="tag">Analizá antes de decidir</div></div></div>
-      <button type="button" className="newBtn" onClick={() => { setAnalysis(null); setText(''); setUrl(''); setFile(null); setActiveInput('Texto'); setShowFullSummary(false); }}>＋ Nuevo análisis</button>
+      <button type="button" className="newBtn" onClick={startNewAnalysis}>＋ Nuevo análisis</button>
       <div className="nav">
-        <a className="active">⌂ Inicio</a><a>◴ Historial</a><a>☆ Favoritos</a><a>▤ Plantillas</a><a>⚖ Comparar <small>PRO</small></a><a>↑ Mejorar documento</a><a>⚙ Ajustes</a><a>? Ayuda</a>
+        <button type="button" className={activeView === 'inicio' ? 'active' : ''} onClick={openHome}>⌂ Inicio</button>
+        <button type="button" className={activeView === 'historial' ? 'active' : ''} onClick={openHistory}>◴ Historial</button>
+        <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>
+        <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>
+        <button type="button" className={activeView === 'comparar' ? 'active' : ''} onClick={openCompare}>⚖ Comparar <small>PRO</small></button>
+        <button type="button" className={activeView === 'mejorar' ? 'active' : ''} onClick={openImprove}>↑ Mejorar documento</button>
+        <button type="button" className={activeView === 'ajustes' ? 'active' : ''} onClick={openSettings}>⚙ Ajustes</button>
+        <button type="button">? Ayuda</button>
       </div>
       <div className="proBox"><b>🔎 CHAMUYOCHECK</b><p>Analizá contenido con una evaluación prudente y más.</p><button type="button" onClick={() => setPlan('pro')}>Ver planes</button></div>
       <div className="userBox"><div className="avatar">V</div><div><b>Visitante</b><div className="hint">{isPro ? 'Plan Pro' : 'Plan Starter'}</div></div></div>
@@ -464,34 +519,35 @@ export default function Page() {
         <div className="status"><div className="check">✓</div><div><b>{analysis ? 'Análisis finalizado' : 'Nuevo análisis'}</b><div className="hint">9 de julio de 2026</div></div></div>
         <div className="topActions"><button type="button" className="ghost" onClick={() => setAnalysis(null)}>Analizar otro</button><button type="button" className="ghost">Descargar informe⌄</button><button type="button" className="iconBtn">⋮</button></div>
       </div>
-      <section className="heroGrid heroIntroGrid">
-        <div className="panel heroIntroPanel">
-          <div className="eyebrow">UX & Context Intelligence</div>
-          <h1>Analizá antes de decidir</h1>
-          <p className="heroSubtitle">No todo lo que leés, mirás o te prometen merece confianza.</p>
-          <p className="heroBody">ChamuyoCheck analiza textos, documentos, imágenes, sitios web y videos para ayudarte a detectar riesgos, manipulación, falta de evidencia y señales que conviene verificar antes de tomar una decisión.</p>
-          <div className="heroCta">Subí un PDF, pegá un texto o una URL y obtené un informe claro en segundos.</div>
-          <div className="heroHighlights">
-            <div><strong>{localDoc.label}</strong><span>{localDoc.focus}</span></div>
-            <div><strong>Modo</strong><span>{getInputDisplay(detected)}</span></div>
+      {activeView === 'inicio' ? <>
+        <section className="heroGrid heroIntroGrid">
+          <div className="panel heroIntroPanel">
+            <div className="eyebrow">UX & Context Intelligence</div>
+            <h1>Analizá antes de decidir</h1>
+            <p className="heroSubtitle">No todo lo que leés, mirás o te prometen merece confianza.</p>
+            <p className="heroBody">ChamuyoCheck analiza textos, documentos, imágenes, sitios web y videos para ayudarte a detectar riesgos, manipulación, falta de evidencia y señales que conviene verificar antes de tomar una decisión.</p>
+            <div className="heroCta">Subí un PDF, pegá un texto o una URL y obtené un informe claro en segundos.</div>
+            <div className="heroHighlights">
+              <div><strong>{localDoc.label}</strong><span>{localDoc.focus}</span></div>
+              <div><strong>Modo</strong><span>{getInputDisplay(detected)}</span></div>
+            </div>
           </div>
-        </div>
-        <div className="panel inputPanel">
-          <div className="tabs">{(['Texto', 'PDF', 'Imagen', 'Web', 'YouTube'] as InputMode[]).map((x) => <button key={x} type="button" className={`tab ${detected === x || (detected === 'Archivo' && x === 'PDF') ? 'active' : ''}`} onClick={() => x === 'PDF' || x === 'Imagen' ? chooseInputMode(x) : chooseInputMode(x)}>{x}</button>)}</div>
-          <div className={`drop ${drag ? 'drag' : ''}`} onClick={() => { if (activeInput === 'PDF' || activeInput === 'Imagen') fileRef.current?.click(); }} onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}>
-            <h3>Pegá o arrastrá cualquier contenido</h3>
-            <p>Texto · PDF · imágenes · capturas · sitios web · videos de YouTube. La temática se detecta automáticamente.</p>
-            {file && <span className="filePill">{file.name} · {fmt(file.size)}</span>}
+          <div className="panel inputPanel" id="inicio-form">
+            <div className="tabs">{(['Texto', 'PDF', 'Imagen', 'Web', 'YouTube'] as InputMode[]).map((x) => <button key={x} type="button" className={`tab ${detected === x || (detected === 'Archivo' && x === 'PDF') ? 'active' : ''}`} onClick={() => x === 'PDF' || x === 'Imagen' ? chooseInputMode(x) : chooseInputMode(x)}>{x}</button>)}</div>
+            <div className={`drop ${drag ? 'drag' : ''}`} onClick={() => { if (activeInput === 'PDF' || activeInput === 'Imagen') fileRef.current?.click(); }} onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}>
+              <h3>Pegá o arrastrá cualquier contenido</h3>
+              <p>Texto · PDF · imágenes · capturas · sitios web · videos de YouTube. La temática se detecta automáticamente.</p>
+              {file && <span className="filePill">{file.name} · {fmt(file.size)}</span>}
+            </div>
+            {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}
+            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Agregá contexto o la pregunta que querés verificar sobre el video.' : activeInput === 'Web' ? 'Agregá contexto o una pregunta sobre el sitio web.' : 'Pegá texto o agregá una pregunta sobre el documento.'} />
+            {!isPro && <div className={`counter ${textTooLong ? 'bad' : ''}`}>{text.length}/{FREE_CHARS}</div>}
+            <div className="ctaRow"><button type="button" className="primary" onClick={analyze} disabled={loading || locked || textTooLong || proInput}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">Entrada: {getInputLabel(detected, Boolean(file))}</span></div>
+            {(locked || textTooLong || proInput) && <div className="paywall">Starter permite 3 análisis de texto de hasta 250 caracteres. Pasá a Pro para todas las funciones.</div>}
+            {loading && <div className="loading">{steps.map((s, i) => <p key={i}>{s}</p>)}</div>}
           </div>
-          {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}
-          <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Agregá contexto o la pregunta que querés verificar sobre el video.' : activeInput === 'Web' ? 'Agregá contexto o una pregunta sobre el sitio web.' : 'Pegá texto o agregá una pregunta sobre el documento.'} />
-          {!isPro && <div className={`counter ${textTooLong ? 'bad' : ''}`}>{text.length}/{FREE_CHARS}</div>}
-          <div className="ctaRow"><button type="button" className="primary" onClick={analyze} disabled={loading || locked || textTooLong || proInput}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">Entrada: {getInputLabel(detected, Boolean(file))}</span></div>
-          {(locked || textTooLong || proInput) && <div className="paywall">Starter permite 3 análisis de texto de hasta 250 caracteres. Pasá a Pro para todas las funciones.</div>}
-          {loading && <div className="loading">{steps.map((s, i) => <p key={i}>{s}</p>)}</div>}
-        </div>
-      </section>
-      {analysis && <section id="informe" className="analysisSection">
+        </section>
+        {analysis && <section id="informe" className="analysisSection">
         <div className="heroGrid">
           <div className="panel scoreCard">
             <div className="scoreWrap">
@@ -531,6 +587,38 @@ export default function Page() {
         <div className="section"><h2>Especialistas activados</h2><div className="moduleGrid">{analysis.modules.map(moduleCard)}</div></div>
         <div className="section"><h2>Por qué obtuvo este puntaje</h2><ul>{(analysis.scoreExplanation || []).map((x, i) => <li key={i}>{x}</li>)}</ul></div>
         {analysis.extractedPreview && <div className="section"><h2>Datos extraídos</h2><p>{analysis.extractedPreview}</p></div>}
+      </section>}
+      </> : <section className="panel" style={{ padding: '28px', marginTop: '8px' }}>
+        {activeView === 'historial' && <>
+          <h2>Historial</h2>
+          <p className="hint">Se muestra el historial local guardado en este navegador.</p>
+          {historyItems.length ? <div className="historyMini" style={{ marginTop: '14px' }}>{historyItems.map((item) => <div className="historyItem" key={item.id}><span>{item.score}</span><div>{item.title}<small>{item.documentType} · {item.date}</small></div></div>)}</div> : <div className="paywall" style={{ marginTop: '14px' }}>Todavía no hay historial local disponible.</div>}
+        </>}
+        {activeView === 'favoritos' && <>
+          <h2>Favoritos</h2>
+          <p className="hint">Acá aparecerán los elementos marcados como favoritos.</p>
+          {favoritesItems.length ? <ul style={{ color: '#ddd4f4', lineHeight: 1.6, marginTop: '14px' }}>{favoritesItems.map((item, i) => <li key={i}>{item}</li>)}</ul> : <div className="paywall" style={{ marginTop: '14px' }}>No hay favoritos guardados todavía.</div>}
+        </>}
+        {activeView === 'plantillas' && <>
+          <h2>Plantillas</h2>
+          <p className="hint">Podés reutilizar plantillas para análisis y mejoras.</p>
+          {templatesItems.length ? <ul style={{ color: '#ddd4f4', lineHeight: 1.6, marginTop: '14px' }}>{templatesItems.map((item, i) => <li key={i}>{item}</li>)}</ul> : <div className="paywall" style={{ marginTop: '14px' }}>Todavía no hay plantillas guardadas.</div>}
+        </>}
+        {activeView === 'comparar' && <>
+          <h2>Comparar</h2>
+          <p className="hint">La comparación de documentos está disponible para usuarios Pro.</p>
+          {isPro ? <div className="paywall" style={{ marginTop: '14px' }}>Compará dos documentos y revisá diferencias de riesgo, contexto y evidencia.</div> : <div className="paywall" style={{ marginTop: '14px' }}>Activá Pro para comparar documentos y acceder a funciones avanzadas.</div>}
+        </>}
+        {activeView === 'mejorar' && <>
+          <h2>Mejorar documento</h2>
+          <p className="hint">Este panel permite proponer mejoras de claridad, respaldo y verificación.</p>
+          <div className="paywall" style={{ marginTop: '14px' }}>Podés abrir el panel de mejora desde aquí para revisar la estructura, las fuentes y los puntos a reforzar.</div>
+        </>}
+        {activeView === 'ajustes' && <>
+          <h2>Ajustes</h2>
+          <p className="hint">Configuración básica del producto y preferencias del análisis.</p>
+          <div className="paywall" style={{ marginTop: '14px' }}>Ajustes de cuenta, idioma y preferencias del flujo de análisis aparecerán aquí.</div>
+        </>}
       </section>}
     </main>
     <div className="legalFooter"><details><summary>🔒 Aviso legal</summary><p>{analysis?.legalSafeguard || 'ChamuyoCheck genera una evaluación automatizada y orientativa. No afirma veracidad, falsedad, autoría, plagio, uso de IA ni ilegalidad; no reemplaza asesoramiento profesional.'}</p></details><span>ChamuyoCheck no afirma la veracidad de la información analizada.</span></div>

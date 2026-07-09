@@ -113,7 +113,7 @@ textarea{min-height:210px;resize:vertical;font-family:ui-monospace,SFMono-Regula
 .paywall{margin-top:14px;border:1px solid rgba(255,201,40,.35);background:rgba(255,201,40,.08);border-radius:14px;padding:16px}
 .counter{margin-top:8px;color:var(--muted);font-size:13px;text-align:right}.counter.bad{color:var(--red)}
 @media(max-width:1180px){.appShell{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.legalFooter{left:0}.heroGrid,.cards,.verifyBand{grid-template-columns:1fr}.heroIntroGrid{grid-template-columns:1fr}.metaCard{grid-template-columns:1fr 1fr}.scoreWrap{grid-template-columns:1fr}.circleScore{margin:auto}}
-@media(max-width:720px){.main{padding:18px 14px 80px}.topbar{align-items:flex-start;gap:14px;flex-direction:column}.heroIntroPanel,.inputPanel{padding:20px}.heroHighlights{grid-template-columns:1fr}.metaCard,.moduleGrid,.verifyList{grid-template-columns:1fr}.circleScore{width:150px;height:150px}.circleScore:before{width:120px;height:120px}.circleScore span{font-size:46px}.cards{gap:10px}.heroIntroGrid{display:flex;flex-direction:column}.analysisSection{order:2}}
+@media(max-width:720px){.appShell{grid-template-columns:1fr}.sidebar{order:1}.main{order:2;padding:18px 14px 80px}.topbar{align-items:flex-start;gap:14px;flex-direction:column}.heroIntroPanel,.inputPanel{padding:20px}.heroHighlights{grid-template-columns:1fr}.metaCard,.moduleGrid,.verifyList{grid-template-columns:1fr}.circleScore{width:150px;height:150px}.circleScore:before{width:120px;height:120px}.circleScore span{font-size:46px}.cards{gap:10px}.heroIntroGrid{display:flex;flex-direction:column;gap:18px}.heroIntroPanel{order:1}.inputPanel{order:2}.analysisSection{order:3;margin-top:0}}
 
 
 /* RC3 - Plan gratuito e historial */
