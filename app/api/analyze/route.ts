@@ -47,6 +47,8 @@ function describeInput(inputKind: string) {
 function detectTopic(text: string, inputKind: string) {
   const all = text.toLowerCase();
   const input = describeInput(inputKind);
+  const isPublicRelease = /(comunicado|comunicación|nota de prensa|press release|prensa|institucional|declaración|afirmación pública|comunicado de prensa|anuncio institucional|boletín|nota oficial|empresa|gobierno|grupo)/i.test(all);
+  const hasEmploymentSignals = /(puesto|vacante|salario|contrataci[oó]n|cv|curriculum|postulaci[oó]n|requisitos laborales|entrevista|empleo|trabajo|recruiter|reclutador|job)/i.test(all);
 
   if (/salud|medicamento|tratamiento|cura|c[aá]ncer|dolor|s[ií]ntoma|suplemento|dosis|paciente|diagn[oó]stico/.test(all)) {
     return {
@@ -100,7 +102,20 @@ function detectTopic(text: string, inputKind: string) {
     };
   }
 
-  if (/empleo|trabajo|vacante|curriculum|entrevista|contrataci[oó]n|sueldo|salario|beneficios|empresa/.test(all)) {
+  if (isPublicRelease && !hasEmploymentSignals) {
+    return {
+      key: 'public-claim',
+      label: 'Afirmación pública',
+      hint: 'Revisá la fuente, el contexto y la fecha.',
+      summary: `El contenido se analiza como una afirmación pública y conviene contrastar fuente, contexto y fecha.`,
+      prudentConclusion: `No lo trataría como comprobado; pediría la fuente original y el contexto antes de compartirlo.`,
+      verdict: `Evaluación prudente para ${input.noun}: conviene verificar fuente y contexto.`,
+      modules: ['Fuente', 'Autor', 'Fecha', 'Contexto'],
+      recommendations: ['Buscá la fuente original y la fecha de publicación.', 'Verificá si la afirmación se sostiene en varias fuentes.']
+    };
+  }
+
+  if (hasEmploymentSignals) {
     return {
       key: 'employment',
       label: 'Empleo',
@@ -494,7 +509,7 @@ export async function POST(req: Request) {
           text: '',
           pages: null,
           chars: 0,
-          note: `Archivo recibido: ${fileName}. Extracción profunda no disponible.`
+          note: `Documento recibido: ${fileName}. Extracción profunda no disponible.`
         };
         extracted = extraction.note;
       }

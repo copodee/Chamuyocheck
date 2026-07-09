@@ -75,7 +75,7 @@ function getInputLabel(kind: string) {
     case 'Imagen':
       return 'imagen';
     case 'Web':
-      return 'página web';
+      return 'sitio web';
     case 'YouTube':
       return 'video de YouTube';
     default:
@@ -202,6 +202,38 @@ function moduleCard(c: Cat, i: number) {
   return <div className="module" key={i}><b>{c.name}</b><Bar score={c.score} /><p>{c.explanation}</p></div>;
 }
 
+function getScoreExplanationItems(analysis: Analysis, inputKind: string, text: string) {
+  const items: string[] = [];
+  const inputLabel = getInputLabel(inputKind);
+
+  (analysis.categoryScores || []).slice(0, 6).forEach((cat) => {
+    if (cat?.name) {
+      items.push(`${cat.name}: ${cat.score}/100 — ${cat.explanation}`);
+    }
+  });
+
+  (analysis.issues || []).filter(Boolean).slice(0, 4).forEach((issue) => {
+    items.push(`Señal de revisión: ${issue}`);
+  });
+
+  if (text.trim()) {
+    const hints = [] as string[];
+    if (/\$\s?\d/.test(text)) hints.push('hay montos o cifras visibles');
+    if (/%/.test(text)) hints.push('hay porcentajes visibles');
+    if (/https?:\/\//i.test(text)) hints.push('hay enlaces visibles');
+    if (/\b\d{4}\b/.test(text)) hints.push('hay fechas o años visibles');
+    if (hints.length) {
+      items.push(`Contexto detectado: el ${inputLabel} ${hints.join(', ')}.`);
+    }
+  }
+
+  if (!items.length) {
+    items.push(...(analysis.scoreExplanation || []));
+  }
+
+  return items.slice(0, 8);
+}
+
 export default function Page() {
   const [plan, setPlan] = useState<'starter' | 'pro'>('pro');
   const [used, setUsed] = useState(0);
@@ -215,6 +247,7 @@ export default function Page() {
   const [tab, setTab] = useState('Resumen');
   const [activeInput, setActiveInput] = useState<InputMode>('Texto');
   const [showFullSummary, setShowFullSummary] = useState(false);
+  const [showScoreExplanation, setShowScoreExplanation] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { setUsed(Number(localStorage.getItem('cc_used') || '0')); }, []);
@@ -291,6 +324,7 @@ export default function Page() {
   const score = analysis?.score ?? 81;
   const semaforo = score >= 75 ? { txt: 'Podés avanzar con verificación', color: 'var(--green)' } : score >= 45 ? { txt: 'Verificá antes de decidir', color: 'var(--yellow)' } : { txt: 'No decidas todavía', color: 'var(--red)' };
   const reportSections = analysis ? buildReportSections(analysis, detected, text) : null;
+  const scoreExplanationItems = analysis ? getScoreExplanationItems(analysis, analysis.detectedInput || detected, text) : [];
 
   return <div className="appShell">
     <input ref={fileRef} type="file" accept=".pdf,image/*,.txt,.doc,.docx" hidden onChange={(e) => onFile(e.target.files?.[0])} />
@@ -308,7 +342,7 @@ export default function Page() {
         <div className="status"><div className="check">✓</div><div><b>{analysis ? 'Análisis finalizado' : 'Nuevo análisis'}</b><div className="hint">9 de julio de 2026</div></div></div>
         <div className="topActions"><button type="button" className="ghost" onClick={() => setAnalysis(null)}>Analizar otro</button><button type="button" className="ghost">Descargar informe⌄</button><button type="button" className="iconBtn">⋮</button></div>
       </div>
-      {!analysis && <section className="heroGrid heroIntroGrid">
+      <section className="heroGrid heroIntroGrid">
         <div className="panel heroIntroPanel">
           <div className="eyebrow">UX & Context Intelligence</div>
           <h1>Analizá antes de decidir</h1>
@@ -324,23 +358,23 @@ export default function Page() {
           <div className="tabs">{(['Texto', 'PDF', 'Imagen', 'Web', 'YouTube'] as InputMode[]).map((x) => <button key={x} type="button" className={`tab ${detected === x || (detected === 'Archivo' && x === 'PDF') ? 'active' : ''}`} onClick={() => x === 'PDF' || x === 'Imagen' ? chooseInputMode(x) : chooseInputMode(x)}>{x}</button>)}</div>
           <div className={`drop ${drag ? 'drag' : ''}`} onClick={() => { if (activeInput === 'PDF' || activeInput === 'Imagen') fileRef.current?.click(); }} onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}>
             <h3>Pegá o arrastrá cualquier contenido</h3>
-            <p>Texto · PDF · imágenes · capturas · páginas web · videos de YouTube. La temática se detecta automáticamente.</p>
+            <p>Texto · PDF · imágenes · capturas · sitios web · videos de YouTube. La temática se detecta automáticamente.</p>
             {file && <span className="filePill">{file.name} · {fmt(file.size)}</span>}
           </div>
-          {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL de la página web'} />}
-          <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Agregá contexto o la pregunta que querés verificar sobre el video.' : activeInput === 'Web' ? 'Agregá contexto o una pregunta sobre la página web.' : 'Pegá texto o agregá una pregunta sobre el documento.'} />
+          {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}
+          <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Agregá contexto o la pregunta que querés verificar sobre el video.' : activeInput === 'Web' ? 'Agregá contexto o una pregunta sobre el sitio web.' : 'Pegá texto o agregá una pregunta sobre el documento.'} />
           {!isPro && <div className={`counter ${textTooLong ? 'bad' : ''}`}>{text.length}/{FREE_CHARS}</div>}
           <div className="ctaRow"><button type="button" className="primary" onClick={analyze} disabled={loading || locked || textTooLong || proInput}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">Entrada: {getInputLabel(detected)}</span></div>
           {(locked || textTooLong || proInput) && <div className="paywall">Starter permite 3 análisis de texto de hasta 250 caracteres. Pasá a Pro para todas las funciones.</div>}
           {loading && <div className="loading">{steps.map((s, i) => <p key={i}>{s}</p>)}</div>}
         </div>
-      </section>}
+      </section>
       {analysis && <section id="informe">
         <div className="heroGrid">
           <div className="panel scoreCard">
             <div className="scoreWrap">
               <div className="circleScore" style={{ ['--p' as any]: score }}><div><span>{score}</span><small>/100</small></div></div>
-              <div className="scoreText"><h2>ChamuyoScore™</h2><h3>{score >= 75 ? 'Buena confiabilidad' : score >= 45 ? 'Confiabilidad media' : 'Requiere alta verificación'}</h3><p>{analysis.summary}</p><button type="button" className="ghost">Ver explicación del puntaje⌄</button></div>
+              <div className="scoreText"><h2>ChamuyoScore™</h2><h3>{score >= 75 ? 'Buena confiabilidad' : score >= 45 ? 'Confiabilidad media' : 'Requiere alta verificación'}</h3><p>{analysis.summary}</p><button type="button" className="ghost" onClick={() => setShowScoreExplanation((v) => !v)}>{showScoreExplanation ? 'Ocultar explicación del puntaje' : 'Ver explicación del puntaje'}</button>{showScoreExplanation && <div className="scoreExplanationPanel"><ul>{scoreExplanationItems.map((item, i) => <li key={i}>{item}</li>)}</ul></div>}</div>
             </div>
           </div>
           <div className="panel decisionCard"><div className="light" style={{ background: semaforo.color }}></div><div><h2>Semáforo de decisiones</h2><h3 style={{ color: semaforo.color }}>{semaforo.txt}</h3><p>{analysis.prudentConclusion}</p></div></div>
