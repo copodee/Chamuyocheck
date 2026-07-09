@@ -257,3 +257,18 @@ Corrige el error de build:
 Cambios:
 - Declara `evidence` y `evidenceSignals` antes del prompt.
 - Reemplaza referencias inseguras del prompt por `evidenceSignals.join('; ')`.
+
+
+# V15.10 Clean Build Fix
+
+Reemplaza completamente `app/api/analyze/route.ts` por una versión limpia y autocontenida.
+
+Corrige:
+- Variables `evidence` / `evidenceSignals` mal ubicadas.
+- Problemas de imports frágiles.
+- Import dinámico de `pdf-parse`.
+- Regex incompatible.
+- Mantiene target ES2018.
+
+Objetivo:
+- Cortar la cadena de parches y dejar el endpoint compilable.
