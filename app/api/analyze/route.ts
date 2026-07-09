@@ -6,6 +6,7 @@ import { extractEvidenceSignals } from '../../../src/analysis/engines/evidenceEx
 import { buildRiskItems } from '../../../src/analysis/engines/riskEngine';
 import { buildRecommendations } from '../../../src/analysis/engines/recommendationEngine';
 import { buildScoreExplanation } from '../../../src/analysis/engines/scoreExplanationEngine';
+import { verifyFactualContent } from '../../../src/analysis/engines/externalVerificationEngine';
 
 export const runtime = 'nodejs';
 
@@ -188,26 +189,30 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       (health ? 16 : 0)
   );
 
+  // Verificación factual: detectar preguntas y ajustar score
+  const verification = verifyFactualContent(text);
+  const finalScore = clamp(riskScore + verification.scoreAdjustment);
+
   const categoryScores: CategoryScore[] = [
     {
-      name: 'Credibilidad',
-      score: clamp(100 - riskScore),
-      explanation: 'Mide respaldo, coherencia y verificabilidad con la información visible.'
+      name: 'Nivel de chamuyo',
+      score: finalScore,
+      explanation: 'Nivel de señales de manipulación, falta de evidencia o contenido dudoso.'
     },
     {
       name: 'Evidencia faltante',
-      score: missing ? 82 : 30,
-      explanation: 'Sube cuando hay cifras, promesas, autoridad o conclusiones sin fuente verificable.'
+      score: missing ? 82 : 15,
+      explanation: 'Sube cuando hay afirmaciones o cifras sin fuente verificable.'
     },
     {
       name: 'Transparencia',
-      score: financial ? 75 : missing ? 64 : 25,
-      explanation: 'Evalúa condiciones, costos, límites, responsables, metodología y letra chica.'
+      score: financial ? 75 : missing ? 64 : 18,
+      explanation: 'Evalúa claridad de condiciones, costos, límites, responsables y metodología.'
     },
     {
       name: 'Manipulación emocional',
-      score: promise ? 65 : 20,
-      explanation: 'Detecta urgencia, deseo aspiracional, miedo o promesas extraordinarias.'
+      score: promise ? 65 : 12,
+      explanation: 'Detecta urgencia, promesas extraordinarias o lenguaje manipulador.'
     },
     {
       name: 'Riesgo financiero',
@@ -236,8 +241,8 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
     extractionStatus: inputKind === 'Texto' ? 'Se analizará el texto ingresado directamente.' : extraction?.note || 'Contenido recibido.',
     extractedChars: extraction?.chars || text.length,
     extractedPreview: text.slice(0, 1200),
-    score: riskScore,
-    risk: riskScore > 74 ? 'Alto' : riskScore > 44 ? 'Medio' : 'Bajo',
+    score: finalScore,
+    risk: finalScore > 80 ? 'Chamuyo extremo' : finalScore > 60 ? 'Alto chamuyo' : finalScore > 40 ? 'Requiere verificación' : 'Bajo chamuyo',
     confidence: extraction?.chars ? 'Media/Alta' : 'Media',
     detectedTheme: domain.label,
     detectedInput: inputKind,
@@ -279,12 +284,12 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       academic ? 'Señales académicas: revisar bibliografía, coherencia del estilo y defensa oral.' : 'No se activó como eje académico principal.',
       financial ? 'Señales financieras: verificar CFT, TEA, TNA, comisiones, seguros e IVA.' : 'No se activó como oferta financiera principal.'
     ].filter(Boolean),
-    scoreExplanation: buildScoreExplanation(text, topic.key, inputKind, riskScore, [
+    scoreExplanation: buildScoreExplanation(text, topic.key, inputKind, finalScore, [
       missing ? 'Faltan fuentes o metodología verificable.' : '',
       promise ? 'Hay promesas fuertes o lenguaje absoluto.' : '',
       financial ? 'Faltan costos financieros completos.' : '',
       academic ? 'Falta trazabilidad o contexto metodológico.' : ''
-    ].filter(Boolean)),
+    ].filter(Boolean), verification),
     refutationPoints: [
       'Verificar autor, fecha, fuente original y trazabilidad del contenido.',
       'Pedir respaldo para las afirmaciones centrales.',

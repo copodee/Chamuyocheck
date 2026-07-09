@@ -457,8 +457,11 @@ export default function Page() {
     }
   }
 
-  const score = analysis?.score ?? 81;
-  const semaforo = score >= 75 ? { txt: 'Podés avanzar con verificación', color: 'var(--green)' } : score >= 45 ? { txt: 'Verificá antes de decidir', color: 'var(--yellow)' } : { txt: 'No decidas todavía', color: 'var(--red)' };
+  const score = analysis?.score ?? 35;
+  const getChamuyoColor = (s: number) => s > 80 ? '#8b0000' : s > 60 ? 'var(--red)' : s > 40 ? 'var(--yellow)' : 'var(--green)';
+  const getChamuyoLabel = (s: number) => s > 80 ? 'Chamuyo extremo' : s > 60 ? 'Alto chamuyo' : s > 40 ? 'Requiere verificación' : s > 20 ? 'Bajo chamuyo' : 'Muy poco chamuyo';
+  const getChamuyoAdvice = (s: number) => s > 80 ? { txt: 'Contenido muy dudoso, no recomendado', color: '#8b0000' } : s > 60 ? { txt: 'Hay se\u00f1ales de manipulaci\u00f3n', color: 'var(--red)' } : s > 40 ? { txt: 'Conviene verificar algunos puntos', color: 'var(--yellow)' } : s > 20 ? { txt: 'Bajo riesgo de manipulaci\u00f3n', color: 'var(--green)' } : { txt: 'Contenido s\u00f3lido y confiable', color: 'var(--green)' };
+  const semaforo = getChamuyoAdvice(score);
   const reportSections = analysis ? buildReportSections(analysis, detected, text, Boolean(file)) : null;
   const scoreExplanationItems = analysis ? getScoreExplanationItems(analysis, analysis.detectedInput || detected, text, Boolean(file)) : [];
   const shouldShowScoreExplanationPanel = showScoreExplanation && scoreExplanationItems.length > 0;
@@ -608,8 +611,8 @@ export default function Page() {
         <div className="heroGrid">
           <div className="panel scoreCard">
             <div className="scoreWrap">
-              <div className="circleScore" style={{ ['--p' as any]: score }}><div><span>{score}</span><small>/100</small></div></div>
-              <div className="scoreText"><h2>ChamuyoScore™</h2><h3>{score >= 75 ? 'Buena confiabilidad' : score >= 45 ? 'Confiabilidad media' : 'Requiere alta verificación'}</h3><p>{analysis.summary}</p><button type="button" className="ghost" onClick={toggleScoreExplanation} aria-expanded={showScoreExplanation}>{showScoreExplanation ? 'Ocultar explicación del puntaje' : 'Ver explicación del puntaje'}</button>{shouldShowScoreExplanationPanel && <div className="scoreExplanationPanel" role="region" aria-live="polite"><ul>{scoreExplanationItems.map((item, i) => <li key={i}>{item}</li>)}</ul></div>}</div>
+              <div className="circleScore" style={{ ['--p' as any]: score, background: `conic-gradient(${getChamuyoColor(score)} calc(${score}*1%), #293241 0)` }}><div><span style={{ color: getChamuyoColor(score) }}>{score}</span><small>/100</small></div></div>
+              <div className="scoreText"><h2>ChamuyoScore™</h2><h3>{getChamuyoLabel(score)}</h3><p className="chamuyoDisclaimer">El ChamuyoScore mide el nivel de señales de manipulación, falta de evidencia o contenido dudoso. No representa un porcentaje de verdad.</p><p>{analysis.summary}</p><button type="button" className="ghost" onClick={toggleScoreExplanation} aria-expanded={showScoreExplanation}>{showScoreExplanation ? 'Ocultar explicación del puntaje' : 'Ver explicación del puntaje'}</button>{shouldShowScoreExplanationPanel && <div className="scoreExplanationPanel" role="region" aria-live="polite"><ul>{scoreExplanationItems.map((item, i) => <li key={i}>{item}</li>)}</ul></div>}</div>
             </div>
           </div>
           <div className="panel decisionCard"><div className="light" style={{ background: semaforo.color }}></div><div><h2>Semáforo de decisiones</h2><h3 style={{ color: semaforo.color }}>{semaforo.txt}</h3><p>{analysis.prudentConclusion}</p></div></div>

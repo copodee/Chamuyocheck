@@ -33,7 +33,7 @@ export function verifyFactualContent(text: string): VerificationResult {
       verificationMode: 'conceptual-local',
       isFactualQuestion: true,
       domain: 'health-biology',
-      scoreAdjustment: 25,
+      scoreAdjustment: -28,
       contextualResponse: reproductiveBio.contextualAnswer,
       externalSources: [],
       confidence: 82,
@@ -46,7 +46,7 @@ export function verifyFactualContent(text: string): VerificationResult {
       verificationMode: 'conceptual-local',
       isFactualQuestion: true,
       domain: 'factual',
-      scoreAdjustment: 15,
+      scoreAdjustment: -20,
       externalSources: [],
       confidence: factualQ.factualityScore,
       recommendedLabel: 'Pregunta factual'
@@ -57,7 +57,7 @@ export function verifyFactualContent(text: string): VerificationResult {
     verificationMode: 'requires-external',
     isFactualQuestion: true,
     domain: 'factual',
-    scoreAdjustment: 5,
+    scoreAdjustment: -12,
     externalSources: [],
     confidence: 45,
     recommendedLabel: 'Pregunta factual'

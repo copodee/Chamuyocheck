@@ -4,8 +4,8 @@ import type { VerificationResult } from './externalVerificationEngine';
 export function buildScoreExplanation(text: string, topic: string | undefined, inputKind: string, score: number, issues: string[], verification?: VerificationResult) {
   const hints = extractEvidenceHints(text);
   const items = [
-    `El score base se ajusta por evidencia visible, contexto y señales de manipulación.`,
-    `El puntaje sube cuando aparecen datos verificables, fechas, links o metodología.`
+    `El ChamuyoScore mide el nivel de señales de manipulación, falta de evidencia o contenido dudoso.`,
+    `Mayor puntaje = más señales de chamuyo. Menor puntaje = contenido más sólido y verificable.`
   ];
 
   if (verification?.isFactualQuestion && verification?.domain === 'health-biology') {
@@ -19,29 +19,31 @@ export function buildScoreExplanation(text: string, topic: string | undefined, i
   }
 
   if (score >= 70) {
-    items.push('El puntaje refleja que hay más riesgo de interpretación o falta de trazabilidad.');
+    items.push('El puntaje alto indica fuertes señales de manipulación, promesas extraordinarias o falta significativa de evidencia.');
+  } else if (score >= 40) {
+    items.push('El puntaje moderado refleja algunos riesgos; requiere verificación de puntos específicos.');
   } else {
-    items.push('El puntaje refleja que la información es más prudente y requiere corroboración.');
+    items.push('El puntaje bajo indica contenido más sólido con respaldo, fuentes y metodología clara.');
   }
 
   if (hints.length) {
-    items.push(`Se encontró ${hints.join(', ')}.`);
+    items.push(`Evidencia encontrada: ${hints.join(', ')}.`);
   }
 
   if (issues.length) {
-    items.push(`Lo que bajó el puntaje: ${issues.slice(0, 3).join(' ')}`);
+    items.push(`Factores que suben el puntaje: ${issues.slice(0, 3).join(' ')}`);
   }
 
   if (topic === 'health-biology-question') {
     items.push('Se trata de una pregunta factual sobre biología humana con respuesta verificable.');
   } else if (topic === 'finance') {
-    items.push('El riesgo más pesado es la falta de costos completos, tasas o condiciones visibles.');
+    items.push('El factor principal es la falta de costos completos, tasas o condiciones visibles.');
   } else if (topic === 'employment') {
-    items.push('El riesgo más pesado es la ausencia de datos verificables sobre el puesto o la empresa.');
+    items.push('El factor principal es la ausencia de datos verificables sobre el puesto o la empresa.');
   } else if (topic === 'academic') {
-    items.push('El riesgo más pesado es la falta de trazabilidad del método o de las fuentes.');
+    items.push('El factor principal es la falta de trazabilidad del método o de las fuentes.');
   } else {
-    items.push('El riesgo más pesado suele ser la falta de fuente original, fecha o contexto.');
+    items.push('El factor principal suele ser la falta de fuente original, fecha o contexto.');
   }
 
   return items.slice(0, 6);
