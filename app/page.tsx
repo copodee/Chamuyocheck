@@ -369,6 +369,7 @@ export default function Page() {
   const [showFullSummary, setShowFullSummary] = useState(false);
   const [showScoreExplanation, setShowScoreExplanation] = useState(false);
   const [activeView, setActiveView] = useState<'inicio' | 'historial' | 'favoritos' | 'plantillas' | 'comparar' | 'mejorar' | 'ajustes'>('inicio');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [favoritesItems, setFavoritesItems] = useState<string[]>([]);
   const [templatesItems, setTemplatesItems] = useState<string[]>([]);
@@ -465,6 +466,7 @@ export default function Page() {
   const executiveSummaryText = showFullSummary ? analysis?.summary : analysis?.verdict;
   const openHome = () => {
     setActiveView('inicio');
+    setMobileMenuOpen(false);
     setShowFullSummary(false);
     setShowScoreExplanation(false);
     if (typeof window !== 'undefined') {
@@ -481,6 +483,7 @@ export default function Page() {
     setShowFullSummary(false);
     setShowScoreExplanation(false);
     setActiveView('inicio');
+    setMobileMenuOpen(false);
     setTab('Resumen');
     setLoading(false);
     setSteps([]);
@@ -489,12 +492,44 @@ export default function Page() {
       setTimeout(() => document.getElementById('inicio-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
     }
   };
-  const openHistory = () => setActiveView('historial');
-  const openFavorites = () => setActiveView('favoritos');
-  const openTemplates = () => setActiveView('plantillas');
-  const openCompare = () => setActiveView('comparar');
-  const openImprove = () => setActiveView('mejorar');
-  const openSettings = () => setActiveView('ajustes');
+  const openHistory = () => {
+    setActiveView('historial');
+    setMobileMenuOpen(false);
+    setShowFullSummary(false);
+    setShowScoreExplanation(false);
+  };
+  const openFavorites = () => {
+    setActiveView('favoritos');
+    setMobileMenuOpen(false);
+    setShowFullSummary(false);
+    setShowScoreExplanation(false);
+  };
+  const openTemplates = () => {
+    setActiveView('plantillas');
+    setMobileMenuOpen(false);
+    setShowFullSummary(false);
+    setShowScoreExplanation(false);
+  };
+  const openCompare = () => {
+    setActiveView('comparar');
+    setMobileMenuOpen(false);
+    setShowFullSummary(false);
+    setShowScoreExplanation(false);
+  };
+  const openImprove = () => {
+    setActiveView('mejorar');
+    setMobileMenuOpen(false);
+    setShowFullSummary(false);
+    setShowScoreExplanation(false);
+  };
+  const openSettings = () => {
+    setActiveView('ajustes');
+    setMobileMenuOpen(false);
+    setShowFullSummary(false);
+    setShowScoreExplanation(false);
+  };
+  const sectionTitle = activeView === 'historial' ? 'Historial' : activeView === 'favoritos' ? 'Favoritos' : activeView === 'plantillas' ? 'Plantillas' : activeView === 'comparar' ? 'Comparar' : activeView === 'mejorar' ? 'Mejorar documento' : activeView === 'ajustes' ? 'Ajustes' : 'Inicio';
+  const sectionHint = activeView === 'historial' ? 'Se muestra el historial local guardado en este navegador.' : activeView === 'favoritos' ? 'Acá aparecerán los elementos marcados como favoritos.' : activeView === 'plantillas' ? 'Podés reutilizar plantillas para análisis y mejoras.' : activeView === 'comparar' ? 'La comparación de documentos está disponible para usuarios Pro.' : activeView === 'mejorar' ? 'Este panel permite proponer mejoras de claridad, respaldo y verificación.' : activeView === 'ajustes' ? 'Configuración básica del producto y preferencias del análisis.' : 'Volvé al formulario principal para cargar un nuevo contenido.';
 
   return <div className="appShell">
     <input ref={fileRef} type="file" accept=".pdf,image/*,.txt,.doc,.docx" hidden onChange={(e) => onFile(e.target.files?.[0])} />
@@ -515,6 +550,22 @@ export default function Page() {
       <div className="userBox"><div className="avatar">V</div><div><b>Visitante</b><div className="hint">{isPro ? 'Plan Pro' : 'Plan Starter'}</div></div></div>
     </aside>
     <main className="main">
+      <div className="mobileTopbar">
+        <div className="brand"><div className="shield">✓</div><div><div className="logo">CHAMUYO<span>CHECK</span></div><div className="tag">Analizá antes de decidir</div></div></div>
+        <div className="mobileTopbarActions">
+          <button type="button" className="newBtn" onClick={startNewAnalysis}>＋ Nuevo análisis</button>
+          <button type="button" className="ghost mobileMenuBtn" onClick={() => setMobileMenuOpen((value) => !value)}>{mobileMenuOpen ? '✕' : '☰ Menú'}</button>
+        </div>
+      </div>
+      {mobileMenuOpen && <div className="mobileNav">
+        <button type="button" className={activeView === 'inicio' ? 'active' : ''} onClick={openHome}>⌂ Inicio</button>
+        <button type="button" className={activeView === 'historial' ? 'active' : ''} onClick={openHistory}>◴ Historial</button>
+        <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>
+        <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>
+        <button type="button" className={activeView === 'comparar' ? 'active' : ''} onClick={openCompare}>⚖ Comparar <small>PRO</small></button>
+        <button type="button" className={activeView === 'mejorar' ? 'active' : ''} onClick={openImprove}>↑ Mejorar documento</button>
+        <button type="button" className={activeView === 'ajustes' ? 'active' : ''} onClick={openSettings}>⚙ Ajustes</button>
+      </div>}
       <div className="topbar">
         <div className="status"><div className="check">✓</div><div><b>{analysis ? 'Análisis finalizado' : 'Nuevo análisis'}</b><div className="hint">9 de julio de 2026</div></div></div>
         <div className="topActions"><button type="button" className="ghost" onClick={() => setAnalysis(null)}>Analizar otro</button><button type="button" className="ghost">Descargar informe⌄</button><button type="button" className="iconBtn">⋮</button></div>
@@ -588,35 +639,27 @@ export default function Page() {
         <div className="section"><h2>Por qué obtuvo este puntaje</h2><ul>{(analysis.scoreExplanation || []).map((x, i) => <li key={i}>{x}</li>)}</ul></div>
         {analysis.extractedPreview && <div className="section"><h2>Datos extraídos</h2><p>{analysis.extractedPreview}</p></div>}
       </section>}
-      </> : <section className="panel" style={{ padding: '28px', marginTop: '8px' }}>
+      </> : <section className="panel viewPanel" style={{ padding: '28px', marginTop: '8px' }}>
+        <div className="viewPanelHeader">
+          <h2>{sectionTitle}</h2>
+          <p className="hint">{sectionHint}</p>
+        </div>
         {activeView === 'historial' && <>
-          <h2>Historial</h2>
-          <p className="hint">Se muestra el historial local guardado en este navegador.</p>
           {historyItems.length ? <div className="historyMini" style={{ marginTop: '14px' }}>{historyItems.map((item) => <div className="historyItem" key={item.id}><span>{item.score}</span><div>{item.title}<small>{item.documentType} · {item.date}</small></div></div>)}</div> : <div className="paywall" style={{ marginTop: '14px' }}>Todavía no hay historial local disponible.</div>}
         </>}
         {activeView === 'favoritos' && <>
-          <h2>Favoritos</h2>
-          <p className="hint">Acá aparecerán los elementos marcados como favoritos.</p>
           {favoritesItems.length ? <ul style={{ color: '#ddd4f4', lineHeight: 1.6, marginTop: '14px' }}>{favoritesItems.map((item, i) => <li key={i}>{item}</li>)}</ul> : <div className="paywall" style={{ marginTop: '14px' }}>No hay favoritos guardados todavía.</div>}
         </>}
         {activeView === 'plantillas' && <>
-          <h2>Plantillas</h2>
-          <p className="hint">Podés reutilizar plantillas para análisis y mejoras.</p>
           {templatesItems.length ? <ul style={{ color: '#ddd4f4', lineHeight: 1.6, marginTop: '14px' }}>{templatesItems.map((item, i) => <li key={i}>{item}</li>)}</ul> : <div className="paywall" style={{ marginTop: '14px' }}>Todavía no hay plantillas guardadas.</div>}
         </>}
         {activeView === 'comparar' && <>
-          <h2>Comparar</h2>
-          <p className="hint">La comparación de documentos está disponible para usuarios Pro.</p>
           {isPro ? <div className="paywall" style={{ marginTop: '14px' }}>Compará dos documentos y revisá diferencias de riesgo, contexto y evidencia.</div> : <div className="paywall" style={{ marginTop: '14px' }}>Activá Pro para comparar documentos y acceder a funciones avanzadas.</div>}
         </>}
         {activeView === 'mejorar' && <>
-          <h2>Mejorar documento</h2>
-          <p className="hint">Este panel permite proponer mejoras de claridad, respaldo y verificación.</p>
           <div className="paywall" style={{ marginTop: '14px' }}>Podés abrir el panel de mejora desde aquí para revisar la estructura, las fuentes y los puntos a reforzar.</div>
         </>}
         {activeView === 'ajustes' && <>
-          <h2>Ajustes</h2>
-          <p className="hint">Configuración básica del producto y preferencias del análisis.</p>
           <div className="paywall" style={{ marginTop: '14px' }}>Ajustes de cuenta, idioma y preferencias del flujo de análisis aparecerán aquí.</div>
         </>}
       </section>}
