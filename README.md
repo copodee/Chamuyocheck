@@ -225,3 +225,13 @@ Corrige el error de build:
 Cambios:
 - Ajusta la importación dinámica de `pdf-parse`.
 - Mantiene `target` en `ES2018`.
+
+
+# V15.7 Evidence Signals Fix
+
+Corrige el error de build:
+`Cannot find name 'evidenceSignals'`
+
+Cambio:
+- Reemplaza la variable inexistente `evidenceSignals`.
+- Usa el resultado real del helper local `extractEvidenceSignalsLocal(text)`.
