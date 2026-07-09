@@ -68,8 +68,8 @@ export default function Page(){
     <div className="nav">
       <a className="active">⌂ Inicio</a><a>◴ Historial</a><a>☆ Favoritos</a><a>▤ Plantillas</a><a>⚖ Comparar <small>PRO</small></a><a>↑ Mejorar documento</a><a>⚙ Ajustes</a><a>? Ayuda</a>
     </div>
-    <div className="proBox"><b>👑 CHAMUYOCHECK PRO</b><p>Análisis ilimitados, informes avanzados y más.</p><button onClick={()=>setPlan('pro')}>Ver planes</button></div>
-    <div className="userBox"><div className="avatar">N</div><div><b>Nicolás Scioli</b><div className="hint">{isPro?'Plan Pro':'Plan Starter'}</div></div></div>
+    <div className="proBox"><b>🔎 CHAMUYOCHECK</b><p>Analizá contenido con una evaluación prudente y más.</p><button onClick={()=>setPlan('pro')}>Ver planes</button></div>
+    <div className="userBox"><div className="avatar">N</div><div><b>Usuario invitado</b><div className="hint">{isPro?'Plan gratuito':'Plan Starter'}</div></div></div>
   </aside>
   <main className="main">
     <div className="topbar">

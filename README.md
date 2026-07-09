@@ -272,3 +272,12 @@ Corrige:
 
 Objetivo:
 - Cortar la cadena de parches y dejar el endpoint compilable.
+
+
+# V15.11 Remove Hardcoded User
+
+Corrección urgente:
+- Elimina el nombre personal hardcodeado de la interfaz pública.
+- Reemplaza `Nicolás Scioli` por `Usuario invitado`.
+- Reemplaza `Plan Pro` por `Plan gratuito` hasta que exista autenticación real.
+- Evita que terceros vean datos personales de prueba.
