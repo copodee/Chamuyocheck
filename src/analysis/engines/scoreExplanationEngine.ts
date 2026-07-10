@@ -1,13 +1,37 @@
 import { extractEvidenceHints } from './evidenceExtractor';
 import type { VerificationResult } from './externalVerificationEngine';
 import type { ReasoningResult } from './coreReasoningEngine';
+import type { UniversalReasoningResult } from './universalClaimReasoningEngine';
 
-export function buildScoreExplanation(text: string, topic: string | undefined, inputKind: string, score: number, issues: string[], verification?: VerificationResult, reasoning?: ReasoningResult) {
+export function buildScoreExplanation(text: string, topic: string | undefined, inputKind: string, score: number, issues: string[], verification?: VerificationResult, reasoning?: ReasoningResult, universalReasoning?: UniversalReasoningResult) {
   const hints = extractEvidenceHints(text);
   const items = [
     `El ChamuyoScore mide el nivel de señales de manipulación, falta de evidencia o contenido dudoso.`,
     `Mayor puntaje = más señales de chamuyo. Menor puntaje = contenido más sólido y verificable.`
   ];
+
+  // Universal claim reasoning: scientific impossibilities, extinct species, extraordinary+money
+  if (universalReasoning?.triggered && universalReasoning.forceScore !== null) {
+    return [
+      `⚠️ FUNDAMENTO DEL PUNTAJE EXTREMO - ${universalReasoning.claimDescription.toUpperCase()}`,
+      '',
+      'CONCLUSIÓN PRINCIPAL:',
+      universalReasoning.explanation,
+      '',
+      'POR QUÉ ES EXTRAORDINARIA O IMPOSIBLE:',
+      ...universalReasoning.whyImpossible.map((f) => `• ${f}`),
+      '',
+      'POR QUÉ EL PUNTAJE ES ${universalReasoning.forceScore}:',
+      'La afirmación contradice conocimiento científico ampliamente aceptado o combina promesas extraordinarias con solicitud de dinero.',
+      'El puntaje no representa probabilidad inversa de verdad; indica severidad de la inconsistencia o riesgo.',
+      '',
+      'QUÉ EVIDENCIA SERÍA NECESARIA PARA RECONSIDERAR:',
+      ...universalReasoning.evidenceNeeded.map((e) => `• ${e}`),
+      '',
+      'AVISO:',
+      'Este análisis no reemplaza una opinión médica, científica o legal profesional. Es una evaluación automatizada basada en criterios de plausibilidad y coherencia científica.'
+    ];
+  }
 
   // Core reasoning: financial math inconsistency
   if (reasoning && reasoning.inconsistencySeverity !== 'none' && reasoning.domain === 'finance') {

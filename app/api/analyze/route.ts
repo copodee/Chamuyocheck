@@ -8,6 +8,7 @@ import { buildRecommendations } from '../../../src/analysis/engines/recommendati
 import { buildScoreExplanation } from '../../../src/analysis/engines/scoreExplanationEngine';
 import { verifyFactualContent } from '../../../src/analysis/engines/externalVerificationEngine';
 import { runCoreReasoning } from '../../../src/analysis/engines/coreReasoningEngine';
+import { runUniversalClaimReasoning } from '../../../src/analysis/engines/universalClaimReasoningEngine';
 
 export const runtime = 'nodejs';
 
@@ -190,6 +191,10 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       (health ? 16 : 0)
   );
 
+  // Universal claim reasoning: runs FIRST — catches scientific impossibilities,
+  // extinct species alive, and extraordinary claim + money patterns
+  const universalReasoning = runUniversalClaimReasoning(text);
+
   // Core reasoning: run before factual verification, can force score to 100
   const reasoning = runCoreReasoning(text);
 
@@ -197,7 +202,9 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
   const verification = verifyFactualContent(text);
 
   let finalScore: number;
-  if (reasoning.forcedScore !== null) {
+  if (universalReasoning.forceScore !== null) {
+    finalScore = universalReasoning.forceScore;
+  } else if (reasoning.forcedScore !== null) {
     finalScore = reasoning.forcedScore;
   } else if (reasoning.scoreBoost > 0) {
     finalScore = clamp(riskScore + reasoning.scoreBoost);
@@ -272,7 +279,8 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       missing ? (shortText ? 'La afirmación requiere verificación externa y contexto adicional.' : 'Faltan fuentes o metodología verificable.') : '',
       financial ? 'Faltan costos financieros completos.' : '',
       pyramid ? 'Posible estructura basada en referidos o rentabilidad prometida.' : '',
-      ...reasoning.risks
+      ...reasoning.risks,
+      ...universalReasoning.whyImpossible
     ].filter(Boolean),
     questions: [
       '¿Qué fuente independiente respalda la afirmación?',
@@ -302,7 +310,7 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       promise ? 'Hay promesas fuertes o lenguaje absoluto.' : '',
       financial ? 'Faltan costos financieros completos.' : '',
       academic ? 'Falta trazabilidad o contexto metodológico.' : ''
-    ].filter(Boolean), verification, reasoning),
+    ].filter(Boolean), verification, reasoning, universalReasoning),
     refutationPoints: [
       'Verificar autor, fecha, fuente original y trazabilidad del contenido.',
       'Pedir respaldo para las afirmaciones centrales.',
