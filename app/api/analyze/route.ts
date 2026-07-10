@@ -9,6 +9,7 @@ import { buildScoreExplanation } from '../../../src/analysis/engines/scoreExplan
 import { verifyFactualContent } from '../../../src/analysis/engines/externalVerificationEngine';
 import { runCoreReasoning } from '../../../src/analysis/engines/coreReasoningEngine';
 import { runUniversalClaimReasoning } from '../../../src/analysis/engines/universalClaimReasoningEngine';
+import { calculateDomainWeightedScore } from '../../../src/analysis/engines/domainWeightedScoringEngine';
 
 export const runtime = 'nodejs';
 
@@ -212,12 +213,7 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
     finalScore = clamp(riskScore + verification.scoreAdjustment);
   }
 
-  const categoryScores: CategoryScore[] = [
-    {
-      name: 'Nivel de chamuyo',
-      score: finalScore,
-      explanation: 'Nivel de señales de manipulación, falta de evidencia o contenido dudoso.'
-    },
+  const categoryScoresWithoutLevel: CategoryScore[] = [
     {
       name: 'Evidencia faltante',
       score: missing ? 82 : 15,
@@ -248,6 +244,32 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       score: academic ? 72 : 0,
       explanation: academic ? 'Estimación no concluyente: revisar estilo, fuentes, borradores y defensa oral.' : 'No se activó como eje principal.'
     }
+  ];
+
+  // Domain-aware weighted scoring: only count applicable dimensions
+  const forceScoreForWeighting = universalReasoning.forceScore ?? reasoning.forcedScore ?? null;
+  const weightedResult = calculateDomainWeightedScore(
+    categoryScoresWithoutLevel,
+    text,
+    topic.key,
+    inputKind,
+    forceScoreForWeighting,
+    financial,
+    pyramid
+  );
+
+  // Use weighted score if no forced score exists
+  if (forceScoreForWeighting === null) {
+    finalScore = weightedResult.finalScore;
+  }
+
+  const categoryScores: CategoryScore[] = [
+    {
+      name: 'Nivel de chamuyo',
+      score: finalScore,
+      explanation: 'Nivel de señales de manipulación, falta de evidencia o contenido dudoso.'
+    },
+    ...categoryScoresWithoutLevel
   ];
 
   const inputText = describeInput(inputKind);
@@ -310,7 +332,7 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       promise ? 'Hay promesas fuertes o lenguaje absoluto.' : '',
       financial ? 'Faltan costos financieros completos.' : '',
       academic ? 'Falta trazabilidad o contexto metodológico.' : ''
-    ].filter(Boolean), verification, reasoning, universalReasoning),
+    ].filter(Boolean), verification, reasoning, universalReasoning, weightedResult),
     refutationPoints: [
       'Verificar autor, fecha, fuente original y trazabilidad del contenido.',
       'Pedir respaldo para las afirmaciones centrales.',
@@ -427,7 +449,8 @@ ${fullText.slice(0, 18000)}`;
 
     const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
     return NextResponse.json(normalizeAI(parsed, fallback));
-  } catch {
+  } catch (error) {
+    console.error('Route.ts error:', error instanceof Error ? error.message : String(error));
     return NextResponse.json({ error: 'No se pudo analizar el contenido.' }, { status: 500 });
   }
 }
