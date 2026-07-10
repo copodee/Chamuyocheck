@@ -2,6 +2,7 @@ import type { AnalyzedClaim, ClaimClassification, ClaimSeverity, EvidenceStatus 
 import { applyEvidenceGate } from './claimEvidenceGate';
 import { scoreIndividualClaim, type ClaimScore } from './claimScoringEngine';
 import { routeClaim } from './knowledgeRouter';
+import { detectClaimNature } from './claimNatureDetector';
 
 export type ClaimFirstResult = {
   claims: AnalyzedClaim[];
@@ -192,6 +193,9 @@ export function runClaimFirstPipeline(text: string): ClaimFirstResult {
     // Route through knowledge router to get specialist evaluation
     const routedResult = routeClaim(claimText);
 
+    // V21 Phase 1: Shadow mode - detect claim nature without using it yet for routing/scoring
+    const claimNature = detectClaimNature(claimText);
+
     return {
       text: claimText,
       classification,
@@ -203,7 +207,8 @@ export function runClaimFirstPipeline(text: string): ClaimFirstResult {
       forceScore: null,
       minimumScore: null,
       reason: '',
-      routedResult
+      routedResult,
+      claimNature
     };
   });
 
