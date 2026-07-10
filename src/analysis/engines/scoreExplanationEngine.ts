@@ -3,13 +3,40 @@ import type { VerificationResult } from './externalVerificationEngine';
 import type { ReasoningResult } from './coreReasoningEngine';
 import type { UniversalReasoningResult } from './universalClaimReasoningEngine';
 import type { DomainWeightedResult } from './domainWeightedScoringEngine';
+import type { ClaimFirstResult } from './claimFirstPipeline';
 
-export function buildScoreExplanation(text: string, topic: string | undefined, inputKind: string, score: number, issues: string[], verification?: VerificationResult, reasoning?: ReasoningResult, universalReasoning?: UniversalReasoningResult, weightedResult?: DomainWeightedResult) {
+export function buildScoreExplanation(
+  text: string,
+  topic: string | undefined,
+  inputKind: string,
+  score: number,
+  issues: string[],
+  verification?: VerificationResult,
+  reasoning?: ReasoningResult,
+  universalReasoning?: UniversalReasoningResult,
+  weightedResult?: DomainWeightedResult,
+  claimFirstResult?: ClaimFirstResult
+) {
   const hints = extractEvidenceHints(text);
   const items = [
     `El ChamuyoScore mide el nivel de señales de manipulación, falta de evidencia o contenido dudoso.`,
     `Mayor puntaje = más señales de chamuyo. Menor puntaje = contenido más sólido y verificable.`
   ];
+
+  // V19: Show claim-first analysis if multiple claims detected
+  if (claimFirstResult && claimFirstResult.claims.length > 1) {
+    items.push('');
+    items.push('📋 ANÁLISIS DE RECLAMACIONES INDIVIDUALES:');
+    claimFirstResult.claimScores.slice(0, 3).forEach((cs, idx) => {
+      items.push(`${idx + 1}. "${cs.claim.text.slice(0, 60)}..."`);
+      items.push(`   Tipo: ${cs.claim.classification} | Severidad: ${cs.claim.severity}`);
+      items.push(`   Evidencia: ${cs.claim.evidenceStatus} | Puntuación: ${cs.adjustedScore}/100`);
+    });
+    items.push('');
+    items.push(`📍 Reclamación dominante: ${claimFirstResult.dominantClaim?.severity || 'ordinaria'}`);
+    items.push(`   El puntaje se basa en la reclamación más grave, no en un promedio.`);
+    items.push('');
+  }
 
   // Universal claim reasoning: scientific impossibilities, extinct species, extraordinary+money
   if (universalReasoning?.triggered && universalReasoning.forceScore !== null) {

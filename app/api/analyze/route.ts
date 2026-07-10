@@ -10,6 +10,7 @@ import { verifyFactualContent } from '../../../src/analysis/engines/externalVeri
 import { runCoreReasoning } from '../../../src/analysis/engines/coreReasoningEngine';
 import { runUniversalClaimReasoning } from '../../../src/analysis/engines/universalClaimReasoningEngine';
 import { calculateDomainWeightedScore } from '../../../src/analysis/engines/domainWeightedScoringEngine';
+import { runClaimFirstPipeline } from '../../../src/analysis/engines/claimFirstPipeline';
 
 export const runtime = 'nodejs';
 
@@ -192,6 +193,9 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       (health ? 16 : 0)
   );
 
+  // V19: Claim-First Pipeline - extract and analyze individual claims first
+  const claimFirstResult = runClaimFirstPipeline(text);
+
   // Universal claim reasoning: runs FIRST — catches scientific impossibilities,
   // extinct species alive, and extraordinary claim + money patterns
   const universalReasoning = runUniversalClaimReasoning(text);
@@ -203,7 +207,14 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
   const verification = verifyFactualContent(text);
 
   let finalScore: number;
-  if (universalReasoning.forceScore !== null) {
+  
+  // V19 Priority: Claim-first pipeline has highest priority for extraordinary/impossible claims
+  if (claimFirstResult.finalScore === 100) {
+    finalScore = 100;
+  } else if (claimFirstResult.finalScore >= 90) {
+    // Don't allow extraordinary claims to be diluted below 90
+    finalScore = Math.max(claimFirstResult.finalScore, 90);
+  } else if (universalReasoning.forceScore !== null) {
     finalScore = universalReasoning.forceScore;
   } else if (reasoning.forcedScore !== null) {
     finalScore = reasoning.forcedScore;
@@ -258,8 +269,8 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
     pyramid
   );
 
-  // Use weighted score if no forced score exists
-  if (forceScoreForWeighting === null) {
+  // Use weighted score if no forced score exists and no extraordinary claim from V19
+  if (forceScoreForWeighting === null && claimFirstResult.finalScore < 90) {
     finalScore = weightedResult.finalScore;
   }
 
@@ -332,7 +343,8 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
       promise ? 'Hay promesas fuertes o lenguaje absoluto.' : '',
       financial ? 'Faltan costos financieros completos.' : '',
       academic ? 'Falta trazabilidad o contexto metodológico.' : ''
-    ].filter(Boolean), verification, reasoning, universalReasoning, weightedResult),
+    ].filter(Boolean), verification, reasoning, universalReasoning, weightedResult, claimFirstResult),
+    claimAnalysis: claimFirstResult,
     refutationPoints: [
       'Verificar autor, fecha, fuente original y trazabilidad del contenido.',
       'Pedir respaldo para las afirmaciones centrales.',
