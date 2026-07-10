@@ -1,6 +1,7 @@
 import type { AnalyzedClaim, ClaimClassification, ClaimSeverity, EvidenceStatus } from './claimEvidenceGate';
 import { applyEvidenceGate } from './claimEvidenceGate';
 import { scoreIndividualClaim, type ClaimScore } from './claimScoringEngine';
+import { routeClaim } from './knowledgeRouter';
 
 export type ClaimFirstResult = {
   claims: AnalyzedClaim[];
@@ -42,17 +43,17 @@ function classifyClaimType(text: string): ClaimClassification {
   }
 
   // Prediction (future)
-  if (/\b(mañana|próximo|dentro de|va a|será|habrá|sucederá|ocurrirá|creo que|pienso que|espero que)\b/i.test(lower)) {
+  if (/mañana|próximo|dentro\s*de|va\s*a|será|habrá|sucederá|ocurrirá|futura|futuro/i.test(lower)) {
     return 'prediction';
   }
 
   // Opinion
-  if (/\b(creo|pienso|opino|considero|me parece|en mi opinión|personalmente|a mi juicio)\b/i.test(lower)) {
+  if (/creo\s*que|pienso\s*que|opino|considero|me\s*parece|en\s*mi\s*opinión|personalmente|a\s*mi\s*juicio|definitivamente|absolutamente|seguramente|claramente|obviamente|sin duda/i.test(lower)) {
     return 'opinion';
   }
 
-  // Instruction/Command
-  if (/^\s*(haz|haga|hagas|invierte|compra|compre|llama|llamá|no|nunca|evita|evite)\s+/.test(lower)) {
+  // Instruction/Command (only strict commands, not general statements)
+  if (/^\s*(haz|haga|hagas|compra|compre|llama|llamá|no|nunca|evita|evite)\s+/.test(lower)) {
     return 'instruction';
   }
 
@@ -81,12 +82,10 @@ function classifyClaimSeverity(text: string): ClaimSeverity {
     /vacunas.*microchip|chips en vacunas/i,
     /nunca pisamos.*luna|moon hoax|no pisamos/i,
     /2\s*\+\s*2\s*=\s*5|matemática falsa/i,
-    /cura milagrosa|cura instantánea|cura definitiva.*cáncer|bicarbonato cura cáncer|limón cura cáncer/i,
     /humano.*perro.*híbrido|perro.*humano.*hijo|cría de perro|can.*human hybrid/i,
     /hombre.*embarazado|varón embarazado|hombre cis.*embarazo sin útero/i,
     /teletransportación real|cuerpo humano.*teletransporte/i,
-    /dinosaurio vivo actualmente|dinosaurio caminando/i,
-    /extraterrestre caminando por|ovni aterrizó/i
+    /dinosaurio vivo actualmente|dinosaurio caminando/i
   ];
 
   if (impossiblePatterns.some((p) => p.test(lower))) {
@@ -179,7 +178,7 @@ export function runClaimFirstPipeline(text: string): ClaimFirstResult {
     };
   }
 
-  // Step 2: Analyze each claim
+  // Step 2: Analyze each claim and route through knowledge router
   const claims: AnalyzedClaim[] = claimTexts.map((claimText) => {
     const classification = classifyClaimType(claimText);
     const severity = classifyClaimSeverity(claimText);
@@ -189,6 +188,9 @@ export function runClaimFirstPipeline(text: string): ClaimFirstResult {
     // Determine if externally verifiable
     const externallyVerifiable =
       classification === 'factual' && severity === 'ordinary' && !/(opinión|creo|pienso|parece)/i.test(claimText);
+
+    // Route through knowledge router to get specialist evaluation
+    const routedResult = routeClaim(claimText);
 
     return {
       text: claimText,
@@ -200,15 +202,16 @@ export function runClaimFirstPipeline(text: string): ClaimFirstResult {
       evidenceStatus,
       forceScore: null,
       minimumScore: null,
-      reason: ''
+      reason: '',
+      routedResult
     };
   });
 
   // Step 3: Apply evidence gates
   const gatedClaims = claims.map(applyEvidenceGate);
 
-  // Step 4: Score each claim
-  const claimScores = gatedClaims.map(scoreIndividualClaim);
+  // Step 4: Score each claim (pass routed result for specialist-based scoring)
+  const claimScores = gatedClaims.map((claim) => scoreIndividualClaim(claim, claim.routedResult));
 
   // Step 5: Aggregate to final score
   // Rule: if any claim has forceScore=100, final=100

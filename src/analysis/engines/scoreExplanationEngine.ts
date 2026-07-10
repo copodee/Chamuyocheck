@@ -30,12 +30,49 @@ export function buildScoreExplanation(
     claimFirstResult.claimScores.slice(0, 3).forEach((cs, idx) => {
       items.push(`${idx + 1}. "${cs.claim.text.slice(0, 60)}..."`);
       items.push(`   Tipo: ${cs.claim.classification} | Severidad: ${cs.claim.severity}`);
+      
+      // V20: Show routing information if available
+      if (cs.routedResult) {
+        const specialist = cs.routedResult.selectedResult;
+        items.push(`   🔍 Enrutado a: ${specialist.domain} (confianza: ${(cs.routedResult.routingConfidence * 100).toFixed(0)}%)`);
+        items.push(`   Veredicto especialista: ${specialist.verdict}`);
+        items.push(`   Razón: ${specialist.reason}`);
+        if (specialist.externalVerificationRequired) {
+          items.push(`   ⚠️ Se requiere verificación externa`);
+        }
+      }
+      
       items.push(`   Evidencia: ${cs.claim.evidenceStatus} | Puntuación: ${cs.adjustedScore}/100`);
     });
     items.push('');
     items.push(`📍 Reclamación dominante: ${claimFirstResult.dominantClaim?.severity || 'ordinaria'}`);
+    const dominantScore = claimFirstResult.claimScores.find((cs) => cs.claim === claimFirstResult.dominantClaim);
+    if (dominantScore?.routedResult) {
+      items.push(`   Dominio: ${dominantScore.routedResult.selectedResult.domain}`);
+    }
     items.push(`   El puntaje se basa en la reclamación más grave, no en un promedio.`);
     items.push('');
+  } else if (claimFirstResult && claimFirstResult.claims.length === 1) {
+    // V20: Single claim with routing information
+    const cs = claimFirstResult.claimScores[0];
+    if (cs) {
+      items.push('');
+      items.push('📋 ANÁLISIS DE RECLAMACIÓN:');
+      items.push(`   Tipo: ${cs.claim.classification} | Severidad: ${cs.claim.severity}`);
+      
+      if (cs.routedResult) {
+        const specialist = cs.routedResult.selectedResult;
+        items.push(`   🔍 Dominio: ${specialist.domain} (confianza: ${(cs.routedResult.routingConfidence * 100).toFixed(0)}%)`);
+        items.push(`   Veredicto especialista: ${specialist.verdict}`);
+        items.push(`   Razón: ${specialist.reason}`);
+        if (specialist.externalVerificationRequired) {
+          items.push(`   ⚠️ Verificación externa requerida`);
+        }
+      }
+      
+      items.push(`   Evidencia: ${cs.claim.evidenceStatus} | Puntuación: ${cs.adjustedScore}/100`);
+      items.push('');
+    }
   }
 
   // Universal claim reasoning: scientific impossibilities, extinct species, extraordinary+money

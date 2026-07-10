@@ -1,3 +1,5 @@
+import type { RoutedClaimResult } from '../types/knowledgeRouter';
+
 export type ClaimClassification = 'factual' | 'opinion' | 'prediction' | 'question' | 'advertising' | 'instruction';
 export type ClaimSeverity = 'impossible' | 'extraordinary' | 'disputed' | 'ordinary' | 'unknown';
 export type EvidenceStatus = 'supplied' | 'weak' | 'unverifiable' | 'none';
@@ -13,6 +15,7 @@ export type AnalyzedClaim = {
   forceScore: number | null;
   minimumScore: number | null;
   reason: string;
+  routedResult?: RoutedClaimResult;
 };
 
 /**
