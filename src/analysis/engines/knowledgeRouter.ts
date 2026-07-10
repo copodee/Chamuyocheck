@@ -45,8 +45,8 @@ function detectPrimaryDomains(claimText: string): { primary: KnowledgeDomain; se
     scoresByDomain.science += 10;
   }
 
-  // Biology/Health indicators
-  if (/biología|salud|médico|embaraz|vacuna|enfermedad|virus|bacteria|antibiótico|cuerpo|body|energía|energy|cura|cure|recuperación|recovery|\bpeso\b|\bweight\b|pierde|lose|kg|kilogram|health|medical|pregnancy|vaccine|disease/i.test(claimText)) {
+  // Biology/Health indicators - use word boundaries for 'salud' to avoid 'saludando'
+  if (/biología|\bsalud\b|médico|embaraz|vacuna|enfermedad|virus|bacteria|antibiótico|cuerpo|body|energía|energy|cura|cure|recuperación|recovery|\bpeso\b|\bweight\b|pierde|lose|kg|kilogram|health|medical|pregnancy|vaccine|disease/i.test(claimText)) {
     scoresByDomain['biology-health'] += 10;
   }
 
@@ -78,6 +78,16 @@ function detectPrimaryDomains(claimText: string): { primary: KnowledgeDomain; se
   // Public claims indicators (conspiracy theories, government claims, etc.)
   if (/ayer|yesterday|hoy|today|hace\s*\d+|ago|noticia|news|gobierno|government|reciente|recent|chemtrails|conspiración|conspiracy|montaje|setup|controlando|controlling|pruebas|evidence|secreto|secret/i.test(claimText)) {
     scoresByDomain['public-claims'] += 10;
+  }
+
+  // BOOST: Recent extraordinary public event (hace X + extraordinary entity) → public-claims priority
+  const recentEventPattern = /hace\s*\d+\s*(?:días?|horas?|semanas?|meses?)|ayer|hoy|ocurrió|sucedió|vieron|apareció|caminaron/i;
+  const extraordinaryEntity = /extraterrestre|alien|ovni|ufo|especie extinta|dinosaurio|criatura|milagro/i;
+  const locationPattern = /(?:en\s*)?(?:argentina|buenos aires|córdoba|rosario|mendoza|la plata|salta|tucumán|misiones|corrientes|ciudad|país|provincia)/i;
+  
+  if (recentEventPattern.test(claimText) && extraordinaryEntity.test(claimText) && locationPattern.test(claimText)) {
+    scoresByDomain['public-claims'] += 20;  // Strong boost for public events
+    scoresByDomain.science += 5;  // Science as secondary
   }
 
   // Opinion/Prediction indicators - including absolute/overstated language

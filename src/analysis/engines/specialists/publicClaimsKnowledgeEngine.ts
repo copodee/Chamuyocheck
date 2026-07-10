@@ -67,12 +67,15 @@ export function evaluatePublicClaimsClaim(claimText: string): SpecialistResult {
     }
   }
 
-  // Government cover-up claims
+  // Government cover-up claims and extraordinary public events
   const extraordinaryPatterns = [
     /gobierno.*oculta|government.*hides|gobierno.*secreto|secret.*government/i,
     /conspiración.*gobierno|government.*conspiracy|encubrimiento|cover.?up/i,
     /gobierno\s+(?:está\s+)?(?:ocultando|hiding|conspirando|conspiring).*(?:evidencia|evidence|verdad|truth)/i,
-    /pruebas\s+(?:de\s+)?que.*fue.*montaje|proof.*was.*staged|demostración.*fake/i
+    /pruebas\s+(?:de\s+)?que.*fue.*montaje|proof.*was.*staged|demostración.*fake/i,
+    // Extraordinary sightings with recent/location context
+    /(?:extraterrestre|alien|ovni|ufo|criatura|milagro).{0,100}(?:ayer|hoy|hace\s*\d+|ayer|hoy|argentina|buenos aires|córdoba|rosa rio|mendoza|salta|santiago|ciudad|provincia)/i,
+    /(?:ayer|hoy|hace\s*\d+).{0,100}(?:extraterrestre|alien|ovni|ufo|milagro|evento sobrenatural)/i
   ];
 
   for (const pattern of extraordinaryPatterns) {

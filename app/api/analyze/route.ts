@@ -32,6 +32,100 @@ function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Math.round(value)));
 }
 
+/**
+ * Map knowledgeRouter primaryDomain and verdict to UI label
+ */
+function getDomainLabel(primaryDomain: string, verdict?: string): { icon: string; label: string; focus: string; modules: string[] } {
+  if (primaryDomain === 'public-claims' && verdict === 'extraordinary-unverified') {
+    return {
+      icon: '🚨',
+      label: 'Afirmación extraordinaria / evento público',
+      focus: 'Verificación externa, fuentes primarias y credibilidad de testigos.',
+      modules: ['Verificación externa', 'Fuentes primarias', 'Credibilidad', 'Contexto temporal']
+    };
+  }
+
+  if (primaryDomain === 'science' && verdict === 'contradicted') {
+    return {
+      icon: '🔬',
+      label: 'Afirmación científica contradicha',
+      focus: 'Consenso científico, metodología y pares revisores.',
+      modules: ['Consenso científico', 'Metodología', 'Pares revisores', 'Evidencia']
+    };
+  }
+
+  if (primaryDomain === 'biology-health') {
+    return {
+      icon: '🩺',
+      label: 'Contenido de salud',
+      focus: 'Evidencia médica, riesgos, fuentes y advertencias.',
+      modules: ['Evidencia médica', 'Riesgo sanitario', 'Fuentes científicas', 'Advertencias']
+    };
+  }
+
+  if (primaryDomain === 'finance') {
+    return {
+      icon: '💰',
+      label: 'Oferta financiera / inversión',
+      focus: 'Costo total, tasas, cargos ocultos y condiciones.',
+      modules: ['Costo total', 'CFT', 'Tasas', 'Cargos ocultos', 'Condiciones']
+    };
+  }
+
+  if (primaryDomain === 'legal') {
+    return {
+      icon: '📄',
+      label: 'Afirmación legal / contractual',
+      focus: 'Cláusulas, obligaciones, penalidades y jurisdicción.',
+      modules: ['Cláusulas', 'Obligaciones', 'Penalidades', 'Jurisdicción']
+    };
+  }
+
+  if (primaryDomain === 'mathematics') {
+    return {
+      icon: '🔢',
+      label: 'Afirmación matemática',
+      focus: 'Validación aritmética, lógica numérica y cálculos.',
+      modules: ['Aritmética', 'Lógica', 'Cálculos', 'Validación']
+    };
+  }
+
+  if (primaryDomain === 'history-sports') {
+    return {
+      icon: '📚',
+      label: 'Afirmación histórica / deportiva',
+      focus: 'Fechas, eventos verificados y fuentes documentales.',
+      modules: ['Fechas', 'Eventos', 'Fuentes', 'Documentación']
+    };
+  }
+
+  if (primaryDomain === 'technology') {
+    return {
+      icon: '💻',
+      label: 'Afirmación tecnológica',
+      focus: 'Especificaciones técnicas, compatibilidad y funcionalidad.',
+      modules: ['Especificaciones', 'Compatibilidad', 'Funcionalidad', 'Rendimiento']
+    };
+  }
+
+  if (primaryDomain === 'opinion-prediction') {
+    return {
+      icon: '💭',
+      label: 'Opinión / predicción',
+      focus: 'Contexto, probabilidad y validez de la posición.',
+      modules: ['Contexto', 'Probabilidad', 'Validez', 'Base evidencial']
+    };
+  }
+
+  // Fallback based on old detectDomain logic
+  return {
+    icon: '🔎',
+    label: 'Contenido general',
+    focus: 'Análisis de credibilidad y evidencia.',
+    modules: ['Credibilidad', 'Evidencia', 'Contexto', 'Fuentes']
+  };
+}
+
 function detectDomain(text: string, inputKind: string) {
   const all = text.toLowerCase();
   const topic = detectTopic(text, inputKind);
@@ -171,9 +265,6 @@ function youtubeNote(url: string) {
 }
 
 function buildLocalAnalysis(text: string, inputKind: string, fileName: string, extraction: Extraction | null) {
-  const domain = detectDomain(text, inputKind);
-  const topic = detectTopic(text, inputKind);
-  const evidence = extractEvidenceSignals(text);
   const all = `${text} ${fileName}`.toLowerCase();
 
   const missing = !/(fuente|estudio|metodolog|contrato|bases|condiciones|cft|tea|tna|bibliograf|reglamento)/i.test(all);
@@ -181,7 +272,7 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
   const financial = /(pr[eé]stamo|cuota|cft|tea|tna|cr[eé]dito|financiaci[oó]n|inter[eé]s|\$)/i.test(all);
   const pyramid = /(referido|referidos|red|multinivel|ingresos pasivos|rentabilidad garantizada|ponzi|pir[aá]mid|invitar)/i.test(all);
   const academic = /(trabajo acad[eé]mico|facultad|colegio|alumno|ensayo|monograf|tesis|bibliograf|docente|hecha con ia|hecho con ia|chatgpt)/i.test(all);
-  const health = /(medicamento|salud|m[eé]dico|tratamiento|suplemento|dieta|cura|dolor|c[aá]ncer)/i.test(all);
+  const health = /(medicamento|\bsalud\b|m[eé]dico|tratamiento|suplemento|dieta|cura|dolor|c[aá]ncer)/i.test(all);
 
   const riskScore = clamp(
     18 +
@@ -195,6 +286,19 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
 
   // V19: Claim-First Pipeline - extract and analyze individual claims first
   const claimFirstResult = runClaimFirstPipeline(text);
+
+  // Determine domain from knowledgeRouter result if available
+  let domain;
+  if (claimFirstResult.dominantClaim?.routedResult) {
+    const primaryDomain = claimFirstResult.dominantClaim.routedResult.primaryDomain;
+    const verdict = claimFirstResult.dominantClaim.routedResult.selectedResult?.verdict;
+    domain = getDomainLabel(primaryDomain, verdict);
+  } else {
+    domain = detectDomain(text, inputKind);
+  }
+
+  const topic = detectTopic(text, inputKind);
+  const evidence = extractEvidenceSignals(text);
 
   // Universal claim reasoning: runs FIRST — catches scientific impossibilities,
   // extinct species alive, and extraordinary claim + money patterns

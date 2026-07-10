@@ -725,6 +725,52 @@ const testCases: TestCase[] = [
     expectedDomain: 'scientific/public-event',
     notes: 'KEY: Impossible claim overrides prediction'
   },
+
+  // V20.2: Domain Routing for Extraordinary Public Claims
+  {
+    id: 'v202-pub-001',
+    category: 'Science',
+    input: 'En Argentina hace 20 días caminaron extraterrestres por Buenos Aires saludando a la gente',
+    expectedMinScore: 90,
+    expectedMaxScore: 98,
+    expectedLabel: 'Chamuyo extremo',
+    expectedClaimType: 'factual',
+    expectedDomain: 'public-claims',
+    notes: 'V20.2: Extraordinary event + recent + location → public-claims (NOT health)'
+  },
+  {
+    id: 'v202-health-001',
+    category: 'Biology/Health',
+    input: 'Un paciente tiene fiebre y dolor de garganta',
+    expectedMinScore: 0,
+    expectedMaxScore: 25,
+    expectedLabel: 'Bajo chamuyo',
+    expectedClaimType: 'factual',
+    expectedDomain: 'biology-health',
+    notes: 'V20.2: Medical symptoms → health domain'
+  },
+  {
+    id: 'v202-health-002',
+    category: 'Biology/Health',
+    input: 'Una mujer puede tener un hijo híbrido humano-perro',
+    expectedMinScore: 95,
+    expectedMaxScore: 100,
+    expectedLabel: 'Chamuyo extremo',
+    expectedClaimType: 'factual',
+    expectedDomain: 'biology-health',
+    notes: 'V20.2: Impossible biology claim → health domain with high score'
+  },
+  {
+    id: 'v202-pub-002',
+    category: 'Science',
+    input: 'Se vio un ovni ayer sobre Córdoba',
+    expectedMinScore: 90,
+    expectedMaxScore: 98,
+    expectedLabel: 'Chamuyo extremo',
+    expectedClaimType: 'factual',
+    expectedDomain: 'public-claims',
+    notes: 'V20.2: UFO sighting + recent + location → public-claims with science secondary'
+  },
 ];
 
 // Run all tests
