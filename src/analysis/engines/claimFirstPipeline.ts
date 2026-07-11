@@ -3,6 +3,8 @@ import { applyEvidenceGate } from './claimEvidenceGate';
 import { scoreIndividualClaim, type ClaimScore } from './claimScoringEngine';
 import { routeClaim } from './knowledgeRouter';
 import { detectClaimNature } from './claimNatureDetector';
+import { routeByNature } from './natureAwareRouter';
+import { decideExternalVerification } from './externalVerificationDecisionEngine';
 
 export type ClaimFirstResult = {
   claims: AnalyzedClaim[];
@@ -195,6 +197,13 @@ export function runClaimFirstPipeline(text: string): ClaimFirstResult {
 
     // V21 Phase 1: Shadow mode - detect claim nature without using it yet for routing/scoring
     const claimNature = detectClaimNature(claimText);
+    const natureAwareRoute = routeByNature(claimText, claimNature);
+    const externalVerificationPlan = decideExternalVerification({
+      claimText,
+      claimNature,
+      primaryDomain: natureAwareRoute.primaryDomain,
+      secondaryDomains: natureAwareRoute.secondaryDomains,
+    });
 
     return {
       text: claimText,
@@ -208,7 +217,10 @@ export function runClaimFirstPipeline(text: string): ClaimFirstResult {
       minimumScore: null,
       reason: '',
       routedResult,
-      claimNature
+      claimNature,
+      externalVerificationRequired: externalVerificationPlan.externalVerificationRequired,
+      externalVerificationPerformed: externalVerificationPlan.externalVerificationPerformed,
+      externalVerificationPlan
     };
   });
 

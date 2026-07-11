@@ -1,5 +1,6 @@
 import type { RoutedClaimResult } from '../types/knowledgeRouter';
 import type { ClaimNatureResult } from '../types/claimNature';
+import type { ExternalVerificationPlan } from '../types/externalVerification';
 
 export type ClaimClassification = 'factual' | 'opinion' | 'prediction' | 'question' | 'advertising' | 'instruction';
 export type ClaimSeverity = 'impossible' | 'extraordinary' | 'disputed' | 'ordinary' | 'unknown';
@@ -18,6 +19,9 @@ export type AnalyzedClaim = {
   reason: string;
   routedResult?: RoutedClaimResult;
   claimNature?: ClaimNatureResult; // V21 Phase 1: Shadow mode - semantic nature detection
+  externalVerificationRequired?: boolean;
+  externalVerificationPerformed?: boolean;
+  externalVerificationPlan?: ExternalVerificationPlan;
 };
 
 /**
