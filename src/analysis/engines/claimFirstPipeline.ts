@@ -5,6 +5,8 @@ import { routeClaim } from './knowledgeRouter';
 import { detectClaimNature } from './claimNatureDetector';
 import { routeByNature } from './natureAwareRouter';
 import { decideExternalVerification } from './externalVerificationDecisionEngine';
+import { consolidateExternalVerificationPlans } from './externalVerificationPlanAggregator';
+import type { DocumentExternalVerificationPlan } from '../types/externalVerification';
 
 export type ClaimFirstResult = {
   claims: AnalyzedClaim[];
@@ -12,6 +14,7 @@ export type ClaimFirstResult = {
   finalScore: number;
   dominantClaim: AnalyzedClaim | null;
   breakdown: string;
+  documentExternalVerificationPlan: DocumentExternalVerificationPlan;
 };
 
 /**
@@ -172,12 +175,14 @@ export function runClaimFirstPipeline(text: string): ClaimFirstResult {
 
   // If only one claim extracted, treat as single claim
   if (claimTexts.length === 0) {
+    const documentExternalVerificationPlan = consolidateExternalVerificationPlans([]);
     return {
       claims: [],
       claimScores: [],
       finalScore: 36,
       dominantClaim: null,
-      breakdown: 'No claims extracted from text.'
+      breakdown: 'No claims extracted from text.',
+      documentExternalVerificationPlan
     };
   }
 
@@ -220,12 +225,14 @@ export function runClaimFirstPipeline(text: string): ClaimFirstResult {
       claimNature,
       externalVerificationRequired: externalVerificationPlan.externalVerificationRequired,
       externalVerificationPerformed: externalVerificationPlan.externalVerificationPerformed,
-      externalVerificationPlan
+      externalVerificationPlan,
+      externalVerificationPrimaryDomain: natureAwareRoute.primaryDomain
     };
   });
 
   // Step 3: Apply evidence gates
   const gatedClaims = claims.map(applyEvidenceGate);
+  const documentExternalVerificationPlan = consolidateExternalVerificationPlans(gatedClaims);
 
   // Step 4: Score each claim (pass routed result for specialist-based scoring)
   const claimScores = gatedClaims.map((claim) => scoreIndividualClaim(claim, claim.routedResult));
@@ -239,7 +246,8 @@ export function runClaimFirstPipeline(text: string): ClaimFirstResult {
       claimScores,
       finalScore: 100,
       dominantClaim: forcedScore.claim,
-      breakdown: `Impossible claim detected: "${forcedScore.claim.text}". Final score = 100.`
+      breakdown: `Impossible claim detected: "${forcedScore.claim.text}". Final score = 100.`,
+      documentExternalVerificationPlan
     };
   }
 
@@ -255,7 +263,8 @@ export function runClaimFirstPipeline(text: string): ClaimFirstResult {
       claimScores,
       finalScore: Math.max(maxScore, 90),
       dominantClaim: highMinimumClaim.claim,
-      breakdown: `Extraordinary claim without evidence: "${highMinimumClaim.claim.text}". Final score >= 90.`
+      breakdown: `Extraordinary claim without evidence: "${highMinimumClaim.claim.text}". Final score >= 90.`,
+      documentExternalVerificationPlan
     };
   }
 
@@ -277,6 +286,7 @@ export function runClaimFirstPipeline(text: string): ClaimFirstResult {
     claimScores,
     finalScore: dominantScore.adjustedScore,
     dominantClaim: dominantScore.claim,
-    breakdown: `Multiple claims detected. Dominant: "${dominantScore.claim.text}" (${dominantScore.claim.severity}) → ${dominantScore.adjustedScore}`
+    breakdown: `Multiple claims detected. Dominant: "${dominantScore.claim.text}" (${dominantScore.claim.severity}) → ${dominantScore.adjustedScore}`,
+    documentExternalVerificationPlan
   };
 }

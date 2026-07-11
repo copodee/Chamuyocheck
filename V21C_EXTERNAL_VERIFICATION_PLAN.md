@@ -12,10 +12,12 @@ Separar la decisión de verificar de la ejecución de una búsqueda. V21C debe i
    - `externalVerificationPerformed` queda siempre en `false`: esta fase no tiene conectores ni acceso a fuentes.
    - Integración sólo como metadato del claim. No participa del scoring, de los gates, de la selección de especialistas ni de la UI.
 
-2. **Consolidación de planes (no implementada)**
+2. **Consolidación de planes (implementada)**
    - Agrupar planes repetidos a nivel documento.
    - Resolver jurisdicción y fecha de corte explícitas.
    - Mantener el estado `performed` en falso mientras no exista una ejecución real.
+   - Deduplicar tipos de fuente y ordenar grupos de verificación por prioridad.
+   - Integración sólo como metadato documental; no participa de UI ni scoring.
 
 3. **Ejecución real con trazabilidad (no implementada)**
    - Conectores autorizados por tipo de fuente.
@@ -26,7 +28,7 @@ Separar la decisión de verificar de la ejecución de una búsqueda. V21C debe i
    - Mostrar requerido, realizado, fuentes consultadas y límites.
    - Requiere revisión separada; no implica por sí sola cambios de scoring.
 
-## Invariantes de la fase 1
+## Invariantes de las fases 1 y 2
 
 - Nunca se inventan búsquedas, fuentes ni citas.
 - `externalVerificationPerformed === false` para todos los resultados.

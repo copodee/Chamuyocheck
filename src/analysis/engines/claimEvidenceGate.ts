@@ -1,6 +1,7 @@
 import type { RoutedClaimResult } from '../types/knowledgeRouter';
 import type { ClaimNatureResult } from '../types/claimNature';
 import type { ExternalVerificationPlan } from '../types/externalVerification';
+import type { KnowledgeDomain } from '../types/contentDomain';
 
 export type ClaimClassification = 'factual' | 'opinion' | 'prediction' | 'question' | 'advertising' | 'instruction';
 export type ClaimSeverity = 'impossible' | 'extraordinary' | 'disputed' | 'ordinary' | 'unknown';
@@ -22,6 +23,7 @@ export type AnalyzedClaim = {
   externalVerificationRequired?: boolean;
   externalVerificationPerformed?: boolean;
   externalVerificationPlan?: ExternalVerificationPlan;
+  externalVerificationPrimaryDomain?: KnowledgeDomain;
 };
 
 /**
