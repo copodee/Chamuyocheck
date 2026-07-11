@@ -19,16 +19,18 @@ Separar la decisión de verificar de la ejecución de una búsqueda. V21C debe i
    - Deduplicar tipos de fuente y ordenar grupos de verificación por prioridad.
    - Integración sólo como metadato documental; no participa de UI ni scoring.
 
-3. **Ejecución real con trazabilidad (no implementada)**
-   - Conectores autorizados por tipo de fuente.
+3. **Ejecución real con trazabilidad (fundación segura implementada; conectores pendientes)**
+   - Contrato y validador auditable para evidencia entregada por futuros conectores.
+   - Conectores autorizados por tipo de fuente (no implementados).
    - Registro de consultas, URLs, fecha, fragmentos y resultado por claim.
    - `externalVerificationPerformed` sólo puede cambiar a `true` si existe evidencia auditable asociada.
+   - Una verificación completa exige cobertura por claim, fuentes independientes suficientes, URL válida, fecha y fuente oficial cuando corresponda.
 
 4. **Consumo en reporte/UI (no implementada)**
    - Mostrar requerido, realizado, fuentes consultadas y límites.
    - Requiere revisión separada; no implica por sí sola cambios de scoring.
 
-## Invariantes de las fases 1 y 2
+## Invariantes de las fases 1, 2 y fundación de fase 3
 
 - Nunca se inventan búsquedas, fuentes ni citas.
 - `externalVerificationPerformed === false` para todos los resultados.

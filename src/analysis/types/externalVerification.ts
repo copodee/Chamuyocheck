@@ -46,3 +46,28 @@ export type DocumentExternalVerificationPlan = {
   jurisdictions: string[];
   workItems: ExternalVerificationWorkItem[];
 };
+
+export type ExternalVerificationSourceRecord = {
+  sourceType: string;
+  url: string;
+  title: string;
+  retrievedAt: string;
+  sourceDate?: string;
+  claimIndexes: number[];
+  official: boolean;
+  excerpt?: string;
+};
+
+export type ExternalVerificationExecutionStatus =
+  | 'not-performed'
+  | 'partial'
+  | 'complete'
+  | 'invalid';
+
+export type ExternalVerificationExecutionResult = {
+  externalVerificationPerformed: boolean;
+  status: ExternalVerificationExecutionStatus;
+  records: ExternalVerificationSourceRecord[];
+  coveredClaimIndexes: number[];
+  errors: string[];
+};
