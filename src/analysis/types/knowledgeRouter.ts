@@ -12,6 +12,8 @@ export type KnowledgeDomain =
   | 'technology'
   | 'legal'
   | 'public-claims'
+  | 'public-policy'
+  | 'politics'
   | 'opinion-prediction'
   | 'general'
   | 'unknown';

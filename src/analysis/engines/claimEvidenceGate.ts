@@ -24,6 +24,22 @@ export type AnalyzedClaim = {
  * Evidence gate: determine forceScore and minimumScore based on claim type and evidence
  */
 export function applyEvidenceGate(claim: AnalyzedClaim): AnalyzedClaim {
+  // SENSITIVE ALLEGATIONS: allegations about public figures with sexual/intimate nature
+  // These are automatically treated as high-severity due to reputational impact
+  const sensitivePattern = /(?:mantiene|tiene|guard[aá]s|oculta|esconde|lleva|sostiene|realiza|comete|hace|practica)\s+(?:relaciones?\s+)?(?:sexuales?|intimidad|aventura|affair|encuentro|relaci[oó]n\s+de|romance|vínculo|conexión)/i;
+  const publicFigurePattern = /(?:presidente|ministro|senador|diputado|gobernador|intendente|funcionario|pol[ií]tico|empresa|ejecutivo|ceo|director|juez|magistrado|jueza|abogada?|m[eé]dico|doctor|figura p[uú]blica|personalidad|celebridad|influencer|actor|artista|deportista|persona\spública)/i;
+  
+  const isSensitiveAllegation = sensitivePattern.test(claim.text) && publicFigurePattern.test(claim.text);
+  
+  if (isSensitiveAllegation && claim.classification === 'question') {
+    return {
+      ...claim,
+      forceScore: null,
+      minimumScore: 95,
+      reason: 'Sensitive allegation about public figure. Unverified allegations require high scrutiny. Minimum chamuyo = 95 (cannot be lowered).'
+    };
+  }
+
   // A) Impossible or contradicted by established knowledge
   if (claim.severity === 'impossible') {
     return {

@@ -30,6 +30,8 @@ function detectPrimaryDomains(claimText: string): { primary: KnowledgeDomain; se
     technology: 0,
     legal: 0,
     'public-claims': 0,
+    'public-policy': 0,
+    politics: 0,
     'opinion-prediction': 0,
     general: 0,
     unknown: 0
@@ -50,8 +52,8 @@ function detectPrimaryDomains(claimText: string): { primary: KnowledgeDomain; se
     scoresByDomain['biology-health'] += 10;
   }
 
-  // Finance indicators
-  if (/pesos?|dólares?|interés|ganancia|inversión|capital|%\s*anual|pirámid|pyramid|reclut|recruit|garantiz|garantía|sin trabajar|sin riesgo|gana|finance|investment|interest|money|earn|guarantee/i.test(claimText)) {
+  // Finance indicators - includes Bitcoin/crypto and investment terms
+  if (/pesos?|dólares?|interés|ganancia|inversión|capital|%\s*anual|pirámid|pyramid|reclut|recruit|garantiz|garantía|sin trabajar|sin riesgo|gana|finance|investment|interest|money|earn|guarantee|bitcoin|criptomoneda|cripto|ethereum|rentabilidad|retorno|acciones|bolsa|mercado bursátil|fondo mutuo/i.test(claimText)) {
     scoresByDomain.finance += 10;
   }
 
@@ -78,6 +80,18 @@ function detectPrimaryDomains(claimText: string): { primary: KnowledgeDomain; se
   // Public claims indicators (conspiracy theories, government claims, etc.)
   if (/ayer|yesterday|hoy|today|hace\s*\d+|ago|noticia|news|gobierno|government|reciente|recent|chemtrails|conspiración|conspiracy|montaje|setup|controlando|controlling|pruebas|evidence|secreto|secret/i.test(claimText)) {
     scoresByDomain['public-claims'] += 10;
+  }
+
+  // Public policy indicators - government decisions, regulations, public programs
+  if (/política pública|salud pública|educación pública|gasto público|presupuesto público|inversión pública|servicios públicos|bienestar público|politica social|desigualdad|pobreza|infancia|programa social/i.test(claimText)) {
+    scoresByDomain['public-policy'] += 15;
+  }
+
+  // Sensitive allegations: public figure + sexual/intimate content → public-claims primary, politics secondary
+  if (/(?:presidente|ministro|senador|diputado|gobernador|intendente|funcionario|pol[ií]tico|figura\s+p[uú]blica|persona\s+p[uú]blica|personalidad)/i.test(claimText) &&
+      /(?:relaciones?\s+sexuales?|intimidad|aventura|affair|romance|infidelidad|amante)/i.test(claimText)) {
+    scoresByDomain['public-claims'] += 20;
+    scoresByDomain['politics'] += 10;
   }
 
   // BOOST: Recent extraordinary public event (hace X + extraordinary entity) → public-claims priority
@@ -143,6 +157,12 @@ export function routeClaim(claimText: string): RoutedClaimResult {
   } else if (primary === 'legal') {
     primaryResult = evaluateLegalClaim(claimText);
   } else if (primary === 'public-claims') {
+    primaryResult = evaluatePublicClaimsClaim(claimText);
+  } else if (primary === 'public-policy') {
+    // Route public-policy claims to public-claims specialist (similar domain)
+    primaryResult = evaluatePublicClaimsClaim(claimText);
+  } else if (primary === 'politics') {
+    // Route politics claims to public-claims specialist
     primaryResult = evaluatePublicClaimsClaim(claimText);
   } else if (primary === 'opinion-prediction') {
     primaryResult = evaluateOpinionPredictionClaim(claimText);

@@ -1,3 +1,5 @@
+import { filterRelevantDimensions, type AnalysisDimension } from './relevantDimensionsGate';
+
 export type ScoringDimension = {
   id: string;
   label: string;
@@ -11,6 +13,7 @@ export type DomainWeightedResult = {
   finalScore: number;
   dimensions: ScoringDimension[];
   applicableDimensions: ScoringDimension[];
+  excludedDimensions: ScoringDimension[];
   domain: string;
   isExtraordinaryClaim: boolean;
   extraordinarySeverity: 'extreme' | 'high' | 'medium' | 'none';
@@ -48,43 +51,53 @@ export function calculateDomainWeightedScore(
   inputKind: string,
   forceScore: number | null,
   hasFinancialClaim: boolean,
-  hasPonziSignals: boolean
+  hasPonziSignals: boolean,
+  hasHealthClaim: boolean = false,
+  hasLegalClaim: boolean = false,
+  hasAcademicClaim: boolean = false,
+  claimNature: string | undefined = undefined
 ): DomainWeightedResult {
   try {
     const lower = text.toLowerCase();
     const { isExtraordinary, severity: extraordinarySeverity } = detectExtraordinaryClaim(text);
 
-    // Build dimension list with applicability flags
+    // Build dimension list
     const dimensions: ScoringDimension[] = allCategoryScores.map((cat) => {
-      let applicable = true;
-      let reason = 'Relevante para este análisis.';
-
-      // Financial dimensions only apply if explicitly detected as financial content
-      if (cat.name === 'Riesgo financiero') {
-        applicable = hasFinancialClaim;
-        reason = hasFinancialClaim ? 'Se detectó contenido financiero.' : 'No se detectó contenido financiero en el análisis.';
-      }
-
-      // Ponzi dimensions only apply if financial + pyramid signals
-      if (cat.name === 'Riesgo piramidal/Ponzi') {
-        applicable = hasFinancialClaim && hasPonziSignals;
-        reason = hasFinancialClaim && hasPonziSignals ? 'Se detectaron señales de esquema piramidal.' : 'No se detectaron señales de estructura piramidal o Ponzi.';
-      }
-
-      // Possible AI only for academic content
-      if (cat.name === 'Posible IA académica') {
-        applicable = /acad[eé]mico|tesis|monograf|ensayo|universidad|colegio|alumno|bibliograf/i.test(lower);
-        reason = applicable ? 'Se detectó contenido académico.' : 'No se detectó contenido académico.';
-      }
-
       return {
         id: cat.name.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-'),
         label: cat.name,
         value: cat.score,
         weight: 0.15, // default, will be overridden below
-        applicable,
-        reason
+        applicable: true, // Will be overridden by gate
+        reason: 'Dimensión inicial'
       };
+    });
+
+    // GATE: Apply strict applicability rules based on claim nature and domain
+    const gateResult = filterRelevantDimensions(
+      dimensions as AnalysisDimension[],
+      text,
+      claimNature,
+      topic,
+      hasFinancialClaim,
+      hasPonziSignals,
+      hasHealthClaim,
+      hasLegalClaim,
+      hasAcademicClaim
+    );
+
+    // Update dimensions with gate's applicability decisions
+    dimensions.forEach((dim) => {
+      const gateDim = gateResult.applicableDimensions.find((d) => d.id === dim.id);
+      const excludedDim = gateResult.excludedDimensions.find((d) => d.id === dim.id);
+      
+      if (gateDim) {
+        dim.applicable = true;
+        dim.reason = gateDim.reason;
+      } else if (excludedDim) {
+        dim.applicable = false;
+        dim.reason = excludedDim.reason;
+      }
     });
 
     // Apply domain-specific weights for extraordinary claims
@@ -145,6 +158,7 @@ export function calculateDomainWeightedScore(
 
     // Calculate weighted score using only applicable dimensions
     const applicableDimensions = dimensions.filter((d) => d.applicable);
+    const excludedDimensions = dimensions.filter((d) => !d.applicable);
 
     let finalScore = forceScore ?? 36; // default if no force
 
@@ -171,6 +185,7 @@ export function calculateDomainWeightedScore(
       finalScore,
       dimensions,
       applicableDimensions,
+      excludedDimensions,
       domain: topic || 'general',
       isExtraordinaryClaim: isExtraordinary,
       extraordinarySeverity,
@@ -183,6 +198,7 @@ export function calculateDomainWeightedScore(
       finalScore: 36,
       dimensions: [],
       applicableDimensions: [],
+      excludedDimensions: [],
       domain: topic || 'general',
       isExtraordinaryClaim: false,
       extraordinarySeverity: 'none',

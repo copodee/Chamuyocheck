@@ -11,6 +11,7 @@ import { runCoreReasoning } from '../../../src/analysis/engines/coreReasoningEng
 import { runUniversalClaimReasoning } from '../../../src/analysis/engines/universalClaimReasoningEngine';
 import { calculateDomainWeightedScore } from '../../../src/analysis/engines/domainWeightedScoringEngine';
 import { runClaimFirstPipeline } from '../../../src/analysis/engines/claimFirstPipeline';
+import { detectClaimNature } from '../../../src/analysis/engines/claimNatureDetector';
 
 export const runtime = 'nodejs';
 
@@ -30,6 +31,27 @@ type Extraction = {
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+/**
+ * Detect domain-specific signals for dimension gate
+ */
+function hasHealthClaim(text: string): boolean {
+  return /médico|salud|enfermedad|síntoma|tratamiento|cura|medicamento|paciente|diagnóstico|enfermo|alergia|dolor|fiebre|hospital|doctor|virus|inmune|cirugía|operación/i.test(
+    text
+  );
+}
+
+function hasLegalClaim(text: string): boolean {
+  return /ilegal|legal|derecho|ley|contrato|cláusula|obligación|jurisdicción|tribunal|código civil|constitución|juez|abogado|demanda|sentencia|contrato/i.test(
+    text
+  );
+}
+
+function hasAcademicClaim(text: string): boolean {
+  return /tesis|monografía|ensayo|universidad|colegio|alumno|académico|bibliografía|referencias|paper|investigación|estudio|profesor|doctoral|licenciatura/i.test(
+    text
+  );
 }
 
 /**
@@ -363,6 +385,8 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
 
   // Domain-aware weighted scoring: only count applicable dimensions
   const forceScoreForWeighting = universalReasoning.forceScore ?? reasoning.forcedScore ?? null;
+  const claimNature = detectClaimNature(text);
+  
   const weightedResult = calculateDomainWeightedScore(
     categoryScoresWithoutLevel,
     text,
@@ -370,12 +394,22 @@ function buildLocalAnalysis(text: string, inputKind: string, fileName: string, e
     inputKind,
     forceScoreForWeighting,
     financial,
-    pyramid
+    pyramid,
+    hasHealthClaim(text),
+    hasLegalClaim(text),
+    hasAcademicClaim(text),
+    claimNature.primaryNature
   );
 
   // Use weighted score if no forced score exists and no extraordinary claim from V19
   if (forceScoreForWeighting === null && claimFirstResult.finalScore < 90) {
     finalScore = weightedResult.finalScore;
+  }
+
+  // Apply minimumScore floor from claimFirstResult (sensitive allegations, etc.)
+  // CRITICAL: minimumScore is a hard floor and cannot be reduced
+  if (claimFirstResult.dominantClaim?.minimumScore !== null) {
+    finalScore = Math.max(finalScore, claimFirstResult.dominantClaim.minimumScore);
   }
 
   const categoryScores: CategoryScore[] = [

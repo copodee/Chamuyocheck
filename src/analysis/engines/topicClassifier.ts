@@ -6,7 +6,8 @@ const employmentSignals = /\b(vacante|vacancy|postulaci[oó]n|enviar cv|curricul
 const publicEconomicSignals = /(salario real|inflaci[oó]n|empleo registrado|sipa|convenios colectivos|remuneraciones|secretar[ií]a de trabajo|poder adquisitivo|nota period[ií]stica|informe econ[oó]mico|econom[ií]a|empleo formal|remuneraci[oó]n real|mercado laboral|empleo formal|costo de vida)/i;
 const publicReleaseSignals = /(comunicado|comunicación|nota de prensa|press release|prensa|institucional|declaración|afirmación pública|comunicado de prensa|anuncio institucional|boletín|nota oficial|nota|public statement|company note|empresa|gobierno|grupo|mensaje institucional)/i;
 const healthSignals = /salud|medicamento|tratamiento|cura|c[aá]ncer|dolor|síntoma|suplemento|dosis|paciente|diagn[oó]stico/i;
-const financeSignals = /pr[eé]stamo|cr[eé]dito|cuota|cft|tea|tna|inter[eé]s|financiaci[oó]n|comisi[oó]n|seguro|\$\s?\d/i;
+const financeSignals = /pr[eé]stamo|cr[eé]dito|cuota|cft|tea|tna|inter[eé]s|financiaci[oó]n|comisi[oó]n|seguro|bitcoin|criptomoneda|cripto|ethereum|inversi[oó]n|invertir|rentabilidad|ganancia|retorno|acciones|bolsa|mercado burs[aá]til|fondo mutuo|\$\s?\d/i;
+const publicPolicySignals = /pol[ií]tica p[uú]blica|gasto p[uú]blico|presupuesto p[uú]blico|inversi[oó]n p[uú]blica|pol[ií]tica social|servicios p[uú]blicos|educaci[oó]n p[uú]blica|salud p[uú]blica|bienestar p[uú]blico|infancia|ni[ñn]ez|familia|pobreza|desigualdad/i;
 const legalSignals = /contrato|cl[aá]usula|jurisdicci[oó]n|penalidad|rescisi[oó]n|incumplimiento|obligaci[oó]n|t[eé]rminos y condiciones/i;
 const academicSignals = /tesis|monograf|ensayo|universidad|facultad|colegio|alumno|bibliograf|referencias|docente|hecho con ia|hecha con ia|chatgpt/i;
 const politicsSignals = /gobierno|presidente|ministro|elecci[oó]n|campaña|partido|diputado|senador|municipio|pol[ií]tica/i;
@@ -18,6 +19,29 @@ const productSignals = /producto|servicio|garant[ií]a|comparativa|reseña|calid
 export function detectTopic(text: string, inputKind: string) {
   const all = text.toLowerCase();
   const input = describeInput(inputKind);
+
+  // SENSITIVE ALLEGATION — must check FIRST before any other classifier
+  // Detects: identifiable public figure + sexual/intimate allegation
+  const sensitiveAllegation =
+    /(?:presidente|ministro|senador|diputado|gobernador|intendente|funcionario|pol[ií]tico|figura\s+p[úu]blica|persona\s+p[úu]blica|personalidad|celebridad|deportista|actor|influencer)/i.test(all) &&
+    /(?:relaciones?\s+sexuales?|intimidad|aventura|affair|romance|infidelidad|amante)/i.test(all);
+
+  if (sensitiveAllegation) {
+    return {
+      key: 'sensitive-allegation',
+      label: 'Acusación grave no verificada',
+      hint: 'No difundir sin verificación externa rigurosa.',
+      summary: 'La entrada formula una acusación sexual y familiar grave sobre una persona identificable sin aportar fuentes, atribución ni evidencia verificable. La pregunta no confirma el hecho. Debido al riesgo de desinformación y daño reputacional, no debe difundirse como información verdadera sin una verificación externa rigurosa.',
+      prudentConclusion: 'No afirmaría ni negaría la acusación sin evidencia verificable. La ausencia de fuente o atribución la convierte en rumor no confirmado.',
+      verdict: 'NO DIFUNDIR SIN VERIFICACIÓN: acusación grave sin evidencia ni fuente verificable.',
+      modules: ['Atribución', 'Fuente primaria', 'Corroboración independiente', 'Daño reputacional'],
+      recommendations: [
+        'No difundir la acusación sin verificación de al menos dos fuentes independientes.',
+        'Verificar si existe denuncia formal, declaración pública o cobertura periodística verificada.',
+        'Considerar el daño reputacional ante afirmaciones no verificadas.',
+      ]
+    };
+  }
 
   const reproductiveBio = detectReproductiveBiologyQuestion(all);
 
@@ -31,6 +55,20 @@ export function detectTopic(text: string, inputKind: string) {
       verdict: `Pregunta factual sobre ${input.noun}: podés avanzar con verificación básica de contexto.`,
       modules: ['Biología humana', 'Reproducción', 'Contexto de identidad', 'Bases médicas'],
       recommendations: ['Si es situación personal, consultá con especialistas en salud o reproducción.', 'Aclaá el contexto: ¿se refiere a varón cisgénero, persona trans o intersex?']
+    };
+  }
+
+  // Check public policy BEFORE health to distinguish "salud pública" policy from medical claims
+  if (publicPolicySignals.test(all)) {
+    return {
+      key: 'public-policy',
+      label: 'Política pública',
+      hint: 'Revisá datos, contexto e impacto de la política.',
+      summary: `El contenido parece una opinión sobre política pública y conviene verificar el impacto, contexto y datos.`,
+      prudentConclusion: `No lo tomaría como conclusión cerrada sobre efectividad; pediría datos y contexto de implementación.`,
+      verdict: `Evaluación prudente para ${input.noun}: conviene verificar impacto y contexto de política.`,
+      modules: ['Datos', 'Contexto', 'Impacto', 'Implementación'],
+      recommendations: ['Buscá datos sobre la política y su impacto real.', 'Contrastá argumentos con evidencia de implementación.']
     };
   }
 
@@ -86,6 +124,20 @@ export function detectTopic(text: string, inputKind: string) {
     };
   }
 
+  // Check public-economic BEFORE politics so economic data doesn't get classified as political
+  if (publicEconomicSignals.test(all) && !employmentSignals.test(all)) {
+    return {
+      key: 'public-economic',
+      label: 'Economía / información pública / nota periodística',
+      hint: 'Revisá la fuente, el contexto, la fecha y la trazabilidad.',
+      summary: `El contenido se analiza como una nota o afirmación pública relacionada con economía y conviene verificar la fuente original y el contexto.`,
+      prudentConclusion: `No lo trataría como comprobado; pediría la fuente original, la fecha y el contexto antes de compartirlo.`,
+      verdict: `Evaluación prudente para ${input.noun}: conviene verificar fuente, contexto y trazabilidad.`,
+      modules: ['Fuente', 'Fecha', 'Contexto', 'Trazabilidad'],
+      recommendations: ['Buscá la fuente original y la fecha de publicación.', 'Verificá si la afirmación se sostiene en múltiples fuentes.']
+    };
+  }
+
   if (politicsSignals.test(all)) {
     return {
       key: 'politics',
@@ -122,19 +174,6 @@ export function detectTopic(text: string, inputKind: string) {
       verdict: `Evaluación prudente para ${input.noun}: conviene verificar capacidades y respaldo.`,
       modules: ['Capacidades', 'Límites', 'Respaldo', 'Contexto'],
       recommendations: ['Pedí evidencia técnica o pruebas verificables.', 'Contrastá las afirmaciones con documentación o benchmarks.']
-    };
-  }
-
-  if (publicEconomicSignals.test(all) && !employmentSignals.test(all)) {
-    return {
-      key: 'public-economic',
-      label: 'Economía / información pública / nota periodística',
-      hint: 'Revisá la fuente, el contexto, la fecha y la trazabilidad.',
-      summary: `El contenido se analiza como una nota o afirmación pública relacionada con economía y conviene verificar la fuente original y el contexto.`,
-      prudentConclusion: `No lo trataría como comprobado; pediría la fuente original, la fecha y el contexto antes de compartirlo.`,
-      verdict: `Evaluación prudente para ${input.noun}: conviene verificar fuente, contexto y trazabilidad.`,
-      modules: ['Fuente', 'Fecha', 'Contexto', 'Trazabilidad'],
-      recommendations: ['Buscá la fuente original y la fecha de publicación.', 'Verificá si la afirmación se sostiene en múltiples fuentes.']
     };
   }
 
