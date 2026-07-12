@@ -14,6 +14,7 @@ import { runClaimFirstPipeline } from '../claimFirstPipeline';
 import { detectClaimNature } from '../claimNatureDetector';
 import { detectTopic } from '../topicClassifier';
 import { calculateDomainWeightedScore } from '../domainWeightedScoringEngine';
+import { buildLocalAnalysis } from '../../../../app/api/analyze/route';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CASE A: Serious unverified allegation about an identifiable public figure
@@ -135,6 +136,21 @@ test('Sensitive personal assertion: job title does not turn the predicate into e
     text, topic.key, 'Texto', null, false, false, false, false, false, 'fact'
   );
   assert.ok(!weighted.applicableDimensions.some((dimension) => /financiero|ponzi/i.test(dimension.label)));
+});
+
+test('Full analysis regression: misspelled pedophile accusation overrides health-title context', () => {
+  const text = 'el ministro de salud argentino Lugones es podofilo';
+  const result = buildLocalAnalysis(text, 'Texto', '', null);
+
+  assert.ok(result.score >= 95, `Expected score >= 95, got ${result.score}`);
+  assert.strictEqual(result.topic, 'sensitive-allegation');
+  assert.strictEqual(result.topicLabel, 'Afirmación personal sensible no verificada');
+  assert.strictEqual(result.detectedTheme, 'Afirmación pública no verificada');
+  assert.strictEqual(result.externalVerification.externalVerificationRequired, true);
+  assert.strictEqual(result.externalVerification.externalVerificationPerformed, false);
+  assert.match(result.summary, /dato personal sensible|no confirma ni desmiente/i);
+  assert.ok(!result.categoryScores.some((category) => /financiero|ponzi/i.test(category.name)));
+  assert.ok(!result.categoryScores.some((category) => /salud|m[eé]dic/i.test(category.name)));
 });
 
 test('Economic subject matter remains economics when the predicate is actually economic', () => {

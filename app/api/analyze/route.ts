@@ -83,6 +83,15 @@ function getDomainLabel(primaryDomain: string, verdict?: string): { icon: string
     };
   }
 
+  if (primaryDomain === 'public-claims') {
+    return {
+      icon: '⚠️',
+      label: 'Afirmación pública no verificada',
+      focus: 'Atribución, fuente primaria, contexto y riesgo reputacional.',
+      modules: ['Atribución', 'Fuente primaria', 'Contexto', 'Riesgo reputacional']
+    };
+  }
+
   if (primaryDomain === 'science' && verdict === 'contradicted') {
     return {
       icon: '🔬',
@@ -469,13 +478,20 @@ export function buildLocalAnalysis(
     finalScore = Math.max(finalScore, claimFirstResult.dominantClaim.minimumScore);
   }
 
+  const applicableCategoryLabels = new Set(
+    weightedResult.applicableDimensions.map((dimension) => dimension.label)
+  );
+  const visibleCategoryScores = categoryScoresWithoutLevel.filter((category) =>
+    applicableCategoryLabels.has(category.name)
+  );
+
   const categoryScores: CategoryScore[] = [
     {
       name: 'Nivel de chamuyo',
       score: finalScore,
       explanation: 'Nivel de señales de manipulación, falta de evidencia o contenido dudoso.'
     },
-    ...categoryScoresWithoutLevel
+    ...visibleCategoryScores
   ];
 
   const inputText = describeInput(inputKind);

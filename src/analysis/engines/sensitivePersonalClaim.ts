@@ -10,7 +10,10 @@ const sensitivePredicates: Array<{ kind: SensitivePersonalClaimKind; pattern: Re
   { kind: 'sexual-orientation', pattern: /\b(?:es|ser[ií]a|era|fue)\s+(?:homosexual|gay|lesbiana|bisexual|asexual|pansexual)\b/i },
   { kind: 'intimate-life', pattern: /\b(?:mantiene|tiene|guarda|oculta|esconde|lleva|sostiene|realiza|comete|hace|practica)\s+(?:relaciones?\s+)?(?:sexuales?|intimidad|aventura|affair|encuentro|relaci[oó]n\s+de|romance|v[ií]nculo|infidelidad|amante)\b/i },
   { kind: 'health', pattern: /\b(?:tiene|padece|sufre|es)\s+(?:vih|sida|c[aá]ncer|adicto|adicta|alcoh[oó]lico|alcoh[oó]lica|drogadicto|drogadicta)\b/i },
-  { kind: 'criminal-conduct', pattern: /\b(?:es|ser[ií]a|fue)\s+(?:ladr[oó]n|ladrona|corrupto|corrupta|abusador|abusadora|violador|violadora|narcotraficante)\b/i },
+  {
+    kind: 'criminal-conduct',
+    pattern: /\b(?:es|ser[ií]a|era|fue)\s+(?:ladr[oó]n|ladrona|corrupto|corrupta|abusador|abusadora|violador|violadora|narcotraficante|p[eo]d[oó]filo|p[eo]d[oó]fila|acosador\s+sexual)\b/i,
+  },
 ];
 
 /** Job-title words are entity context, not the subject-matter domain. */
