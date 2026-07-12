@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeAcademicAuthorship } from '../academicAuthorshipAlertEngine';
 import { buildLocalAnalysis, normalizeAI, POST } from '../../../../app/api/analyze/route';
+import { TERMS_VERSION } from '../../../lib/legal/terms';
 
 test('academic alert never claims authorship verification or detector execution', () => {
   const result = analyzeAcademicAuthorship('Trabajo académico. Como modelo de lenguaje, no puedo acceder a fuentes nuevas.');
@@ -75,6 +76,21 @@ test('analyze endpoint rejects oversized file instructions', async () => {
   const form = new FormData();
   form.set('file', new File(['contenido'], 'entrega.txt', { type: 'text/plain' }));
   form.set('text', 'x'.repeat(2_001));
+  form.set('termsAccepted', 'true');
+  form.set('termsVersion', TERMS_VERSION);
   const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
   assert.equal(response.status, 413);
+});
+
+test('analyze endpoint requires the current terms acceptance', async () => {
+  const form = new FormData();
+  form.set('text', 'Este texto tiene suficiente extensión para ser analizado correctamente.');
+  const missing = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+  assert.equal(missing.status, 428);
+  const stale = new FormData();
+  stale.set('text', 'Este texto tiene suficiente extensión para ser analizado correctamente.');
+  stale.set('termsAccepted', 'true');
+  stale.set('termsVersion', 'old-version');
+  const staleResponse = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: stale }));
+  assert.equal(staleResponse.status, 428);
 });

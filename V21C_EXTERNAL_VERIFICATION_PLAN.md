@@ -46,6 +46,8 @@ Separar la decisión de verificar de la ejecución de una búsqueda. V21C debe i
    - `/api/analyze` expone para texto y PDF el plan local, solicitudes explícitas, pendientes y disponibilidad de proveedores; la ejecución permanece nula y `externalVerificationPerformed` en falso.
    - Cada tipo de fuente queda marcado como `implemented`, `planned` o `unregistered`, evitando presentar el catálogo como capacidad ejecutable.
    - PDFs mixtos exponen preparación por claim: solicitudes explícitas, conectores ejecutables, conectores planificados y motivos pendientes, siempre con ejecución en falso.
+   - Cada informe incluye resumen justificado, factores principales, estado de verificación, limitaciones, revisión humana y disclaimer legal inmutable; no admite usos sancionatorios o profesionales como única evidencia.
+   - El análisis exige aceptación versionada de Términos y Condiciones tanto en la interfaz como en `/api/analyze`; una versión desactualizada requiere nueva aceptación.
    - Registro de consultas, URLs, fecha, fragmentos y resultado por claim.
    - `externalVerificationPerformed` sólo puede cambiar a `true` si existe evidencia auditable asociada.
    - Una verificación completa exige cobertura por claim, fuentes independientes suficientes, URL válida, fecha y fuente oficial cuando corresponda.

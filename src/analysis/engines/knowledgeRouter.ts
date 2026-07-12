@@ -13,6 +13,7 @@ import { evaluateTechnologyClaim } from './specialists/technologyKnowledgeEngine
 import { evaluateLegalClaim } from './specialists/legalKnowledgeEngine';
 import { evaluatePublicClaimsClaim } from './specialists/publicClaimsKnowledgeEngine';
 import { evaluateOpinionPredictionClaim } from './specialists/opinionPredictionEngine';
+import { detectSensitivePersonalClaim } from './sensitivePersonalClaim';
 
 import type { RoutedClaimResult, KnowledgeDomain, SpecialistResult } from '../types/knowledgeRouter';
 
@@ -21,6 +22,9 @@ import type { RoutedClaimResult, KnowledgeDomain, SpecialistResult } from '../ty
  * This prevents running all specialists on every claim
  */
 function detectPrimaryDomains(claimText: string): { primary: KnowledgeDomain; secondary: KnowledgeDomain[] } {
+  if (detectSensitivePersonalClaim(claimText).detected) {
+    return { primary: 'public-claims', secondary: ['politics'] };
+  }
   const scoresByDomain: Record<KnowledgeDomain, number> = {
     mathematics: 0,
     science: 0,

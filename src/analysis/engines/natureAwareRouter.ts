@@ -13,6 +13,7 @@ import type {
   NatureAwareRoutingContext,
   NatureAwareDomainDetection,
 } from '../types/contentDomain';
+import { detectSensitivePersonalClaim } from './sensitivePersonalClaim';
 
 /**
  * Extract linguistic and entity signals from claim text
@@ -99,6 +100,9 @@ function routeByNatureAndSignals(
   text: string,
   signals: Partial<NatureAwareRoutingContext>
 ): { primary: KnowledgeDomain; secondary: KnowledgeDomain[] } {
+  if (detectSensitivePersonalClaim(text).detected) {
+    return { primary: 'public-claims', secondary: ['politics'] };
+  }
   const { primaryNature } = nature;
   const named = signals.extractedEntities?.named || [];
   const medicalSignals = signals.medicalSignals || [];
@@ -308,6 +312,7 @@ export function getNatureDomainLabel(
     'extraordinary-claim-public-claims': 'Afirmación extraordinaria / evento público',
     'testimony-public-claims': 'Testimonio sobre un hecho extraordinario',
     'rumor-public-claims': 'Rumor sobre un hecho extraordinario',
+    'fact-public-claims': 'Afirmación personal sensible no verificada',
 
     // Health
     'fact-biology-health': 'Hecho médico / biológico',

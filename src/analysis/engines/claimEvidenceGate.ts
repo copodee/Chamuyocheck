@@ -2,6 +2,7 @@ import type { RoutedClaimResult } from '../types/knowledgeRouter';
 import type { ClaimNatureResult } from '../types/claimNature';
 import type { ExternalVerificationPlan } from '../types/externalVerification';
 import type { KnowledgeDomain } from '../types/contentDomain';
+import { detectSensitivePersonalClaim } from './sensitivePersonalClaim';
 
 export type ClaimClassification = 'factual' | 'opinion' | 'prediction' | 'question' | 'advertising' | 'instruction';
 export type ClaimSeverity = 'impossible' | 'extraordinary' | 'disputed' | 'ordinary' | 'unknown';
@@ -32,17 +33,14 @@ export type AnalyzedClaim = {
 export function applyEvidenceGate(claim: AnalyzedClaim): AnalyzedClaim {
   // SENSITIVE ALLEGATIONS: allegations about public figures with sexual/intimate nature
   // These are automatically treated as high-severity due to reputational impact
-  const sensitivePattern = /(?:mantiene|tiene|guard[aá]s|oculta|esconde|lleva|sostiene|realiza|comete|hace|practica)\s+(?:relaciones?\s+)?(?:sexuales?|intimidad|aventura|affair|encuentro|relaci[oó]n\s+de|romance|vínculo|conexión)/i;
-  const publicFigurePattern = /(?:presidente|ministro|senador|diputado|gobernador|intendente|funcionario|pol[ií]tico|empresa|ejecutivo|ceo|director|juez|magistrado|jueza|abogada?|m[eé]dico|doctor|figura p[uú]blica|personalidad|celebridad|influencer|actor|artista|deportista|persona\spública)/i;
+  const isSensitiveAllegation = detectSensitivePersonalClaim(claim.text).detected;
   
-  const isSensitiveAllegation = sensitivePattern.test(claim.text) && publicFigurePattern.test(claim.text);
-  
-  if (isSensitiveAllegation && claim.classification === 'question') {
+  if (isSensitiveAllegation && (claim.classification === 'question' || claim.classification === 'factual')) {
     return {
       ...claim,
       forceScore: null,
       minimumScore: 95,
-      reason: 'Sensitive allegation about public figure. Unverified allegations require high scrutiny. Minimum chamuyo = 95 (cannot be lowered).'
+      reason: 'Unsupported sensitive personal claim about an identifiable public person. It must not be treated as verified. Minimum chamuyo = 95.'
     };
   }
 

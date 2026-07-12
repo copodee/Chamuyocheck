@@ -2,6 +2,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { readLocalHistory, type HistoryItem } from '../src/lib/history/localHistory';
+import { TERMS_SECTIONS, TERMS_STORAGE_KEY, TERMS_VERSION } from '../src/lib/legal/terms';
 
 type Cat = { name: string; score: number; explanation: string };
 type Analysis = {
@@ -31,6 +32,11 @@ type Analysis = {
   legalSafeguard: string;
   evidenceFound?: string[];
   scoreExplanation?: string[];
+  resultJustification?: string[];
+  legalNotice?: {
+    limitations: string[];
+    prohibitedSoleUses: string[];
+  };
   refutationPoints?: string[];
   improvementPlan?: string[];
   topic?: string;
@@ -373,9 +379,20 @@ export default function Page() {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [favoritesItems, setFavoritesItems] = useState<string[]>([]);
   const [templatesItems, setTemplatesItems] = useState<string[]>([]);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [termsError, setTermsError] = useState('');
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { setUsed(Number(localStorage.getItem('cc_used') || '0')); }, []);
+  useEffect(() => {
+    try {
+      const acceptance = JSON.parse(localStorage.getItem(TERMS_STORAGE_KEY) || '{}');
+      setTermsAccepted(acceptance.version === TERMS_VERSION && Boolean(acceptance.acceptedAt));
+    } catch {
+      setTermsAccepted(false);
+    }
+  }, []);
   useEffect(() => {
     setHistoryItems(readLocalHistory());
     if (typeof window === 'undefined') return;
@@ -391,6 +408,18 @@ export default function Page() {
   function setUsage(n: number) {
     setUsed(n);
     localStorage.setItem('cc_used', String(n));
+  }
+
+  function acceptCurrentTerms() {
+    localStorage.setItem(TERMS_STORAGE_KEY, JSON.stringify({ version: TERMS_VERSION, acceptedAt: new Date().toISOString() }));
+    setTermsAccepted(true);
+    setTermsError('');
+    setShowTerms(false);
+  }
+
+  function revokeTermsAcceptance() {
+    localStorage.removeItem(TERMS_STORAGE_KEY);
+    setTermsAccepted(false);
   }
 
   const isPro = plan === 'pro';
@@ -430,6 +459,11 @@ export default function Page() {
 
   async function analyze() {
     if (locked || textTooLong || proInput) return;
+    if (!termsAccepted) {
+      setTermsError('Debés leer y aceptar los Términos y Condiciones antes de analizar contenido.');
+      setShowTerms(true);
+      return;
+    }
     setLoading(true);
     setSteps([]);
     setAnalysis(null);
@@ -443,6 +477,8 @@ export default function Page() {
       form.append('text', text);
       form.append('url', url);
       form.append('inputType', detected);
+      form.append('termsAccepted', 'true');
+      form.append('termsVersion', TERMS_VERSION);
       if (file) form.append('file', file);
       const res = await fetch('/api/analyze', { method: 'POST', body: form });
       const data = await res.json();
@@ -535,6 +571,7 @@ export default function Page() {
   const sectionHint = activeView === 'historial' ? 'Se muestra el historial local guardado en este navegador.' : activeView === 'favoritos' ? 'Acá aparecerán los elementos marcados como favoritos.' : activeView === 'plantillas' ? 'Podés reutilizar plantillas para análisis y mejoras.' : activeView === 'comparar' ? 'La comparación de documentos está disponible para usuarios Pro.' : activeView === 'mejorar' ? 'Este panel permite proponer mejoras de claridad, respaldo y verificación.' : activeView === 'ajustes' ? 'Configuración básica del producto y preferencias del análisis.' : 'Volvé al formulario principal para cargar un nuevo contenido.';
 
   return <div className="appShell">
+    {showTerms && <div className="termsBackdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowTerms(false); }}><section className="termsModal" role="dialog" aria-modal="true" aria-labelledby="terms-title"><div className="termsHeader"><div><h2 id="terms-title">Términos y Condiciones</h2><span>Versión {TERMS_VERSION}</span></div><button type="button" className="iconBtn" aria-label="Cerrar términos" onClick={() => setShowTerms(false)}>×</button></div><div className="termsBody"><p>Leé estos términos antes de usar ChamuyoCheck. La aceptación es obligatoria para realizar análisis.</p>{TERMS_SECTIONS.map((section) => <section key={section.title}><h3>{section.title}</h3><p>{section.body}</p></section>)}<p className="legalDisclaimerSubtle">Este texto establece condiciones operativas iniciales y debe ser revisado por asesoría jurídica argentina antes del lanzamiento comercial definitivo.</p></div><div className="termsActions"><button type="button" className="ghost" onClick={() => setShowTerms(false)}>Cerrar</button><button type="button" className="primary" onClick={acceptCurrentTerms}>Acepto los Términos y Condiciones</button></div></section></div>}
     <input ref={fileRef} type="file" accept=".pdf,image/*,.txt,.doc,.docx" hidden onChange={(e) => onFile(e.target.files?.[0])} />
     <aside className="sidebar">
       <div className="brand"><div className="shield">✓</div><div><div className="logo">CHAMUYO<span>CHECK</span></div><div className="tag">Analizá antes de decidir</div></div></div>
@@ -602,6 +639,8 @@ export default function Page() {
             {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}
             <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Agregá contexto o la pregunta que querés verificar sobre el video.' : activeInput === 'Web' ? 'Agregá contexto o una pregunta sobre el sitio web.' : 'Pegá texto o agregá una pregunta sobre el documento.'} />
             {!isPro && <div className={`counter ${textTooLong ? 'bad' : ''}`}>{text.length}/{FREE_CHARS}</div>}
+            <div className="termsConsent"><input id="terms-consent" type="checkbox" checked={termsAccepted} onChange={(e) => e.target.checked ? acceptCurrentTerms() : revokeTermsAcceptance()} /><label htmlFor="terms-consent">Leí y acepto los <button type="button" className="termsLink" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>Términos y Condiciones</button> (versión {TERMS_VERSION}).</label></div>
+            {termsError && <div className="termsError" role="alert">{termsError}</div>}
             <div className="ctaRow"><button type="button" className="primary" onClick={analyze} disabled={loading || locked || textTooLong || proInput}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">Entrada: {getInputLabel(detected, Boolean(file))}</span></div>
             {(locked || textTooLong || proInput) && <div className="paywall">Starter permite 3 análisis de texto de hasta 250 caracteres. Pasá a Pro para todas las funciones.</div>}
             {loading && <div className="loading">{steps.map((s, i) => <p key={i}>{s}</p>)}</div>}
@@ -616,6 +655,7 @@ export default function Page() {
             </div>
           </div>
           <div className="panel decisionCard"><div className="light" style={{ background: semaforo.color }}></div><div><h2>Semáforo de decisiones</h2><h3 style={{ color: semaforo.color }}>{semaforo.txt}</h3><p>{analysis.prudentConclusion}</p></div></div>
+          <div className="panel legalResultPanel"><h2>Fundamento y alcance del resultado</h2><ul>{(analysis.resultJustification || []).map((item, i) => <li key={i}>{item}</li>)}</ul><p className="legalDisclaimerSubtle">{analysis.legalSafeguard}</p>{analysis.legalNotice && <details><summary>Limitaciones y usos no permitidos como única evidencia</summary><h3>Limitaciones</h3><ul>{analysis.legalNotice.limitations.map((item, i) => <li key={`limit-${i}`}>{item}</li>)}</ul><h3>No usar como única base para</h3><ul>{analysis.legalNotice.prohibitedSoleUses.map((item, i) => <li key={`use-${i}`}>{item}</li>)}</ul></details>}</div>
           <div className="panel metaCard">
             <div className="meta"><small>Tipo</small><b>{analysis.documentType}</b></div>
             <div className="meta"><small>Entrada</small><b>{getInputLabel(analysis.detectedInput)}</b></div>
@@ -673,6 +713,6 @@ export default function Page() {
         </>}
       </section>}
     </main>
-    <div className="legalFooter"><details><summary>🔒 Aviso legal</summary><p>{analysis?.legalSafeguard || 'ChamuyoCheck genera una evaluación automatizada y orientativa. No afirma veracidad, falsedad, autoría, plagio, uso de IA ni ilegalidad; no reemplaza asesoramiento profesional. '}</p><p style={{marginTop: '12px', fontSize: '12px', color: '#a99fc3'}}>Este análisis no reemplaza una opinión médica, científica o legal profesional. Es una evaluación automatizada basada en criterios de plausibilidad, evidencia disponible y coherencia biomédica. Para decisiones importantes, consultá con especialistas verificados.</p></details><span>ChamuyoCheck no afirma la veracidad de la información analizada.</span></div>
+    <div className="legalFooter"><details><summary>🔒 Aviso legal</summary><p>{analysis?.legalSafeguard || 'ChamuyoCheck genera una evaluación automatizada y orientativa. No afirma veracidad, falsedad, autoría, plagio, uso de IA ni ilegalidad; no reemplaza asesoramiento profesional.'}</p></details><span>Resultado automatizado, orientativo y sujeto a revisión humana.</span></div>
   </div>;
 }

@@ -39,8 +39,8 @@ test('Sensitive allegation: public-claims domain, 95-100 score, correct summary,
     `Expected topic key=sensitive-allegation, got "${topic.key}"`);
 
   // Topic label
-  assert.strictEqual(topic.label, 'Acusación grave no verificada',
-    `Expected label="Acusación grave no verificada", got "${topic.label}"`);
+  assert.strictEqual(topic.label, 'Afirmación personal sensible no verificada',
+    `Expected sensitive-personal label, got "${topic.label}"`);
 
   // Minimum score must be 95
   const minimumScore = claimFirstResult.dominantClaim?.minimumScore ?? 0;
@@ -102,6 +102,53 @@ test('Sensitive allegation: public-claims domain, 95-100 score, correct summary,
     claimFirstResult.dominantClaim !== null,
     'dominantClaim must not be null'
   );
+});
+
+test('Sensitive personal assertion: job title does not turn the predicate into economics or finance', () => {
+  const text = 'El ministro Caputo de economía es homosexual';
+  const result = runClaimFirstPipeline(text);
+  const topic = detectTopic(text, 'Texto');
+
+  assert.strictEqual(result.dominantClaim?.classification, 'factual');
+  assert.strictEqual(result.dominantClaim?.routedResult?.primaryDomain, 'public-claims');
+  assert.strictEqual(result.dominantClaim?.externalVerificationPrimaryDomain, 'public-claims');
+  assert.strictEqual(result.dominantClaim?.externalVerificationRequired, true);
+  assert.strictEqual(result.dominantClaim?.externalVerificationPerformed, false);
+  assert.deepStrictEqual(
+    result.dominantClaim?.externalVerificationPlan?.suggestedSourceTypes,
+    ['attributable-public-self-disclosure', 'authorized-biographical-source']
+  );
+  assert.ok(!result.dominantClaim?.routedResult?.secondaryDomains.includes('finance'));
+  assert.strictEqual(result.dominantClaim?.minimumScore, 95);
+  assert.ok(result.finalScore >= 95);
+  assert.strictEqual(topic.key, 'sensitive-allegation');
+  assert.match(topic.summary, /no confirma ni desmiente|dato personal sensible/i);
+
+  const weighted = calculateDomainWeightedScore(
+    [
+      { name: 'Evidencia faltante', score: 82, explanation: '' },
+      { name: 'Transparencia', score: 64, explanation: '' },
+      { name: 'Manipulación emocional', score: 12, explanation: '' },
+      { name: 'Riesgo financiero', score: 0, explanation: '' },
+      { name: 'Riesgo piramidal/Ponzi', score: 0, explanation: '' },
+    ],
+    text, topic.key, 'Texto', null, false, false, false, false, false, 'fact'
+  );
+  assert.ok(!weighted.applicableDimensions.some((dimension) => /financiero|ponzi/i.test(dimension.label)));
+});
+
+test('Economic subject matter remains economics when the predicate is actually economic', () => {
+  const result = runClaimFirstPipeline('La economía argentina crecerá el próximo año.');
+  assert.notStrictEqual(result.dominantClaim?.routedResult?.primaryDomain, 'public-claims');
+  assert.notStrictEqual(detectTopic('La economía argentina crecerá el próximo año.', 'Texto').key, 'sensitive-allegation');
+  assert.notStrictEqual(result.dominantClaim?.minimumScore, 95);
+});
+
+test('Ordinary criticism of a minister is not treated as a sensitive personal claim', () => {
+  const text = 'Creo que el ministro de Economía gestiona mal su cartera.';
+  const result = runClaimFirstPipeline(text);
+  assert.notStrictEqual(detectTopic(text, 'Texto').key, 'sensitive-allegation');
+  assert.notStrictEqual(result.dominantClaim?.minimumScore, 95);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

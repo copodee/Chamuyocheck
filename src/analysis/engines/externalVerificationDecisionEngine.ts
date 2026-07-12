@@ -3,6 +3,7 @@ import type {
   ExternalVerificationPlan,
 } from '../types/externalVerification';
 import type { KnowledgeDomain } from '../types/contentDomain';
+import { detectSensitivePersonalClaim } from './sensitivePersonalClaim';
 
 type SourcePolicy = {
   sources: string[];
@@ -59,6 +60,7 @@ export function decideExternalVerification(
   const natures = new Set([claimNature.primaryNature, ...claimNature.secondaryNatures]);
   const isRecent = RECENT_OR_CURRENT.test(claimText);
   const jurisdictionalRelevance = ARGENTINA.test(claimText) ? 'Argentina' : undefined;
+  const sensitivePersonalClaim = detectSensitivePersonalClaim(claimText);
 
   const finish = (
     required: boolean,
@@ -74,6 +76,15 @@ export function decideExternalVerification(
     officialSourceRequired: overrides.officialSourceRequired ?? (required && policy.official),
     ...(jurisdictionalRelevance ? { jurisdictionalRelevance } : {}),
   });
+
+  if (sensitivePersonalClaim.detected) {
+    return finish(true, 'El dato personal sensible no debe inferirse ni darse por cierto. Sólo puede atribuirse a una autodeclaración pública verificable o a una fuente biográfica autorizada; de lo contrario debe permanecer no verificado.', {
+      suggestedSourceTypes: ['attributable-public-self-disclosure', 'authorized-biographical-source'],
+      minimumIndependentSources: 1,
+      recencyRequired: false,
+      officialSourceRequired: false,
+    });
+  }
 
   if (
     claimNature.factualVerifiability === 'subjective' &&

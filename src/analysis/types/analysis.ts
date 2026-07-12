@@ -32,7 +32,16 @@ export type AnalysisResult = {
   improved: string;
   evidenceFound?: string[];
   scoreExplanation?: string[];
+  resultJustification?: string[];
   refutationPoints?: string[];
   improvementPlan?: string[];
   legalSafeguard: string;
+  legalNotice?: {
+    automatedAssessment: true;
+    notProfessionalAdvice: true;
+    notFactualDetermination: true;
+    humanReviewRecommended: true;
+    limitations: string[];
+    prohibitedSoleUses: string[];
+  };
 };

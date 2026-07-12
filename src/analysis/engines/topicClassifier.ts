@@ -1,5 +1,6 @@
 import { describeInput } from './inputClassifier';
 import { detectReproductiveBiologyQuestion } from './healthBiologyEngine';
+import { detectSensitivePersonalClaim } from './sensitivePersonalClaim';
 
 const employmentSignals = /\b(vacante|vacancy|postulaci[oó]n|enviar cv|curriculum vitae|curriculum|recruiter|reclutador|entrevista laboral|entrevista|requisitos para el puesto|requisitos del puesto|requisitos para el cargo|requisitos del cargo|contrataci[oó]n individual|oferta de trabajo|oferta laboral|beneficios del puesto|sueldo ofrecido para una posici[oó]n|puesto vacante|cargo vacante|candidato|empleador|empleado)\b/i;
 
@@ -22,16 +23,14 @@ export function detectTopic(text: string, inputKind: string) {
 
   // SENSITIVE ALLEGATION — must check FIRST before any other classifier
   // Detects: identifiable public figure + sexual/intimate allegation
-  const sensitiveAllegation =
-    /(?:presidente|ministro|senador|diputado|gobernador|intendente|funcionario|pol[ií]tico|figura\s+p[úu]blica|persona\s+p[úu]blica|personalidad|celebridad|deportista|actor|influencer)/i.test(all) &&
-    /(?:relaciones?\s+sexuales?|intimidad|aventura|affair|romance|infidelidad|amante)/i.test(all);
+  const sensitiveAllegation = detectSensitivePersonalClaim(text).detected;
 
   if (sensitiveAllegation) {
     return {
       key: 'sensitive-allegation',
-      label: 'Acusación grave no verificada',
+      label: 'Afirmación personal sensible no verificada',
       hint: 'No difundir sin verificación externa rigurosa.',
-      summary: 'La entrada formula una acusación sexual y familiar grave sobre una persona identificable sin aportar fuentes, atribución ni evidencia verificable. La pregunta no confirma el hecho. Debido al riesgo de desinformación y daño reputacional, no debe difundirse como información verdadera sin una verificación externa rigurosa.',
+      summary: 'La entrada atribuye un dato personal sensible a una persona identificable sin aportar una fuente primaria, atribución ni evidencia verificable. ChamuyoCheck no confirma ni desmiente esa atribución. Por el riesgo de desinformación, invasión de privacidad y daño reputacional, no debe difundirse como verdadera.',
       prudentConclusion: 'No afirmaría ni negaría la acusación sin evidencia verificable. La ausencia de fuente o atribución la convierte en rumor no confirmado.',
       verdict: 'NO DIFUNDIR SIN VERIFICACIÓN: acusación grave sin evidencia ni fuente verificable.',
       modules: ['Atribución', 'Fuente primaria', 'Corroboración independiente', 'Daño reputacional'],

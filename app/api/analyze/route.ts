@@ -15,6 +15,8 @@ import { detectClaimNature } from '../../../src/analysis/engines/claimNatureDete
 import { analyzeAcademicAuthorship } from '../../../src/analysis/engines/academicAuthorshipAlertEngine';
 import { planExternalVerificationRequests } from '../../../src/analysis/engines/externalVerificationRequestPlanner';
 import { providersForSourceTypes, sourceAvailabilityForTypes } from '../../../src/analysis/engines/externalVerificationSourceCatalog';
+import { buildLegalResultPresentation } from '../../../src/analysis/engines/legalResultSafeguard';
+import { TERMS_VERSION } from '../../../src/lib/legal/terms';
 
 export const runtime = 'nodejs';
 const MAX_USER_INSTRUCTION_LENGTH = 2_000;
@@ -478,6 +480,17 @@ export function buildLocalAnalysis(
 
   const inputText = describeInput(inputKind);
   const shortText = inputKind === 'Texto' && text.trim().length < 220;
+  const riskLabel = finalScore > 80 ? 'Chamuyo extremo' : finalScore > 60 ? 'Alto chamuyo' : finalScore > 40 ? 'Requiere verificación' : 'Bajo chamuyo';
+  const protectedPresentation = buildLegalResultPresentation({
+    score: finalScore,
+    risk: riskLabel,
+    confidence: extraction?.chars ? 'Media/Alta' : 'Media',
+    baseSummary: topic.summary,
+    baseConclusion: topic.prudentConclusion,
+    categoryScores,
+    externalVerificationRequired: claimFirstResult.documentExternalVerificationPlan.externalVerificationRequired,
+    externalVerificationPerformed: false,
+  });
 
   return {
     documentIcon: domain.icon,
@@ -487,7 +500,7 @@ export function buildLocalAnalysis(
     extractedChars: extraction?.chars || text.length,
     extractedPreview: text.slice(0, 1200),
     score: finalScore,
-    risk: finalScore > 80 ? 'Chamuyo extremo' : finalScore > 60 ? 'Alto chamuyo' : finalScore > 40 ? 'Requiere verificación' : 'Bajo chamuyo',
+    risk: riskLabel,
     confidence: extraction?.chars ? 'Media/Alta' : 'Media',
     detectedTheme: domain.label,
     detectedInput: inputKind,
@@ -495,8 +508,11 @@ export function buildLocalAnalysis(
     instructionApplied: userInstruction.length > 0,
     analysisFocus,
     centralQuestion: academic ? '¿Puedo decidir sin ver el costo total y el contrato?' : '¿Puedo confiar en esto sin pedir más evidencia?',
-    summary: topic.summary,
-    prudentConclusion: topic.prudentConclusion,
+    summary: protectedPresentation.summary,
+    prudentConclusion: protectedPresentation.prudentConclusion,
+    resultJustification: protectedPresentation.resultJustification,
+    legalSafeguard: protectedPresentation.legalSafeguard,
+    legalNotice: protectedPresentation.legalNotice,
     verdict: topic.verdict,
     categoryScores,
     modules: categoryScores.filter((c) => c.score > 0).slice(0, 8),
@@ -572,7 +588,7 @@ export function buildLocalAnalysis(
 }
 
 export function normalizeAI(raw: any, fallback: ReturnType<typeof buildLocalAnalysis>) {
-  return {
+  const normalized = {
     ...fallback,
     ...raw,
     documentIcon: String(raw?.documentIcon || fallback.documentIcon),
@@ -588,8 +604,19 @@ export function normalizeAI(raw: any, fallback: ReturnType<typeof buildLocalAnal
     userInstruction: fallback.userInstruction,
     instructionApplied: fallback.instructionApplied,
     analysisFocus: fallback.analysisFocus,
-    externalVerification: fallback.externalVerification
+    externalVerification: fallback.externalVerification,
   };
+  const protectedPresentation = buildLegalResultPresentation({
+    score: normalized.score,
+    risk: String(normalized.risk || fallback.risk),
+    confidence: String(normalized.confidence || fallback.confidence),
+    baseSummary: String(raw?.summary || 'El contenido fue evaluado según señales observables, evidencia declarada y contexto disponible.'),
+    baseConclusion: String(raw?.prudentConclusion || 'Revisá las fuentes y el documento completo antes de tomar una decisión.'),
+    categoryScores: normalized.categoryScores,
+    externalVerificationRequired: fallback.externalVerification.externalVerificationRequired,
+    externalVerificationPerformed: false,
+  });
+  return { ...normalized, ...protectedPresentation };
 }
 
 export async function POST(req: Request) {
@@ -599,6 +626,15 @@ export async function POST(req: Request) {
     const userText = String(form.get('text') || '').trim();
     const url = String(form.get('url') || '').trim();
     const file = form.get('file');
+    const termsAccepted = form.get('termsAccepted') === 'true';
+    const termsVersion = String(form.get('termsVersion') || '');
+
+    if (!termsAccepted || termsVersion !== TERMS_VERSION) {
+      return NextResponse.json({
+        error: 'Debés aceptar la versión vigente de los Términos y Condiciones para usar el servicio.',
+        termsVersion: TERMS_VERSION,
+      }, { status: 428 });
+    }
 
     let fileName = '';
     let fileType = '';
