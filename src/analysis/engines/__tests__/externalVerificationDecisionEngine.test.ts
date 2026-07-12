@@ -52,6 +52,34 @@ test('medical treatment claims require clinical and official sources', () => {
   assert.ok(result.suggestedSourceTypes.includes('clinical-guidelines'));
 });
 
+test('medication effects route to medical research and drug regulators', () => {
+  const result = decide('Este medicamento produce efectos adversos graves.');
+  assert.equal(result.externalVerificationRequired, true);
+  assert.equal(result.officialSourceRequired, true);
+  assert.ok(result.suggestedSourceTypes.includes('drug-regulator-anmat'));
+  assert.ok(result.suggestedSourceTypes.includes('drug-regulator-fda'));
+  assert.ok(result.suggestedSourceTypes.includes('drug-regulator-ema'));
+  assert.ok(result.suggestedSourceTypes.includes('peer-reviewed-medical-research'));
+});
+
+test('Argentine capital-market claims route to CNV and BYMA source types', () => {
+  const result = decide('Esta acción está autorizada por la CNV y cotiza hoy en BYMA.');
+  assert.equal(result.externalVerificationRequired, true);
+  assert.equal(result.jurisdictionalRelevance, 'Argentina');
+  assert.equal(result.officialSourceRequired, true);
+  assert.ok(result.suggestedSourceTypes.includes('securities-regulator-cnv'));
+  assert.ok(result.suggestedSourceTypes.includes('market-operator-byma'));
+});
+
+test('crypto claims route to market, on-chain, protocol and audit sources', () => {
+  const result = decide('Este token de Ethereum tiene reservas suficientes y su contrato inteligente es seguro.');
+  assert.equal(result.externalVerificationRequired, true);
+  assert.ok(result.suggestedSourceTypes.includes('crypto-market-data'));
+  assert.ok(result.suggestedSourceTypes.includes('blockchain-explorer'));
+  assert.ok(result.suggestedSourceTypes.includes('protocol-documentation'));
+  assert.ok(result.suggestedSourceTypes.includes('independent-security-audits'));
+});
+
 test('future prediction is not falsely described as currently verifiable', () => {
   const result = decide('Bitcoin va a subir mañana.');
   assert.equal(result.externalVerificationRequired, false);

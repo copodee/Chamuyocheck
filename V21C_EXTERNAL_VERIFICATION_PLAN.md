@@ -40,6 +40,9 @@ Separar la decisión de verificar de la ejecución de una búsqueda. V21C debe i
    - Endpoint `POST /api/verify` implementado; la red permanece bloqueada salvo `EXTERNAL_VERIFICATION_EXECUTION_ENABLED=true`.
    - El workflow proyecta por claim `externalVerificationRequired`, `externalVerificationPerformed`, estado, evidencia asociada y motivos pendientes, siempre derivados de cobertura auditable validada.
    - Cada intento de conector queda vinculado a sus claims con resultado, cantidad de registros y error, sin confundir intento con verificación realizada.
+   - Catálogo de capacidades registra conectores activos y objetivos planificados: ANMAT, FDA, EMA, CNV, BYMA, datos cripto, exploradores on-chain, documentación de protocolo y auditorías de seguridad.
+   - El análisis académico incorpora alertas prudentes de posible asistencia de IA, con señales explicables, evidencia de proceso y preguntas de defensa; nunca declara autoría ni simula un detector.
+   - En archivos y URLs, la instrucción del usuario se conserva como foco separado y nunca se mezcla con el contenido que se clasifica, puntúa o examina por posible asistencia de IA.
    - Registro de consultas, URLs, fecha, fragmentos y resultado por claim.
    - `externalVerificationPerformed` sólo puede cambiar a `true` si existe evidencia auditable asociada.
    - Una verificación completa exige cobertura por claim, fuentes independientes suficientes, URL válida, fecha y fuente oficial cuando corresponda.

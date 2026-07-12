@@ -32,9 +32,13 @@ const FOUNDATIONAL_SCIENCE = /\b(gravedad|agua hierve|velocidad de la luz|átomo
 const STABLE_HISTORY = /\b(antigüedad|edad media|siglo (?:x{1,3}|iv|v|vi|vii|viii|ix)|independencia|revolución francesa)\b/i;
 const MEDICAL_ACTION = /\b(diagn[oó]stico|tratamiento|medicamento|dosis|cura|vacuna|síntoma|paciente|terapia|suplemento)\b/i;
 const SPECIFIC_RECORD = /\b\d{1,4}(?:[.,]\d+)?\s*(?:%|goles?|partidos?|medallas?|casos?|personas?)\b|\b(?:ganó|campeón|récord|resultado)\b/i;
-const ARGENTINA = /\b(argentina|argentino|argentina|córdoba|buenos aires|bcra|boletín oficial)\b/i;
+const ARGENTINA = /\b(argentina|argentino|argentina|córdoba|buenos aires|bcra|cnv|byma|boletín oficial)\b/i;
 const ARITHMETIC_EXPRESSION = /\b\d+(?:[.,]\d+)?\s*[+\-×x*/=]\s*\d+(?:[.,]\d+)?/i;
 const FINANCIAL_CURRENT_DATA = /\b(dólar|euro|bitcoin|cotiza|cotización|precio|tasa|tipo de cambio|mercado)\b|\b\d+(?:[.,]\d+)?\s*(?:pesos|dólares|euros)\b/i;
+const MEDICATION_EFFECT = /\b(medicamento|fármaco|droga|principio activo|efecto(?:s)? adverso(?:s)?|contraindicación|prospecto|farmacovigilancia)\b/i;
+const CAPITAL_MARKETS = /\b(cnv|byma|mercado de capitales|acci(?:ón|ones)|bonos?|obligaciones negociables|fondo común|agente de bolsa|hecho relevante|emisor(?:a|es)?)\b/i;
+const CRYPTO_ASSET = /\b(criptomoneda|criptoactivo|bitcoin|ethereum|ether|token|blockchain|exchange cripto|wallet|contrato inteligente|stablecoin|solana)\b/i;
+const CRYPTO_EVIDENCE_CLAIM = /\b(reservas?|transacci(?:ón|ones)|precio|cotiza|volumen|contrato inteligente|auditoría|suministro|capitalización)\b/i;
 
 function unique(values: string[]): string[] {
   return [...new Set(values)];
@@ -71,11 +75,18 @@ export function decideExternalVerification(
     ...(jurisdictionalRelevance ? { jurisdictionalRelevance } : {}),
   });
 
-  if (claimNature.factualVerifiability === 'subjective' && !natures.has('statistic')) {
+  if (
+    claimNature.factualVerifiability === 'subjective' &&
+    !natures.has('statistic') &&
+    !(CRYPTO_ASSET.test(claimText) && CRYPTO_EVIDENCE_CLAIM.test(claimText))
+  ) {
     return finish(false, 'La evaluación es subjetiva y no puede verificarse como verdadera o falsa.');
   }
 
-  if (claimNature.factualVerifiability === 'future-verifiable') {
+  if (
+    claimNature.factualVerifiability === 'future-verifiable' &&
+    !(CRYPTO_ASSET.test(claimText) && CRYPTO_EVIDENCE_CLAIM.test(claimText))
+  ) {
     return finish(false, 'El resultado futuro todavía no puede verificarse; las fuentes sólo servirán para revisar su base o comprobarlo después.');
   }
 
@@ -91,6 +102,15 @@ export function decideExternalVerification(
     return finish(false, 'El dato histórico es estable y general; no exige consulta externa en esta fase.');
   }
 
+  if (CRYPTO_ASSET.test(claimText) && CRYPTO_EVIDENCE_CLAIM.test(claimText)) {
+    return finish(true, 'La afirmación sobre criptoactivos requiere distinguir datos de mercado, evidencia on-chain, documentación técnica y situación regulatoria.', {
+      suggestedSourceTypes: ['crypto-market-data', 'blockchain-explorer', 'protocol-documentation', 'financial-regulators', 'independent-security-audits'],
+      minimumIndependentSources: 2,
+      recencyRequired: isRecent,
+      officialSourceRequired: false,
+    });
+  }
+
   if (natures.has('legal-assertion') || primaryDomain === 'legal') {
     return finish(true, 'La afirmación jurídica requiere normativa y registros vigentes de la jurisdicción aplicable.', {
       recencyRequired: true,
@@ -98,9 +118,12 @@ export function decideExternalVerification(
     });
   }
 
-  if (MEDICAL_ACTION.test(claimText)) {
+  if (MEDICAL_ACTION.test(claimText) || MEDICATION_EFFECT.test(claimText)) {
+    const medicationSources = MEDICATION_EFFECT.test(claimText)
+      ? ['drug-regulator-anmat', 'drug-regulator-fda', 'drug-regulator-ema', 'peer-reviewed-medical-research', 'pharmacovigilance']
+      : DOMAIN_SOURCE_POLICY['biology-health'].sources;
     return finish(true, 'La afirmación médica o terapéutica requiere evidencia clínica y autoridades sanitarias actualizadas.', {
-      suggestedSourceTypes: DOMAIN_SOURCE_POLICY['biology-health'].sources,
+      suggestedSourceTypes: medicationSources,
       minimumIndependentSources: DOMAIN_SOURCE_POLICY['biology-health'].minimum,
       recencyRequired: true,
       officialSourceRequired: true,
@@ -114,6 +137,24 @@ export function decideExternalVerification(
   if (natures.has('extraordinary-claim') || natures.has('rumor') || natures.has('testimony')) {
     return finish(true, 'La afirmación extraordinaria, atribuida o testimonial necesita corroboración externa independiente.', {
       minimumIndependentSources: 2,
+    });
+  }
+
+  if (CAPITAL_MARKETS.test(claimText)) {
+    return finish(true, 'La afirmación sobre mercado de capitales requiere datos operativos, presentaciones y normativa del regulador aplicable.', {
+      suggestedSourceTypes: ['securities-regulator-cnv', 'market-operator-byma', 'regulatory-filings', 'official-market-data'],
+      minimumIndependentSources: 2,
+      recencyRequired: true,
+      officialSourceRequired: true,
+    });
+  }
+
+  if (CRYPTO_ASSET.test(claimText)) {
+    return finish(true, 'La afirmación sobre criptoactivos requiere distinguir datos de mercado, evidencia on-chain, documentación técnica y situación regulatoria.', {
+      suggestedSourceTypes: ['crypto-market-data', 'blockchain-explorer', 'protocol-documentation', 'financial-regulators', 'independent-security-audits'],
+      minimumIndependentSources: 2,
+      recencyRequired: isRecent,
+      officialSourceRequired: false,
     });
   }
 
