@@ -78,6 +78,13 @@ test('OpenAI analysis is disabled unless explicitly enabled', () => {
   assert.equal(openAIAnalysisEnabled('true'), true);
 });
 
+test('ambiguous cultural entities are explained before any truth conclusion', () => {
+  const result = buildLocalAnalysis('El pájaro carpintero era un dibujo animado.', 'Texto', '', null);
+  assert.ok(result.externalVerification.externalVerificationRequired);
+  assert.match(result.clarification || '', /ambigua.*ave.*El Pájaro Loco.*Woody Woodpecker/i);
+  assert.ok(result.score >= 50);
+});
+
 test('free local endpoint returns the mandatory inconclusive wording', async () => {
   const previousKey = process.env.OPENAI_API_KEY;
   const previousEnabled = process.env.OPENAI_ANALYSIS_ENABLED;
@@ -94,6 +101,8 @@ test('free local endpoint returns the mandatory inconclusive wording', async () 
     assert.match(body.prudentConclusion, /no puede ser validada.*no puede responderse con certeza/i);
     assert.ok(body.score >= 50);
     assert.equal(body.externalVerification.externalVerificationPerformed, false);
+    const publicPayload = JSON.stringify(body);
+    assert.doesNotMatch(publicPayload, /búsqueda paga|fuentes gratuitas|paidSearchUsed|"route"|"inconclusive"/i);
   } finally {
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = previousKey;
     if (previousEnabled === undefined) delete process.env.OPENAI_ANALYSIS_ENABLED; else process.env.OPENAI_ANALYSIS_ENABLED = previousEnabled;

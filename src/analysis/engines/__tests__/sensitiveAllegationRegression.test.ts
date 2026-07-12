@@ -138,6 +138,17 @@ test('Sensitive personal assertion: job title does not turn the predicate into e
   assert.ok(!weighted.applicableDimensions.some((dimension) => /financiero|ponzi/i.test(dimension.label)));
 });
 
+test('Sensitive orientation claim: a specific public role is identifiable without a personal name', () => {
+  const text = 'el secretario de seguridad es gay';
+  const result = buildLocalAnalysis(text, 'Texto', '', null);
+  assert.ok(result.score >= 95, `Expected score >= 95, got ${result.score}`);
+  assert.strictEqual(result.topic, 'sensitive-allegation');
+  assert.strictEqual(result.externalVerification.externalVerificationRequired, true);
+  assert.strictEqual(result.externalVerification.externalVerificationPerformed, false);
+  assert.match(result.summary, /dato personal sensible|no confirma ni desmiente/i);
+  assert.ok(!result.categoryScores.some((category) => /financiero|ponzi/i.test(category.name)));
+});
+
 test('Full analysis regression: misspelled pedophile accusation overrides health-title context', () => {
   const text = 'el ministro de salud argentino Lugones es podofilo';
   const result = buildLocalAnalysis(text, 'Texto', '', null);

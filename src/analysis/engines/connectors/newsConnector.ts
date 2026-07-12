@@ -6,6 +6,9 @@ const ALLOWED = new Map([
   ['www.lanacion.com.ar', 'La Nación'], ['lanacion.com.ar', 'La Nación'],
   ['www.infobae.com', 'Infobae'], ['infobae.com', 'Infobae'],
   ['www.ambito.com', 'Ámbito'], ['ambito.com', 'Ámbito'],
+  ['www.revistagente.com', 'Gente'], ['revistagente.com', 'Gente'],
+  ['caras.perfil.com', 'Caras'],
+  ['www.paparazzi.com.ar', 'Paparazzi'], ['paparazzi.com.ar', 'Paparazzi'],
 ]);
 
 function publisher(url: string): string | null {

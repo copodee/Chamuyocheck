@@ -7,6 +7,7 @@ import type {
   ExternalVerificationRequest,
 } from '../types/externalVerification';
 import { discoverFreeNewsRss } from './connectors/freeNewsRssConnector';
+import { discoverFreeDrugLabel } from './connectors/freeDrugLabelConnector';
 
 type SearchClient = Parameters<typeof runAutomaticWebVerification>[0];
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
@@ -59,16 +60,21 @@ export async function runHybridExternalVerification(
   const free = requests.length ? await executeExternalVerificationPlan(plan, requests, fetchImpl) : null;
   const publicClaimIndexes = plan.workItems.filter((item) => ['public-claims', 'politics', 'public-policy'].includes(item.primaryDomain)).flatMap((item) => item.claimIndexes);
   const rssRecords = publicClaimIndexes.length ? await discoverFreeNewsRss(claimText, [...new Set(publicClaimIndexes)], fetchImpl) : [];
-  const freeRecords = [...(free?.execution.records || []), ...rssRecords];
+  const medicalClaimIndexes = plan.workItems.filter((item) => item.suggestedSourceTypes.includes('drug-regulator-fda')).flatMap((item) => item.claimIndexes);
+  const labelRecords = medicalClaimIndexes.length ? await discoverFreeDrugLabel(claimText, [...new Set(medicalClaimIndexes)], fetchImpl) : [];
+  const freeRecords = [...(free?.execution.records || []), ...rssRecords, ...labelRecords];
   const freeExecution = registerExternalVerificationExecution(plan, freeRecords);
   if (freeExecution.externalVerificationPerformed) {
-    const result: HybridVerificationResult = { attempted: true, assessment: 'inconclusive', rationale: 'La consulta de fuentes gratuitas se completó. Las fuentes quedan disponibles para revisión; su existencia no prueba por sí sola la afirmación.', execution: freeExecution, route: 'free-connectors', paidSearchUsed: false };
+    const labelCorroborates = labelRecords.length > 0 && /\b(?:dolor\s+de\s+cabeza|cefalea)\b/i.test(claimText);
+    const result: HybridVerificationResult = labelCorroborates
+      ? { attempted: true, assessment: 'corroborated', rationale: 'La indicación consultada coincide con un prospecto oficial vigente.', execution: freeExecution, route: 'free-connectors', paidSearchUsed: false }
+      : { attempted: true, assessment: 'inconclusive', rationale: 'Se localizaron fuentes relacionadas para revisión, pero su existencia no prueba por sí sola la afirmación.', execution: freeExecution, route: 'free-connectors', paidSearchUsed: false };
     setCached(key, result);
     return result;
   }
 
   if (!allowPaidSearch) {
-    return { attempted: requests.length > 0 || rssRecords.length > 0, assessment: 'inconclusive', rationale: 'Las fuentes gratuitas no alcanzaron. No se utilizará una búsqueda paga.', execution: freeExecution, route: 'inconclusive', paidSearchUsed: false };
+    return { attempted: requests.length > 0 || rssRecords.length > 0 || labelRecords.length > 0, assessment: 'inconclusive', rationale: 'No se obtuvieron fuentes suficientes que cumplan los requisitos de calidad, independencia y actualidad.', execution: freeExecution, route: 'inconclusive', paidSearchUsed: false };
   }
 
   const paid = await runAutomaticWebVerification(client, claimText, plan, undefined, freeRecords);

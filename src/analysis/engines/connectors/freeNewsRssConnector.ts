@@ -4,6 +4,9 @@ type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<
 
 const FEEDS = [
   { provider: 'LA NACION', url: 'https://www.lanacion.com.ar/arc/outboundfeeds/rss/?outputType=xml', host: 'lanacion.com.ar' },
+  { provider: 'Gente', url: 'https://www.revistagente.com/feed/', host: 'revistagente.com' },
+  { provider: 'Caras', url: 'https://caras.perfil.com/feed/', host: 'caras.perfil.com' },
+  { provider: 'Paparazzi', url: 'https://www.paparazzi.com.ar/feed/', host: 'paparazzi.com.ar' },
 ] as const;
 
 const STOP = new Set(['para', 'como', 'pero', 'este', 'esta', 'estos', 'estas', 'unos', 'unas', 'del', 'las', 'los', 'una', 'que', 'con', 'por', 'fue', 'son', 'sus', 'han', 'hay', 'argentina', 'argentino']);

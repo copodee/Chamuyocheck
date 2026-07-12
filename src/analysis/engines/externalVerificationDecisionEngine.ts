@@ -40,6 +40,10 @@ const MEDICATION_EFFECT = /\b(medicamento|fármaco|droga|principio activo|efecto
 const CAPITAL_MARKETS = /\b(cnv|byma|mercado de capitales|acci(?:ón|ones)|bonos?|obligaciones negociables|fondo común|agente de bolsa|hecho relevante|emisor(?:a|es)?)\b/i;
 const CRYPTO_ASSET = /\b(criptomoneda|criptoactivo|bitcoin|ethereum|ether|token|blockchain|exchange cripto|wallet|contrato inteligente|stablecoin|solana)\b/i;
 const CRYPTO_EVIDENCE_CLAIM = /\b(reservas?|transacci(?:ón|ones)|precio|cotiza|volumen|contrato inteligente|auditoría|suministro|capitalización)\b/i;
+const BIOGRAPHICAL_RELATIONSHIP = /\b(?:es|era|fue|ser[ií]a)\s+(?:(?:el|la)\s+)?(?:hij[oa]|herman[oa]|padre|madre|pareja|espos[oa]|c[oó]nyuge|familiar|sobrin[oa]|t[ií][oa]|prim[oa])\s+de\b/i;
+const BIOGRAPHICAL_FACT = /\b(?:nació|estudió|se\s+graduó|trabajó|ocupó\s+el\s+cargo|fue\s+(?:presidente|ministro|secretari[oa]|gobernador|diputado|senador))\b/i;
+const SIMPLE_DRUG_INDICATION = /\b(?:paracetamol|acetaminof[eé]n|ibuprofeno|aspirina)\b.*\b(?:es|sirve|indicado|usa)\s+para\b/i;
+const ILLICIT_DRUG = /\b(?:crystal(?:\s+meth)?|metanfetamina|coca[ií]na|crack|mdma|[eé]xtasis|hero[ií]na|fentanilo)\b/i;
 
 function unique(values: string[]): string[] {
   return [...new Set(values)];
@@ -86,6 +90,15 @@ export function decideExternalVerification(
     });
   }
 
+  if (BIOGRAPHICAL_RELATIONSHIP.test(claimText) || BIOGRAPHICAL_FACT.test(claimText)) {
+    return finish(true, 'La afirmación biográfica o de parentesco sobre personas identificables debe contrastarse con registros públicos y fuentes periodísticas independientes.', {
+      suggestedSourceTypes: ['public-records', 'independent-news'],
+      minimumIndependentSources: 2,
+      recencyRequired: false,
+      officialSourceRequired: false,
+    });
+  }
+
   if (
     claimNature.factualVerifiability === 'subjective' &&
     !natures.has('statistic') &&
@@ -105,14 +118,6 @@ export function decideExternalVerification(
     return finish(false, 'La afirmación matemática puede comprobarse mediante cálculo o demostración local.');
   }
 
-  if (primaryDomain === 'science' && FOUNDATIONAL_SCIENCE.test(claimText) && !natures.has('statistic')) {
-    return finish(false, 'La afirmación usa conocimiento científico fundacional comprobable localmente.');
-  }
-
-  if (primaryDomain === 'history-sports' && STABLE_HISTORY.test(claimText) && !SPECIFIC_RECORD.test(claimText)) {
-    return finish(false, 'El dato histórico es estable y general; no exige consulta externa en esta fase.');
-  }
-
   if (CRYPTO_ASSET.test(claimText) && CRYPTO_EVIDENCE_CLAIM.test(claimText)) {
     return finish(true, 'La afirmación sobre criptoactivos requiere distinguir datos de mercado, evidencia on-chain, documentación técnica y situación regulatoria.', {
       suggestedSourceTypes: ['crypto-market-data', 'blockchain-explorer', 'protocol-documentation', 'financial-regulators', 'independent-security-audits'],
@@ -130,12 +135,20 @@ export function decideExternalVerification(
   }
 
   if (MEDICAL_ACTION.test(claimText) || MEDICATION_EFFECT.test(claimText)) {
+    if (ILLICIT_DRUG.test(claimText)) {
+      return finish(true, 'La afirmación sobre una droga ilícita y sus efectos requiere autoridades de salud pública y evidencia toxicológica, no testimonios ni usos informales.', {
+        suggestedSourceTypes: ['health-authorities', 'peer-reviewed-medical-research'],
+        minimumIndependentSources: 2,
+        recencyRequired: false,
+        officialSourceRequired: true,
+      });
+    }
     const medicationSources = MEDICATION_EFFECT.test(claimText)
       ? ['drug-regulator-anmat', 'drug-regulator-fda', 'drug-regulator-ema', 'peer-reviewed-medical-research', 'pharmacovigilance']
       : DOMAIN_SOURCE_POLICY['biology-health'].sources;
     return finish(true, 'La afirmación médica o terapéutica requiere evidencia clínica y autoridades sanitarias actualizadas.', {
       suggestedSourceTypes: medicationSources,
-      minimumIndependentSources: DOMAIN_SOURCE_POLICY['biology-health'].minimum,
+      minimumIndependentSources: SIMPLE_DRUG_INDICATION.test(claimText) ? 1 : DOMAIN_SOURCE_POLICY['biology-health'].minimum,
       recencyRequired: true,
       officialSourceRequired: true,
     });
@@ -193,6 +206,10 @@ export function decideExternalVerification(
 
   if (primaryDomain === 'history-sports' && SPECIFIC_RECORD.test(claimText)) {
     return finish(true, 'El resultado o registro específico debe comprobarse contra archivos confiables.');
+  }
+
+  if (claimNature.factualVerifiability === 'currently-verifiable') {
+    return finish(true, 'Toda afirmación presentada como un hecho debe contrastarse externamente antes de recibir una conclusión de confiabilidad.');
   }
 
   if (claimNature.factualVerifiability === 'requires-external-source') {

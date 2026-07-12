@@ -19,7 +19,7 @@ type SearchClient = {
   chat: { completions: { create: (input: any) => Promise<any> } };
 };
 
-const TRUSTED_NEWS = new Set(['clarin.com', 'lanacion.com.ar', 'infobae.com', 'ambito.com']);
+const TRUSTED_NEWS = new Set(['clarin.com', 'lanacion.com.ar', 'infobae.com', 'ambito.com', 'revistagente.com', 'caras.perfil.com', 'paparazzi.com.ar']);
 const TRUSTED_INSTITUTIONS = [
   'who.int', 'paho.org', 'anmat.gob.ar', 'fda.gov', 'ema.europa.eu', 'nih.gov',
   'ncbi.nlm.nih.gov', 'pubmed.ncbi.nlm.nih.gov', 'worldbank.org', 'imf.org',

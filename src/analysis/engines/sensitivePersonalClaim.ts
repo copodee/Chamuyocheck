@@ -4,7 +4,7 @@ export type SensitivePersonalClaimKind =
   | 'health'
   | 'criminal-conduct';
 
-const identifiablePublicPerson = /\b(?:presidente|vicepresidente|ministro|senador|diputado|gobernador|intendente|funcionario|pol[ií]tico|juez|fiscal|empresario|ejecutivo|ceo|director|figura\s+p[uú]blica|persona\s+p[uú]blica|personalidad|celebridad|deportista|actor|actriz|artista|influencer)(?:\s+de\s+[a-záéíóúñ]+){0,3}(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?\b/i;
+const identifiablePublicPerson = /\b(?:presidente|vicepresidente|ministro|secretari[oa]|subsecretari[oa]|senador|diputado|gobernador|intendente|funcionario|pol[ií]tico|juez|fiscal|comisario|jefe\s+de\s+polic[ií]a|empresario|ejecutivo|ceo|director|rector|decano|figura\s+p[uú]blica|persona\s+p[uú]blica|personalidad|celebridad|deportista|actor|actriz|artista|influencer)(?:\s+de\s+[a-záéíóúñ]+){0,4}(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?\b/i;
 
 const sensitivePredicates: Array<{ kind: SensitivePersonalClaimKind; pattern: RegExp }> = [
   { kind: 'sexual-orientation', pattern: /\b(?:es|ser[ií]a|era|fue)\s+(?:homosexual|gay|lesbiana|bisexual|asexual|pansexual)\b/i },

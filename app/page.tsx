@@ -45,10 +45,8 @@ type Analysis = {
   externalVerification?: {
     externalVerificationRequired: boolean;
     externalVerificationPerformed: boolean;
-    assessment?: 'corroborated' | 'contradicted' | 'inconclusive';
+    conclusion?: string;
     rationale?: string;
-    route?: 'not-required' | 'cache' | 'free-connectors' | 'paid-web-search' | 'inconclusive';
-    paidSearchUsed?: boolean;
     execution?: {
       status: string;
       records: Array<{ url: string; title: string; sourceType: string; sourceDate?: string; official: boolean }>;
@@ -329,7 +327,7 @@ function getScoreExplanationItems(analysis: Analysis, inputKind: string, text: s
   const items: string[] = [];
   const inputLabel = getInputLabel(inputKind, hasRealFile);
 
-  (analysis.categoryScores || []).slice(0, 6).forEach((cat) => {
+  (analysis.categoryScores || []).filter((cat) => Number(cat?.score) > 0).slice(0, 6).forEach((cat) => {
     if (cat?.name) {
       items.push(`${cat.name}: ${cat.score}/100 — ${cat.explanation}`);
     }
@@ -672,8 +670,7 @@ export default function Page() {
           {analysis.externalVerification?.externalVerificationRequired && <div className="panel legalResultPanel">
             <h2>Verificación externa</h2>
             <p><b>Estado:</b> {analysis.externalVerification.externalVerificationPerformed ? 'Completada con fuentes auditables' : 'Inconclusa o no completada'}</p>
-            {analysis.externalVerification.assessment && <p><b>Contraste:</b> {analysis.externalVerification.assessment}</p>}
-            {analysis.externalVerification.route && <p><b>Ruta:</b> {analysis.externalVerification.route === 'cache' ? 'Caché verificada' : analysis.externalVerification.route === 'free-connectors' ? 'Fuentes gratuitas/oficiales' : analysis.externalVerification.route === 'paid-web-search' ? 'Búsqueda web Pro' : 'Sin evidencia suficiente'}</p>}
+            <p><b>Conclusión:</b> {analysis.externalVerification.conclusion || 'No existe evidencia suficiente para responder con certeza.'}</p>
             {analysis.externalVerification.rationale && <p>{analysis.externalVerification.rationale}</p>}
             {analysis.externalVerification.execution?.records?.length ? <ul>{analysis.externalVerification.execution.records.map((record, index) => <li key={`${record.url}-${index}`}><a href={record.url} target="_blank" rel="noreferrer">{record.title}</a> <small>({record.sourceType}{record.official ? ', oficial' : ''}{record.sourceDate ? `, ${record.sourceDate.slice(0, 10)}` : ''})</small></li>)}</ul> : <p>No se obtuvieron suficientes fuentes reales que cumplan los requisitos del dominio.</p>}
           </div>}

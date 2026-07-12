@@ -4,8 +4,8 @@ import { EXTERNAL_VERIFICATION_SOURCE_CATALOG, providersForSourceTypes, sourceAv
 
 test('catalog distinguishes implemented connectors from planned providers', () => {
   const byId = new Map(EXTERNAL_VERIFICATION_SOURCE_CATALOG.map((provider) => [provider.id, provider]));
-  for (const id of ['infoleg', 'boletin-oficial', 'bcra', 'pubmed', 'who', 'world-bank', 'news']) assert.equal(byId.get(id)?.status, 'implemented');
-  for (const id of ['anmat', 'fda', 'ema', 'cnv', 'byma', 'crypto-market', 'blockchain-explorer', 'protocol-source', 'security-audit']) assert.equal(byId.get(id)?.status, 'planned');
+  for (const id of ['infoleg', 'boletin-oficial', 'bcra', 'pubmed', 'who', 'world-bank', 'news', 'fda']) assert.equal(byId.get(id)?.status, 'implemented');
+  for (const id of ['anmat', 'ema', 'cnv', 'byma', 'crypto-market', 'blockchain-explorer', 'protocol-source', 'security-audit']) assert.equal(byId.get(id)?.status, 'planned');
 });
 
 test('source availability distinguishes executable, planned and unregistered types', () => {

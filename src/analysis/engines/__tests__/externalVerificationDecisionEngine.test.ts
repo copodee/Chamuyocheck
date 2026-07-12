@@ -92,6 +92,20 @@ test('subjective opinion and local arithmetic do not require external verificati
   assert.equal(decide('2 + 2 = 5.').externalVerificationRequired, false);
 });
 
+test('named biographical relationships require external corroboration even when stable', () => {
+  const result = decide('Nicolás Scioli es hijo de Daniel Scioli.');
+  assert.equal(result.externalVerificationRequired, true);
+  assert.equal(result.externalVerificationPerformed, false);
+  assert.deepEqual(result.suggestedSourceTypes, ['public-records', 'independent-news']);
+  assert.equal(result.minimumIndependentSources, 2);
+});
+
+test('ordinary factual claims always require external verification', () => {
+  const result = decide('Colapinto es un piloto de motos de carrera de origen español.');
+  assert.equal(result.externalVerificationRequired, true);
+  assert.equal(result.externalVerificationPerformed, false);
+});
+
 test('pipeline records the decision without changing existing scoring inputs', () => {
   const result = runClaimFirstPipeline('Este contrato es ilegal en Argentina.');
   assert.equal(result.claims.length, 1);

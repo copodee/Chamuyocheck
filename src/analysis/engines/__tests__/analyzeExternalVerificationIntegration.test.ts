@@ -25,7 +25,7 @@ test('PDF analysis reports planned medical regulators without pretending connect
   assert.equal(result.externalVerification.planning.requests.length, 0);
   assert.ok(result.externalVerification.planning.pending.length > 0);
   assert.ok(result.externalVerification.providers.some((provider) => provider.id === 'anmat' && provider.status === 'planned'));
-  assert.ok(result.externalVerification.providers.some((provider) => provider.id === 'fda' && provider.status === 'planned'));
+  assert.ok(result.externalVerification.providers.some((provider) => provider.id === 'fda' && provider.status === 'implemented'));
   assert.ok(result.externalVerification.providers.some((provider) => provider.id === 'ema' && provider.status === 'planned'));
   assert.equal(result.externalVerification.hasPlannedSourceType, true);
   assert.ok(result.externalVerification.sourceAvailability.some((item) => item.sourceType === 'drug-regulator-anmat' && item.status === 'planned'));

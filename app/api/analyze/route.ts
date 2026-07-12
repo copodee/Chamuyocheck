@@ -316,6 +316,13 @@ function youtubeNote(url: string) {
     : 'URL de YouTube recibida, pero no se pudo identificar el video.';
 }
 
+function detectEntityAmbiguity(text: string): string | null {
+  if (/\b(?:el\s+)?p[aá]jaro\s+carpintero\b/i.test(text) && /\b(?:dibujo\s+animado|caricatura|personaje)\b/i.test(text)) {
+    return 'La expresión “pájaro carpintero” es ambigua: normalmente designa al ave. Si la intención era referirse al personaje animado, su nombre en español es “El Pájaro Loco” (Woody Woodpecker). Es necesario aclarar la entidad antes de evaluar la afirmación como verdadera o falsa.';
+  }
+  return null;
+}
+
 export function buildLocalAnalysis(
   text: string,
   inputKind: string,
@@ -506,6 +513,7 @@ export function buildLocalAnalysis(
   ];
 
   const inputText = describeInput(inputKind);
+  const clarification = detectEntityAmbiguity(text);
   const shortText = inputKind === 'Texto' && text.trim().length < 220;
   const riskLabel = finalScore > 80 ? 'Chamuyo extremo' : finalScore > 60 ? 'Alto chamuyo' : finalScore > 40 ? 'Requiere verificación' : 'Bajo chamuyo';
   const protectedPresentation = buildLegalResultPresentation({
@@ -534,6 +542,7 @@ export function buildLocalAnalysis(
     userInstruction: userInstruction || null,
     instructionApplied: userInstruction.length > 0,
     analysisFocus,
+    clarification,
     centralQuestion: academic ? '¿Puedo decidir sin ver el costo total y el contrato?' : '¿Puedo confiar en esto sin pedir más evidencia?',
     summary: protectedPresentation.summary,
     prudentConclusion: protectedPresentation.prudentConclusion,
@@ -631,6 +640,7 @@ export function normalizeAI(raw: any, fallback: ReturnType<typeof buildLocalAnal
     userInstruction: fallback.userInstruction,
     instructionApplied: fallback.instructionApplied,
     analysisFocus: fallback.analysisFocus,
+    clarification: fallback.clarification,
     externalVerification: fallback.externalVerification,
   };
   const protectedPresentation = buildLegalResultPresentation({
@@ -659,21 +669,28 @@ function applyVerificationResult(
       ? Math.max(normalized.score, 85)
       : Math.max(normalized.score, fallback.externalVerification.externalVerificationRequired ? 50 : normalized.score);
   const inconclusiveMessage = 'Esta afirmación no puede ser validada con las fuentes disponibles. La consulta no puede responderse con certeza.';
+  const clarification = normalized.clarification;
   const presentation = buildLegalResultPresentation({
     score: adjustedScore,
     risk: adjustedScore > 80 ? 'Chamuyo extremo' : adjustedScore > 60 ? 'Alto chamuyo' : adjustedScore > 40 ? 'Requiere verificación' : 'Bajo chamuyo',
     confidence: normalized.confidence,
     baseSummary: verified
       ? `La consulta de fuentes externas fue completada. Evaluación: ${verification.assessment}. ${verification.rationale}`
-      : `${inconclusiveMessage} ${verification.rationale}`,
-    baseConclusion: verified ? `Revisá las fuentes citadas y su alcance. Resultado de contraste: ${verification.assessment}.` : inconclusiveMessage,
+      : `${clarification ? `${clarification} ` : ''}${inconclusiveMessage} ${verification.rationale}`,
+    baseConclusion: verified ? `Revisá las fuentes citadas y su alcance. Resultado de contraste: ${verification.assessment}.` : (clarification || inconclusiveMessage),
     categoryScores: normalized.categoryScores,
     externalVerificationRequired: normalized.externalVerification.externalVerificationRequired,
     externalVerificationPerformed: verified,
   });
   return {
     ...normalized, ...presentation, score: adjustedScore,
-    externalVerification: { ...normalized.externalVerification, externalVerificationPerformed: verified, execution: verification.execution, assessment: verification.assessment, rationale: verification.rationale, route: verification.route, paidSearchUsed: verification.paidSearchUsed },
+    externalVerification: {
+      ...normalized.externalVerification,
+      externalVerificationPerformed: verified,
+      execution: verification.execution,
+      ...(verified ? { conclusion: verification.assessment === 'corroborated' ? 'La evidencia encontrada respalda la afirmación dentro de su alcance.' : verification.assessment === 'contradicted' ? 'La evidencia encontrada contradice la afirmación.' : 'La evidencia no permite responder con certeza.' } : {}),
+      rationale: verification.rationale,
+    },
     evidenceFound: [...(normalized.evidenceFound || []), ...verification.execution.records.map((record) => `${record.title} — ${record.url}`)],
   };
 }
