@@ -337,6 +337,32 @@ export function buildLocalAnalysis(
   const externalVerificationSourceAvailability = sourceAvailabilityForTypes(
     claimFirstResult.documentExternalVerificationPlan.suggestedSourceTypes
   );
+  const claimVerificationReadiness = claimFirstResult.claims.map((claim, claimIndex) => {
+    const sourceAvailability = sourceAvailabilityForTypes(
+      claim.externalVerificationPlan?.suggestedSourceTypes || []
+    );
+    const explicitRequests = externalVerificationPlanning.requests.filter((request) =>
+      request.claimIndexes.includes(claimIndex)
+    );
+    const pendingReasons = externalVerificationPlanning.pending
+      .filter((item) => item.claimIndex === claimIndex)
+      .map((item) => item.reason);
+    return {
+      claimIndex,
+      text: claim.text,
+      externalVerificationRequired: claim.externalVerificationRequired,
+      externalVerificationPerformed: false,
+      sourceAvailability,
+      explicitRequestCount: explicitRequests.length,
+      plannedConnectors: sourceAvailability
+        .filter((item) => item.status === 'planned')
+        .flatMap((item) => item.providerIds),
+      executableConnectors: sourceAvailability
+        .filter((item) => item.status === 'implemented')
+        .flatMap((item) => item.providerIds),
+      pendingReasons,
+    };
+  });
 
   // Determine domain from knowledgeRouter result if available
   let domain;
@@ -527,6 +553,7 @@ export function buildLocalAnalysis(
       hasExecutableSourceType: externalVerificationSourceAvailability.some((item) => item.status === 'implemented'),
       hasPlannedSourceType: externalVerificationSourceAvailability.some((item) => item.status === 'planned'),
       hasUnregisteredSourceType: externalVerificationSourceAvailability.some((item) => item.status === 'unregistered'),
+      claims: claimVerificationReadiness,
       execution: null,
     },
     academicAuthorshipAnalysis: academicAuthorship,

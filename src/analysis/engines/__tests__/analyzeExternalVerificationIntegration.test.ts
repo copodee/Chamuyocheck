@@ -38,3 +38,24 @@ test('AI normalization cannot claim that analyze performed external verification
   assert.equal(normalized.externalVerification.externalVerificationPerformed, false);
   assert.equal(normalized.externalVerification.execution, null);
 });
+
+test('mixed PDF reports verification readiness separately for each claim', () => {
+  const text = [
+    'Este contrato es ilegal en Argentina: https://www.argentina.gob.ar/normativa/nacional/ley-27275-265949.',
+    'Este medicamento produce efectos adversos graves.',
+  ].join('\n');
+  const result = buildLocalAnalysis(text, 'PDF', 'informe-mixto.pdf', {
+    ok: true, text, pages: 2, chars: text.length, note: 'PDF leído correctamente.',
+  });
+  const legalClaim = result.externalVerification.claims.find((claim) => claim.text.includes('contrato'));
+  const medicalClaim = result.externalVerification.claims.find((claim) => claim.text.includes('medicamento'));
+  assert.ok(legalClaim);
+  assert.equal(legalClaim.explicitRequestCount, 1);
+  assert.ok(legalClaim.executableConnectors.includes('infoleg'));
+  assert.equal(legalClaim.externalVerificationPerformed, false);
+  assert.ok(medicalClaim);
+  assert.equal(medicalClaim.explicitRequestCount, 0);
+  assert.ok(medicalClaim.plannedConnectors.includes('anmat'));
+  assert.ok(medicalClaim.pendingReasons.length > 0);
+  assert.equal(medicalClaim.externalVerificationPerformed, false);
+});
