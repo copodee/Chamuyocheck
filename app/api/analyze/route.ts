@@ -17,9 +17,14 @@ import { planExternalVerificationRequests } from '../../../src/analysis/engines/
 import { providersForSourceTypes, sourceAvailabilityForTypes } from '../../../src/analysis/engines/externalVerificationSourceCatalog';
 import { buildLegalResultPresentation } from '../../../src/analysis/engines/legalResultSafeguard';
 import { TERMS_VERSION } from '../../../src/lib/legal/terms';
+import { runHybridExternalVerification } from '../../../src/analysis/engines/hybridExternalVerification';
 
 export const runtime = 'nodejs';
 const MAX_USER_INSTRUCTION_LENGTH = 2_000;
+
+export function openAIAnalysisEnabled(value = process.env.OPENAI_ANALYSIS_ENABLED): boolean {
+  return value === 'true';
+}
 
 type CategoryScore = {
   name: string;
@@ -478,6 +483,12 @@ export function buildLocalAnalysis(
     finalScore = Math.max(finalScore, claimFirstResult.dominantClaim.minimumScore);
   }
 
+  // A claim that needs external evidence cannot receive a green/low-risk result
+  // while that verification has not actually been performed.
+  if (claimFirstResult.documentExternalVerificationPlan.externalVerificationRequired) {
+    finalScore = Math.max(finalScore, 50);
+  }
+
   const applicableCategoryLabels = new Set(
     weightedResult.applicableDimensions.map((dimension) => dimension.label)
   );
@@ -607,15 +618,15 @@ export function normalizeAI(raw: any, fallback: ReturnType<typeof buildLocalAnal
   const normalized = {
     ...fallback,
     ...raw,
-    documentIcon: String(raw?.documentIcon || fallback.documentIcon),
-    documentType: String(raw?.documentType || fallback.documentType),
-    documentFocus: String(raw?.documentFocus || fallback.documentFocus),
-    score: clamp(Number(raw?.score ?? fallback.score)),
-    categoryScores: Array.isArray(raw?.categoryScores) ? raw.categoryScores : fallback.categoryScores,
-    modules: Array.isArray(raw?.modules) ? raw.modules : fallback.modules,
-    topic: String(raw?.topic || fallback.topic),
-    topicLabel: String(raw?.topicLabel || fallback.topicLabel),
-    topicHint: String(raw?.topicHint || fallback.topicHint),
+    documentIcon: fallback.documentIcon,
+    documentType: fallback.documentType,
+    documentFocus: fallback.documentFocus,
+    score: Math.max(fallback.score, clamp(Number(raw?.score ?? fallback.score))),
+    categoryScores: fallback.categoryScores,
+    modules: fallback.modules,
+    topic: fallback.topic,
+    topicLabel: fallback.topicLabel,
+    topicHint: fallback.topicHint,
     academicAuthorshipAnalysis: fallback.academicAuthorshipAnalysis,
     userInstruction: fallback.userInstruction,
     instructionApplied: fallback.instructionApplied,
@@ -633,6 +644,38 @@ export function normalizeAI(raw: any, fallback: ReturnType<typeof buildLocalAnal
     externalVerificationPerformed: false,
   });
   return { ...normalized, ...protectedPresentation };
+}
+
+function applyVerificationResult(
+  normalized: ReturnType<typeof normalizeAI> | ReturnType<typeof buildLocalAnalysis>,
+  fallback: ReturnType<typeof buildLocalAnalysis>,
+  verification: Awaited<ReturnType<typeof runHybridExternalVerification>>
+) {
+  const verified = verification.execution.externalVerificationPerformed;
+  const safetyFloor = fallback.claimAnalysis.dominantClaim?.minimumScore || 0;
+  const adjustedScore = verified && verification.assessment === 'corroborated'
+    ? Math.max(safetyFloor, Math.min(normalized.score, 35))
+    : verified && verification.assessment === 'contradicted'
+      ? Math.max(normalized.score, 85)
+      : Math.max(normalized.score, fallback.externalVerification.externalVerificationRequired ? 50 : normalized.score);
+  const inconclusiveMessage = 'Esta afirmación no puede ser validada con las fuentes disponibles. La consulta no puede responderse con certeza.';
+  const presentation = buildLegalResultPresentation({
+    score: adjustedScore,
+    risk: adjustedScore > 80 ? 'Chamuyo extremo' : adjustedScore > 60 ? 'Alto chamuyo' : adjustedScore > 40 ? 'Requiere verificación' : 'Bajo chamuyo',
+    confidence: normalized.confidence,
+    baseSummary: verified
+      ? `La consulta de fuentes externas fue completada. Evaluación: ${verification.assessment}. ${verification.rationale}`
+      : `${inconclusiveMessage} ${verification.rationale}`,
+    baseConclusion: verified ? `Revisá las fuentes citadas y su alcance. Resultado de contraste: ${verification.assessment}.` : inconclusiveMessage,
+    categoryScores: normalized.categoryScores,
+    externalVerificationRequired: normalized.externalVerification.externalVerificationRequired,
+    externalVerificationPerformed: verified,
+  });
+  return {
+    ...normalized, ...presentation, score: adjustedScore,
+    externalVerification: { ...normalized.externalVerification, externalVerificationPerformed: verified, execution: verification.execution, assessment: verification.assessment, rationale: verification.rationale, route: verification.route, paidSearchUsed: verification.paidSearchUsed },
+    evidenceFound: [...(normalized.evidenceFound || []), ...verification.execution.records.map((record) => `${record.title} — ${record.url}`)],
+  };
 }
 
 export async function POST(req: Request) {
@@ -712,18 +755,27 @@ export async function POST(req: Request) {
 
     const fallback = buildLocalAnalysis(documentText, inputKind, fileName, extraction, userInstruction);
 
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(fallback);
-    }
-
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = process.env.OPENAI_API_KEY && openAIAnalysisEnabled()
+      ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+      : null;
+    const noPaidClient = { chat: { completions: { create: async () => { throw new Error('Paid search disabled.'); } } } };
+    const webVerification = await runHybridExternalVerification(
+      (openai || noPaidClient) as any,
+      documentText,
+      fallback.claimAnalysis.documentExternalVerificationPlan,
+      fallback.externalVerification.planning.requests
+    );
+    if (!openai) return NextResponse.json(applyVerificationResult(fallback, fallback, webVerification));
     const prompt = `Actuá como ChamuyoCheck, auditor documental prudente. Priorizá el contenido extraído del documento o del archivo por encima de la pregunta del usuario. Identificá el tipo de documento/contenido antes del score. Si el PDF no tiene texto extraíble, indicá que necesita OCR. Si el usuario pregunta si fue hecho con IA, respondé como estimación no concluyente: nunca acuses ni afirmes uso de IA/plagio. Respondé SOLO JSON con estas claves: documentIcon, documentType, documentFocus, extractionStatus, extractedChars, extractedPreview, score, risk, confidence, detectedTheme, detectedInput, centralQuestion, summary, prudentConclusion, verdict, categoryScores, modules, flaggedPhrases, issues, questions, missingInformation, worstCase, improved, evidenceFound, scoreExplanation, refutationPoints, improvementPlan, topic, topicLabel, topicHint.
 
 INSTRUCCIÓN DEL USUARIO (define el foco; no pertenece al documento):
 ${userInstruction || 'Sin instrucción específica: realizar análisis general.'}
 
 CONTENIDO DEL DOCUMENTO (único contenido que debe clasificarse y evaluarse):
-${documentText.slice(0, 18000)}`;
+${documentText.slice(0, 18000)}
+
+VERIFICACIÓN WEB REAL EJECUTADA ANTES DE RESPONDER:
+${JSON.stringify(webVerification)}`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -738,7 +790,7 @@ ${documentText.slice(0, 18000)}`;
     });
 
     const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
-    return NextResponse.json(normalizeAI(parsed, fallback));
+    return NextResponse.json(applyVerificationResult(normalizeAI(parsed, fallback), fallback, webVerification));
   } catch (error) {
     console.error('Route.ts error:', error instanceof Error ? error.message : String(error));
     return NextResponse.json({ error: 'No se pudo analizar el contenido.' }, { status: 500 });

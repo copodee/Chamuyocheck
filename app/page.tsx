@@ -42,6 +42,19 @@ type Analysis = {
   topic?: string;
   topicLabel?: string;
   topicHint?: string;
+  externalVerification?: {
+    externalVerificationRequired: boolean;
+    externalVerificationPerformed: boolean;
+    assessment?: 'corroborated' | 'contradicted' | 'inconclusive';
+    rationale?: string;
+    route?: 'not-required' | 'cache' | 'free-connectors' | 'paid-web-search' | 'inconclusive';
+    paidSearchUsed?: boolean;
+    execution?: {
+      status: string;
+      records: Array<{ url: string; title: string; sourceType: string; sourceDate?: string; official: boolean }>;
+      errors: string[];
+    } | null;
+  };
 };
 
 type InputMode = 'Texto' | 'PDF' | 'Imagen' | 'Web' | 'YouTube';
@@ -656,6 +669,14 @@ export default function Page() {
           </div>
           <div className="panel decisionCard"><div className="light" style={{ background: semaforo.color }}></div><div><h2>Semáforo de decisiones</h2><h3 style={{ color: semaforo.color }}>{semaforo.txt}</h3><p>{analysis.prudentConclusion}</p></div></div>
           <div className="panel legalResultPanel"><h2>Fundamento y alcance del resultado</h2><ul>{(analysis.resultJustification || []).map((item, i) => <li key={i}>{item}</li>)}</ul><p className="legalDisclaimerSubtle">{analysis.legalSafeguard}</p>{analysis.legalNotice && <details><summary>Limitaciones y usos no permitidos como única evidencia</summary><h3>Limitaciones</h3><ul>{analysis.legalNotice.limitations.map((item, i) => <li key={`limit-${i}`}>{item}</li>)}</ul><h3>No usar como única base para</h3><ul>{analysis.legalNotice.prohibitedSoleUses.map((item, i) => <li key={`use-${i}`}>{item}</li>)}</ul></details>}</div>
+          {analysis.externalVerification?.externalVerificationRequired && <div className="panel legalResultPanel">
+            <h2>Verificación externa</h2>
+            <p><b>Estado:</b> {analysis.externalVerification.externalVerificationPerformed ? 'Completada con fuentes auditables' : 'Inconclusa o no completada'}</p>
+            {analysis.externalVerification.assessment && <p><b>Contraste:</b> {analysis.externalVerification.assessment}</p>}
+            {analysis.externalVerification.route && <p><b>Ruta:</b> {analysis.externalVerification.route === 'cache' ? 'Caché verificada' : analysis.externalVerification.route === 'free-connectors' ? 'Fuentes gratuitas/oficiales' : analysis.externalVerification.route === 'paid-web-search' ? 'Búsqueda web Pro' : 'Sin evidencia suficiente'}</p>}
+            {analysis.externalVerification.rationale && <p>{analysis.externalVerification.rationale}</p>}
+            {analysis.externalVerification.execution?.records?.length ? <ul>{analysis.externalVerification.execution.records.map((record, index) => <li key={`${record.url}-${index}`}><a href={record.url} target="_blank" rel="noreferrer">{record.title}</a> <small>({record.sourceType}{record.official ? ', oficial' : ''}{record.sourceDate ? `, ${record.sourceDate.slice(0, 10)}` : ''})</small></li>)}</ul> : <p>No se obtuvieron suficientes fuentes reales que cumplan los requisitos del dominio.</p>}
+          </div>}
           <div className="panel metaCard">
             <div className="meta"><small>Tipo</small><b>{analysis.documentType}</b></div>
             <div className="meta"><small>Entrada</small><b>{getInputLabel(analysis.detectedInput)}</b></div>

@@ -36,7 +36,7 @@ const SPECIFIC_RECORD = /\b\d{1,4}(?:[.,]\d+)?\s*(?:%|goles?|partidos?|medallas?
 const ARGENTINA = /\b(argentina|argentino|argentina|córdoba|buenos aires|bcra|cnv|byma|boletín oficial)\b/i;
 const ARITHMETIC_EXPRESSION = /\b\d+(?:[.,]\d+)?\s*[+\-×x*/=]\s*\d+(?:[.,]\d+)?/i;
 const FINANCIAL_CURRENT_DATA = /\b(dólar|euro|bitcoin|cotiza|cotización|precio|tasa|tipo de cambio|mercado)\b|\b\d+(?:[.,]\d+)?\s*(?:pesos|dólares|euros)\b/i;
-const MEDICATION_EFFECT = /\b(medicamento|fármaco|droga|principio activo|efecto(?:s)? adverso(?:s)?|contraindicación|prospecto|farmacovigilancia)\b/i;
+const MEDICATION_EFFECT = /\b(medicamento|fármaco|droga|principio activo|efecto(?:s)? adverso(?:s)?|contraindicación|prospecto|farmacovigilancia|ibuprofeno|paracetamol|acetaminof[eé]n|aspirina|amoxicilina|omeprazol|[a-záéíóúñ]+(?:profeno|cillina|micina|prazol|statina|zepam))\b/i;
 const CAPITAL_MARKETS = /\b(cnv|byma|mercado de capitales|acci(?:ón|ones)|bonos?|obligaciones negociables|fondo común|agente de bolsa|hecho relevante|emisor(?:a|es)?)\b/i;
 const CRYPTO_ASSET = /\b(criptomoneda|criptoactivo|bitcoin|ethereum|ether|token|blockchain|exchange cripto|wallet|contrato inteligente|stablecoin|solana)\b/i;
 const CRYPTO_EVIDENCE_CLAIM = /\b(reservas?|transacci(?:ón|ones)|precio|cotiza|volumen|contrato inteligente|auditoría|suministro|capitalización)\b/i;
