@@ -38,6 +38,7 @@ Separar la decisión de verificar de la ejecución de una búsqueda. V21C debe i
    - El orquestador deduplica solicitudes antes de acceder a red y rechaza ejecuciones con más de 12 solicitudes únicas.
    - Workflow backend end-to-end implementado: planificación local por defecto y ejecución sólo con `execute: true`.
    - Endpoint `POST /api/verify` implementado; la red permanece bloqueada salvo `EXTERNAL_VERIFICATION_EXECUTION_ENABLED=true`.
+   - El workflow proyecta por claim `externalVerificationRequired`, `externalVerificationPerformed`, estado, evidencia asociada y motivos pendientes, siempre derivados de cobertura auditable validada.
    - Registro de consultas, URLs, fecha, fragmentos y resultado por claim.
    - `externalVerificationPerformed` sólo puede cambiar a `true` si existe evidencia auditable asociada.
    - Una verificación completa exige cobertura por claim, fuentes independientes suficientes, URL válida, fecha y fuente oficial cuando corresponda.

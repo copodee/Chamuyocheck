@@ -4,6 +4,7 @@ import { executeExternalVerificationPlan } from './externalVerificationOrchestra
 import type {
   ExternalVerificationOrchestrationResult,
   ExternalVerificationPlanningResult,
+  ExternalVerificationSourceRecord,
 } from '../types/externalVerification';
 
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
@@ -12,7 +13,56 @@ export type ExternalVerificationWorkflowResult = {
   plan: ReturnType<typeof runClaimFirstPipeline>['documentExternalVerificationPlan'];
   planning: ExternalVerificationPlanningResult;
   execution: ExternalVerificationOrchestrationResult | null;
+  claims: ExternalVerificationClaimOutcome[];
 };
+
+export type ExternalVerificationClaimOutcome = {
+  claimIndex: number;
+  text: string;
+  externalVerificationRequired: boolean;
+  externalVerificationPerformed: boolean;
+  status: 'not-required' | 'pending' | 'partial' | 'complete';
+  records: ExternalVerificationSourceRecord[];
+  pendingReasons: string[];
+};
+
+function buildClaimOutcomes(
+  claims: ReturnType<typeof runClaimFirstPipeline>['claims'],
+  planning: ExternalVerificationPlanningResult,
+  execution: ExternalVerificationOrchestrationResult | null
+): ExternalVerificationClaimOutcome[] {
+  const covered = new Set(execution?.execution.coveredClaimIndexes || []);
+  const pendingReasons = new Map<number, string[]>();
+  for (const item of planning.pending) {
+    pendingReasons.set(item.claimIndex, [...(pendingReasons.get(item.claimIndex) || []), item.reason]);
+  }
+
+  return claims.map((claim, claimIndex) => {
+    const required = claim.externalVerificationRequired;
+    const performed = required && covered.has(claimIndex);
+    const records = (execution?.execution.records || []).filter((record) =>
+      record.claimIndexes.includes(claimIndex)
+    );
+    const claimPendingReasons = pendingReasons.get(claimIndex) || [];
+    const status = !required
+      ? 'not-required'
+      : performed
+        ? 'complete'
+        : execution && claimPendingReasons.length === 0
+          ? 'partial'
+          : 'pending';
+
+    return {
+      claimIndex,
+      text: claim.text,
+      externalVerificationRequired: required,
+      externalVerificationPerformed: performed,
+      status,
+      records,
+      pendingReasons: claimPendingReasons,
+    };
+  });
+}
 
 /**
  * End-to-end V21C workflow. Planning is local; network access happens only when
@@ -30,5 +80,10 @@ export async function runExternalVerificationWorkflow(
     ? await executeExternalVerificationPlan(plan, planning.requests, fetchImpl)
     : null;
 
-  return { plan, planning, execution };
+  return {
+    plan,
+    planning,
+    execution,
+    claims: buildClaimOutcomes(claimResult.claims, planning, execution),
+  };
 }

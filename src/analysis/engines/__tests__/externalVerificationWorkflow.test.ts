@@ -13,6 +13,11 @@ test('workflow plans locally without touching network by default', async () => {
   assert.equal(calls, 0);
   assert.equal(result.planning.requests.length, 1);
   assert.equal(result.execution, null);
+  assert.equal(result.claims[0].externalVerificationRequired, true);
+  assert.equal(result.claims[0].externalVerificationPerformed, false);
+  assert.equal(result.claims[0].status, 'pending');
+  assert.equal(result.claims[0].records.length, 0);
+  assert.equal(result.claims[0].pendingReasons.length, 0);
 });
 
 test('workflow executes only explicit planned references when requested', async () => {
@@ -31,6 +36,50 @@ test('workflow executes only explicit planned references when requested', async 
   );
   assert.equal(calls, 1);
   assert.equal(result.execution?.execution.externalVerificationPerformed, true);
+  assert.equal(result.claims[0].externalVerificationPerformed, true);
+  assert.equal(result.claims[0].status, 'complete');
+  assert.equal(result.claims[0].records.length, 1);
+  assert.equal(result.claims[0].records[0].official, true);
+  assert.deepEqual(result.claims[0].pendingReasons, []);
+});
+
+test('workflow never marks a claim performed from insufficient evidence', async () => {
+  const result = await runExternalVerificationWorkflow(
+    'El dólar oficial cotiza hoy a 1200 pesos [BCRA:USD:2026-07-11].',
+    true,
+    async (input) => {
+      const response = new Response(JSON.stringify({
+        results: {
+          fecha: '2026-07-11',
+          detalle: [{ codigoMoneda: 'USD', descripcion: 'Dólar estadounidense', tipoCotizacion: 1200 }],
+        },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+      Object.defineProperty(response, 'url', { value: String(input) });
+      return response;
+    }
+  );
+  const requiredClaim = result.claims.find((claim) => claim.externalVerificationRequired);
+  assert.equal(result.execution?.execution.status, 'partial');
+  assert.ok(requiredClaim);
+  assert.equal(requiredClaim.externalVerificationPerformed, false);
+  assert.equal(requiredClaim.status, 'partial');
+  assert.equal(requiredClaim.records.length, 1);
+});
+
+test('workflow distinguishes claims that do not require external verification', async () => {
+  const result = await runExternalVerificationWorkflow('Dos más dos es igual a cuatro.', false);
+  assert.equal(result.claims[0].externalVerificationRequired, false);
+  assert.equal(result.claims[0].externalVerificationPerformed, false);
+  assert.equal(result.claims[0].status, 'not-required');
+  assert.deepEqual(result.claims[0].records, []);
+});
+
+test('workflow exposes the pending reason on the claim that lacks an explicit source', async () => {
+  const result = await runExternalVerificationWorkflow('Este contrato es ilegal en Argentina.', false);
+  assert.equal(result.claims[0].status, 'pending');
+  assert.equal(result.claims[0].records.length, 0);
+  assert.equal(result.claims[0].pendingReasons.length, 1);
+  assert.match(result.claims[0].pendingReasons[0], /URL oficial|identificador/);
 });
 
 test('feature flag enables execution only for literal true', () => {
@@ -49,6 +98,8 @@ test('verify endpoint returns a local plan without execution', async () => {
   assert.equal(response.status, 200);
   assert.equal(json.execution, null);
   assert.equal(json.plan.externalVerificationRequired, true);
+  assert.equal(json.claims[0].externalVerificationRequired, true);
+  assert.equal(json.claims[0].externalVerificationPerformed, false);
 });
 
 test('verify endpoint rejects execution while feature flag is disabled', async () => {

@@ -79,3 +79,11 @@ test('numeric segments inside URLs are not treated as local arithmetic', () => {
   assert.equal(result.claims[0].externalVerificationRequired, true);
   assert.match(result.claims[0].externalVerificationPlan?.reason || '', /jurídica/);
 });
+
+test('dates inside structured source identifiers are not treated as local arithmetic', () => {
+  const result = runClaimFirstPipeline(
+    'El dólar oficial cotiza hoy a 1200 pesos [BCRA:USD:2026-07-11].'
+  );
+  assert.equal(result.claims[0].externalVerificationRequired, true);
+  assert.match(result.claims[0].externalVerificationPlan?.reason || '', /financiero|mercado|actual/i);
+});

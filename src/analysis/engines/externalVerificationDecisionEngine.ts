@@ -48,7 +48,9 @@ export function decideExternalVerification(
   input: ExternalVerificationDecisionInput
 ): ExternalVerificationPlan {
   const { claimText, claimNature, primaryDomain } = input;
-  const semanticText = claimText.replace(/https?:\/\/\S+/gi, ' ');
+  const semanticText = claimText
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/\[(?:BCRA|WHO|WB|PMID):[^\]]+\]/gi, ' ');
   const policy = DOMAIN_SOURCE_POLICY[primaryDomain];
   const natures = new Set([claimNature.primaryNature, ...claimNature.secondaryNatures]);
   const isRecent = RECENT_OR_CURRENT.test(claimText);
