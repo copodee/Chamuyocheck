@@ -13,6 +13,8 @@ import { calculateDomainWeightedScore } from '../../../src/analysis/engines/doma
 import { runClaimFirstPipeline } from '../../../src/analysis/engines/claimFirstPipeline';
 import { detectClaimNature } from '../../../src/analysis/engines/claimNatureDetector';
 import { analyzeAcademicAuthorship } from '../../../src/analysis/engines/academicAuthorshipAlertEngine';
+import { planExternalVerificationRequests } from '../../../src/analysis/engines/externalVerificationRequestPlanner';
+import { providersForSourceTypes } from '../../../src/analysis/engines/externalVerificationSourceCatalog';
 
 export const runtime = 'nodejs';
 const MAX_USER_INSTRUCTION_LENGTH = 2_000;
@@ -328,6 +330,10 @@ export function buildLocalAnalysis(
 
   // V19: Claim-First Pipeline - extract and analyze individual claims first
   const claimFirstResult = runClaimFirstPipeline(text);
+  const externalVerificationPlanning = planExternalVerificationRequests(claimFirstResult.claims);
+  const externalVerificationProviders = providersForSourceTypes(
+    claimFirstResult.documentExternalVerificationPlan.suggestedSourceTypes
+  ).map(({ id, name, status, sourceTypes }) => ({ id, name, status, sourceTypes }));
 
   // Determine domain from knowledgeRouter result if available
   let domain;
@@ -508,6 +514,14 @@ export function buildLocalAnalysis(
       academic ? 'Falta trazabilidad o contexto metodológico.' : ''
     ].filter(Boolean), verification, reasoning, universalReasoning, weightedResult, claimFirstResult),
     claimAnalysis: claimFirstResult,
+    externalVerification: {
+      externalVerificationRequired: claimFirstResult.documentExternalVerificationPlan.externalVerificationRequired,
+      externalVerificationPerformed: false,
+      plan: claimFirstResult.documentExternalVerificationPlan,
+      planning: externalVerificationPlanning,
+      providers: externalVerificationProviders,
+      execution: null,
+    },
     academicAuthorshipAnalysis: academicAuthorship,
     refutationPoints: [
       'Verificar autor, fecha, fuente original y trazabilidad del contenido.',
@@ -539,7 +553,8 @@ export function normalizeAI(raw: any, fallback: ReturnType<typeof buildLocalAnal
     academicAuthorshipAnalysis: fallback.academicAuthorshipAnalysis,
     userInstruction: fallback.userInstruction,
     instructionApplied: fallback.instructionApplied,
-    analysisFocus: fallback.analysisFocus
+    analysisFocus: fallback.analysisFocus,
+    externalVerification: fallback.externalVerification
   };
 }
 
