@@ -18,6 +18,7 @@ import { providersForSourceTypes, sourceAvailabilityForTypes } from '../../../sr
 import { buildLegalResultPresentation } from '../../../src/analysis/engines/legalResultSafeguard';
 import { TERMS_VERSION } from '../../../src/lib/legal/terms';
 import { runHybridExternalVerification } from '../../../src/analysis/engines/hybridExternalVerification';
+import { classifyProductScope } from '../../../src/analysis/engines/productScopeClassifier';
 
 export const runtime = 'nodejs';
 const MAX_USER_INSTRUCTION_LENGTH = 2_000;
@@ -39,6 +40,30 @@ type Extraction = {
   chars: number;
   note: string;
 };
+
+function buildOutOfScopeAnalysis(text: string, inputKind: string, reason: string) {
+  const supportedAreas = [
+    'Finanzas, préstamos, créditos, costos y rentabilidad.',
+    'Posibles estafas, ofertas engañosas e inversiones sospechosas.',
+    'Derecho argentino, contratos, documentos legales, delitos, penas y divorcios.',
+  ];
+  const message = 'Esta consulta está fuera del alcance actual de ChamuyoCheck. Para evitar una respuesta superficial o engañosa, no se asignó un puntaje. No se realizó una verificación externa.';
+  return {
+    scopeStatus: 'out-of-scope', scopeReason: reason, supportedAreas,
+    documentIcon: '↗', documentType: 'Consulta fuera de alcance', documentFocus: 'El servicio está especializado en tres áreas concretas.',
+    extractionStatus: inputKind === 'Texto' ? 'Texto recibido correctamente.' : 'Contenido recibido correctamente.', extractedChars: text.length,
+    extractedPreview: text.slice(0, 1200), score: 0, risk: 'Fuera de alcance', confidence: 'Alta', detectedTheme: 'Fuera de alcance', detectedInput: inputKind,
+    centralQuestion: '¿La consulta corresponde a una especialidad activa?', summary: message,
+    prudentConclusion: 'Reformulá la consulta dentro de una de las tres especialidades disponibles. ChamuyoCheck no evaluará otros temas hasta contar con cobertura suficientemente confiable.',
+    verdict: 'Consulta no analizada: fuera del alcance especializado.', categoryScores: [], modules: [], flaggedPhrases: [],
+    issues: [reason], questions: [], missingInformation: [], worstCase: 'Emitir una conclusión sobre un tema que el servicio no cubre con suficiente profundidad.',
+    improved: 'Elegí una consulta financiera, sobre una posible estafa o sobre derecho argentino y documentos legales.',
+    evidenceFound: [], scoreExplanation: [], resultJustification: [message, reason],
+    legalSafeguard: 'No se emitió una evaluación de fondo ni un ChamuyoScore para esta consulta.',
+    refutationPoints: [], improvementPlan: supportedAreas, topic: 'out-of-scope', topicLabel: 'Fuera de alcance', topicHint: reason,
+    externalVerification: { externalVerificationRequired: false, externalVerificationPerformed: false, execution: null },
+  };
+}
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Math.round(value)));
@@ -768,6 +793,11 @@ export async function POST(req: Request) {
 
     if (documentText.length < 20) {
       return NextResponse.json({ error: 'Ingresá texto, una URL o un documento si querés analizar contenido.' }, { status: 400 });
+    }
+
+    const productScope = classifyProductScope(documentText, userInstruction);
+    if (!productScope.supported) {
+      return NextResponse.json(buildOutOfScopeAnalysis(documentText, inputKind, productScope.reason));
     }
 
     const fallback = buildLocalAnalysis(documentText, inputKind, fileName, extraction, userInstruction);

@@ -909,6 +909,6 @@ test('Comprehensive Regression Suite', async () => {
 });
 
 // Also run standalone if executed directly
-if (require.main === module || import.meta.url === `file://${process.argv[1]}`) {
+if (require.main === module) {
   runTests().catch(console.error);
 }

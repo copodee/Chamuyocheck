@@ -92,7 +92,7 @@ test('free local endpoint returns the mandatory inconclusive wording', async () 
   delete process.env.OPENAI_ANALYSIS_ENABLED;
   try {
     const form = new FormData();
-    form.set('text', 'El ibuprofeno mató a dos chicos que lo mezclaron con agua de mar.');
+    form.set('text', 'Esta inversión en bitcoin garantiza una ganancia del 500% mensual.');
     form.set('termsAccepted', 'true');
     form.set('termsVersion', TERMS_VERSION);
     const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
@@ -107,4 +107,22 @@ test('free local endpoint returns the mandatory inconclusive wording', async () 
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = previousKey;
     if (previousEnabled === undefined) delete process.env.OPENAI_ANALYSIS_ENABLED; else process.env.OPENAI_ANALYSIS_ENABLED = previousEnabled;
   }
+});
+
+test('out-of-scope endpoint does not score or pretend to verify', async () => {
+  const form = new FormData();
+  form.set('text', 'Colapinto es un piloto de motos de origen español.');
+  form.set('termsAccepted', 'true');
+  form.set('termsVersion', TERMS_VERSION);
+  const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.scopeStatus, 'out-of-scope');
+  assert.equal(body.score, 0);
+  assert.equal(body.externalVerification.externalVerificationRequired, false);
+  assert.equal(body.externalVerification.externalVerificationPerformed, false);
+  assert.match(body.summary, /fuera del alcance/i);
+  assert.match(body.summary, /no se asignó un puntaje/i);
+  assert.match(body.summary, /no se realizó una verificación externa/i);
+  assert.doesNotMatch(JSON.stringify(body), /contenido sólido y confiable/i);
 });

@@ -1,8 +1,8 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'ChamuyoCheck',
-  description: 'Auditor inteligente de credibilidad documental.'
+  title: 'ChamuyoCheck | Finanzas, estafas y derecho argentino',
+  description: 'Analizá créditos, costos financieros, posibles estafas y documentos legales argentinos con evidencia y alcance claros.'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

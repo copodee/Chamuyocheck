@@ -6,6 +6,9 @@ import { TERMS_SECTIONS, TERMS_STORAGE_KEY, TERMS_VERSION } from '../src/lib/leg
 
 type Cat = { name: string; score: number; explanation: string };
 type Analysis = {
+  scopeStatus?: 'supported' | 'out-of-scope';
+  scopeReason?: string;
+  supportedAreas?: string[];
   documentIcon: string;
   documentType: string;
   documentFocus: string;
@@ -81,9 +84,10 @@ function inferLocalDoc(text: string, file: File | null, url: string) {
   if (file?.type?.startsWith('image/')) return { icon: '🖼️', label: 'Imagen/captura recibida', focus: 'Preparada para análisis visual' };
   if (/youtu\.be|youtube\.com/.test(source)) return { icon: '▶️', label: 'Video de YouTube detectado', focus: 'Analizando enlace y texto disponible' };
   if (/^https?:\/\//.test(url)) return { icon: '🌐', label: 'Página web detectada', focus: 'Analizando enlace y texto disponible' };
-  if (/facultad|colegio|alumno|tesis|monograf|trabajo|bibliograf|hecha con ia|hecho con ia/.test(source)) return { icon: '🎓', label: 'Trabajo académico posible', focus: 'IA/plagio solo como estimación' };
+  if (/estafa|fraude|ponzi|pir[aá]mid|referidos|rentabilidad garantizada/.test(source)) return { icon: '⚠️', label: 'Posible estafa u oferta engañosa', focus: 'Promesas, identidad, autorización y evidencia' };
   if (/pr[eé]stamo|cuota|cft|tea|tna|\$/.test(source)) return { icon: '💳', label: 'Oferta financiera posible', focus: 'Costos ocultos y CFT' };
-  return { icon: '📝', label: 'Texto recibido', focus: 'Clasificación automática' };
+  if (/contrato|cl[aá]usula|ley|delito|pena|divorcio|alimentos/.test(source)) return { icon: '⚖️', label: 'Consulta legal o documento', focus: 'Normativa argentina, obligaciones y alcance' };
+  return { icon: '📝', label: 'Consulta recibida', focus: 'Primero se verificará si está dentro del alcance' };
 }
 
 function getInputLabel(kind: string, hasRealFile = false) {
@@ -478,7 +482,7 @@ export default function Page() {
     setLoading(true);
     setSteps([]);
     setAnalysis(null);
-    const seq = ['Contenido recibido', 'Extrayendo texto del documento', 'Detectando tipo de contenido', 'Activando especialistas', 'Calculando ChamuyoScore™', 'Generando informe'];
+    const seq = ['Contenido recibido', 'Extrayendo texto del documento', 'Clasificando el alcance', 'Activando la especialidad correspondiente', 'Verificando evidencia disponible', 'Generando informe'];
     for (const s of seq) {
       setSteps((p) => [...p, '✓ ' + s]);
       await new Promise((r) => setTimeout(r, 180));
@@ -585,7 +589,7 @@ export default function Page() {
     {showTerms && <div className="termsBackdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowTerms(false); }}><section className="termsModal" role="dialog" aria-modal="true" aria-labelledby="terms-title"><div className="termsHeader"><div><h2 id="terms-title">Términos y Condiciones</h2><span>Versión {TERMS_VERSION}</span></div><button type="button" className="iconBtn" aria-label="Cerrar términos" onClick={() => setShowTerms(false)}>×</button></div><div className="termsBody"><p>Leé estos términos antes de usar ChamuyoCheck. La aceptación es obligatoria para realizar análisis.</p>{TERMS_SECTIONS.map((section) => <section key={section.title}><h3>{section.title}</h3><p>{section.body}</p></section>)}<p className="legalDisclaimerSubtle">Este texto establece condiciones operativas iniciales y debe ser revisado por asesoría jurídica argentina antes del lanzamiento comercial definitivo.</p></div><div className="termsActions"><button type="button" className="ghost" onClick={() => setShowTerms(false)}>Cerrar</button><button type="button" className="primary" onClick={acceptCurrentTerms}>Acepto los Términos y Condiciones</button></div></section></div>}
     <input ref={fileRef} type="file" accept=".pdf,image/*,.txt,.doc,.docx" hidden onChange={(e) => onFile(e.target.files?.[0])} />
     <aside className="sidebar">
-      <div className="brand"><div className="shield">✓</div><div><div className="logo">CHAMUYO<span>CHECK</span></div><div className="tag">Analizá antes de decidir</div></div></div>
+      <div className="brand"><div className="shield">✓</div><div><div className="logo">CHAMUYO<span>CHECK</span></div><div className="tag">Finanzas · Estafas · Derecho</div></div></div>
       <button type="button" className="newBtn" onClick={startNewAnalysis}>＋ Nuevo análisis</button>
       <div className="nav">
         <button type="button" className={activeView === 'inicio' ? 'active' : ''} onClick={openHome}>⌂ Inicio</button>
@@ -597,7 +601,7 @@ export default function Page() {
         <button type="button" className={activeView === 'ajustes' ? 'active' : ''} onClick={openSettings}>⚙ Ajustes</button>
         <button type="button">? Ayuda</button>
       </div>
-      <div className="proBox"><b>🔎 CHAMUYOCHECK</b><p>Analizá contenido con una evaluación prudente y más.</p><button type="button" onClick={() => setPlan('pro')}>Ver planes</button></div>
+      <div className="proBox"><b>🔎 CHAMUYOCHECK</b><p>Revisá créditos, posibles estafas y documentos legales argentinos.</p><button type="button" onClick={() => setPlan('pro')}>Ver planes</button></div>
       <div className="userBox"><div className="avatar">V</div><div><b>Visitante</b><div className="hint">{isPro ? 'Plan Pro' : 'Plan Starter'}</div></div></div>
     </aside>
     <main className="main">
@@ -606,7 +610,7 @@ export default function Page() {
           <div className="shield">✓</div>
           <div>
             <div className="logo">CHAMUYO<span>CHECK</span></div>
-            <div className="tag">Analizá antes de decidir</div>
+            <div className="tag">Finanzas · Estafas · Derecho</div>
           </div>
         </div>
         <div className="mobileTopbarActions">
@@ -630,11 +634,11 @@ export default function Page() {
       {activeView === 'inicio' ? <>
         <section className="heroGrid heroIntroGrid">
           <div className="panel heroIntroPanel">
-            <div className="eyebrow">UX & Context Intelligence</div>
-            <h1>Analizá antes de decidir</h1>
-            <p className="heroSubtitle">No todo lo que leés, mirás o te prometen merece confianza.</p>
-            <p className="heroBody">ChamuyoCheck analiza textos, documentos, imágenes, sitios web y videos para ayudarte a detectar riesgos, manipulación, falta de evidencia y señales que conviene verificar antes de tomar una decisión.</p>
-            <div className="heroCta">Subí un PDF, pegá un texto o una URL y obtené un informe claro en segundos.</div>
+            <div className="eyebrow">ANÁLISIS ESPECIALIZADO</div>
+            <h1>Créditos, estafas y derecho argentino</h1>
+            <p className="heroSubtitle">Entendé costos, detectá señales de engaño y revisá documentos antes de decidir.</p>
+            <p className="heroBody">ChamuyoCheck se concentra en tres áreas: finanzas y créditos; posibles estafas y ofertas engañosas; y derecho argentino, contratos y documentos legales. Las consultas de otros temas se identifican y no se puntúan.</p>
+            <div className="heroCta">Pegá una consulta, un contrato o una oferta y recibí un análisis con alcance y evidencia claros.</div>
             <div className="heroHighlights">
               <div><strong>{localDoc.label}</strong><span>{localDoc.focus}</span></div>
               <div><strong>Modo</strong><span>{getInputDisplay(detected)}</span></div>
@@ -648,7 +652,7 @@ export default function Page() {
               {file && <span className="filePill">{file.name} · {fmt(file.size)}</span>}
             </div>
             {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}
-            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Agregá contexto o la pregunta que querés verificar sobre el video.' : activeInput === 'Web' ? 'Agregá contexto o una pregunta sobre el sitio web.' : 'Pegá texto o agregá una pregunta sobre el documento.'} />
+            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Agregá una pregunta financiera, sobre una posible estafa o sobre derecho argentino.' : activeInput === 'Web' ? 'Indicá qué querés revisar de la oferta, entidad o documento legal.' : 'Ejemplo: calculá el costo real del crédito, revisá esta posible estafa o explicá esta cláusula según el derecho argentino.'} />
             {!isPro && <div className={`counter ${textTooLong ? 'bad' : ''}`}>{text.length}/{FREE_CHARS}</div>}
             <div className="termsConsent"><input id="terms-consent" type="checkbox" checked={termsAccepted} onChange={(e) => e.target.checked ? acceptCurrentTerms() : revokeTermsAcceptance()} /><label htmlFor="terms-consent">Leí y acepto los <button type="button" className="termsLink" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>Términos y Condiciones</button> (versión {TERMS_VERSION}).</label></div>
             {termsError && <div className="termsError" role="alert">{termsError}</div>}
@@ -657,7 +661,16 @@ export default function Page() {
             {loading && <div className="loading">{steps.map((s, i) => <p key={i}>{s}</p>)}</div>}
           </div>
         </section>
-        {analysis && <section id="informe" className="analysisSection">
+        {analysis?.scopeStatus === 'out-of-scope' ? <section id="informe" className="analysisSection">
+          <div className="panel legalResultPanel">
+            <h2>Consulta fuera del alcance actual</h2>
+            <p>{analysis.summary}</p>
+            <p><b>Motivo:</b> {analysis.scopeReason}</p>
+            <h3>ChamuyoCheck analiza actualmente</h3>
+            <ul>{analysis.supportedAreas?.map((area, index) => <li key={index}>{area}</li>)}</ul>
+            <p className="legalDisclaimerSubtle">No se calculó ChamuyoScore ni se simuló una búsqueda externa. Esta limitación evita presentar como confiable un análisis para el que el producto todavía no tiene cobertura especializada.</p>
+          </div>
+        </section> : analysis && <section id="informe" className="analysisSection">
         <div className="heroGrid">
           <div className="panel scoreCard">
             <div className="scoreWrap">
@@ -682,7 +695,7 @@ export default function Page() {
             <div className="meta"><small>Confianza</small><b>{analysis.confidence}</b></div>
           </div>
         </div>
-        <div className="reportTabs">{['Resumen', 'Evidencias', 'Riesgos', 'IA y Originalidad', 'Finanzas', 'Recomendaciones', 'Fuentes', 'Datos extraídos'].map((x) => <button key={x} type="button" className={tab === x ? 'active' : ''} onClick={() => setTab(x)}>{x}</button>)}</div>
+        <div className="reportTabs">{['Resumen', 'Evidencias', 'Riesgos', 'Finanzas', 'Derecho argentino', 'Recomendaciones', 'Fuentes', 'Datos extraídos'].map((x) => <button key={x} type="button" className={tab === x ? 'active' : ''} onClick={() => setTab(x)}>{x}</button>)}</div>
         <div className="cards">
           <div className="card executiveCard">
             <div className="cardHead">
