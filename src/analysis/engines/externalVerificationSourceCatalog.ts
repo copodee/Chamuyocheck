@@ -34,3 +34,23 @@ export function providersForSourceTypes(sourceTypes: string[]): ExternalVerifica
     provider.sourceTypes.some((sourceType) => requested.has(sourceType))
   );
 }
+
+export type ExternalVerificationSourceAvailability = {
+  sourceType: string;
+  status: 'implemented' | 'planned' | 'unregistered';
+  providerIds: string[];
+};
+
+export function sourceAvailabilityForTypes(sourceTypes: string[]): ExternalVerificationSourceAvailability[] {
+  return [...new Set(sourceTypes)].map((sourceType) => {
+    const providers = EXTERNAL_VERIFICATION_SOURCE_CATALOG.filter((provider) =>
+      provider.sourceTypes.includes(sourceType)
+    );
+    const implemented = providers.filter((provider) => provider.status === 'implemented');
+    return {
+      sourceType,
+      status: implemented.length > 0 ? 'implemented' : providers.length > 0 ? 'planned' : 'unregistered',
+      providerIds: providers.map((provider) => provider.id),
+    };
+  });
+}

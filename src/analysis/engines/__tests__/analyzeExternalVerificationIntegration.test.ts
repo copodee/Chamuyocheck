@@ -12,6 +12,8 @@ test('PDF analysis exposes a local external verification plan without execution'
   assert.equal(result.externalVerification.execution, null);
   assert.equal(result.externalVerification.planning.requests[0].connector, 'infoleg');
   assert.ok(result.externalVerification.providers.some((provider) => provider.id === 'infoleg' && provider.status === 'implemented'));
+  assert.equal(result.externalVerification.hasExecutableSourceType, true);
+  assert.ok(result.externalVerification.sourceAvailability.some((item) => item.sourceType === 'government-law-repository' && item.status === 'implemented'));
 });
 
 test('PDF analysis reports planned medical regulators without pretending connectors exist', () => {
@@ -25,6 +27,8 @@ test('PDF analysis reports planned medical regulators without pretending connect
   assert.ok(result.externalVerification.providers.some((provider) => provider.id === 'anmat' && provider.status === 'planned'));
   assert.ok(result.externalVerification.providers.some((provider) => provider.id === 'fda' && provider.status === 'planned'));
   assert.ok(result.externalVerification.providers.some((provider) => provider.id === 'ema' && provider.status === 'planned'));
+  assert.equal(result.externalVerification.hasPlannedSourceType, true);
+  assert.ok(result.externalVerification.sourceAvailability.some((item) => item.sourceType === 'drug-regulator-anmat' && item.status === 'planned'));
 });
 
 test('AI normalization cannot claim that analyze performed external verification', () => {

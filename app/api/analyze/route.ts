@@ -14,7 +14,7 @@ import { runClaimFirstPipeline } from '../../../src/analysis/engines/claimFirstP
 import { detectClaimNature } from '../../../src/analysis/engines/claimNatureDetector';
 import { analyzeAcademicAuthorship } from '../../../src/analysis/engines/academicAuthorshipAlertEngine';
 import { planExternalVerificationRequests } from '../../../src/analysis/engines/externalVerificationRequestPlanner';
-import { providersForSourceTypes } from '../../../src/analysis/engines/externalVerificationSourceCatalog';
+import { providersForSourceTypes, sourceAvailabilityForTypes } from '../../../src/analysis/engines/externalVerificationSourceCatalog';
 
 export const runtime = 'nodejs';
 const MAX_USER_INSTRUCTION_LENGTH = 2_000;
@@ -334,6 +334,9 @@ export function buildLocalAnalysis(
   const externalVerificationProviders = providersForSourceTypes(
     claimFirstResult.documentExternalVerificationPlan.suggestedSourceTypes
   ).map(({ id, name, status, sourceTypes }) => ({ id, name, status, sourceTypes }));
+  const externalVerificationSourceAvailability = sourceAvailabilityForTypes(
+    claimFirstResult.documentExternalVerificationPlan.suggestedSourceTypes
+  );
 
   // Determine domain from knowledgeRouter result if available
   let domain;
@@ -520,6 +523,10 @@ export function buildLocalAnalysis(
       plan: claimFirstResult.documentExternalVerificationPlan,
       planning: externalVerificationPlanning,
       providers: externalVerificationProviders,
+      sourceAvailability: externalVerificationSourceAvailability,
+      hasExecutableSourceType: externalVerificationSourceAvailability.some((item) => item.status === 'implemented'),
+      hasPlannedSourceType: externalVerificationSourceAvailability.some((item) => item.status === 'planned'),
+      hasUnregisteredSourceType: externalVerificationSourceAvailability.some((item) => item.status === 'unregistered'),
       execution: null,
     },
     academicAuthorshipAnalysis: academicAuthorship,
