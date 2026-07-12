@@ -8,8 +8,9 @@ import type {
 } from '../types/externalVerification';
 import { discoverFreeNewsRss } from './connectors/freeNewsRssConnector';
 import { discoverFreeDrugLabel } from './connectors/freeDrugLabelConnector';
-import { discoverWikidataEntity } from './connectors/freeWikidataConnector';
+import { verifyWikidataStructuredClaim } from './connectors/freeWikidataConnector';
 import { discoverEuropePmcEvidence } from './connectors/freeEuropePmcConnector';
+import { verifyArgentinaCriminalLaw } from './connectors/freeArgentinaLegalConnector';
 
 type SearchClient = Parameters<typeof runAutomaticWebVerification>[0];
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
@@ -65,14 +66,30 @@ export async function runHybridExternalVerification(
   const medicalClaimIndexes = plan.workItems.filter((item) => item.suggestedSourceTypes.includes('drug-regulator-fda')).flatMap((item) => item.claimIndexes);
   const labelRecords = medicalClaimIndexes.length ? await discoverFreeDrugLabel(claimText, [...new Set(medicalClaimIndexes)], fetchImpl) : [];
   const wikidataItems = plan.workItems.filter((item) => item.suggestedSourceTypes.includes('public-records'));
-  const wikidataRecords = (await Promise.all(wikidataItems.map((item) => discoverWikidataEntity(claimText, item.claimIndexes, 'public-records', fetchImpl)))).flat();
+  const wikidataResults = await Promise.all(wikidataItems.map((item) => verifyWikidataStructuredClaim(claimText, item.claimIndexes, fetchImpl)));
+  const wikidataRecords = wikidataResults.flatMap((result) => result.records);
   const researchItems = plan.workItems.filter((item) => item.suggestedSourceTypes.includes('peer-reviewed-medical-research') || item.suggestedSourceTypes.includes('scientific-journals'));
   const researchRecords = (await Promise.all(researchItems.map((item) => discoverEuropePmcEvidence(claimText, item.claimIndexes, item.suggestedSourceTypes.includes('peer-reviewed-medical-research') ? 'peer-reviewed-medical-research' : 'scientific-journals', fetchImpl)))).flat();
-  const freeRecords = [...(free?.execution.records || []), ...rssRecords, ...labelRecords, ...wikidataRecords, ...researchRecords];
+  const legalItems = plan.workItems.filter((item) => item.suggestedSourceTypes.includes('government-law-repository'));
+  const legalResults = await Promise.all(legalItems.map((item) => verifyArgentinaCriminalLaw(claimText, item.claimIndexes, fetchImpl)));
+  const legalRecords = legalResults.flatMap((result) => result.records);
+  const freeRecords = [...(free?.execution.records || []), ...rssRecords, ...labelRecords, ...wikidataRecords, ...researchRecords, ...legalRecords];
   const freeExecution = registerExternalVerificationExecution(plan, freeRecords);
   if (freeExecution.externalVerificationPerformed) {
     const labelCorroborates = labelRecords.length > 0 && /\b(?:dolor\s+de\s+cabeza|cefalea)\b/i.test(claimText);
-    const result: HybridVerificationResult = labelCorroborates
+    const wikidataContradiction = wikidataResults.find((item) => item.assessment === 'contradicted');
+    const wikidataCorroboration = wikidataResults.find((item) => item.assessment === 'corroborated');
+    const legalContradiction = legalResults.find((item) => item.assessment === 'contradicted');
+    const legalCorroboration = legalResults.find((item) => item.assessment === 'corroborated');
+    const result: HybridVerificationResult = legalContradiction
+      ? { attempted: true, assessment: 'contradicted', rationale: legalContradiction.rationale, execution: freeExecution, route: 'free-connectors', paidSearchUsed: false }
+      : legalCorroboration
+        ? { attempted: true, assessment: 'corroborated', rationale: legalCorroboration.rationale, execution: freeExecution, route: 'free-connectors', paidSearchUsed: false }
+      : wikidataContradiction
+      ? { attempted: true, assessment: 'contradicted', rationale: wikidataContradiction.rationale, execution: freeExecution, route: 'free-connectors', paidSearchUsed: false }
+      : wikidataCorroboration
+        ? { attempted: true, assessment: 'corroborated', rationale: wikidataCorroboration.rationale, execution: freeExecution, route: 'free-connectors', paidSearchUsed: false }
+      : labelCorroborates
       ? { attempted: true, assessment: 'corroborated', rationale: 'La indicación consultada coincide con un prospecto oficial vigente.', execution: freeExecution, route: 'free-connectors', paidSearchUsed: false }
       : { attempted: true, assessment: 'inconclusive', rationale: 'Se localizaron fuentes relacionadas para revisión, pero su existencia no prueba por sí sola la afirmación.', execution: freeExecution, route: 'free-connectors', paidSearchUsed: false };
     setCached(key, result);
@@ -80,7 +97,7 @@ export async function runHybridExternalVerification(
   }
 
   if (!allowPaidSearch) {
-    return { attempted: requests.length > 0 || rssRecords.length > 0 || labelRecords.length > 0 || wikidataRecords.length > 0 || researchRecords.length > 0, assessment: 'inconclusive', rationale: 'No se obtuvieron fuentes suficientes que cumplan los requisitos de calidad, independencia y actualidad.', execution: freeExecution, route: 'inconclusive', paidSearchUsed: false };
+    return { attempted: requests.length > 0 || rssRecords.length > 0 || labelRecords.length > 0 || wikidataRecords.length > 0 || researchRecords.length > 0 || legalRecords.length > 0, assessment: 'inconclusive', rationale: 'No se obtuvieron fuentes suficientes que cumplan los requisitos de calidad, independencia y actualidad.', execution: freeExecution, route: 'inconclusive', paidSearchUsed: false };
   }
 
   const paid = await runAutomaticWebVerification(client, claimText, plan, undefined, freeRecords);

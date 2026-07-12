@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { discoverWikidataEntity } from '../connectors/freeWikidataConnector';
+import { discoverWikidataEntity, verifyWikidataStructuredClaim } from '../connectors/freeWikidataConnector';
 
 function response(search: unknown[]) {
   return new Response(JSON.stringify({ search }), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -32,4 +32,29 @@ test('Wikidata requires the asserted relationship word, not just both names', as
     { id: 'Q4', label: 'Nicolás Scioli', description: 'político argentino, hermano de Daniel Scioli', concepturi: 'https://www.wikidata.org/entity/Q4' },
   ]));
   assert.equal(records.length, 0);
+});
+
+test('structured Wikidata comparison contradicts wrong nationality and occupation', async () => {
+  let call = 0;
+  const result = await verifyWikidataStructuredClaim('Colapinto es un piloto de motos de origen español.', [0], async () => {
+    call++;
+    if (call === 1) return response([{ id: 'Q2', label: 'Franco Colapinto', concepturi: 'https://www.wikidata.org/entity/Q2' }]);
+    if (call === 2) return new Response(JSON.stringify({ entities: { Q2: { claims: { P27: [{ mainsnak: { datavalue: { value: { id: 'Q414' } } } }], P106: [{ mainsnak: { datavalue: { value: { id: 'Q1' } } } }] } } } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify({ entities: { Q414: { labels: { es: { value: 'Argentina' } } }, Q1: { labels: { es: { value: 'piloto de automovilismo' } } } } }), { status: 200, headers: { 'content-type': 'application/json' } });
+  });
+  assert.equal(result.assessment, 'contradicted');
+  assert.equal(result.records.length, 1);
+  assert.match(result.rationale, /Argentina.*piloto de automovilismo/i);
+});
+
+test('structured Wikidata comparison distinguishes sibling from asserted child', async () => {
+  let call = 0;
+  const result = await verifyWikidataStructuredClaim('Nicolás Scioli es hijo de Daniel Scioli.', [0], async () => {
+    call++;
+    if (call === 1) return response([{ id: 'Q4', label: 'Nicolás Scioli', concepturi: 'https://www.wikidata.org/entity/Q4' }]);
+    if (call === 2) return new Response(JSON.stringify({ entities: { Q4: { claims: { P3373: [{ mainsnak: { datavalue: { value: { id: 'Q5' } } } }] } } } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify({ entities: { Q5: { labels: { es: { value: 'Daniel Scioli' } } } } }), { status: 200, headers: { 'content-type': 'application/json' } });
+  });
+  assert.equal(result.assessment, 'contradicted');
+  assert.match(result.rationale, /Hermanos: Daniel Scioli/i);
 });
