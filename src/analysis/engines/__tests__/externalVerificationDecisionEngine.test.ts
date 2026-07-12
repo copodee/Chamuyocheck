@@ -71,3 +71,11 @@ test('pipeline records the decision without changing existing scoring inputs', (
   assert.equal(result.claims[0].externalVerificationPerformed, false);
   assert.equal(result.claims[0].externalVerificationPlan?.officialSourceRequired, true);
 });
+
+test('numeric segments inside URLs are not treated as local arithmetic', () => {
+  const result = runClaimFirstPipeline(
+    'Este contrato es ilegal en Argentina: https://www.argentina.gob.ar/normativa/nacional/ley-27275-265949'
+  );
+  assert.equal(result.claims[0].externalVerificationRequired, true);
+  assert.match(result.claims[0].externalVerificationPlan?.reason || '', /jurídica/);
+});

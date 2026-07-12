@@ -48,6 +48,7 @@ export function decideExternalVerification(
   input: ExternalVerificationDecisionInput
 ): ExternalVerificationPlan {
   const { claimText, claimNature, primaryDomain } = input;
+  const semanticText = claimText.replace(/https?:\/\/\S+/gi, ' ');
   const policy = DOMAIN_SOURCE_POLICY[primaryDomain];
   const natures = new Set([claimNature.primaryNature, ...claimNature.secondaryNatures]);
   const isRecent = RECENT_OR_CURRENT.test(claimText);
@@ -76,7 +77,7 @@ export function decideExternalVerification(
     return finish(false, 'El resultado futuro todavía no puede verificarse; las fuentes sólo servirán para revisar su base o comprobarlo después.');
   }
 
-  if (primaryDomain === 'mathematics' || ARITHMETIC_EXPRESSION.test(claimText)) {
+  if (primaryDomain === 'mathematics' || ARITHMETIC_EXPRESSION.test(semanticText)) {
     return finish(false, 'La afirmación matemática puede comprobarse mediante cálculo o demostración local.');
   }
 
