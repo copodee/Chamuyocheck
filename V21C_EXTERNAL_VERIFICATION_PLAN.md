@@ -21,7 +21,21 @@ Separar la decisión de verificar de la ejecución de una búsqueda. V21C debe i
 
 3. **Ejecución real con trazabilidad (fundación segura implementada; conectores pendientes)**
    - Contrato y validador auditable para evidencia entregada por futuros conectores.
-   - Conectores autorizados por tipo de fuente (no implementados).
+   - Primer conector implementado: leyes nacionales argentinas mediante URL explícita de la vista oficial InfoLEG en `argentina.gob.ar/normativa` y validación adicional del número de ley.
+   - La búsqueda automática por número queda pendiente porque el buscador público usa CAPTCHA y la ruta corta por sí sola representa un ID interno, no el número de ley.
+   - El conector directo sólo obtiene metadata oficial auditable; no interpreta por sí mismo si una ley prueba o refuta el claim.
+   - Búsqueda general y otros conectores por tipo de fuente continúan pendientes.
+   - Conector BCRA implementado para cotizaciones oficiales por moneda y fecha mediante su API pública.
+   - Conector Boletín Oficial implementado para URLs explícitas de avisos de primera sección.
+   - Adaptador periodístico implementado para URLs explícitas de Clarín, La Nación, Infobae y Ámbito, exigiendo título y fecha auditables.
+   - Los registros periodísticos son no oficiales y requieren la corroboración independiente definida por el plan documental.
+   - Registro internacional inicial implementado: OMS GHO y PubMed para biología/salud y ciencia; Banco Mundial para indicadores económicos por país.
+   - Los conectores internacionales exigen identificadores estructurados (PMID, código OMS o código de indicador económico) y no realizan inferencias semánticas por sí solos.
+   - Orquestador explícito implementado para ejecutar solicitudes concretas, aislar fallos, deduplicar registros y entregar el conjunto al registro auditable.
+   - El pipeline normal no dispara consultas externas automáticamente.
+   - Planificador seguro implementado: convierte únicamente URLs e identificadores explícitos en solicitudes; cuando faltan parámetros registra el claim como pendiente y no adivina valores.
+   - Todos los conectores bloquean redirecciones automáticas, aplican timeout y rechazan respuestas sobredimensionadas.
+   - El orquestador deduplica solicitudes antes de acceder a red y rechaza ejecuciones con más de 12 solicitudes únicas.
    - Registro de consultas, URLs, fecha, fragmentos y resultado por claim.
    - `externalVerificationPerformed` sólo puede cambiar a `true` si existe evidencia auditable asociada.
    - Una verificación completa exige cobertura por claim, fuentes independientes suficientes, URL válida, fecha y fuente oficial cuando corresponda.

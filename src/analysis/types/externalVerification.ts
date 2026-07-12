@@ -71,3 +71,30 @@ export type ExternalVerificationExecutionResult = {
   coveredClaimIndexes: number[];
   errors: string[];
 };
+
+export type ExternalVerificationConnectorResult = {
+  ok: boolean;
+  provider: string;
+  records: ExternalVerificationSourceRecord[];
+  error?: string;
+};
+
+export type ExternalVerificationRequest =
+  | { connector: 'infoleg'; officialUrl: string; lawNumber: string; claimIndexes: number[] }
+  | { connector: 'bcra-exchange-rate'; currencyCode: string; date: string; claimIndexes: number[] }
+  | { connector: 'boletin-oficial'; officialUrl: string; claimIndexes: number[] }
+  | { connector: 'news'; articleUrl: string; claimIndexes: number[] }
+  | { connector: 'pubmed'; pmid: string; claimIndexes: number[] }
+  | { connector: 'who-indicator'; indicator: string; country: string; claimIndexes: number[] }
+  | { connector: 'world-bank-indicator'; country: string; indicator: string; year: number; claimIndexes: number[] };
+
+export type ExternalVerificationOrchestrationResult = {
+  execution: ExternalVerificationExecutionResult;
+  connectorResults: ExternalVerificationConnectorResult[];
+  connectorErrors: string[];
+};
+
+export type ExternalVerificationPlanningResult = {
+  requests: ExternalVerificationRequest[];
+  pending: Array<{ claimIndex: number; reason: string }>;
+};
