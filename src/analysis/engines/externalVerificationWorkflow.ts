@@ -2,6 +2,7 @@ import { runClaimFirstPipeline } from './claimFirstPipeline';
 import { planExternalVerificationRequests } from './externalVerificationRequestPlanner';
 import { executeExternalVerificationPlan } from './externalVerificationOrchestrator';
 import type {
+  ExternalVerificationAttempt,
   ExternalVerificationOrchestrationResult,
   ExternalVerificationPlanningResult,
   ExternalVerificationSourceRecord,
@@ -24,6 +25,7 @@ export type ExternalVerificationClaimOutcome = {
   status: 'not-required' | 'pending' | 'partial' | 'complete';
   records: ExternalVerificationSourceRecord[];
   pendingReasons: string[];
+  attempts: ExternalVerificationAttempt[];
 };
 
 function buildClaimOutcomes(
@@ -44,6 +46,9 @@ function buildClaimOutcomes(
       record.claimIndexes.includes(claimIndex)
     );
     const claimPendingReasons = pendingReasons.get(claimIndex) || [];
+    const attempts = (execution?.attempts || []).filter((attempt) =>
+      attempt.claimIndexes.includes(claimIndex)
+    );
     const status = !required
       ? 'not-required'
       : performed
@@ -60,6 +65,7 @@ function buildClaimOutcomes(
       status,
       records,
       pendingReasons: claimPendingReasons,
+      attempts,
     };
   });
 }

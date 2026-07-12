@@ -13,6 +13,7 @@ test('orchestrator does nothing without explicit requests', async () => {
   const result = await executeExternalVerificationPlan(plan, []);
   assert.equal(result.execution.status, 'not-performed');
   assert.equal(result.execution.externalVerificationPerformed, false);
+  assert.deepEqual(result.attempts, []);
 });
 
 test('orchestrator keeps one BCRA source partial when finance plan requires two', async () => {
@@ -24,6 +25,9 @@ test('orchestrator keeps one BCRA source partial when finance plan requires two'
   assert.equal(result.connectorErrors.length, 0);
   assert.equal(result.execution.status, 'partial');
   assert.equal(result.execution.externalVerificationPerformed, false);
+  assert.deepEqual(result.attempts[0], {
+    connector: 'bcra-exchange-rate', claimIndexes: [0], ok: true, recordCount: 1,
+  });
 });
 
 test('orchestrator completes a legal plan with matching official InfoLEG evidence', async () => {
@@ -48,6 +52,10 @@ test('orchestrator reports partial verification when one of two news sources fai
   assert.equal(result.connectorErrors.length, 1);
   assert.equal(result.execution.status, 'partial');
   assert.equal(result.execution.externalVerificationPerformed, false);
+  assert.equal(result.attempts.length, 2);
+  assert.equal(result.attempts[0].ok, true);
+  assert.equal(result.attempts[1].ok, false);
+  assert.match(result.attempts[1].error || '', /permitido|inválid/i);
 });
 
 test('orchestrator deduplicates identical source requests', async () => {
@@ -79,4 +87,5 @@ test('orchestrator rejects excessive unique requests without network calls', asy
   assert.equal(calls, 0);
   assert.equal(result.execution.status, 'not-performed');
   assert.match(result.connectorErrors[0], /Límite excedido/);
+  assert.deepEqual(result.attempts, []);
 });

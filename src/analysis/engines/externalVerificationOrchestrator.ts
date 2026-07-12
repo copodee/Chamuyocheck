@@ -69,6 +69,7 @@ export async function executeExternalVerificationPlan(
       execution: registerExternalVerificationExecution(plan, []),
       connectorResults: [],
       connectorErrors: [`Límite excedido: máximo ${MAX_REQUESTS_PER_EXECUTION} solicitudes externas por ejecución.`],
+      attempts: [],
     };
   }
 
@@ -83,10 +84,21 @@ export async function executeExternalVerificationPlan(
 
   const records = deduplicateRecords(connectorResults.flatMap((result) => result.ok ? result.records : []));
   const connectorErrors = connectorResults.filter((result) => !result.ok).map((result) => `${result.provider}: ${result.error || 'error desconocido'}`);
+  const attempts = uniqueRequests.map((request, index) => {
+    const result = connectorResults[index];
+    return {
+      connector: request.connector,
+      claimIndexes: [...request.claimIndexes],
+      ok: result.ok,
+      recordCount: result.records.length,
+      ...(result.error ? { error: result.error } : {}),
+    };
+  });
 
   return {
     execution: registerExternalVerificationExecution(plan, records),
     connectorResults,
     connectorErrors,
+    attempts,
   };
 }

@@ -92,6 +92,15 @@ export type ExternalVerificationOrchestrationResult = {
   execution: ExternalVerificationExecutionResult;
   connectorResults: ExternalVerificationConnectorResult[];
   connectorErrors: string[];
+  attempts: ExternalVerificationAttempt[];
+};
+
+export type ExternalVerificationAttempt = {
+  connector: ExternalVerificationRequest['connector'];
+  claimIndexes: number[];
+  ok: boolean;
+  recordCount: number;
+  error?: string;
 };
 
 export type ExternalVerificationPlanningResult = {

@@ -18,6 +18,7 @@ test('workflow plans locally without touching network by default', async () => {
   assert.equal(result.claims[0].status, 'pending');
   assert.equal(result.claims[0].records.length, 0);
   assert.equal(result.claims[0].pendingReasons.length, 0);
+  assert.deepEqual(result.claims[0].attempts, []);
 });
 
 test('workflow executes only explicit planned references when requested', async () => {
@@ -41,6 +42,8 @@ test('workflow executes only explicit planned references when requested', async 
   assert.equal(result.claims[0].records.length, 1);
   assert.equal(result.claims[0].records[0].official, true);
   assert.deepEqual(result.claims[0].pendingReasons, []);
+  assert.equal(result.claims[0].attempts.length, 1);
+  assert.equal(result.claims[0].attempts[0].ok, true);
 });
 
 test('workflow never marks a claim performed from insufficient evidence', async () => {
@@ -64,6 +67,7 @@ test('workflow never marks a claim performed from insufficient evidence', async 
   assert.equal(requiredClaim.externalVerificationPerformed, false);
   assert.equal(requiredClaim.status, 'partial');
   assert.equal(requiredClaim.records.length, 1);
+  assert.equal(requiredClaim.attempts[0].recordCount, 1);
 });
 
 test('workflow distinguishes claims that do not require external verification', async () => {
@@ -72,6 +76,7 @@ test('workflow distinguishes claims that do not require external verification', 
   assert.equal(result.claims[0].externalVerificationPerformed, false);
   assert.equal(result.claims[0].status, 'not-required');
   assert.deepEqual(result.claims[0].records, []);
+  assert.deepEqual(result.claims[0].attempts, []);
 });
 
 test('workflow exposes the pending reason on the claim that lacks an explicit source', async () => {
