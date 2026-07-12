@@ -8,6 +8,8 @@ import type {
 } from '../types/externalVerification';
 import { discoverFreeNewsRss } from './connectors/freeNewsRssConnector';
 import { discoverFreeDrugLabel } from './connectors/freeDrugLabelConnector';
+import { discoverWikidataEntity } from './connectors/freeWikidataConnector';
+import { discoverEuropePmcEvidence } from './connectors/freeEuropePmcConnector';
 
 type SearchClient = Parameters<typeof runAutomaticWebVerification>[0];
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
@@ -62,7 +64,11 @@ export async function runHybridExternalVerification(
   const rssRecords = publicClaimIndexes.length ? await discoverFreeNewsRss(claimText, [...new Set(publicClaimIndexes)], fetchImpl) : [];
   const medicalClaimIndexes = plan.workItems.filter((item) => item.suggestedSourceTypes.includes('drug-regulator-fda')).flatMap((item) => item.claimIndexes);
   const labelRecords = medicalClaimIndexes.length ? await discoverFreeDrugLabel(claimText, [...new Set(medicalClaimIndexes)], fetchImpl) : [];
-  const freeRecords = [...(free?.execution.records || []), ...rssRecords, ...labelRecords];
+  const wikidataItems = plan.workItems.filter((item) => item.suggestedSourceTypes.includes('public-records'));
+  const wikidataRecords = (await Promise.all(wikidataItems.map((item) => discoverWikidataEntity(claimText, item.claimIndexes, 'public-records', fetchImpl)))).flat();
+  const researchItems = plan.workItems.filter((item) => item.suggestedSourceTypes.includes('peer-reviewed-medical-research') || item.suggestedSourceTypes.includes('scientific-journals'));
+  const researchRecords = (await Promise.all(researchItems.map((item) => discoverEuropePmcEvidence(claimText, item.claimIndexes, item.suggestedSourceTypes.includes('peer-reviewed-medical-research') ? 'peer-reviewed-medical-research' : 'scientific-journals', fetchImpl)))).flat();
+  const freeRecords = [...(free?.execution.records || []), ...rssRecords, ...labelRecords, ...wikidataRecords, ...researchRecords];
   const freeExecution = registerExternalVerificationExecution(plan, freeRecords);
   if (freeExecution.externalVerificationPerformed) {
     const labelCorroborates = labelRecords.length > 0 && /\b(?:dolor\s+de\s+cabeza|cefalea)\b/i.test(claimText);
@@ -74,7 +80,7 @@ export async function runHybridExternalVerification(
   }
 
   if (!allowPaidSearch) {
-    return { attempted: requests.length > 0 || rssRecords.length > 0 || labelRecords.length > 0, assessment: 'inconclusive', rationale: 'No se obtuvieron fuentes suficientes que cumplan los requisitos de calidad, independencia y actualidad.', execution: freeExecution, route: 'inconclusive', paidSearchUsed: false };
+    return { attempted: requests.length > 0 || rssRecords.length > 0 || labelRecords.length > 0 || wikidataRecords.length > 0 || researchRecords.length > 0, assessment: 'inconclusive', rationale: 'No se obtuvieron fuentes suficientes que cumplan los requisitos de calidad, independencia y actualidad.', execution: freeExecution, route: 'inconclusive', paidSearchUsed: false };
   }
 
   const paid = await runAutomaticWebVerification(client, claimText, plan, undefined, freeRecords);

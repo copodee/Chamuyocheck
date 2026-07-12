@@ -17,15 +17,15 @@ const DOMAIN_SOURCE_POLICY: Record<KnowledgeDomain, SourcePolicy> = {
   'biology-health': { sources: ['clinical-guidelines', 'peer-reviewed-medical-research', 'health-authorities'], minimum: 2, official: true },
   finance: { sources: ['official-market-data', 'regulatory-filings', 'financial-regulators'], minimum: 2, official: true },
   economics: { sources: ['official-statistics', 'central-bank-data', 'economic-research'], minimum: 2, official: true },
-  'history-sports': { sources: ['official-records', 'reputable-archives', 'sports-governing-bodies'], minimum: 1, official: false },
+  'history-sports': { sources: ['public-records', 'official-records', 'reputable-archives', 'sports-governing-bodies'], minimum: 1, official: false },
   technology: { sources: ['vendor-documentation', 'release-notes', 'standards-bodies'], minimum: 1, official: true },
   legal: { sources: ['government-law-repository', 'official-gazette', 'court-records'], minimum: 1, official: true },
   'public-claims': { sources: ['official-statements', 'public-records', 'independent-news'], minimum: 2, official: false },
   'public-policy': { sources: ['government-records', 'official-statistics', 'policy-documents'], minimum: 2, official: true },
   politics: { sources: ['electoral-authorities', 'official-statements', 'independent-news'], minimum: 2, official: false },
   'advertising-scams': { sources: ['regulatory-records', 'company-disclosures', 'consumer-protection-agencies'], minimum: 2, official: true },
-  culture: { sources: ['primary-sources', 'reputable-cultural-archives'], minimum: 1, official: false },
-  general: { sources: ['primary-sources', 'independent-reputable-sources'], minimum: 2, official: false },
+  culture: { sources: ['public-records', 'primary-sources', 'reputable-cultural-archives'], minimum: 1, official: false },
+  general: { sources: ['public-records', 'primary-sources', 'independent-reputable-sources'], minimum: 2, official: false },
 };
 
 const RECENT_OR_CURRENT = /\b(hoy|ayer|anoche|esta semana|este mes|actual(?:es|mente)?|vigente|reciente|últim[oa]s?|ahora|en curso|cotiza|precio|tasa|dólar|elecci(?:ón|ones))\b/i;

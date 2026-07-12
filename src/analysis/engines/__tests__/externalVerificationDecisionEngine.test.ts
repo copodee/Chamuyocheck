@@ -106,6 +106,12 @@ test('ordinary factual claims always require external verification', () => {
   assert.equal(result.externalVerificationPerformed, false);
 });
 
+test('compound factual text is atomized so each predicate gets its own verification plan', () => {
+  const result = runClaimFirstPipeline('La droga crystal es buena para el dolor de cabeza, se usa para fiestas electrónicas, pero también tiene efectos positivos para los dolores.');
+  assert.ok(result.claims.length >= 3);
+  assert.ok(result.claims.every((claim) => claim.externalVerificationRequired));
+});
+
 test('pipeline records the decision without changing existing scoring inputs', () => {
   const result = runClaimFirstPipeline('Este contrato es ilegal en Argentina.');
   assert.equal(result.claims.length, 1);

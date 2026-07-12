@@ -31,7 +31,8 @@ function extractClaims(text: string): string[] {
   const sentences = cleanText
     .replace(/([.!?])\s+/g, '$1|')
     .split('|')
-    .map((s) => s.trim())
+    .flatMap((sentence) => sentence.split(/\s*;\s*|,\s*(?=(?:pero\s+)?(?:se\s+usa|tambi[eé]n\s+tiene|produce|provoca|es\s+|fue\s+|era\s+))/i))
+    .map((s) => s.replace(/^pero\s+/i, '').trim())
     .filter((s) => s.length > 8 && !s.match(/^[\d\s,.-]+$/) && !s.match(/^Contenido recibido/i));
 
   return sentences;
