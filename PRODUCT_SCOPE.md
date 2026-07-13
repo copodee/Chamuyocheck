@@ -32,3 +32,4 @@ Estar dentro del alcance habilita el análisis, pero no garantiza que exista evi
 
 La extracción y los cálculos de préstamos se documentan en `FINANCIAL_ANALYSIS.md`.
 El análisis preventivo de ofertas sospechosas se documenta en `SCAM_RISK_ANALYSIS.md`.
+La clasificación y revisión jurídica se documentan en `LEGAL_ANALYSIS.md`.

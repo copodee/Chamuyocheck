@@ -96,6 +96,16 @@ type Analysis = {
     missingInformation: string[];
     conclusion: string;
   } | null;
+  argentinaLegalAnalysis?: {
+    applicable: boolean;
+    jurisdiction: 'argentina' | 'not-specified';
+    area: 'contracts' | 'criminal' | 'family' | 'other-legal';
+    areaLabel: string;
+    issues: Array<{ id: string; label: string; evidence: string; explanation: string; severity: 'baja' | 'media' | 'alta' }>;
+    factsNeeded: string[];
+    sourceTargets: string[];
+    conclusion: string;
+  } | null;
   sourceUrl?: string | null;
 };
 
@@ -756,6 +766,16 @@ export default function Page() {
             {analysis.commercialCourseAnalysis.disclosedConditions.length > 0 && <><h3>Condiciones mencionadas</h3><ul>{analysis.commercialCourseAnalysis.disclosedConditions.map((item, index) => <li key={`course-condition-${index}`}>“{item}”</li>)}</ul></>}
             {analysis.commercialCourseAnalysis.missingInformation.length > 0 && <p><b>Información faltante:</b> {analysis.commercialCourseAnalysis.missingInformation.join(', ')}.</p>}
             <p className="legalDisclaimerSubtle">El análisis se basa en la transcripción pública disponible. No evalúa gestos, imágenes, gráficos ni textos que aparezcan únicamente dentro del video.</p>
+          </div>}
+          {analysis.argentinaLegalAnalysis?.applicable && <div className="panel legalResultPanel">
+            <h2>Análisis jurídico estructurado</h2>
+            <p><b>Materia identificada:</b> {analysis.argentinaLegalAnalysis.areaLabel}</p>
+            <p><b>Jurisdicción:</b> {analysis.argentinaLegalAnalysis.jurisdiction === 'argentina' ? 'Argentina identificada en el contenido' : 'No especificada'}</p>
+            <p>{analysis.argentinaLegalAnalysis.conclusion}</p>
+            {analysis.argentinaLegalAnalysis.issues.length > 0 && <><h3>Cláusulas o afirmaciones para revisar</h3><ul>{analysis.argentinaLegalAnalysis.issues.map((issue) => <li key={issue.id}><b>{issue.label} ({issue.severity}):</b> {issue.explanation}<br /><small>Fragmento: “{issue.evidence}”</small></li>)}</ul></>}
+            {analysis.argentinaLegalAnalysis.factsNeeded.length > 0 && <><h3>Hechos o datos faltantes</h3><ul>{analysis.argentinaLegalAnalysis.factsNeeded.map((item, index) => <li key={`legal-fact-${index}`}>{item}</li>)}</ul></>}
+            <h3>Fuentes que corresponden</h3><ul>{analysis.argentinaLegalAnalysis.sourceTargets.map((item, index) => <li key={`legal-source-${index}`}>{item}</li>)}</ul>
+            <p className="legalDisclaimerSubtle">La clasificación y las señales textuales no determinan validez, delito, pena aplicable ni responsabilidad. La conclusión depende del documento completo, los hechos, la jurisdicción y la normativa vigente efectivamente consultada.</p>
           </div>}
           <div className="panel metaCard">
             <div className="meta"><small>Tipo</small><b>{analysis.documentType}</b></div>

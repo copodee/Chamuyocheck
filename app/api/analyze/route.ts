@@ -25,6 +25,7 @@ import { extractWebText as extractStructuredWebText } from '../../../src/lib/ext
 import { analyzeScamRisk } from '../../../src/lib/scams/scamRiskAnalysis';
 import { extractYoutubeTranscript } from '../../../src/lib/extractors/youtubeTranscriptExtractor';
 import { analyzeCommercialCourse } from '../../../src/lib/scams/commercialCourseAnalysis';
+import { analyzeArgentinaLegal } from '../../../src/lib/legal/argentinaLegalAnalysis';
 
 export const runtime = 'nodejs';
 const MAX_USER_INSTRUCTION_LENGTH = 2_000;
@@ -372,6 +373,7 @@ export function buildLocalAnalysis(
   const financialAnalysis = financial ? extractLoanNumbers(text) : null;
   const scamRiskAnalysis = analyzeScamRisk(text);
   const commercialCourseAnalysis = analyzeCommercialCourse(text);
+  const argentinaLegalAnalysis = analyzeArgentinaLegal(text);
   const financialDataComplete = Boolean(financialAnalysis && financialAnalysis.principal !== null && financialAnalysis.installment !== null && financialAnalysis.months !== null && financialAnalysis.cftPercent !== null);
   const financialRiskScore = !financial ? 0 : financialDataComplete
     ? (financialAnalysis?.warnings.length ? 42 : 24)
@@ -566,6 +568,14 @@ export function buildLocalAnalysis(
       explanation: scamRiskAnalysis.conclusion,
     });
   }
+  if (argentinaLegalAnalysis.applicable) {
+    const legalIssueScore = Math.min(100, argentinaLegalAnalysis.issues.reduce((total, issue) => total + (issue.severity === 'alta' ? 28 : issue.severity === 'media' ? 16 : 8), 0));
+    categoryScores.push({
+      name: 'Revisión jurídica necesaria',
+      score: argentinaLegalAnalysis.jurisdiction === 'not-specified' ? Math.max(50, legalIssueScore) : legalIssueScore,
+      explanation: argentinaLegalAnalysis.conclusion,
+    });
+  }
 
   const inputText = describeInput(inputKind);
   const clarification = detectEntityAmbiguity(text);
@@ -623,6 +633,7 @@ export function buildLocalAnalysis(
       financial && !financialDataComplete ? 'Faltan datos para calcular los costos financieros completos.' : '',
       ...(financialAnalysis?.warnings || []),
       ...scamRiskAnalysis.signals.map((signal) => `${signal.label}: “${signal.evidence}”.`),
+      ...argentinaLegalAnalysis.issues.map((issue) => `${issue.label}: ${issue.explanation} Fragmento: “${issue.evidence}”.`),
       pyramid ? 'Posible estructura basada en referidos o rentabilidad prometida.' : '',
       ...reasoning.risks,
       ...universalReasoning.whyImpossible
@@ -642,7 +653,7 @@ export function buildLocalAnalysis(
       academic ? 'borradores, historial de edición, fuentes y defensa oral' : '',
       financial && !financialDataComplete ? 'CFT, importe de cuota, plazo y monto financiado' : '',
       ...(financialAnalysis?.missingFields || [])
-      , ...scamRiskAnalysis.missingInformation
+      , ...scamRiskAnalysis.missingInformation, ...argentinaLegalAnalysis.factsNeeded
     ].filter(Boolean),
     worstCase: academic ? 'Acusar erróneamente a un alumno sin evidencia concluyente.' : 'Tomar una decisión impulsiva con información incompleta.',
     improved: academic ? 'Pedir al alumno una breve defensa oral, fuentes usadas, borradores y explicación del proceso.' : 'Explicar alcance, límites, requisitos, evidencia, costos, riesgos y condiciones verificables.',
@@ -653,7 +664,7 @@ export function buildLocalAnalysis(
       academic ? 'Señales académicas: revisar bibliografía, coherencia del estilo y defensa oral.' : 'No se activó como eje académico principal.',
       financial ? 'Señales financieras: verificar CFT, TEA, TNA, comisiones, seguros e IVA.' : 'No se activó como oferta financiera principal.',
       ...(financialAnalysis?.evidence || []), ...(financialAnalysis?.calculationBasis || [])
-      , ...scamRiskAnalysis.signals.map((signal) => `Señal observable — ${signal.label}: “${signal.evidence}”.`)
+      , ...scamRiskAnalysis.signals.map((signal) => `Señal observable — ${signal.label}: “${signal.evidence}”.`), ...argentinaLegalAnalysis.issues.map((issue) => `Fragmento jurídico — ${issue.label}: “${issue.evidence}”.`)
     ].filter(Boolean),
     scoreExplanation: buildScoreExplanation(text, topic.key, inputKind, finalScore, [
       missing ? 'Faltan fuentes o metodología verificable.' : '',
@@ -679,6 +690,7 @@ export function buildLocalAnalysis(
     financialAnalysis,
     scamRiskAnalysis,
     commercialCourseAnalysis,
+    argentinaLegalAnalysis,
     sourceUrl: sourceUrl || null,
     refutationPoints: [
       'Verificar autor, fecha, fuente original y trazabilidad del contenido.',
@@ -710,6 +722,7 @@ export function normalizeAI(raw: any, fallback: ReturnType<typeof buildLocalAnal
     financialAnalysis: fallback.financialAnalysis,
     scamRiskAnalysis: fallback.scamRiskAnalysis,
     commercialCourseAnalysis: fallback.commercialCourseAnalysis,
+    argentinaLegalAnalysis: fallback.argentinaLegalAnalysis,
     sourceUrl: fallback.sourceUrl,
     academicAuthorshipAnalysis: fallback.academicAuthorshipAnalysis,
     userInstruction: fallback.userInstruction,
