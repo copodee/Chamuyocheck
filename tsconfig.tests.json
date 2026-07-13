@@ -11,5 +11,5 @@
     "noEmitOnError": false,
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["src/analysis/**/*.ts", "app/api/analyze/route.ts", "app/api/verify/route.ts"]
+  "include": ["src/**/*.ts", "app/api/analyze/route.ts", "app/api/verify/route.ts"]
 }

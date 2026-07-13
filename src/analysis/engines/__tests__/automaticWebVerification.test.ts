@@ -126,3 +126,12 @@ test('out-of-scope endpoint does not score or pretend to verify', async () => {
   assert.match(body.summary, /no se realizó una verificación externa/i);
   assert.doesNotMatch(JSON.stringify(body), /contenido sólido y confiable/i);
 });
+
+test('local analysis exposes reproducible loan calculations and normalization preserves them', () => {
+  const fallback = buildLocalAnalysis('Monto del préstamo: $1.000.000. 12 cuotas de $120.000. TNA 75%. TEA 106,99%. CFT 140%.', 'Texto', '', null);
+  assert.equal(fallback.financialAnalysis?.calculatedInstallmentsTotal, 1_440_000);
+  assert.equal(fallback.financialAnalysis?.financingCost, 440_000);
+  assert.match(fallback.summary, /12 × \$120\.000 = \$1\.440\.000/i);
+  const normalized = normalizeAI({ financialAnalysis: null }, fallback);
+  assert.equal(normalized.financialAnalysis?.financingCost, 440_000);
+});

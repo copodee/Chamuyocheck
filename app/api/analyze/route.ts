@@ -19,6 +19,9 @@ import { buildLegalResultPresentation } from '../../../src/analysis/engines/lega
 import { TERMS_VERSION } from '../../../src/lib/legal/terms';
 import { runHybridExternalVerification } from '../../../src/analysis/engines/hybridExternalVerification';
 import { classifyProductScope } from '../../../src/analysis/engines/productScopeClassifier';
+import { extractLoanNumbers } from '../../../src/lib/finance/loanMath';
+import { extractImageText } from '../../../src/lib/extractors/ocrExtractor';
+import { extractWebText as extractStructuredWebText } from '../../../src/lib/extractors/webExtractor';
 
 export const runtime = 'nodejs';
 const MAX_USER_INSTRUCTION_LENGTH = 2_000;
@@ -39,6 +42,7 @@ type Extraction = {
   pages: number | null;
   chars: number;
   note: string;
+  confidence?: number;
 };
 
 function buildOutOfScopeAnalysis(text: string, inputKind: string, reason: string) {
@@ -62,6 +66,7 @@ function buildOutOfScopeAnalysis(text: string, inputKind: string, reason: string
     legalSafeguard: 'No se emitió una evaluación de fondo ni un ChamuyoScore para esta consulta.',
     refutationPoints: [], improvementPlan: supportedAreas, topic: 'out-of-scope', topicLabel: 'Fuera de alcance', topicHint: reason,
     externalVerification: { externalVerificationRequired: false, externalVerificationPerformed: false, execution: null },
+    financialAnalysis: null,
   };
 }
 
@@ -353,13 +358,19 @@ export function buildLocalAnalysis(
   inputKind: string,
   fileName: string,
   extraction: Extraction | null,
-  userInstruction = ''
+  userInstruction = '',
+  sourceUrl = ''
 ) {
   const all = `${text} ${fileName}`.toLowerCase();
 
   const missing = !/(fuente|estudio|metodolog|contrato|bases|condiciones|cft|tea|tna|bibliograf|reglamento)/i.test(all);
   const promise = /(garantiz|asegur|sin esfuerzo|millonari|duplic|triplic|100%|riesgo cero|aprobaci[oó]n inmediata)/i.test(all);
   const financial = /(pr[eé]stamo|cuota|cft|tea|tna|cr[eé]dito|financiaci[oó]n|inter[eé]s|\$)/i.test(all);
+  const financialAnalysis = financial ? extractLoanNumbers(text) : null;
+  const financialDataComplete = Boolean(financialAnalysis && financialAnalysis.principal !== null && financialAnalysis.installment !== null && financialAnalysis.months !== null && financialAnalysis.cftPercent !== null);
+  const financialRiskScore = !financial ? 0 : financialDataComplete
+    ? (financialAnalysis?.warnings.length ? 42 : 24)
+    : 78;
   const pyramid = /(referido|referidos|red|multinivel|ingresos pasivos|rentabilidad garantizada|ponzi|pir[aá]mid|invitar)/i.test(all);
   const academic = /(trabajo acad[eé]mico|facultad|colegio|alumno|ensayo|monograf|tesis|bibliograf|docente|hecha con ia|hecho con ia|chatgpt)/i.test(all);
   const academicAuthorship = analyzeAcademicAuthorship(text);
@@ -471,8 +482,12 @@ export function buildLocalAnalysis(
     },
     {
       name: 'Riesgo financiero',
-      score: financial ? 88 : 0,
-      explanation: financial ? 'Faltan CFT, TEA, TNA, IVA, comisiones, seguros y costo total.' : 'No se detectó oferta financiera principal.'
+      score: financialRiskScore,
+      explanation: !financial
+        ? 'No se detectó oferta financiera principal.'
+        : financialDataComplete
+          ? 'Se identificaron capital, cuota, plazo y CFT; el cálculo debe leerse junto con las advertencias y cargos visibles.'
+          : `No puede calcularse el costo completo: faltan ${financialAnalysis?.missingFields.join(', ') || 'datos esenciales'}.`
     },
     {
       name: 'Riesgo piramidal/Ponzi',
@@ -545,8 +560,12 @@ export function buildLocalAnalysis(
     score: finalScore,
     risk: riskLabel,
     confidence: extraction?.chars ? 'Media/Alta' : 'Media',
-    baseSummary: topic.summary,
-    baseConclusion: topic.prudentConclusion,
+    baseSummary: financialAnalysis?.calculationBasis.length
+      ? `${topic.summary} Cálculo reproducible: ${financialAnalysis.calculationBasis.join(' ')}`
+      : topic.summary,
+    baseConclusion: financialDataComplete
+      ? `Se calcularon los importes visibles. ${financialAnalysis?.warnings.length ? 'Existen advertencias que deben revisarse antes de comparar o contratar.' : 'No se detectaron inconsistencias aritméticas con los datos extraídos.'}`
+      : topic.prudentConclusion,
     categoryScores,
     externalVerificationRequired: claimFirstResult.documentExternalVerificationPlan.externalVerificationRequired,
     externalVerificationPerformed: false,
@@ -568,7 +587,7 @@ export function buildLocalAnalysis(
     instructionApplied: userInstruction.length > 0,
     analysisFocus,
     clarification,
-    centralQuestion: academic ? '¿Puedo decidir sin ver el costo total y el contrato?' : '¿Puedo confiar en esto sin pedir más evidencia?',
+    centralQuestion: financial ? '¿Cuál es el costo total verificable y qué cargos todavía faltan?' : '¿Puedo confiar en esto sin pedir más evidencia?',
     summary: protectedPresentation.summary,
     prudentConclusion: protectedPresentation.prudentConclusion,
     resultJustification: protectedPresentation.resultJustification,
@@ -584,7 +603,8 @@ export function buildLocalAnalysis(
       academicAuthorship.possibleAIUsage ? 'Se detectaron señales concretas que justifican revisión docente, pero no prueban autoría por IA.' : '',
       promise ? 'Promesa o resultado atractivo sin margen claro de incertidumbre.' : '',
       missing ? (shortText ? 'La afirmación requiere verificación externa y contexto adicional.' : 'Faltan fuentes o metodología verificable.') : '',
-      financial ? 'Faltan costos financieros completos.' : '',
+      financial && !financialDataComplete ? 'Faltan datos para calcular los costos financieros completos.' : '',
+      ...(financialAnalysis?.warnings || []),
       pyramid ? 'Posible estructura basada en referidos o rentabilidad prometida.' : '',
       ...reasoning.risks,
       ...universalReasoning.whyImpossible
@@ -602,7 +622,8 @@ export function buildLocalAnalysis(
       'autor, fecha y origen del contenido',
       'metodología o base del dato',
       academic ? 'borradores, historial de edición, fuentes y defensa oral' : '',
-      financial ? 'CFT, TEA, TNA, IVA, seguros, comisiones y mora' : ''
+      financial && !financialDataComplete ? 'CFT, importe de cuota, plazo y monto financiado' : '',
+      ...(financialAnalysis?.missingFields || [])
     ].filter(Boolean),
     worstCase: academic ? 'Acusar erróneamente a un alumno sin evidencia concluyente.' : 'Tomar una decisión impulsiva con información incompleta.',
     improved: academic ? 'Pedir al alumno una breve defensa oral, fuentes usadas, borradores y explicación del proceso.' : 'Explicar alcance, límites, requisitos, evidencia, costos, riesgos y condiciones verificables.',
@@ -611,12 +632,13 @@ export function buildLocalAnalysis(
       `Elementos verificables detectados: revisar nombres, fechas, cifras y fuentes dentro de ${inputText.phrase}.`,
       missing ? 'Afirmaciones que requieren fuente o metodología adicional.' : 'El contenido incluye algunos elementos que pueden contrastarse.',
       academic ? 'Señales académicas: revisar bibliografía, coherencia del estilo y defensa oral.' : 'No se activó como eje académico principal.',
-      financial ? 'Señales financieras: verificar CFT, TEA, TNA, comisiones, seguros e IVA.' : 'No se activó como oferta financiera principal.'
+      financial ? 'Señales financieras: verificar CFT, TEA, TNA, comisiones, seguros e IVA.' : 'No se activó como oferta financiera principal.',
+      ...(financialAnalysis?.evidence || []), ...(financialAnalysis?.calculationBasis || [])
     ].filter(Boolean),
     scoreExplanation: buildScoreExplanation(text, topic.key, inputKind, finalScore, [
       missing ? 'Faltan fuentes o metodología verificable.' : '',
       promise ? 'Hay promesas fuertes o lenguaje absoluto.' : '',
-      financial ? 'Faltan costos financieros completos.' : '',
+      financial && !financialDataComplete ? 'Faltan datos para calcular los costos financieros completos.' : financial ? 'Los importes visibles fueron recalculados de forma reproducible.' : '',
       academic ? 'Falta trazabilidad o contexto metodológico.' : ''
     ].filter(Boolean), verification, reasoning, universalReasoning, weightedResult, claimFirstResult),
     claimAnalysis: claimFirstResult,
@@ -634,6 +656,8 @@ export function buildLocalAnalysis(
       execution: null,
     },
     academicAuthorshipAnalysis: academicAuthorship,
+    financialAnalysis,
+    sourceUrl: sourceUrl || null,
     refutationPoints: [
       'Verificar autor, fecha, fuente original y trazabilidad del contenido.',
       'Pedir respaldo para las afirmaciones centrales.',
@@ -661,6 +685,8 @@ export function normalizeAI(raw: any, fallback: ReturnType<typeof buildLocalAnal
     topic: fallback.topic,
     topicLabel: fallback.topicLabel,
     topicHint: fallback.topicHint,
+    financialAnalysis: fallback.financialAnalysis,
+    sourceUrl: fallback.sourceUrl,
     academicAuthorshipAnalysis: fallback.academicAuthorshipAnalysis,
     userInstruction: fallback.userInstruction,
     instructionApplied: fallback.instructionApplied,
@@ -750,14 +776,9 @@ export async function POST(req: Request) {
         extraction = await extractPdfText(file);
         extracted = extraction.text || `PDF recibido: ${fileName}. ${extraction.note}`;
       } else if (/image\//i.test(fileType) || /\.(png|jpg|jpeg|webp)$/i.test(fileName)) {
-        extraction = {
-          ok: false,
-          text: '',
-          pages: null,
-          chars: 0,
-          note: `Imagen recibida: ${fileName}. OCR real queda para próxima versión.`
-        };
-        extracted = extraction.note;
+        const ocr = await extractImageText(file);
+        extraction = { ok: ocr.ok, text: ocr.text, pages: 1, chars: ocr.text.length, note: ocr.note, confidence: ocr.confidence };
+        extracted = ocr.text || ocr.note;
       } else {
         extraction = {
           ok: false,
@@ -775,8 +796,8 @@ export async function POST(req: Request) {
       if (/youtu\.be|youtube\.com/i.test(url)) {
         webText = youtubeNote(url);
       } else {
-        const web = await extractWebText(url);
-        webText = web.text || web.note;
+        const web = await extractStructuredWebText(url);
+        webText = `${web.title ? `Título: ${web.title}\n` : ''}${web.text || web.note}`;
       }
     }
 
@@ -800,7 +821,7 @@ export async function POST(req: Request) {
       return NextResponse.json(buildOutOfScopeAnalysis(documentText, inputKind, productScope.reason));
     }
 
-    const fallback = buildLocalAnalysis(documentText, inputKind, fileName, extraction, userInstruction);
+    const fallback = buildLocalAnalysis(documentText, inputKind, fileName, extraction, userInstruction, url);
 
     const openai = process.env.OPENAI_API_KEY && openAIAnalysisEnabled()
       ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })

@@ -1,37 +1,51 @@
-export async function extractWebText(url: string) {
+import * as cheerio from 'cheerio';
+
+const MAX_HTML_BYTES = 4_000_000;
+
+function publicHttpUrl(raw: string): URL | null {
   try {
-    if (!/^https?:\/\//i.test(url)) {
-      return { ok: false, text: '', title: '', note: 'URL inválida o incompleta.' };
-    }
+    const url = new URL(raw);
+    if (!['http:', 'https:'].includes(url.protocol)) return null;
+    const host = url.hostname.toLowerCase();
+    if (host === 'localhost' || host === '::1' || /^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host) || /^169\.254\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host)) return null;
+    return url;
+  } catch { return null; }
+}
 
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'ChamuyoCheckBot/1.0' },
-      cache: 'no-store'
+/** Extracts visible and structured text; it does not execute page JavaScript. */
+export async function extractWebText(rawUrl: string, fetchImpl: typeof fetch = fetch) {
+  const requested = publicHttpUrl(rawUrl);
+  if (!requested) return { ok: false, text: '', title: '', note: 'URL inválida, local o no pública.' };
+  try {
+    const res = await fetchImpl(requested, {
+      headers: { Accept: 'text/html,application/xhtml+xml', 'User-Agent': 'ChamuyoCheckBot/1.0 (+https://chamuyocheck.com)' },
+      cache: 'no-store', redirect: 'follow', signal: AbortSignal.timeout(12_000),
     });
-
+    const finalUrl = publicHttpUrl(res.url || requested.href);
+    const contentType = res.headers.get('content-type') || '';
+    if (!res.ok || !finalUrl || !/html|xhtml/i.test(contentType)) return { ok: false, text: '', title: '', note: 'La página no devolvió HTML público utilizable.' };
+    const declaredLength = Number(res.headers.get('content-length') || 0);
+    if (declaredLength > MAX_HTML_BYTES) return { ok: false, text: '', title: '', note: 'La página supera el tamaño permitido.' };
     const html = await res.text();
-    const title = (html.match(/<title[^>]*>(.*?)<\/title>/is)?.[1] || '').replace(/\s+/g, ' ').trim();
+    if (new TextEncoder().encode(html).byteLength > MAX_HTML_BYTES) return { ok: false, text: '', title: '', note: 'La página supera el tamaño permitido.' };
 
-    const cleaned = html
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
-      .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/\s+/g, ' ')
-      .trim();
-
+    const $ = cheerio.load(html);
+    const title = $('title').first().text().replace(/\s+/g, ' ').trim();
+    const meta = $('meta[name="description"]').attr('content') || $('meta[property="og:description"]').attr('content') || '';
+    const structured = $('script[type="application/ld+json"]').map((_, node) => $(node).text()).get().join(' ');
+    $('script,style,noscript,svg,nav,footer').remove();
+    const visible = $('body').text().replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+    const formLabels = $('label,[aria-label]').map((_, node) => `${$(node).text()} ${$(node).attr('aria-label') || ''}`).get().join(' ');
+    const combined = [meta, visible, structured, formLabels].filter(Boolean).join('\n').replace(/\\u00a0/g, ' ').slice(0, 24_000);
     return {
-      ok: cleaned.length > 80,
-      text: cleaned.slice(0, 18000),
+      ok: combined.length > 80,
+      text: combined,
       title,
-      note: cleaned.length > 80 ? 'Texto web extraído automáticamente.' : 'No se pudo extraer suficiente texto de la página.'
+      note: combined.length > 80
+        ? 'Página pública leída. Se extrajeron texto visible y datos estructurados; no se ejecutaron simuladores JavaScript.'
+        : 'No se pudo extraer suficiente texto. La página puede requerir JavaScript o autenticación.',
     };
   } catch {
-    return { ok: false, text: '', title: '', note: 'No se pudo leer la página web. Puede bloquear bots o requerir JavaScript.' };
+    return { ok: false, text: '', title: '', note: 'No se pudo leer la página. Puede bloquear accesos automatizados o requerir JavaScript.' };
   }
 }

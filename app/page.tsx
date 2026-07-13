@@ -56,6 +56,28 @@ type Analysis = {
       errors: string[];
     } | null;
   };
+  financialAnalysis?: {
+    principal: number | null;
+    cashPrice: number | null;
+    downPayment: number | null;
+    installment: number | null;
+    months: number | null;
+    tnaPercent: number | null;
+    teaPercent: number | null;
+    cftPercent: number | null;
+    calculatedInstallmentsTotal: number | null;
+    calculatedKnownTotal: number | null;
+    financingCost: number | null;
+    financingCostPercent: number | null;
+    impliedMonthlyRatePercent: number | null;
+    impliedTeaPercent: number | null;
+    missingFields: string[];
+    warnings: string[];
+    evidence: string[];
+    calculationBasis: string[];
+    confidence: string;
+  } | null;
+  sourceUrl?: string | null;
 };
 
 type InputMode = 'Texto' | 'PDF' | 'Imagen' | 'Web' | 'YouTube';
@@ -686,6 +708,16 @@ export default function Page() {
             <p><b>Conclusión:</b> {analysis.externalVerification.conclusion || 'No existe evidencia suficiente para responder con certeza.'}</p>
             {analysis.externalVerification.rationale && <p>{analysis.externalVerification.rationale}</p>}
             {analysis.externalVerification.execution?.records?.length ? <ul>{analysis.externalVerification.execution.records.map((record, index) => <li key={`${record.url}-${index}`}><a href={record.url} target="_blank" rel="noreferrer">{record.title}</a> <small>({record.sourceType}{record.official ? ', oficial' : ''}{record.sourceDate ? `, ${record.sourceDate.slice(0, 10)}` : ''})</small></li>)}</ul> : <p>No se obtuvieron suficientes fuentes reales que cumplan los requisitos del dominio.</p>}
+          </div>}
+          {analysis.financialAnalysis && <div className="panel legalResultPanel">
+            <h2>Cálculo financiero extraído</h2>
+            {analysis.sourceUrl && <p><b>Fuente analizada:</b> <a href={analysis.sourceUrl} target="_blank" rel="noreferrer">abrir página original</a></p>}
+            <p><b>Confianza de la extracción:</b> {analysis.financialAnalysis.confidence}</p>
+            {analysis.financialAnalysis.evidence.length > 0 ? <><h3>Datos identificados</h3><ul>{analysis.financialAnalysis.evidence.map((item, index) => <li key={`financial-evidence-${index}`}>{item}</li>)}</ul></> : <p>No se identificaron importes suficientes para calcular el crédito.</p>}
+            {analysis.financialAnalysis.calculationBasis.length > 0 && <><h3>Cálculos reproducibles</h3><ul>{analysis.financialAnalysis.calculationBasis.map((item, index) => <li key={`financial-calculation-${index}`}>{item}</li>)}</ul></>}
+            {analysis.financialAnalysis.warnings.length > 0 && <><h3>Advertencias</h3><ul>{analysis.financialAnalysis.warnings.map((item, index) => <li key={`financial-warning-${index}`}>{item}</li>)}</ul></>}
+            {analysis.financialAnalysis.missingFields.length > 0 && <p><b>Datos faltantes:</b> {analysis.financialAnalysis.missingFields.join(', ')}.</p>}
+            <p className="legalDisclaimerSubtle">El total calculado incluye únicamente importes visibles y extraídos. Seguros, impuestos, gastos administrativos, sellados, prendas y cuotas variables deben sumarse cuando no estén incluidos expresamente en el CFT.</p>
           </div>}
           <div className="panel metaCard">
             <div className="meta"><small>Tipo</small><b>{analysis.documentType}</b></div>
