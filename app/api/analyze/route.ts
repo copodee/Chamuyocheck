@@ -22,6 +22,7 @@ import { classifyProductScope } from '../../../src/analysis/engines/productScope
 import { extractLoanNumbers } from '../../../src/lib/finance/loanMath';
 import { extractImageText } from '../../../src/lib/extractors/ocrExtractor';
 import { extractWebText as extractStructuredWebText } from '../../../src/lib/extractors/webExtractor';
+import { analyzeScamRisk } from '../../../src/lib/scams/scamRiskAnalysis';
 
 export const runtime = 'nodejs';
 const MAX_USER_INSTRUCTION_LENGTH = 2_000;
@@ -367,6 +368,7 @@ export function buildLocalAnalysis(
   const promise = /(garantiz|asegur|sin esfuerzo|millonari|duplic|triplic|100%|riesgo cero|aprobaci[oó]n inmediata)/i.test(all);
   const financial = /(pr[eé]stamo|cuota|cft|tea|tna|cr[eé]dito|financiaci[oó]n|inter[eé]s|\$)/i.test(all);
   const financialAnalysis = financial ? extractLoanNumbers(text) : null;
+  const scamRiskAnalysis = analyzeScamRisk(text);
   const financialDataComplete = Boolean(financialAnalysis && financialAnalysis.principal !== null && financialAnalysis.installment !== null && financialAnalysis.months !== null && financialAnalysis.cftPercent !== null);
   const financialRiskScore = !financial ? 0 : financialDataComplete
     ? (financialAnalysis?.warnings.length ? 42 : 24)
@@ -535,6 +537,9 @@ export function buildLocalAnalysis(
   if (claimFirstResult.documentExternalVerificationPlan.externalVerificationRequired) {
     finalScore = Math.max(finalScore, 50);
   }
+  if (scamRiskAnalysis.applicable && scamRiskAnalysis.signals.length > 0) {
+    finalScore = Math.max(finalScore, scamRiskAnalysis.score);
+  }
 
   const applicableCategoryLabels = new Set(
     weightedResult.applicableDimensions.map((dimension) => dimension.label)
@@ -551,6 +556,13 @@ export function buildLocalAnalysis(
     },
     ...visibleCategoryScores
   ];
+  if (scamRiskAnalysis.applicable) {
+    categoryScores.push({
+      name: 'Señales de posible estafa',
+      score: scamRiskAnalysis.score,
+      explanation: scamRiskAnalysis.conclusion,
+    });
+  }
 
   const inputText = describeInput(inputKind);
   const clarification = detectEntityAmbiguity(text);
@@ -587,7 +599,9 @@ export function buildLocalAnalysis(
     instructionApplied: userInstruction.length > 0,
     analysisFocus,
     clarification,
-    centralQuestion: financial ? '¿Cuál es el costo total verificable y qué cargos todavía faltan?' : '¿Puedo confiar en esto sin pedir más evidencia?',
+    centralQuestion: scamRiskAnalysis.signals.length
+      ? '¿Qué señales concretas presenta la oferta y qué identidad o autorización falta verificar?'
+      : financial ? '¿Cuál es el costo total verificable y qué cargos todavía faltan?' : '¿Puedo confiar en esto sin pedir más evidencia?',
     summary: protectedPresentation.summary,
     prudentConclusion: protectedPresentation.prudentConclusion,
     resultJustification: protectedPresentation.resultJustification,
@@ -605,6 +619,7 @@ export function buildLocalAnalysis(
       missing ? (shortText ? 'La afirmación requiere verificación externa y contexto adicional.' : 'Faltan fuentes o metodología verificable.') : '',
       financial && !financialDataComplete ? 'Faltan datos para calcular los costos financieros completos.' : '',
       ...(financialAnalysis?.warnings || []),
+      ...scamRiskAnalysis.signals.map((signal) => `${signal.label}: “${signal.evidence}”.`),
       pyramid ? 'Posible estructura basada en referidos o rentabilidad prometida.' : '',
       ...reasoning.risks,
       ...universalReasoning.whyImpossible
@@ -624,6 +639,7 @@ export function buildLocalAnalysis(
       academic ? 'borradores, historial de edición, fuentes y defensa oral' : '',
       financial && !financialDataComplete ? 'CFT, importe de cuota, plazo y monto financiado' : '',
       ...(financialAnalysis?.missingFields || [])
+      , ...scamRiskAnalysis.missingInformation
     ].filter(Boolean),
     worstCase: academic ? 'Acusar erróneamente a un alumno sin evidencia concluyente.' : 'Tomar una decisión impulsiva con información incompleta.',
     improved: academic ? 'Pedir al alumno una breve defensa oral, fuentes usadas, borradores y explicación del proceso.' : 'Explicar alcance, límites, requisitos, evidencia, costos, riesgos y condiciones verificables.',
@@ -634,6 +650,7 @@ export function buildLocalAnalysis(
       academic ? 'Señales académicas: revisar bibliografía, coherencia del estilo y defensa oral.' : 'No se activó como eje académico principal.',
       financial ? 'Señales financieras: verificar CFT, TEA, TNA, comisiones, seguros e IVA.' : 'No se activó como oferta financiera principal.',
       ...(financialAnalysis?.evidence || []), ...(financialAnalysis?.calculationBasis || [])
+      , ...scamRiskAnalysis.signals.map((signal) => `Señal observable — ${signal.label}: “${signal.evidence}”.`)
     ].filter(Boolean),
     scoreExplanation: buildScoreExplanation(text, topic.key, inputKind, finalScore, [
       missing ? 'Faltan fuentes o metodología verificable.' : '',
@@ -657,6 +674,7 @@ export function buildLocalAnalysis(
     },
     academicAuthorshipAnalysis: academicAuthorship,
     financialAnalysis,
+    scamRiskAnalysis,
     sourceUrl: sourceUrl || null,
     refutationPoints: [
       'Verificar autor, fecha, fuente original y trazabilidad del contenido.',
@@ -665,7 +683,7 @@ export function buildLocalAnalysis(
       financial ? 'Exigir contrato completo y costo financiero total.' : '',
       academic ? 'Pedir borradores, fuentes y defensa oral antes de concluir uso de IA.' : ''
     ].filter(Boolean),
-    improvementPlan: [...reasoning.recommendations, ...buildRecommendations(text, topic.key, inputKind), ...buildRiskItems(text, inputKind)].filter(Boolean).slice(0, 8),
+    improvementPlan: [...scamRiskAnalysis.checks, ...reasoning.recommendations, ...buildRecommendations(text, topic.key, inputKind), ...buildRiskItems(text, inputKind)].filter(Boolean).slice(0, 8),
     topic: topic.key,
     topicLabel: topic.label,
     topicHint: topic.hint
@@ -686,6 +704,7 @@ export function normalizeAI(raw: any, fallback: ReturnType<typeof buildLocalAnal
     topicLabel: fallback.topicLabel,
     topicHint: fallback.topicHint,
     financialAnalysis: fallback.financialAnalysis,
+    scamRiskAnalysis: fallback.scamRiskAnalysis,
     sourceUrl: fallback.sourceUrl,
     academicAuthorshipAnalysis: fallback.academicAuthorshipAnalysis,
     userInstruction: fallback.userInstruction,

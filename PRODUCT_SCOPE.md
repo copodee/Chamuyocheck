@@ -30,3 +30,4 @@ La carga de documentos está disponible cuando su contenido corresponde a alguna
 Estar dentro del alcance habilita el análisis, pero no garantiza que exista evidencia suficiente. El sistema debe distinguir entre verificación completada, contradicción, corroboración parcial e inconclusión, y nunca inventar fuentes o búsquedas.
 
 La extracción y los cálculos de préstamos se documentan en `FINANCIAL_ANALYSIS.md`.
+El análisis preventivo de ofertas sospechosas se documenta en `SCAM_RISK_ANALYSIS.md`.

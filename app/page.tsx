@@ -77,6 +77,15 @@ type Analysis = {
     calculationBasis: string[];
     confidence: string;
   } | null;
+  scamRiskAnalysis?: {
+    applicable: boolean;
+    score: number;
+    level: 'bajo' | 'medio' | 'alto' | 'muy-alto';
+    signals: Array<{ id: string; label: string; evidence: string; weight: number }>;
+    checks: string[];
+    missingInformation: string[];
+    conclusion: string;
+  } | null;
   sourceUrl?: string | null;
 };
 
@@ -718,6 +727,15 @@ export default function Page() {
             {analysis.financialAnalysis.warnings.length > 0 && <><h3>Advertencias</h3><ul>{analysis.financialAnalysis.warnings.map((item, index) => <li key={`financial-warning-${index}`}>{item}</li>)}</ul></>}
             {analysis.financialAnalysis.missingFields.length > 0 && <p><b>Datos faltantes:</b> {analysis.financialAnalysis.missingFields.join(', ')}.</p>}
             <p className="legalDisclaimerSubtle">El total calculado incluye únicamente importes visibles y extraídos. Seguros, impuestos, gastos administrativos, sellados, prendas y cuotas variables deben sumarse cuando no estén incluidos expresamente en el CFT.</p>
+          </div>}
+          {analysis.scamRiskAnalysis?.applicable && <div className="panel legalResultPanel">
+            <h2>Señales de posible estafa</h2>
+            <p><b>Nivel de alerta:</b> {analysis.scamRiskAnalysis.level.replace('-', ' ')} ({analysis.scamRiskAnalysis.score}/100)</p>
+            <p>{analysis.scamRiskAnalysis.conclusion}</p>
+            {analysis.scamRiskAnalysis.signals.length > 0 ? <><h3>Señales observadas</h3><ul>{analysis.scamRiskAnalysis.signals.map((signal) => <li key={signal.id}><b>{signal.label}:</b> “{signal.evidence}”</li>)}</ul></> : <p>No se detectaron patrones fuertes en el contenido visible.</p>}
+            {analysis.scamRiskAnalysis.missingInformation.length > 0 && <p><b>Falta verificar:</b> {analysis.scamRiskAnalysis.missingInformation.join(', ')}.</p>}
+            <h3>Antes de pagar o compartir datos</h3><ul>{analysis.scamRiskAnalysis.checks.map((check, index) => <li key={`scam-check-${index}`}>{check}</li>)}</ul>
+            <p className="legalDisclaimerSubtle">Estas señales permiten priorizar verificaciones y medidas preventivas. No determinan por sí solas que una persona o entidad haya cometido una estafa o un delito.</p>
           </div>}
           <div className="panel metaCard">
             <div className="meta"><small>Tipo</small><b>{analysis.documentType}</b></div>
