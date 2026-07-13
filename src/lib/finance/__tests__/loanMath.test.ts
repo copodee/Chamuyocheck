@@ -36,7 +36,7 @@ test('no inventa costos cuando faltan datos esenciales', () => {
   const result = extractLoanNumbers('Crédito para tu auto con tasa conveniente. Consultá condiciones.');
   assert.equal(result.calculatedKnownTotal, null);
   assert.equal(result.confidence, 'baja');
-  assert.ok(result.missingFields.includes('CFT'));
+  assert.ok(result.missingFields.some((field) => /CFT.*datos suficientes/i.test(field)));
 });
 
 test('extrae un ejemplo bancario aunque la primera cuota tenga una aclaración', () => {
@@ -56,4 +56,10 @@ test('calcula una simulación leída por OCR aunque separe los centavos', () => 
   assert.equal(result.months, 18);
   assert.equal(result.calculatedInstallmentsTotal, 2_673_869.4);
   assert.equal(result.financingCost, 1_673_869.4);
+  assert.ok(Math.abs((result.impliedMonthlyRatePercent || 0) - 13.2806) < 0.001);
+  assert.ok(Math.abs((result.impliedTnaPercent || 0) - 159.3672) < 0.001);
+  assert.ok(Math.abs((result.impliedTeaPercent || 0) - 346.5463) < 0.001);
+  assert.equal(result.missingFields.length, 0);
+  assert.match(result.calculationBasis.join(' '), /TNA estimada: 159\.37%.*TEA estimada: 346\.55%/i);
+  assert.match(result.warnings.join(' '), /no muestra un CFT oficial.*tasa implícita/i);
 });

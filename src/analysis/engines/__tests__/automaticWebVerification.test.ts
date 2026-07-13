@@ -179,6 +179,10 @@ test('client-side OCR text is analyzed without uploading the image to server OCR
   assert.equal(body.financialAnalysis?.months, 18);
   assert.equal(body.financialAnalysis?.calculatedInstallmentsTotal, 2_673_869.4);
   assert.equal(body.financialAnalysis?.financingCost, 1_673_869.4);
+  assert.ok(Math.abs(body.financialAnalysis?.impliedTnaPercent - 159.3672) < 0.001);
+  assert.ok(Math.abs(body.financialAnalysis?.impliedTeaPercent - 346.5463) < 0.001);
+  assert.equal(body.financialAnalysis?.missingFields.length, 0);
+  assert.match(body.summary, /TNA estimada: 159\.37%.*TEA estimada: 346\.55%/i);
   assert.match(body.extractionStatus, /OCR local completado en el dispositivo/i);
 });
 

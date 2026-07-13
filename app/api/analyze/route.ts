@@ -378,7 +378,7 @@ export function buildLocalAnalysis(
   const scamRiskAnalysis = analyzeScamRisk(text);
   const commercialCourseAnalysis = analyzeCommercialCourse(text);
   const argentinaLegalAnalysis = analyzeArgentinaLegal(text);
-  const financialDataComplete = Boolean(financialAnalysis && financialAnalysis.principal !== null && financialAnalysis.installment !== null && financialAnalysis.months !== null && financialAnalysis.cftPercent !== null);
+  const financialDataComplete = Boolean(financialAnalysis && financialAnalysis.principal !== null && financialAnalysis.installment !== null && financialAnalysis.months !== null && financialAnalysis.impliedTeaPercent !== null);
   const financialRiskScore = !financial ? 0 : financialDataComplete
     ? (financialAnalysis?.warnings.length ? 42 : 24)
     : 78;
@@ -497,7 +497,7 @@ export function buildLocalAnalysis(
       explanation: !financial
         ? 'No se detectó oferta financiera principal.'
         : financialDataComplete
-          ? 'Se identificaron capital, cuota, plazo y CFT; el cálculo debe leerse junto con las advertencias y cargos visibles.'
+          ? 'Se identificaron capital, cuota y plazo; se calculó la tasa implícita del flujo y debe leerse junto con los supuestos y cargos visibles.'
           : `No puede calcularse el costo completo: faltan ${financialAnalysis?.missingFields.join(', ') || 'datos esenciales'}.`
     },
     {

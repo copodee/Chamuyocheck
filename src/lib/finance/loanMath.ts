@@ -13,6 +13,7 @@ export type LoanNumbers = {
   financingCost: number | null;
   financingCostPercent: number | null;
   impliedMonthlyRatePercent: number | null;
+  impliedTnaPercent: number | null;
   impliedTeaPercent: number | null;
   missingFields: string[];
   warnings: string[];
@@ -73,7 +74,8 @@ function allAcronymPercents(text: string, acronym: 'TNA' | 'TEA' | 'CFT'): numbe
 }
 
 function solveMonthlyRate(principal: number, payment: number, periods: number): number | null {
-  if (principal <= 0 || payment <= 0 || periods <= 0 || payment * periods <= principal) return null;
+  if (principal <= 0 || payment <= 0 || periods <= 0 || payment * periods < principal) return null;
+  if (Math.abs(payment * periods - principal) < 0.01) return 0;
   let low = 0;
   let high = 2;
   for (let index = 0; index < 120; index += 1) {
@@ -129,17 +131,19 @@ export function extractLoanNumbers(text: string): LoanNumbers {
     ? financingCost / financedBase * 100
     : null;
   const impliedMonthlyRate = financedBase && installment && months ? solveMonthlyRate(financedBase, installment, months) : null;
+  const impliedTna = impliedMonthlyRate !== null ? impliedMonthlyRate * 12 * 100 : null;
   const impliedTea = impliedMonthlyRate !== null ? (Math.pow(1 + impliedMonthlyRate, 12) - 1) * 100 : null;
 
   const missingFields: string[] = [];
   if (financedBase === null) missingFields.push('monto financiado o precio de contado y anticipo');
   if (installment === null) missingFields.push('importe de cada cuota');
   if (months === null) missingFields.push('cantidad de cuotas');
-  if (cftPercent === null) missingFields.push('CFT');
+  if (cftPercent === null && impliedTea === null) missingFields.push('CFT o datos suficientes para estimar la tasa implícita');
   const warnings: string[] = [];
   const rateOptions = [allAcronymPercents(normalized, 'TNA'), allAcronymPercents(normalized, 'TEA'), allAcronymPercents(normalized, 'CFT')];
   if (rateOptions.some((values) => values.length > 1)) warnings.push('La página publica más de una tasa o CFT para perfiles de cliente diferentes; no deben combinarse entre sí y hay que identificar qué condición corresponde al solicitante.');
-  if (cftPercent === null) warnings.push('Sin CFT no puede afirmarse que el costo informado incluya todos los cargos, impuestos y seguros.');
+  if (cftPercent === null && impliedTea !== null) warnings.push('La entidad no muestra un CFT oficial en la captura. ChamuyoCheck calculó la tasa implícita del flujo visible; puede diferir del CFT contractual si existen seguros, impuestos, comisiones, gastos iniciales o cuotas variables no mostrados.');
+  else if (cftPercent === null) warnings.push('Sin CFT ni un flujo completo no puede estimarse una tasa anual que incluya el costo visible.');
   if (/seguro/i.test(normalized) && !/(seguro[^.\n]{0,50}(?:sin\s+costo|bonificad[oa]|(?:\$|ARS)\s*[\d.,]+))/i.test(normalized)) warnings.push('Se menciona un seguro, pero no se identificó su importe.');
   if (/(?:primera\s+cuota|cuota\s+(?:inicial|desde)|cuota\s+total[^.\n]{0,180}primer\s+per[ií]odo)[^.\n]{0,180}(?:\$|ARS)\s*[\d.,]+/i.test(normalized)) warnings.push('La cuota publicada corresponde a una cuota inicial o período particular y podría variar durante el plazo.');
   const validity = normalized.match(/(?:tasas?\s+)?vigentes?\s+del\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+al\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
@@ -163,11 +167,12 @@ export function extractLoanNumbers(text: string): LoanNumbers {
   const calculationBasis = [
     calculatedInstallmentsTotal !== null ? `${months} × $${installment?.toLocaleString('es-AR')} = $${calculatedInstallmentsTotal.toLocaleString('es-AR')} en cuotas.` : '',
     calculatedKnownTotal !== null && downPayment !== null ? `Anticipo + cuotas = $${calculatedKnownTotal.toLocaleString('es-AR')}.` : '',
-    financingCost !== null ? `Costo nominal conocido sobre el monto financiado: $${financingCost.toLocaleString('es-AR')} (${financingCostPercent?.toFixed(2)}%).` : '',
-    impliedMonthlyRate !== null ? `Tasa mensual implícita aproximada: ${(impliedMonthlyRate * 100).toFixed(3)}%; TEA implícita: ${impliedTea?.toFixed(2)}%.` : '',
+    financingCost !== null ? `Diferencia total entre cuotas y capital: $${financingCost.toLocaleString('es-AR')} (${financingCostPercent?.toFixed(2)}% del capital). Si no existen otros conceptos, esta diferencia representa el interés total pagado.` : '',
+    impliedMonthlyRate !== null ? `Tasa mensual implícita estimada: ${(impliedMonthlyRate * 100).toFixed(3)}%; TNA estimada: ${impliedTna?.toFixed(2)}%; TEA estimada: ${impliedTea?.toFixed(2)}%.` : '',
+    impliedMonthlyRate !== null ? 'Supuesto del cálculo: cuotas mensuales iguales pagadas al final de cada período, desembolso neto igual al capital informado y ausencia de cargos iniciales no visibles.' : '',
   ].filter(Boolean);
   const coreFields = [financedBase, installment, months].filter((value) => value !== null).length;
   const confidence = coreFields === 3 ? 'alta' : coreFields === 2 ? 'media' : 'baja';
 
-  return { cashPrice, principal: financedBase, downPayment, installment, months, tnaPercent, teaPercent, cftPercent, statedTotal, calculatedInstallmentsTotal, calculatedKnownTotal, financingCost, financingCostPercent, impliedMonthlyRatePercent: impliedMonthlyRate === null ? null : impliedMonthlyRate * 100, impliedTeaPercent: impliedTea, missingFields, warnings, evidence, calculationBasis, confidence };
+  return { cashPrice, principal: financedBase, downPayment, installment, months, tnaPercent, teaPercent, cftPercent, statedTotal, calculatedInstallmentsTotal, calculatedKnownTotal, financingCost, financingCostPercent, impliedMonthlyRatePercent: impliedMonthlyRate === null ? null : impliedMonthlyRate * 100, impliedTnaPercent: impliedTna, impliedTeaPercent: impliedTea, missingFields, warnings, evidence, calculationBasis, confidence };
 }

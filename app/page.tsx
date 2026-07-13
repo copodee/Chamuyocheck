@@ -71,6 +71,7 @@ type Analysis = {
     financingCost: number | null;
     financingCostPercent: number | null;
     impliedMonthlyRatePercent: number | null;
+    impliedTnaPercent: number | null;
     impliedTeaPercent: number | null;
     missingFields: string[];
     warnings: string[];
