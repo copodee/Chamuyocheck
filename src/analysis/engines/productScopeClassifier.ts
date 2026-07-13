@@ -18,6 +18,7 @@ const financePatterns = [
 const scamPatterns = [
   /\b(?:estafa|fraude|enga[ñn]o|ponzi|pir[aá]mid(?:e|al)|multinivel|referidos?|suplantaci[oó]n|phishing|cuenta\s+m[uú]la)\b/i,
   /\b(?:ganancia|rentabilidad|retorno|beneficio)\s+(?:garantizad[oa]|asegurad[oa])\b/i,
+  /\b(?:curso|mentor[ií]a|coaching|masterclass|capacitaci[oó]n|programa)\b.{0,80}\b(?:negocios?|emprendimientos?|ventas|facturaci[oó]n|[eé]xito|libertad financiera)\b/i,
   /\b(?:transfer[ií]|deposit[aá]|pag[aá])\b[\s\S]{0,80}\b(?:antes|anticipo|liberar|premio|cr[eé]dito|pr[eé]stamo)\b/i,
   /\b(?:sin\s+riesgo|dinero\s+f[aá]cil|duplic[aá]|triplic[aá]|ingresos?\s+pasivos?)\b/i,
 ];

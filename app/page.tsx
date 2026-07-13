@@ -86,6 +86,16 @@ type Analysis = {
     missingInformation: string[];
     conclusion: string;
   } | null;
+  commercialCourseAnalysis?: {
+    applicable: boolean;
+    offerType: string;
+    observedPromises: string[];
+    disclosedConditions: string[];
+    evidenceClaims: string[];
+    coherenceIssues: string[];
+    missingInformation: string[];
+    conclusion: string;
+  } | null;
   sourceUrl?: string | null;
 };
 
@@ -668,7 +678,7 @@ export default function Page() {
             <div className="eyebrow">ANÁLISIS ESPECIALIZADO</div>
             <h1>Créditos, estafas y derecho argentino</h1>
             <p className="heroSubtitle">Entendé costos, detectá señales de engaño y revisá documentos antes de decidir.</p>
-            <p className="heroBody">ChamuyoCheck se concentra en tres áreas: finanzas y créditos; posibles estafas y ofertas engañosas; y derecho argentino, contratos y documentos legales. Las consultas de otros temas se identifican y no se puntúan.</p>
+            <p className="heroBody">ChamuyoCheck ofrece análisis especializado de finanzas, créditos, posibles estafas, ofertas engañosas, documentos legales y cuestiones de derecho argentino.</p>
             <div className="heroCta">Pegá una consulta, un contrato o una oferta y recibí un análisis con alcance y evidencia claros.</div>
             <div className="heroHighlights">
               <div><strong>{localDoc.label}</strong><span>{localDoc.focus}</span></div>
@@ -736,6 +746,16 @@ export default function Page() {
             {analysis.scamRiskAnalysis.missingInformation.length > 0 && <p><b>Falta verificar:</b> {analysis.scamRiskAnalysis.missingInformation.join(', ')}.</p>}
             <h3>Antes de pagar o compartir datos</h3><ul>{analysis.scamRiskAnalysis.checks.map((check, index) => <li key={`scam-check-${index}`}>{check}</li>)}</ul>
             <p className="legalDisclaimerSubtle">Estas señales permiten priorizar verificaciones y medidas preventivas. No determinan por sí solas que una persona o entidad haya cometido una estafa o un delito.</p>
+          </div>}
+          {analysis.commercialCourseAnalysis?.applicable && <div className="panel legalResultPanel">
+            <h2>Coherencia de la propuesta del curso</h2>
+            <p><b>Oferta identificada:</b> {analysis.commercialCourseAnalysis.offerType}</p>
+            <p>{analysis.commercialCourseAnalysis.conclusion}</p>
+            {analysis.commercialCourseAnalysis.observedPromises.length > 0 && <><h3>Promesas observadas</h3><ul>{analysis.commercialCourseAnalysis.observedPromises.map((item, index) => <li key={`course-promise-${index}`}>“{item}”</li>)}</ul></>}
+            {analysis.commercialCourseAnalysis.coherenceIssues.length > 0 && <><h3>Problemas de coherencia</h3><ul>{analysis.commercialCourseAnalysis.coherenceIssues.map((item, index) => <li key={`course-issue-${index}`}>{item}</li>)}</ul></>}
+            {analysis.commercialCourseAnalysis.disclosedConditions.length > 0 && <><h3>Condiciones mencionadas</h3><ul>{analysis.commercialCourseAnalysis.disclosedConditions.map((item, index) => <li key={`course-condition-${index}`}>“{item}”</li>)}</ul></>}
+            {analysis.commercialCourseAnalysis.missingInformation.length > 0 && <p><b>Información faltante:</b> {analysis.commercialCourseAnalysis.missingInformation.join(', ')}.</p>}
+            <p className="legalDisclaimerSubtle">El análisis se basa en la transcripción pública disponible. No evalúa gestos, imágenes, gráficos ni textos que aparezcan únicamente dentro del video.</p>
           </div>}
           <div className="panel metaCard">
             <div className="meta"><small>Tipo</small><b>{analysis.documentType}</b></div>

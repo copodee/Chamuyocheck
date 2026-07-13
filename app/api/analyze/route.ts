@@ -23,6 +23,8 @@ import { extractLoanNumbers } from '../../../src/lib/finance/loanMath';
 import { extractImageText } from '../../../src/lib/extractors/ocrExtractor';
 import { extractWebText as extractStructuredWebText } from '../../../src/lib/extractors/webExtractor';
 import { analyzeScamRisk } from '../../../src/lib/scams/scamRiskAnalysis';
+import { extractYoutubeTranscript } from '../../../src/lib/extractors/youtubeTranscriptExtractor';
+import { analyzeCommercialCourse } from '../../../src/lib/scams/commercialCourseAnalysis';
 
 export const runtime = 'nodejs';
 const MAX_USER_INSTRUCTION_LENGTH = 2_000;
@@ -369,6 +371,7 @@ export function buildLocalAnalysis(
   const financial = /(pr[eé]stamo|cuota|cft|tea|tna|cr[eé]dito|financiaci[oó]n|inter[eé]s|\$)/i.test(all);
   const financialAnalysis = financial ? extractLoanNumbers(text) : null;
   const scamRiskAnalysis = analyzeScamRisk(text);
+  const commercialCourseAnalysis = analyzeCommercialCourse(text);
   const financialDataComplete = Boolean(financialAnalysis && financialAnalysis.principal !== null && financialAnalysis.installment !== null && financialAnalysis.months !== null && financialAnalysis.cftPercent !== null);
   const financialRiskScore = !financial ? 0 : financialDataComplete
     ? (financialAnalysis?.warnings.length ? 42 : 24)
@@ -675,6 +678,7 @@ export function buildLocalAnalysis(
     academicAuthorshipAnalysis: academicAuthorship,
     financialAnalysis,
     scamRiskAnalysis,
+    commercialCourseAnalysis,
     sourceUrl: sourceUrl || null,
     refutationPoints: [
       'Verificar autor, fecha, fuente original y trazabilidad del contenido.',
@@ -705,6 +709,7 @@ export function normalizeAI(raw: any, fallback: ReturnType<typeof buildLocalAnal
     topicHint: fallback.topicHint,
     financialAnalysis: fallback.financialAnalysis,
     scamRiskAnalysis: fallback.scamRiskAnalysis,
+    commercialCourseAnalysis: fallback.commercialCourseAnalysis,
     sourceUrl: fallback.sourceUrl,
     academicAuthorshipAnalysis: fallback.academicAuthorshipAnalysis,
     userInstruction: fallback.userInstruction,
@@ -813,7 +818,12 @@ export async function POST(req: Request) {
     let webText = '';
     if (url) {
       if (/youtu\.be|youtube\.com/i.test(url)) {
-        webText = youtubeNote(url);
+        const youtube = await extractYoutubeTranscript(url);
+        if (!youtube.ok) {
+          return NextResponse.json({ error: youtube.note, extractionStatus: 'not-analyzed', videoId: youtube.videoId }, { status: 422 });
+        }
+        webText = `${youtube.title ? `Título: ${youtube.title}\n` : ''}Transcripción pública (${youtube.language || 'idioma no informado'}):\n${youtube.text}`;
+        extraction = { ok: true, text: youtube.text, pages: null, chars: youtube.text.length, note: youtube.note };
       } else {
         const web = await extractStructuredWebText(url);
         webText = `${web.title ? `Título: ${web.title}\n` : ''}${web.text || web.note}`;

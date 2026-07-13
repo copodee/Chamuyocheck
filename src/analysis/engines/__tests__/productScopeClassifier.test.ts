@@ -14,6 +14,12 @@ test('acepta posibles estafas e inversiones engañosas', () => {
   assert.equal(result.primaryArea, 'scam-risk');
 });
 
+test('acepta cursos que prometen éxito comercial', () => {
+  const result = classifyProductScope('Curso para tener éxito en los negocios y aumentar la facturación.');
+  assert.equal(result.supported, true);
+  assert.equal(result.primaryArea, 'scam-risk');
+});
+
 test('acepta derecho argentino, delitos y familia', () => {
   assert.equal(classifyProductScope('¿Qué pena establece el Código Penal argentino para el hurto?').primaryArea, 'argentina-legal-documents');
   assert.equal(classifyProductScope('Necesito revisar un convenio de divorcio y cuota alimentaria.').primaryArea, 'argentina-legal-documents');

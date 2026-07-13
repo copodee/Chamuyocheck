@@ -4,6 +4,7 @@ ChamuyoCheck analiza únicamente tres áreas:
 
 1. **Finanzas y créditos**: préstamos, cuotas, tasas, CFT, costos, inversiones y rentabilidad.
 2. **Posibles estafas**: ofertas engañosas, Ponzi, pirámides, suplantación, pagos anticipados y ganancias garantizadas.
+   También incluye cursos, mentorías y programas que prometen éxito, facturación o libertad financiera.
 3. **Derecho argentino y documentos legales**: contratos, cláusulas, obligaciones, delitos, penas, divorcios y asuntos de familia.
 
 ## Regla de entrada
