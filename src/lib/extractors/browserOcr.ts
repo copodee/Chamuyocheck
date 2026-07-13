@@ -1,35 +1,30 @@
-import { createWorker, OEM, PSM } from 'tesseract.js';
-import spanishData from '@tesseract.js-data/spa';
+export type BrowserOcrResult = {
+  ok: boolean;
+  text: string;
+  confidence: number;
+  note: string;
+};
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const DEFAULT_OCR_TIMEOUT_MS = 12_000;
+const BROWSER_OCR_TIMEOUT_MS = 35_000;
 
-export async function extractImageText(file: File, timeoutMs = DEFAULT_OCR_TIMEOUT_MS) {
+export async function extractImageTextInBrowser(file: File): Promise<BrowserOcrResult> {
   if (!/^image\/(png|jpeg|jpg|webp)$/i.test(file.type) || file.size > MAX_IMAGE_BYTES) {
     return { ok: false, text: '', confidence: 0, note: 'La imagen debe ser PNG, JPG o WebP y pesar como máximo 10 MB.' };
   }
+  const { createWorker, OEM, PSM } = await import('tesseract.js');
   let worker: Awaited<ReturnType<typeof createWorker>> | null = null;
-  let timedOut = false;
   let timeout: ReturnType<typeof setTimeout> | null = null;
   try {
     const operation = (async () => {
-      worker = await createWorker('spa', OEM.LSTM_ONLY, {
-        langPath: spanishData.langPath,
-        gzip: spanishData.gzip,
-        cacheMethod: 'none',
-      });
-      if (timedOut) throw new Error('OCR_TIMEOUT');
+      worker = await createWorker('spa', OEM.LSTM_ONLY);
       await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO, preserve_interword_spaces: '1' });
-      const buffer = Buffer.from(await file.arrayBuffer());
-      return worker.recognize(buffer);
+      return worker.recognize(file);
     })();
     const result = await Promise.race([
       operation,
       new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => {
-          timedOut = true;
-          reject(new Error('OCR_TIMEOUT'));
-        }, timeoutMs);
+        timeout = setTimeout(() => reject(new Error('OCR_TIMEOUT')), BROWSER_OCR_TIMEOUT_MS);
       }),
     ]);
     const text = String(result.data.text || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
@@ -43,9 +38,14 @@ export async function extractImageText(file: File, timeoutMs = DEFAULT_OCR_TIMEO
         : 'La captura no produjo texto suficiente. Probá con una imagen más nítida y sin recortes.',
     };
   } catch (error) {
-    return { ok: false, text: '', confidence: 0, note: error instanceof Error && error.message === 'OCR_TIMEOUT'
-      ? 'La lectura de la captura superó el tiempo máximo. Probá nuevamente o cargá una imagen más recortada.'
-      : 'No se pudo leer la captura mediante OCR local.' };
+    return {
+      ok: false,
+      text: '',
+      confidence: 0,
+      note: error instanceof Error && error.message === 'OCR_TIMEOUT'
+        ? 'La lectura de la captura superó 35 segundos. Probá con una imagen más recortada.'
+        : 'No se pudo leer la captura en este dispositivo.',
+    };
   } finally {
     if (timeout) clearTimeout(timeout);
     await Promise.race([

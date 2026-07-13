@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { readLocalHistory, type HistoryItem } from '../src/lib/history/localHistory';
 import { TERMS_SECTIONS, TERMS_STORAGE_KEY, TERMS_VERSION } from '../src/lib/legal/terms';
+import { extractImageTextInBrowser } from '../src/lib/extractors/browserOcr';
 
 type Cat = { name: string; score: number; explanation: string };
 type Analysis = {
@@ -545,15 +546,34 @@ export default function Page() {
       form.append('inputType', detected);
       form.append('termsAccepted', 'true');
       form.append('termsVersion', TERMS_VERSION);
-      if (file) form.append('file', file);
-      const res = await fetch('/api/analyze', { method: 'POST', body: form });
-      const data = await res.json();
+      if (file?.type.startsWith('image/')) {
+        setSteps((previous) => [...previous, '✓ Leyendo la imagen en este dispositivo']);
+        const ocr = await extractImageTextInBrowser(file);
+        if (!ocr.ok) throw new Error(ocr.note);
+        form.append('ocrText', ocr.text);
+        form.append('ocrConfidence', String(ocr.confidence));
+        form.append('clientFileName', file.name);
+        form.append('clientFileType', file.type);
+      } else if (file) {
+        form.append('file', file);
+      }
+      const controller = new AbortController();
+      const requestTimeout = window.setTimeout(() => controller.abort(), 60_000);
+      let res: Response;
+      try {
+        res = await fetch('/api/analyze', { method: 'POST', body: form, signal: controller.signal });
+      } finally {
+        window.clearTimeout(requestTimeout);
+      }
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Error');
       setAnalysis(data);
       if (!isPro) setUsage(used + 1);
       setTimeout(() => document.getElementById('informe')?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch (e: any) {
-      alert(e.message || 'No se pudo analizar');
+      alert(e?.name === 'AbortError'
+        ? 'El análisis superó el tiempo máximo. La página quedó liberada para que puedas volver a intentar.'
+        : e.message || 'No se pudo analizar');
     } finally {
       setLoading(false);
     }

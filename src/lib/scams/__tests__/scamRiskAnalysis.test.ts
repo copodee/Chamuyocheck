@@ -22,3 +22,13 @@ test('una oferta bancaria ordinaria no recibe señales falsas', () => {
   assert.equal(result.signals.length, 0);
   assert.equal(result.score, 0);
 });
+
+test('mencionar home banking y token como requisitos del banco no simula un pedido de claves', () => {
+  const result = analyzeScamRisk('Pedilo por Home Banking BIP. Para operar necesitás tener activo el Token de Seguridad.');
+  assert.equal(result.signals.some((signal) => signal.id === 'credential-request'), false);
+});
+
+test('un pedido concreto de compartir el token sí dispara la alerta', () => {
+  const result = analyzeScamRisk('Pasame tu token de seguridad para habilitar el préstamo.');
+  assert.equal(result.signals.some((signal) => signal.id === 'credential-request'), true);
+});

@@ -30,6 +30,7 @@ export function buildLegalResultPresentation(input: {
   categoryScores: CategoryLike[];
   externalVerificationRequired: boolean;
   externalVerificationPerformed: boolean;
+  verificationSummary?: string;
 }): LegalResultPresentation {
   const score = Math.max(0, Math.min(100, Math.round(Number(input.score) || 0)));
   const factors = input.categoryScores
@@ -39,11 +40,11 @@ export function buildLegalResultPresentation(input: {
   const factorText = factors.length > 0
     ? factors.map((item) => `${compact(item.name)} (${Math.round(Number(item.score))}/100)`).join(', ')
     : 'no se identificaron dimensiones adicionales con puntaje positivo';
-  const verificationText = input.externalVerificationRequired
+  const verificationText = compact(input.verificationSummary) || (input.externalVerificationRequired
     ? input.externalVerificationPerformed
       ? 'La verificación externa requerida figura como realizada con registros auditables.'
       : 'La verificación externa requerida no fue realizada; el resultado permanece sujeto a comprobación.'
-    : 'El motor no determinó que esta evaluación necesitara verificación externa obligatoria.';
+    : 'El motor no determinó que esta evaluación necesitara verificación externa obligatoria.');
 
   return {
     summary: `${compact(input.baseSummary)} Resultado automatizado orientativo: ${compact(input.risk)} (${score}/100). Principales factores considerados: ${factorText}. ${verificationText}`,

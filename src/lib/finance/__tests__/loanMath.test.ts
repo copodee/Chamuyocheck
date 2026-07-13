@@ -48,3 +48,12 @@ test('extrae un ejemplo bancario aunque la primera cuota tenga una aclaración',
   assert.equal(result.teaPercent, 240.51);
   assert.equal(result.cftPercent, 323);
 });
+
+test('calcula una simulación leída por OCR aunque separe los centavos', () => {
+  const result = extractLoanNumbers('Importe a solicitar $ 1.000.000. 18 cuotas de $ 148.548, 30 por mes.');
+  assert.equal(result.principal, 1_000_000);
+  assert.equal(result.installment, 148_548.30);
+  assert.equal(result.months, 18);
+  assert.equal(result.calculatedInstallmentsTotal, 2_673_869.4);
+  assert.equal(result.financingCost, 1_673_869.4);
+});

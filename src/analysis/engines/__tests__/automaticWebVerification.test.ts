@@ -147,9 +147,39 @@ test('a Banco Provincia loan URL pasted as text is read and routed to finance', 
     assert.equal(body.financialAnalysis?.tnaPercent, 97.4);
     assert.equal(body.financialAnalysis?.cftPercent, 155.1);
     assert.match(body.extractionStatus, /página pública leída/i);
+    assert.equal(body.externalVerification.externalVerificationPerformed, true);
+    assert.equal(body.externalVerification.execution.status, 'partial');
+    assert.equal(body.externalVerification.execution.records.length, 1);
+    assert.equal(body.externalVerification.execution.records[0].url, 'https://www.bancoprovincia.com.ar/mvc/productos/creditos/BipPreca/condiciones_bip_preca');
+    assert.match(body.summary, /se leyó la página de Banco Provincia/i);
+    assert.match(body.externalVerification.conclusion, /fuente primaria.*verificación independiente/i);
+    assert.doesNotMatch(body.summary, /no puede ser validada con las fuentes disponibles/i);
+    assert.equal(body.scamRiskAnalysis.signals.some((signal: any) => signal.id === 'credential-request'), false);
+    assert.equal(body.categoryScores.some((category: any) => /ponzi|piramidal/i.test(category.name)), false);
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('client-side OCR text is analyzed without uploading the image to server OCR', async () => {
+  const form = new FormData();
+  form.set('text', 'Indicame las condiciones y cuánto interés pagaría.');
+  form.set('ocrText', 'Préstamos online. Importe a solicitar $ 1.000.000. 18 cuotas de $ 148.548, 30 por mes.');
+  form.set('ocrConfidence', '73');
+  form.set('clientFileName', 'captura-prestamo.png');
+  form.set('clientFileType', 'image/png');
+  form.set('termsAccepted', 'true');
+  form.set('termsVersion', TERMS_VERSION);
+  const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.detectedInput, 'Imagen');
+  assert.equal(body.financialAnalysis?.principal, 1_000_000);
+  assert.equal(body.financialAnalysis?.installment, 148_548.30);
+  assert.equal(body.financialAnalysis?.months, 18);
+  assert.equal(body.financialAnalysis?.calculatedInstallmentsTotal, 2_673_869.4);
+  assert.equal(body.financialAnalysis?.financingCost, 1_673_869.4);
+  assert.match(body.extractionStatus, /OCR local completado en el dispositivo/i);
 });
 
 test('local analysis exposes reproducible loan calculations and normalization preserves them', () => {

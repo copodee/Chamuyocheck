@@ -94,6 +94,7 @@ function argentinaDate(raw: string): Date | null {
 export function extractLoanNumbers(text: string): LoanNumbers {
   const normalized = text
     .replace(/\u00a0/g, ' ')
+    .replace(/([.,])\s+(?=\d{1,2}\b)/g, '$1')
     .replace(/\bT\.?\s*N\.?\s*A\.?\s*V?\.?/gi, 'TNAV')
     .replace(/\bT\.?\s*E\.?\s*A\.?\s*V?\.?/gi, 'TEAV')
     .replace(/\bC\.?\s*F\.?\s*T\.?\s*(?:E\.?\s*A\.?\s*V?\.?)?/gi, (value) => /E/i.test(value) ? 'CFTEAV' : 'CFT')
@@ -101,7 +102,7 @@ export function extractLoanNumbers(text: string): LoanNumbers {
   const cashPrice = labeledMoney(normalized, ['precio\\s+de\\s+contado', 'precio\\s+final', 'valor\\s+del\\s+veh[ií]culo']);
   const downPayment = labeledMoney(normalized, ['anticipo', 'entrega\\s+inicial', 'pago\\s+inicial']);
   const principalExample = normalized.match(/(?:pr[eé]stamo|cr[eé]dito)(?:\s+(?:personal|prendario))?\s+de[ \t]*(?:ARS|\$)[ \t]*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)/i);
-  const principal = labeledMoney(normalized, ['monto\\s+(?:del\\s+)?(?:pr[eé]stamo|cr[eé]dito)', 'monto\\s+financiad[oa]', 'importe\\s+financiad[oa]'])
+  const principal = labeledMoney(normalized, ['monto\\s+(?:del\\s+)?(?:pr[eé]stamo|cr[eé]dito)', 'monto\\s+financiad[oa]', 'importe\\s+financiad[oa]', 'importe\\s+a\\s+solicitar'])
     ?? parseLocaleNumber(principalExample?.[1] || '');
   const installmentFromSeries = normalized.match(/\d{1,3}[ \t]*cuotas[ \t]*(?:iguales[ \t]*)?(?:de|a|:)?[ \t]*(?:ARS|\$)[ \t]*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)/i);
   const disclosedInstallment = normalized.match(/(?:cuota\s+total|primera\s+cuota)[^$\n]{0,180}(?:ARS|\$)[ \t]*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)/i);

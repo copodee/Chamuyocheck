@@ -30,7 +30,9 @@ import { resolveUrlInput } from '../../../src/lib/extractors/inputUrl';
 import { describeFinancialUrl } from '../../../src/lib/finance/financialUrlContext';
 
 export const runtime = 'nodejs';
+export const maxDuration = 60;
 const MAX_USER_INSTRUCTION_LENGTH = 2_000;
+const MAX_CLIENT_OCR_LENGTH = 50_000;
 
 export function openAIAnalysisEnabled(value = process.env.OPENAI_ANALYSIS_ENABLED): boolean {
   return value === 'true';
@@ -380,7 +382,7 @@ export function buildLocalAnalysis(
   const financialRiskScore = !financial ? 0 : financialDataComplete
     ? (financialAnalysis?.warnings.length ? 42 : 24)
     : 78;
-  const pyramid = /(referido|referidos|red|multinivel|ingresos pasivos|rentabilidad garantizada|ponzi|pir[aá]mid|invitar)/i.test(all);
+  const pyramid = /\b(?:referidos?|multinivel|ponzi|pir[aá]mid(?:al)?|invitar)\b|ingresos\s+pasivos|rentabilidad\s+garantizada|red\s+de\s+(?:referidos|vendedores|inversores)/i.test(all);
   const academic = /(trabajo acad[eé]mico|facultad|colegio|alumno|ensayo|monograf|tesis|bibliograf|docente|hecha con ia|hecho con ia|chatgpt)/i.test(all);
   const academicAuthorship = analyzeAcademicAuthorship(text);
   const analysisFocus = detectInstructionFocus(userInstruction);
@@ -749,39 +751,87 @@ export function normalizeAI(raw: any, fallback: ReturnType<typeof buildLocalAnal
 function applyVerificationResult(
   normalized: ReturnType<typeof normalizeAI> | ReturnType<typeof buildLocalAnalysis>,
   fallback: ReturnType<typeof buildLocalAnalysis>,
-  verification: Awaited<ReturnType<typeof runHybridExternalVerification>>
+  verification: Awaited<ReturnType<typeof runHybridExternalVerification>>,
+  retrievedSource?: { url: string; title: string; institution: string | null }
 ) {
-  const verified = verification.execution.externalVerificationPerformed;
+  const primarySourceRead = Boolean(retrievedSource?.url);
+  const verified = verification.execution.externalVerificationPerformed || primarySourceRead;
   const safetyFloor = fallback.claimAnalysis.dominantClaim?.minimumScore || 0;
-  const adjustedScore = verified && verification.assessment === 'corroborated'
+  const financial = normalized.financialAnalysis;
+  const financialEvidenceScore = financial
+    ? financial.warnings.length > 0 || financial.missingFields.length > 0 ? 42 : 24
+    : null;
+  const adjustedScore = primarySourceRead && financialEvidenceScore !== null
+    ? Math.max(safetyFloor, normalized.scamRiskAnalysis?.score || 0, financialEvidenceScore)
+    : verified && verification.assessment === 'corroborated'
     ? Math.max(safetyFloor, Math.min(normalized.score, 35))
     : verified && verification.assessment === 'contradicted'
       ? Math.max(normalized.score, 85)
       : Math.max(normalized.score, fallback.externalVerification.externalVerificationRequired ? 50 : normalized.score);
   const inconclusiveMessage = 'Esta afirmación no puede ser validada con las fuentes disponibles. La consulta no puede responderse con certeza.';
   const clarification = normalized.clarification;
+  const financialEvidence = financial?.evidence?.join(' ') || '';
+  const financialCalculations = financial?.calculationBasis?.join(' ') || '';
+  const financialWarnings = financial?.warnings?.join(' ') || '';
+  const financialSummary = financial
+    ? [
+        primarySourceRead
+          ? `Se leyó la página de ${retrievedSource?.institution || retrievedSource?.title || 'la entidad'} como fuente primaria.`
+          : 'Se extrajeron datos financieros del contenido aportado.',
+        financialEvidence,
+        financialCalculations,
+        financialWarnings,
+      ].filter(Boolean).join(' ')
+    : '';
+  const sourceVerificationText = primarySourceRead
+    ? 'La fuente primaria fue consultada y queda registrada; no se realizó un contraste independiente de la identidad de la entidad ni de la vigencia de la oferta.'
+    : undefined;
   const presentation = buildLegalResultPresentation({
     score: adjustedScore,
     risk: adjustedScore > 80 ? 'Chamuyo extremo' : adjustedScore > 60 ? 'Alto chamuyo' : adjustedScore > 40 ? 'Requiere verificación' : 'Bajo chamuyo',
     confidence: normalized.confidence,
-    baseSummary: verified
+    baseSummary: financialSummary || (verified
       ? `La consulta de fuentes externas fue completada. Evaluación: ${verification.assessment}. ${verification.rationale}`
-      : `${clarification ? `${clarification} ` : ''}${inconclusiveMessage} ${verification.rationale}`,
-    baseConclusion: verified ? `Revisá las fuentes citadas y su alcance. Resultado de contraste: ${verification.assessment}.` : (clarification || inconclusiveMessage),
+      : `${clarification ? `${clarification} ` : ''}${inconclusiveMessage} ${verification.rationale}`),
+    baseConclusion: financial
+      ? financial.missingFields.length > 0
+        ? `El cálculo es parcial: faltan ${financial.missingFields.join(', ')}. No debe suponerse que el costo visible incluye cargos no informados.`
+        : 'Los importes visibles fueron recalculados; revisá que la cuota, el plazo y los cargos correspondan a la oferta vigente antes de contratar.'
+      : verified ? `Revisá las fuentes citadas y su alcance. Resultado de contraste: ${verification.assessment}.` : (clarification || inconclusiveMessage),
     categoryScores: normalized.categoryScores,
     externalVerificationRequired: normalized.externalVerification.externalVerificationRequired,
     externalVerificationPerformed: verified,
+    verificationSummary: sourceVerificationText,
   });
+  const retrievedRecord = retrievedSource ? {
+    sourceType: 'company-disclosures',
+    url: retrievedSource.url,
+    title: retrievedSource.title || retrievedSource.institution || 'Fuente primaria consultada',
+    retrievedAt: new Date().toISOString(),
+    claimIndexes: fallback.claimAnalysis.claims.map((_: unknown, index: number) => index),
+    official: false,
+  } : null;
+  const executionRecords = retrievedRecord
+    ? [...verification.execution.records, retrievedRecord]
+    : verification.execution.records;
   return {
     ...normalized, ...presentation, score: adjustedScore,
     externalVerification: {
       ...normalized.externalVerification,
       externalVerificationPerformed: verified,
-      execution: verification.execution,
-      ...(verified ? { conclusion: verification.assessment === 'corroborated' ? 'La evidencia encontrada respalda la afirmación dentro de su alcance.' : verification.assessment === 'contradicted' ? 'La evidencia encontrada contradice la afirmación.' : 'La evidencia no permite responder con certeza.' } : {}),
-      rationale: verification.rationale,
+      execution: {
+        ...verification.execution,
+        externalVerificationPerformed: verified,
+        status: primarySourceRead && !verification.execution.externalVerificationPerformed ? 'partial' : verification.execution.status,
+        records: executionRecords,
+        coveredClaimIndexes: retrievedRecord ? retrievedRecord.claimIndexes : verification.execution.coveredClaimIndexes,
+      },
+      ...(verified ? { conclusion: primarySourceRead
+        ? 'La página aportada fue leída como fuente primaria. La verificación independiente de la entidad y de la vigencia permanece pendiente.'
+        : verification.assessment === 'corroborated' ? 'La evidencia encontrada respalda la afirmación dentro de su alcance.' : verification.assessment === 'contradicted' ? 'La evidencia encontrada contradice la afirmación.' : 'La evidencia no permite responder con certeza.' } : {}),
+      rationale: primarySourceRead ? sourceVerificationText : verification.rationale,
     },
-    evidenceFound: [...(normalized.evidenceFound || []), ...verification.execution.records.map((record) => `${record.title} — ${record.url}`)],
+    evidenceFound: [...(normalized.evidenceFound || []), ...executionRecords.map((record) => `${record.title} — ${record.url}`)],
   };
 }
 
@@ -794,6 +844,10 @@ export async function POST(req: Request) {
     const userText = resolvedUrl.remainingText;
     const url = resolvedUrl.url;
     const file = form.get('file');
+    const clientOcrText = String(form.get('ocrText') || '').trim();
+    const clientFileName = String(form.get('clientFileName') || '').trim();
+    const clientFileType = String(form.get('clientFileType') || '').trim();
+    const clientOcrConfidence = Number(form.get('ocrConfidence') || 0);
     const termsAccepted = form.get('termsAccepted') === 'true';
     const termsVersion = String(form.get('termsVersion') || '');
 
@@ -809,7 +863,23 @@ export async function POST(req: Request) {
     let extracted = '';
     let extraction: Extraction | null = null;
 
-    if (file instanceof File && file.size > 0) {
+    if (clientOcrText.length > MAX_CLIENT_OCR_LENGTH) {
+      return NextResponse.json({ error: 'El texto extraído de la imagen supera el límite permitido.' }, { status: 413 });
+    }
+
+    if (clientOcrText) {
+      fileName = clientFileName || 'captura.png';
+      fileType = clientFileType || 'image/png';
+      extraction = {
+        ok: true,
+        text: clientOcrText,
+        pages: 1,
+        chars: clientOcrText.length,
+        note: `OCR local completado en el dispositivo${clientOcrConfidence ? ` (${clientOcrConfidence.toFixed(0)}% de confianza estimada de lectura)` : ''}.`,
+        confidence: clientOcrConfidence || undefined,
+      };
+      extracted = clientOcrText;
+    } else if (file instanceof File && file.size > 0) {
       fileName = file.name || '';
       fileType = file.type || '';
 
@@ -818,6 +888,9 @@ export async function POST(req: Request) {
         extracted = extraction.text || `PDF recibido: ${fileName}. ${extraction.note}`;
       } else if (/image\//i.test(fileType) || /\.(png|jpg|jpeg|webp)$/i.test(fileName)) {
         const ocr = await extractImageText(file);
+        if (!ocr.ok) {
+          return NextResponse.json({ error: ocr.note, extractionStatus: 'Imagen no analizada' }, { status: 422 });
+        }
         extraction = { ok: ocr.ok, text: ocr.text, pages: 1, chars: ocr.text.length, note: ocr.note, confidence: ocr.confidence };
         extracted = ocr.text || ocr.note;
       } else {
@@ -833,6 +906,7 @@ export async function POST(req: Request) {
     }
 
     let webText = '';
+    let retrievedSource: { url: string; title: string; institution: string | null } | undefined;
     const financialUrl = url ? describeFinancialUrl(url) : null;
     if (url) {
       if (/youtu\.be|youtube\.com/i.test(url)) {
@@ -851,11 +925,12 @@ export async function POST(req: Request) {
           web.text || `Estado de lectura: ${web.note}`,
         ].filter(Boolean).join('\n');
         extraction = { ok: web.ok, text: web.text, pages: null, chars: web.text.length, note: web.note };
+        if (web.ok) retrievedSource = { url, title: web.title || financialUrl?.institution || 'Página consultada', institution: financialUrl?.institution || null };
       }
     }
 
     const inputKind = detectInputKind(fileName, url, fileType);
-    const hasExternalContent = Boolean((file instanceof File && file.size > 0) || url);
+    const hasExternalContent = Boolean(clientOcrText || (file instanceof File && file.size > 0) || url);
     const documentText = hasExternalContent
       ? [extracted, webText].filter(Boolean).join('\n\n')
       : userText;
@@ -877,7 +952,7 @@ export async function POST(req: Request) {
     const fallback = buildLocalAnalysis(documentText, inputKind, fileName, extraction, userInstruction, url);
 
     const openai = process.env.OPENAI_API_KEY && openAIAnalysisEnabled()
-      ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+      ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20_000, maxRetries: 0 })
       : null;
     const noPaidClient = { chat: { completions: { create: async () => { throw new Error('Paid search disabled.'); } } } };
     const webVerification = await runHybridExternalVerification(
@@ -886,7 +961,7 @@ export async function POST(req: Request) {
       fallback.claimAnalysis.documentExternalVerificationPlan,
       fallback.externalVerification.planning.requests
     );
-    if (!openai) return NextResponse.json(applyVerificationResult(fallback, fallback, webVerification));
+    if (!openai) return NextResponse.json(applyVerificationResult(fallback, fallback, webVerification, retrievedSource));
     const prompt = `Actuá como ChamuyoCheck, auditor documental prudente. Priorizá el contenido extraído del documento o del archivo por encima de la pregunta del usuario. Identificá el tipo de documento/contenido antes del score. Si el PDF no tiene texto extraíble, indicá que necesita OCR. Si el usuario pregunta si fue hecho con IA, respondé como estimación no concluyente: nunca acuses ni afirmes uso de IA/plagio. Respondé SOLO JSON con estas claves: documentIcon, documentType, documentFocus, extractionStatus, extractedChars, extractedPreview, score, risk, confidence, detectedTheme, detectedInput, centralQuestion, summary, prudentConclusion, verdict, categoryScores, modules, flaggedPhrases, issues, questions, missingInformation, worstCase, improved, evidenceFound, scoreExplanation, refutationPoints, improvementPlan, topic, topicLabel, topicHint.
 
 INSTRUCCIÓN DEL USUARIO (define el foco; no pertenece al documento):
@@ -911,7 +986,7 @@ ${JSON.stringify(webVerification)}`;
     });
 
     const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
-    return NextResponse.json(applyVerificationResult(normalizeAI(parsed, fallback), fallback, webVerification));
+    return NextResponse.json(applyVerificationResult(normalizeAI(parsed, fallback), fallback, webVerification, retrievedSource));
   } catch (error) {
     console.error('Route.ts error:', error instanceof Error ? error.message : String(error));
     return NextResponse.json({ error: 'No se pudo analizar el contenido.' }, { status: 500 });
