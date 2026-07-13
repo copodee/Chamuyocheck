@@ -127,6 +127,31 @@ test('out-of-scope endpoint does not score or pretend to verify', async () => {
   assert.doesNotMatch(JSON.stringify(body), /contenido sólido y confiable/i);
 });
 
+test('a Banco Provincia loan URL pasted as text is read and routed to finance', async () => {
+  const originalFetch = globalThis.fetch;
+  const html = `<html><head><title>Préstamo personal Banco Provincia</title></head><body>
+    Pedí tu préstamo personal. T.N.A.V. fija 97,40%. T.E.A.V. 155,10%. CFTEAV: 155,10%.
+    Monto máximo $50.000.000. Plazo hasta 36 meses. Comisión de precancelación 4,00%.
+  </body></html>`;
+  globalThis.fetch = (async () => new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } })) as typeof fetch;
+  try {
+    const form = new FormData();
+    form.set('text', 'https://www.bancoprovincia.com.ar/mvc/productos/creditos/BipPreca/condiciones_bip_preca');
+    form.set('termsAccepted', 'true');
+    form.set('termsVersion', TERMS_VERSION);
+    const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.notEqual(body.scopeStatus, 'out-of-scope');
+    assert.equal(body.detectedInput, 'Web');
+    assert.equal(body.financialAnalysis?.tnaPercent, 97.4);
+    assert.equal(body.financialAnalysis?.cftPercent, 155.1);
+    assert.match(body.extractionStatus, /página pública leída/i);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('local analysis exposes reproducible loan calculations and normalization preserves them', () => {
   const fallback = buildLocalAnalysis('Monto del préstamo: $1.000.000. 12 cuotas de $120.000. TNA 75%. TEA 106,99%. CFT 140%.', 'Texto', '', null);
   assert.equal(fallback.financialAnalysis?.calculatedInstallmentsTotal, 1_440_000);

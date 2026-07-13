@@ -2,6 +2,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { extractLoanNumbers } from '../loanMath';
 
+test('lee siglas bancarias argentinas con puntos y tasa vencida', () => {
+  const result = extractLoanNumbers('CFTEAV: 155,10%. TASA NOMINAL ANUAL VENCIDA (T.N.A.V.) FIJA 97,40%, TASA EFECTIVA ANUAL VENCIDA (T.E.A.V.) 155,10%. Otro perfil: CFTEAV 159,14%. TASAS VIGENTES DEL 09/06/2026 AL 30/06/2026. SEGURO DE VIDA: SIN COSTO. LA PRIMERA CUOTA VENCERÁ EL MES SIGUIENTE.');
+  assert.equal(result.tnaPercent, 97.4);
+  assert.equal(result.teaPercent, 155.1);
+  assert.equal(result.cftPercent, 155.1);
+  assert.match(result.warnings.join(' '), /más de una tasa o CFT/i);
+  assert.match(result.warnings.join(' '), /vigencia hasta el 30\/06\/2026/i);
+  assert.doesNotMatch(result.warnings.join(' '), /seguro.*importe/i);
+  assert.doesNotMatch(result.warnings.join(' '), /cuota publicada corresponde/i);
+});
+
 test('calcula el costo conocido de un préstamo bancario', () => {
   const result = extractLoanNumbers('Monto del préstamo: $1.000.000. Plazo: 12 cuotas. Valor de cuota: $120.000. TNA: 75%. TEA: 106,99%. CFT: 140%.');
   assert.equal(result.principal, 1_000_000);

@@ -1,5 +1,11 @@
 # Análisis financiero especializado
 
+## Enlaces bancarios argentinos
+
+Una URL pegada en el cuadro de texto se detecta automáticamente como entrada web. La clasificación reconoce préstamos, créditos, leasing y microcréditos por la ruta y por dominios bancarios argentinos. La identidad de la URL solo sirve para enrutar el análisis: `externalVerificationPerformed` permanece en `false` si la página no pudo leerse realmente.
+
+La cobertura incluye bancos nacionales, provinciales, privados y digitales. La nómina oficial de entidades debe contrastarse con el BCRA; la lista local de dominios mejora el enrutamiento, pero no reemplaza esa fuente oficial ni certifica una oferta.
+
 ## Entradas admitidas
 
 - texto copiado de una oferta;

@@ -26,6 +26,8 @@ import { analyzeScamRisk } from '../../../src/lib/scams/scamRiskAnalysis';
 import { extractYoutubeTranscript } from '../../../src/lib/extractors/youtubeTranscriptExtractor';
 import { analyzeCommercialCourse } from '../../../src/lib/scams/commercialCourseAnalysis';
 import { analyzeArgentinaLegal } from '../../../src/lib/legal/argentinaLegalAnalysis';
+import { resolveUrlInput } from '../../../src/lib/extractors/inputUrl';
+import { describeFinancialUrl } from '../../../src/lib/finance/financialUrlContext';
 
 export const runtime = 'nodejs';
 const MAX_USER_INSTRUCTION_LENGTH = 2_000;
@@ -787,8 +789,10 @@ export async function POST(req: Request) {
   try {
     const form = await req.formData();
 
-    const userText = String(form.get('text') || '').trim();
-    const url = String(form.get('url') || '').trim();
+    const rawUserText = String(form.get('text') || '').trim();
+    const resolvedUrl = resolveUrlInput(rawUserText, String(form.get('url') || ''));
+    const userText = resolvedUrl.remainingText;
+    const url = resolvedUrl.url;
     const file = form.get('file');
     const termsAccepted = form.get('termsAccepted') === 'true';
     const termsVersion = String(form.get('termsVersion') || '');
@@ -829,6 +833,7 @@ export async function POST(req: Request) {
     }
 
     let webText = '';
+    const financialUrl = url ? describeFinancialUrl(url) : null;
     if (url) {
       if (/youtu\.be|youtube\.com/i.test(url)) {
         const youtube = await extractYoutubeTranscript(url);
@@ -839,7 +844,13 @@ export async function POST(req: Request) {
         extraction = { ok: true, text: youtube.text, pages: null, chars: youtube.text.length, note: youtube.note };
       } else {
         const web = await extractStructuredWebText(url);
-        webText = `${web.title ? `Título: ${web.title}\n` : ''}${web.text || web.note}`;
+        webText = [
+          `URL analizada: ${url}`,
+          financialUrl?.contextText || '',
+          web.title ? `Título: ${web.title}` : '',
+          web.text || `Estado de lectura: ${web.note}`,
+        ].filter(Boolean).join('\n');
+        extraction = { ok: web.ok, text: web.text, pages: null, chars: web.text.length, note: web.note };
       }
     }
 

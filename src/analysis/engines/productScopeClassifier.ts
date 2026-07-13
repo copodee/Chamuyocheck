@@ -10,9 +10,10 @@ export type ProductScopeResult = {
 };
 
 const financePatterns = [
-  /\b(?:pr[eé]stamo|cr[eé]dito|tarjeta|cuota|cft|costo\s+financiero\s+total|tea|tna|tasa\s+efectiva|tasa\s+nominal|inter[eé]s|mora|financiaci[oó]n|comisi[oó]n|seguro\s+de\s+saldo|capital\s+adeudado)\b/i,
+  /\b(?:pr[eé]stamos?|cr[eé]ditos?|microcr[eé]ditos?|leasing|arrendamiento\s+financiero|tarjetas?|cuotas?|cft|cftea|tea|tna|tasa\s+efectiva|tasa\s+nominal|inter[eé]s|mora|financiaci[oó]n|comisi[oó]n|seguro\s+de\s+saldo|capital\s+adeudado)\b/i,
   /\b(?:inversi[oó]n|rentabilidad|rendimiento|ganancia|retorno|broker|bono|acci[oó]n|fondo\s+com[uú]n|plazo\s+fijo|criptomoneda|bitcoin|ethereum|wallet)\b/i,
   /(?:\$|usd|ars)\s*\d[\d.,]*|\b\d+(?:[.,]\d+)?\s*%\b/i,
+  /https?:\/\/[^\s]*(?:creditos?|prestamos?|microcreditos?|leasing|financiacion|hipotecario|prendario)[^\s]*/i,
 ];
 
 const scamPatterns = [
@@ -34,22 +35,14 @@ function matches(patterns: RegExp[], text: string): string[] {
   return patterns.flatMap((pattern) => text.match(pattern)?.[0] || []).slice(0, 4);
 }
 
-/**
- * Product-level gate. It intentionally does not treat isolated words such as
- * “economía”, a public job title or a PDF upload as sufficient evidence of scope.
- */
 export function classifyProductScope(documentText: string, userInstruction = ''): ProductScopeResult {
   const text = `${userInstruction}\n${documentText}`.trim();
-  const finance = matches(financePatterns, text);
-  const scam = matches(scamPatterns, text);
-  const legal = matches(legalPatterns, text);
   const candidates: Array<{ area: SupportedProductArea; signals: string[] }> = [
-    { area: 'scam-risk', signals: scam },
-    { area: 'argentina-legal-documents', signals: legal },
-    { area: 'finance-credit', signals: finance },
+    { area: 'scam-risk', signals: matches(scamPatterns, text) },
+    { area: 'argentina-legal-documents', signals: matches(legalPatterns, text) },
+    { area: 'finance-credit', signals: matches(financePatterns, text) },
   ];
   const ranked = candidates.filter((item) => item.signals.length > 0);
-
   if (!ranked.length) {
     return {
       supported: false,
@@ -60,7 +53,6 @@ export function classifyProductScope(documentText: string, userInstruction = '')
       matchedSignals: [],
     };
   }
-
   ranked.sort((a, b) => b.signals.length - a.signals.length);
   return {
     supported: true,

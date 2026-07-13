@@ -8,6 +8,12 @@ test('acepta créditos y costos financieros', () => {
   assert.equal(result.primaryArea, 'finance-credit');
 });
 
+test('acepta URLs de créditos, leasing y microcréditos', () => {
+  assert.equal(classifyProductScope('https://www.bancoprovincia.com.ar/mvc/productos/creditos/BipPreca/condiciones_bip_preca').primaryArea, 'finance-credit');
+  assert.equal(classifyProductScope('https://www.bice.com.ar/productos/leasing/').primaryArea, 'finance-credit');
+  assert.equal(classifyProductScope('https://banco.example/productos/microcreditos').primaryArea, 'finance-credit');
+});
+
 test('acepta posibles estafas e inversiones engañosas', () => {
   const result = classifyProductScope('Me prometen rentabilidad garantizada si incorporo referidos. ¿Puede ser una estafa?');
   assert.equal(result.supported, true);

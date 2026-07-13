@@ -57,9 +57,19 @@ function labeledPercent(text: string, labels: string[]): number | null {
 
 function acronymPercent(text: string, acronym: 'TNA' | 'TEA' | 'CFT'): number | null {
   const pattern = acronym === 'CFT'
-    ? /\b(?:CFTEA|CFTNA|CFT)\b\s*(?:con\s+IVA)?\s*(?:de|:|=)?\s*([\d.,]+)\s*%/i
-    : new RegExp(`\\b${acronym}\\b\\s*(?:de|:|=)?\\s*([\\d.,]+)\\s*%`, 'i');
+    ? /\b(?:CFTEAV|CFTEA|CFTNAV|CFTNA|CFT)\b[).:\s-]*(?:con\s+IVA)?\s*(?:de|:|=)?\s*([\d.,]+)\s*%/i
+    : new RegExp(`\\b${acronym}V?\\b[).:\\s-]*(?:de|:|=|fija)?\\s*([\\d.,]+)\\s*%`, 'i');
   return parseLocaleNumber(text.match(pattern)?.[1] || '');
+}
+
+function allAcronymPercents(text: string, acronym: 'TNA' | 'TEA' | 'CFT'): number[] {
+  const source = acronym === 'CFT'
+    ? '\\b(?:CFTEAV|CFTEA|CFTNAV|CFTNA|CFT)\\b[).:\\s-]*(?:con\\s+IVA)?\\s*(?:de|:|=)?\\s*([\\d.,]+)\\s*%'
+    : `\\b${acronym}V?\\b[).:\\s-]*(?:de|:|=|fija)?\\s*([\\d.,]+)\\s*%`;
+  return [...text.matchAll(new RegExp(source, 'gi'))]
+    .map((match) => parseLocaleNumber(match[1] || ''))
+    .filter((value): value is number => value !== null)
+    .filter((value, index, values) => values.indexOf(value) === index);
 }
 
 function solveMonthlyRate(principal: number, payment: number, periods: number): number | null {
@@ -74,8 +84,20 @@ function solveMonthlyRate(principal: number, payment: number, periods: number): 
   return (low + high) / 2;
 }
 
+function argentinaDate(raw: string): Date | null {
+  const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+  const value = new Date(Date.UTC(Number(match[3]), Number(match[2]) - 1, Number(match[1]), 23, 59, 59));
+  return Number.isNaN(value.getTime()) ? null : value;
+}
+
 export function extractLoanNumbers(text: string): LoanNumbers {
-  const normalized = text.replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ');
+  const normalized = text
+    .replace(/\u00a0/g, ' ')
+    .replace(/\bT\.?\s*N\.?\s*A\.?\s*V?\.?/gi, 'TNAV')
+    .replace(/\bT\.?\s*E\.?\s*A\.?\s*V?\.?/gi, 'TEAV')
+    .replace(/\bC\.?\s*F\.?\s*T\.?\s*(?:E\.?\s*A\.?\s*V?\.?)?/gi, (value) => /E/i.test(value) ? 'CFTEAV' : 'CFT')
+    .replace(/[ \t]+/g, ' ');
   const cashPrice = labeledMoney(normalized, ['precio\\s+de\\s+contado', 'precio\\s+final', 'valor\\s+del\\s+veh[ií]culo']);
   const downPayment = labeledMoney(normalized, ['anticipo', 'entrega\\s+inicial', 'pago\\s+inicial']);
   const principalExample = normalized.match(/(?:pr[eé]stamo|cr[eé]dito)(?:\s+(?:personal|prendario))?\s+de[ \t]*(?:ARS|\$)[ \t]*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)/i);
@@ -114,9 +136,14 @@ export function extractLoanNumbers(text: string): LoanNumbers {
   if (months === null) missingFields.push('cantidad de cuotas');
   if (cftPercent === null) missingFields.push('CFT');
   const warnings: string[] = [];
+  const rateOptions = [allAcronymPercents(normalized, 'TNA'), allAcronymPercents(normalized, 'TEA'), allAcronymPercents(normalized, 'CFT')];
+  if (rateOptions.some((values) => values.length > 1)) warnings.push('La página publica más de una tasa o CFT para perfiles de cliente diferentes; no deben combinarse entre sí y hay que identificar qué condición corresponde al solicitante.');
   if (cftPercent === null) warnings.push('Sin CFT no puede afirmarse que el costo informado incluya todos los cargos, impuestos y seguros.');
-  if (/seguro/i.test(normalized) && !/(seguro[^\d$]{0,30}(?:\$|ARS)\s*[\d.,]+)/i.test(normalized)) warnings.push('Se menciona un seguro, pero no se identificó su importe.');
-  if (/(?:primera|primeras|inicial|desde)\s+cuotas?|cuota\s+(?:inicial|desde)|cuota\s+total[^.\n]{0,180}primer\s+per[ií]odo/i.test(normalized)) warnings.push('La cuota publicada corresponde a una cuota inicial o período particular y podría variar durante el plazo.');
+  if (/seguro/i.test(normalized) && !/(seguro[^.\n]{0,50}(?:sin\s+costo|bonificad[oa]|(?:\$|ARS)\s*[\d.,]+))/i.test(normalized)) warnings.push('Se menciona un seguro, pero no se identificó su importe.');
+  if (/(?:primera\s+cuota|cuota\s+(?:inicial|desde)|cuota\s+total[^.\n]{0,180}primer\s+per[ií]odo)[^.\n]{0,180}(?:\$|ARS)\s*[\d.,]+/i.test(normalized)) warnings.push('La cuota publicada corresponde a una cuota inicial o período particular y podría variar durante el plazo.');
+  const validity = normalized.match(/(?:tasas?\s+)?vigentes?\s+del\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+al\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  const validityEnd = argentinaDate(validity?.[2] || '');
+  if (validityEnd && validityEnd.getTime() < Date.now()) warnings.push(`Las tasas publicadas indican vigencia hasta el ${validity?.[2]}; deben confirmarse valores actuales antes de contratar.`);
   if (statedTotal !== null && calculatedKnownTotal !== null && Math.abs(statedTotal - calculatedKnownTotal) > Math.max(100, statedTotal * 0.01)) warnings.push('El total declarado no coincide con la suma de las cuotas y el anticipo extraídos.');
   const annualComparisonRate = cftPercent ?? teaPercent;
   if (annualComparisonRate !== null && impliedTea !== null && Math.abs(annualComparisonRate - impliedTea) > Math.max(3, annualComparisonRate * 0.08)) warnings.push(`La tasa anual implícita de las cuotas no coincide con el ${cftPercent !== null ? 'CFT' : 'TEA'} declarado; pueden existir cargos, seguros o cuotas variables.`);
@@ -130,6 +157,7 @@ export function extractLoanNumbers(text: string): LoanNumbers {
     tnaPercent !== null ? `TNA: ${tnaPercent}%` : '',
     teaPercent !== null ? `TEA: ${teaPercent}%` : '',
     cftPercent !== null ? `CFT: ${cftPercent}%` : '',
+    validity ? `Vigencia informada: ${validity[1]} a ${validity[2]}` : '',
   ].filter(Boolean);
   const calculationBasis = [
     calculatedInstallmentsTotal !== null ? `${months} × $${installment?.toLocaleString('es-AR')} = $${calculatedInstallmentsTotal.toLocaleString('es-AR')} en cuotas.` : '',
