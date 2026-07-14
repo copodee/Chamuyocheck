@@ -63,3 +63,24 @@ test('calcula una simulación leída por OCR aunque separe los centavos', () => 
   assert.match(result.calculationBasis.join(' '), /TNA estimada: 159\.37%.*TEA estimada: 346\.55%/i);
   assert.match(result.warnings.join(' '), /no muestra un CFT oficial.*tasa implícita/i);
 });
+
+test('prioriza el plazo pedido por el usuario cuando el OCR separa plazos e importes', () => {
+  const ocr = `Simulá la cuota de tu Préstamo
+Elegí el monto de tu Préstamo
+Ingresá el monto en miles. Caso contrario se redondeará automáticamente.
+$ 1.007.000
+¿En cuántas cuotas querés pagarlo?
+12 cuotas de 24 cuotas de 36 cuotas de 48 cuotas de
+$130.381* $100.553+* $106.213+* $107.037*`;
+  const result = extractLoanNumbers(ocr, 'Necesito saber el CFT y la TNA para 36 meses.');
+  assert.equal(result.principal, 1_007_000);
+  assert.equal(result.months, 36);
+  assert.equal(result.installment, 106_213);
+  assert.equal(result.scenarios.length, 4);
+  assert.equal(result.scenarios.find((scenario) => scenario.selected)?.months, 36);
+  assert.equal(result.calculatedInstallmentsTotal, 3_823_668);
+  assert.equal(result.financingCost, 2_816_668);
+  assert.equal(result.missingFields.length, 0);
+  assert.match(result.selectedScenarioReason || '', /priorizó la instrucción.*36 meses/i);
+  assert.match(result.calculationBasis.join(' '), /CFT visible estimado/i);
+});

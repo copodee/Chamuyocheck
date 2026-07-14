@@ -450,6 +450,7 @@ export default function Page() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [termsError, setTermsError] = useState('');
+  const [instructionError, setInstructionError] = useState('');
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { setUsed(Number(localStorage.getItem('cc_used') || '0')); }, []);
@@ -527,6 +528,13 @@ export default function Page() {
 
   async function analyze() {
     if (locked || textTooLong || proInput) return;
+    const requiresInstruction = Boolean(file || url || activeInput === 'PDF' || activeInput === 'Imagen' || activeInput === 'Web' || activeInput === 'YouTube');
+    if (requiresInstruction && !text.trim()) {
+      setInstructionError('Escribí qué necesitás saber del contenido. El análisis se basará en esa instrucción.');
+      document.querySelector<HTMLTextAreaElement>('#analysis-instruction')?.focus();
+      return;
+    }
+    setInstructionError('');
     if (!termsAccepted) {
       setTermsError('Debés leer y aceptar los Términos y Condiciones antes de analizar contenido.');
       setShowTerms(true);
@@ -724,7 +732,9 @@ export default function Page() {
               {file && <span className="filePill">{file.name} · {fmt(file.size)}</span>}
             </div>
             {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}
-            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Agregá una pregunta financiera, sobre una posible estafa o sobre derecho argentino.' : activeInput === 'Web' ? 'Indicá qué querés revisar de la oferta, entidad o documento legal.' : 'Ejemplo: calculá el costo real del crédito, revisá esta posible estafa o explicá esta cláusula según el derecho argentino.'} />
+            <label htmlFor="analysis-instruction"><b>{detected === 'Texto' && !file && !url ? 'Escribí tu consulta' : 'Indicá qué necesitás saber'}</b></label>
+            <textarea id="analysis-instruction" value={text} onChange={(e) => { setText(e.target.value); setInstructionError(''); }} placeholder={activeInput === 'YouTube' ? 'Ejemplo: analizá si la propuesta del curso es coherente y qué riesgos tiene.' : activeInput === 'Web' ? 'Ejemplo: calculá el costo total del préstamo y explicá sus condiciones.' : activeInput === 'Imagen' || file?.type.startsWith('image/') ? 'Ejemplo: calculá la TNA y el costo anual efectivo para la alternativa de 36 meses.' : 'Ejemplo: calculá el costo real del crédito, revisá esta posible estafa o explicá esta cláusula según el derecho argentino.'} />
+            {instructionError && <div className="termsError" role="alert">{instructionError}</div>}
             {!isPro && <div className={`counter ${textTooLong ? 'bad' : ''}`}>{text.length}/{FREE_CHARS}</div>}
             <div className="termsConsent"><input id="terms-consent" type="checkbox" checked={termsAccepted} onChange={(e) => e.target.checked ? acceptCurrentTerms() : revokeTermsAcceptance()} /><label htmlFor="terms-consent">Leí y acepto los <button type="button" className="termsLink" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>Términos y Condiciones</button> (versión {TERMS_VERSION}).</label></div>
             {termsError && <div className="termsError" role="alert">{termsError}</div>}

@@ -136,7 +136,7 @@ test('a Banco Provincia loan URL pasted as text is read and routed to finance', 
   globalThis.fetch = (async () => new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } })) as typeof fetch;
   try {
     const form = new FormData();
-    form.set('text', 'https://www.bancoprovincia.com.ar/mvc/productos/creditos/BipPreca/condiciones_bip_preca');
+    form.set('text', 'Indicame la TNA, la TEA, el CFT y las condiciones. https://www.bancoprovincia.com.ar/mvc/productos/creditos/BipPreca/condiciones_bip_preca');
     form.set('termsAccepted', 'true');
     form.set('termsVersion', TERMS_VERSION);
     const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
@@ -184,6 +184,44 @@ test('client-side OCR text is analyzed without uploading the image to server OCR
   assert.equal(body.financialAnalysis?.missingFields.length, 0);
   assert.match(body.summary, /TNA estimada: 159\.37%.*TEA estimada: 346\.55%/i);
   assert.match(body.extractionStatus, /OCR local completado en el dispositivo/i);
+});
+
+test('OCR with several loan alternatives follows the user instruction', async () => {
+  const form = new FormData();
+  form.set('text', 'Necesito saber el CFT y la TNA para 36 meses.');
+  form.set('ocrText', 'Simulá la cuota de tu Préstamo. Elegí el monto de tu Préstamo. Ingresá el monto en miles. $ 1.007.000. 12 cuotas de 24 cuotas de 36 cuotas de 48 cuotas de. $130.381* $100.553+* $106.213+* $107.037*');
+  form.set('ocrConfidence', '79');
+  form.set('clientFileName', 'simulador-macro.png');
+  form.set('clientFileType', 'image/png');
+  form.set('termsAccepted', 'true');
+  form.set('termsVersion', TERMS_VERSION);
+  const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.financialAnalysis?.principal, 1_007_000);
+  assert.equal(body.financialAnalysis?.months, 36);
+  assert.equal(body.financialAnalysis?.installment, 106_213);
+  assert.equal(body.financialAnalysis?.calculatedInstallmentsTotal, 3_823_668);
+  assert.equal(body.financialAnalysis?.financingCost, 2_816_668);
+  assert.equal(body.financialAnalysis?.scenarios.length, 4);
+  assert.ok(body.financialAnalysis?.impliedTnaPercent > 0);
+  assert.ok(body.financialAnalysis?.impliedVisibleCftPercent > 0);
+  assert.ok(body.score < 80, 'a calculable bank simulator must not be labeled extreme chamuyo');
+  assert.match(body.summary, /36.*106\.213.*TNA estimada.*CFT visible estimado/is);
+});
+
+test('external content requires an explicit user instruction', async () => {
+  const form = new FormData();
+  form.set('text', '');
+  form.set('ocrText', 'Préstamo de $1.000.000 en 12 cuotas de $120.000.');
+  form.set('clientFileName', 'prestamo.png');
+  form.set('clientFileType', 'image/png');
+  form.set('termsAccepted', 'true');
+  form.set('termsVersion', TERMS_VERSION);
+  const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+  const body = await response.json();
+  assert.equal(response.status, 400);
+  assert.match(body.error, /Escribí qué necesitás saber/i);
 });
 
 test('local analysis exposes reproducible loan calculations and normalization preserves them', () => {

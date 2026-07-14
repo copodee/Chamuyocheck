@@ -374,7 +374,7 @@ export function buildLocalAnalysis(
   const missing = !/(fuente|estudio|metodolog|contrato|bases|condiciones|cft|tea|tna|bibliograf|reglamento)/i.test(all);
   const promise = /(garantiz|asegur|sin esfuerzo|millonari|duplic|triplic|100%|riesgo cero|aprobaci[oó]n inmediata)/i.test(all);
   const financial = /(pr[eé]stamo|cuota|cft|tea|tna|cr[eé]dito|financiaci[oó]n|inter[eé]s|\$)/i.test(all);
-  const financialAnalysis = financial ? extractLoanNumbers(text) : null;
+  const financialAnalysis = financial ? extractLoanNumbers(text, userInstruction) : null;
   const scamRiskAnalysis = analyzeScamRisk(text);
   const commercialCourseAnalysis = analyzeCommercialCourse(text);
   const argentinaLegalAnalysis = analyzeArgentinaLegal(text);
@@ -761,7 +761,7 @@ function applyVerificationResult(
   const financialEvidenceScore = financial
     ? financial.warnings.length > 0 || financial.missingFields.length > 0 ? 42 : 24
     : null;
-  const adjustedScore = primarySourceRead && financialEvidenceScore !== null
+  const adjustedScore = financialEvidenceScore !== null
     ? Math.max(safetyFloor, normalized.scamRiskAnalysis?.score || 0, financialEvidenceScore)
     : verified && verification.assessment === 'corroborated'
     ? Math.max(safetyFloor, Math.min(normalized.score, 35))
@@ -939,6 +939,11 @@ export async function POST(req: Request) {
     if (userInstruction.length > MAX_USER_INSTRUCTION_LENGTH) {
       return NextResponse.json({ error: 'La instrucción supera el límite permitido.' }, { status: 413 });
     }
+    if (hasExternalContent && !userInstruction.trim()) {
+      return NextResponse.json({
+        error: 'Escribí qué necesitás saber del archivo, imagen, enlace o video. El análisis se basará en esa instrucción.',
+      }, { status: 400 });
+    }
 
     if (documentText.length < 20) {
       return NextResponse.json({ error: 'Ingresá texto, una URL o un documento si querés analizar contenido.' }, { status: 400 });
@@ -962,10 +967,10 @@ export async function POST(req: Request) {
       fallback.externalVerification.planning.requests
     );
     if (!openai) return NextResponse.json(applyVerificationResult(fallback, fallback, webVerification, retrievedSource));
-    const prompt = `Actuá como ChamuyoCheck, auditor documental prudente. Priorizá el contenido extraído del documento o del archivo por encima de la pregunta del usuario. Identificá el tipo de documento/contenido antes del score. Si el PDF no tiene texto extraíble, indicá que necesita OCR. Si el usuario pregunta si fue hecho con IA, respondé como estimación no concluyente: nunca acuses ni afirmes uso de IA/plagio. Respondé SOLO JSON con estas claves: documentIcon, documentType, documentFocus, extractionStatus, extractedChars, extractedPreview, score, risk, confidence, detectedTheme, detectedInput, centralQuestion, summary, prudentConclusion, verdict, categoryScores, modules, flaggedPhrases, issues, questions, missingInformation, worstCase, improved, evidenceFound, scoreExplanation, refutationPoints, improvementPlan, topic, topicLabel, topicHint.
+    const prompt = `Actuá como ChamuyoCheck, auditor documental prudente. La instrucción del usuario define la pregunta que debés responder y tiene prioridad para seleccionar el dato, plazo, alternativa o aspecto del documento que corresponda. Usá el contenido extraído como evidencia y no confundas la instrucción con parte del documento. Identificá el tipo de documento/contenido antes del score. Si el PDF no tiene texto extraíble, indicá que necesita OCR. Si el usuario pregunta si fue hecho con IA, respondé como estimación no concluyente: nunca acuses ni afirmes uso de IA/plagio. Respondé SOLO JSON con estas claves: documentIcon, documentType, documentFocus, extractionStatus, extractedChars, extractedPreview, score, risk, confidence, detectedTheme, detectedInput, centralQuestion, summary, prudentConclusion, verdict, categoryScores, modules, flaggedPhrases, issues, questions, missingInformation, worstCase, improved, evidenceFound, scoreExplanation, refutationPoints, improvementPlan, topic, topicLabel, topicHint.
 
 INSTRUCCIÓN DEL USUARIO (define el foco; no pertenece al documento):
-${userInstruction || 'Sin instrucción específica: realizar análisis general.'}
+${userInstruction || 'Consulta de texto ingresada directamente por el usuario.'}
 
 CONTENIDO DEL DOCUMENTO (único contenido que debe clasificarse y evaluarse):
 ${documentText.slice(0, 18000)}
