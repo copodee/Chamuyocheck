@@ -20,25 +20,38 @@ type DecisionAnswerInput = {
   argentinaLegalAnalysis: ArgentinaLegalAnalysis;
 };
 
-const money = (value: number) => value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 });
+const money = (value: number, currency: 'ARS' | 'USD' = 'ARS') => value.toLocaleString('es-AR', { style: 'currency', currency, maximumFractionDigits: 2 });
 const percent = (value: number) => `${value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 
 function buildLoanAnswer(financial: LoanNumbers): CustomerDecisionAnswer {
   const hasFlow = financial.principal !== null && financial.installment !== null && financial.months !== null;
   const hasImplicitRate = financial.impliedTnaPercent !== null && financial.impliedTeaPercent !== null;
+  const modeledFromRate = financial.installmentEstimated && financial.tnaPercent !== null;
+  const hasUpfrontFee = financial.upfrontFeePercent !== null && financial.upfrontFeeAmount !== null;
+  const systemExplanation = financial.amortizationSystem === 'german'
+    ? `Se aplicó sistema alemán: amortización de capital constante, cuotas mensuales vencidas y decrecientes, desde ${money(financial.firstInstallment || 0, financial.currency)} hasta ${money(financial.lastInstallment || 0, financial.currency)}.`
+    : `Se aplicó sistema francés: ${financial.months} cuotas mensuales iguales y vencidas de ${money(financial.installment || 0, financial.currency)}.`;
+  const adjustedRateAnswer = modeledFromRate && hasImplicitRate
+    ? `La TNA contractual sigue siendo ${percent(financial.tnaPercent || 0)}. ${systemExplanation} ${hasUpfrontFee ? `La comisión inicial de ${percent(financial.upfrontFeePercent || 0)} equivale a ${money(financial.upfrontFeeAmount || 0, financial.currency)} y deja un desembolso neto de ${money(financial.netDisbursement || 0, financial.currency)}. ` : ''}La TNA implícita ajustada por el flujo es ${percent(financial.impliedTnaPercent || 0)} y la TEA implícita es ${percent(financial.impliedTeaPercent || 0)}. No son un CFT oficial.`
+    : '';
   return {
     kind: 'loan-cost',
     status: hasFlow ? 'answerable' : 'partial',
-    title: hasFlow ? 'Esto es lo que pagarías con los datos visibles' : 'Faltan datos para calcular lo que pagarías',
+    title: modeledFromRate && hasUpfrontFee ? 'La comisión eleva el costo real del préstamo' : hasFlow ? 'Esto es lo que pagarías con los datos visibles' : 'Faltan datos para calcular lo que pagarías',
     directAnswer: hasFlow
-      ? `${financial.months} cuotas sumarían ${money(financial.calculatedInstallmentsTotal || 0)}. ${hasImplicitRate ? `La TNA implícita estimada es ${percent(financial.impliedTnaPercent || 0)} y el costo efectivo anual visible es ${percent(financial.impliedTeaPercent || 0)}. ${financial.cftPercent === null ? 'El CFT oficial no puede conocerse sin los cargos e impuestos del contrato.' : `El CFT informado es ${percent(financial.cftPercent)}.`}` : 'Con los datos visibles no alcanza para estimar una tasa implícita.'}`
+      ? `${adjustedRateAnswer || `${financial.months} cuotas sumarían ${money(financial.calculatedInstallmentsTotal || 0, financial.currency)}. ${hasImplicitRate ? `La TNA implícita estimada es ${percent(financial.impliedTnaPercent || 0)} y el costo efectivo anual visible es ${percent(financial.impliedTeaPercent || 0)}. ${financial.cftPercent === null ? 'El CFT oficial no puede conocerse sin los cargos e impuestos del contrato.' : `El CFT informado es ${percent(financial.cftPercent)}.`}` : 'Con los datos visibles no alcanza para estimar una tasa implícita.'}`}`
       : `No se puede calcular todavía el costo solicitado porque faltan ${financial.missingFields.join(', ') || 'datos esenciales del flujo'}.`,
     findings: [
-      financial.principal !== null ? `Capital tomado como base: ${money(financial.principal)}.` : '',
-      financial.installment !== null && financial.months !== null ? `${financial.months} cuotas de ${money(financial.installment)}.` : '',
-      financial.calculatedInstallmentsTotal !== null ? `Suma nominal de cuotas: ${money(financial.calculatedInstallmentsTotal)}.` : '',
-      financial.financingCost !== null && financial.financingCostPercent !== null ? `Diferencia entre cuotas y capital: ${money(financial.financingCost)} (${percent(financial.financingCostPercent)} del capital).` : '',
-      financial.impliedTnaPercent !== null ? `TNA implícita estimada: ${percent(financial.impliedTnaPercent)}.` : '',
+      financial.principal !== null ? `Capital contractual: ${money(financial.principal, financial.currency)}.` : '',
+      financial.netDisbursement !== null && hasUpfrontFee ? `Dinero neto disponible después de la comisión: ${money(financial.netDisbursement, financial.currency)}.` : '',
+      financial.installmentEstimated ? `Sistema utilizado: ${financial.amortizationSystem === 'german' ? 'alemán, con amortización constante y cuotas decrecientes' : 'francés, con cuotas iguales'}; periodicidad mensual; pagos vencidos al final de cada mes.` : '',
+      financial.installment !== null && financial.months !== null && financial.amortizationSystem === 'french' ? `${financial.months} cuotas ${financial.installmentEstimated ? 'estimadas' : 'informadas'} de ${money(financial.installment, financial.currency)}.` : '',
+      financial.installmentEstimated && financial.amortizationSystem === 'german' ? `${financial.months} cuotas decrecientes: primera de ${money(financial.firstInstallment || 0, financial.currency)} y última de ${money(financial.lastInstallment || 0, financial.currency)}.` : '',
+      financial.calculatedInstallmentsTotal !== null ? `Suma nominal de cuotas: ${money(financial.calculatedInstallmentsTotal, financial.currency)}.` : '',
+      financial.calculatedKnownTotal !== null && hasUpfrontFee ? `Salida nominal total, incluida la comisión inicial: ${money(financial.calculatedKnownTotal, financial.currency)}.` : '',
+      financial.financingCost !== null && financial.financingCostPercent !== null ? `Costo nominal por encima del capital, incluida la comisión conocida: ${money(financial.financingCost, financial.currency)} (${percent(financial.financingCostPercent)} del capital).` : '',
+      financial.tnaPercent !== null ? `TNA contractual informada: ${percent(financial.tnaPercent)}.` : '',
+      financial.impliedTnaPercent !== null ? `TNA implícita ajustada al flujo neto: ${percent(financial.impliedTnaPercent)}.` : '',
       financial.impliedTeaPercent !== null ? `TEA implícita estimada del flujo visible: ${percent(financial.impliedTeaPercent)}.` : '',
       financial.cftPercent !== null ? `CFT declarado por la entidad: ${percent(financial.cftPercent)}.` : '',
     ].filter(Boolean),

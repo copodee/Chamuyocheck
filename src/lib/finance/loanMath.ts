@@ -1,4 +1,8 @@
 export type LoanNumbers = {
+  currency: 'ARS' | 'USD';
+  amortizationSystem: 'french' | 'german';
+  paymentPeriod: 'monthly';
+  paymentTiming: 'arrears';
   cashPrice: number | null;
   principal: number | null;
   downPayment: number | null;
@@ -7,6 +11,12 @@ export type LoanNumbers = {
   tnaPercent: number | null;
   teaPercent: number | null;
   cftPercent: number | null;
+  upfrontFeePercent: number | null;
+  upfrontFeeAmount: number | null;
+  netDisbursement: number | null;
+  installmentEstimated: boolean;
+  firstInstallment: number | null;
+  lastInstallment: number | null;
   statedTotal: number | null;
   calculatedInstallmentsTotal: number | null;
   calculatedKnownTotal: number | null;
@@ -64,7 +74,7 @@ function labeledMoney(text: string, labels: string[]): number | null {
 function labeledPercent(text: string, labels: string[]): number | null {
   for (const label of labels) {
     const match = text.match(new RegExp(`(?:${label})\\s*(?:de|:|=)?\\s*([\\d.,]+)\\s*%`, 'i'))
-      || text.match(new RegExp(`([\\d.,]+)\\s*%\\s*(?:${label})`, 'i'));
+      || text.match(new RegExp(`([\\d.,]+)\\s*%\\s*(?:de\\s+)?(?:${label})`, 'i'));
     const value = parseLocaleNumber(match?.[1] || '');
     if (value !== null && value >= 0 && value < 10_000) return value;
   }
@@ -74,14 +84,14 @@ function labeledPercent(text: string, labels: string[]): number | null {
 function acronymPercent(text: string, acronym: 'TNA' | 'TEA' | 'CFT'): number | null {
   const pattern = acronym === 'CFT'
     ? /\b(?:CFTEAV|CFTEA|CFTNAV|CFTNA|CFT)\b[).:\s-]*(?:con\s+IVA)?\s*(?:de|:|=)?\s*([\d.,]+)\s*%/i
-    : new RegExp(`\\b${acronym}V?\\b[).:\\s-]*(?:de|:|=|fija)?\\s*([\\d.,]+)\\s*%`, 'i');
+    : new RegExp(`\\b${acronym}V?\\b[).:\\s-]*(?:de|:|=|fija|es)?\\s*([\\d.,]+)\\s*%`, 'i');
   return parseLocaleNumber(text.match(pattern)?.[1] || '');
 }
 
 function allAcronymPercents(text: string, acronym: 'TNA' | 'TEA' | 'CFT'): number[] {
   const source = acronym === 'CFT'
     ? '\\b(?:CFTEAV|CFTEA|CFTNAV|CFTNA|CFT)\\b[).:\\s-]*(?:con\\s+IVA)?\\s*(?:de|:|=)?\\s*([\\d.,]+)\\s*%'
-    : `\\b${acronym}V?\\b[).:\\s-]*(?:de|:|=|fija)?\\s*([\\d.,]+)\\s*%`;
+    : `\\b${acronym}V?\\b[).:\\s-]*(?:de|:|=|fija|es)?\\s*([\\d.,]+)\\s*%`;
   return [...text.matchAll(new RegExp(source, 'gi'))]
     .map((match) => parseLocaleNumber(match[1] || ''))
     .filter((value): value is number => value !== null)
@@ -99,6 +109,41 @@ function solveMonthlyRate(principal: number, payment: number, periods: number): 
     if (presentValue > principal) low = rate; else high = rate;
   }
   return (low + high) / 2;
+}
+
+function levelPayment(principal: number, monthlyRate: number, periods: number): number | null {
+  if (principal <= 0 || monthlyRate < 0 || periods <= 0) return null;
+  if (monthlyRate === 0) return principal / periods;
+  return principal * monthlyRate / (1 - Math.pow(1 + monthlyRate, -periods));
+}
+
+function germanPayments(principal: number, monthlyRate: number, periods: number): number[] {
+  if (principal <= 0 || monthlyRate < 0 || periods <= 0) return [];
+  const amortization = principal / periods;
+  return Array.from({ length: periods }, (_, index) => {
+    const openingBalance = principal - amortization * index;
+    return amortization + openingBalance * monthlyRate;
+  });
+}
+
+function solveRateForPayments(principal: number, payments: number[]): number | null {
+  if (principal <= 0 || payments.length === 0 || payments.some((payment) => payment <= 0)) return null;
+  if (payments.reduce((sum, payment) => sum + payment, 0) < principal) return null;
+  let low = 0;
+  let high = 2;
+  for (let index = 0; index < 120; index += 1) {
+    const rate = (low + high) / 2;
+    const presentValue = payments.reduce((sum, payment, paymentIndex) => sum + payment / Math.pow(1 + rate, paymentIndex + 1), 0);
+    if (presentValue > principal) low = rate; else high = rate;
+  }
+  return (low + high) / 2;
+}
+
+function extractUpfrontFeePercent(text: string): number | null {
+  const label = '(?:comisi[oó]n|cargo|gasto)(?:\\s+de\\s+otorgamiento|\\s+inicial|\\s+al\\s+inicio)';
+  const after = text.match(new RegExp(`${label}\\s*(?:de|:|=)?\\s*([\\d.,]+)\\s*%`, 'i'));
+  const before = text.match(new RegExp(`([\\d.,]+)\\s*%\\s*(?:de\\s+)?${label}`, 'i'));
+  return parseLocaleNumber(after?.[1] || before?.[1] || '');
 }
 
 function requestedMonthsFromInstruction(instruction: string): number | null {
@@ -141,24 +186,30 @@ export function extractLoanNumbers(text: string, userInstruction = ''): LoanNumb
   const normalized = text
     .replace(/\u00a0/g, ' ')
     .replace(/([.,])\s+(?=\d{1,2}\b)/g, '$1')
-    .replace(/\bT\.?\s*N\.?\s*A\.?\s*V?\.?/gi, 'TNAV')
-    .replace(/\bT\.?\s*E\.?\s*A\.?\s*V?\.?/gi, 'TEAV')
+    .replace(/\bT\.?\s*N\.?\s*A\.?(?:\s*V\.?)?/gi, 'TNAV')
+    .replace(/\bT\.?\s*E\.?\s*A\.?(?:\s*V\.?)?/gi, 'TEAV')
     .replace(/\bC\.?\s*F\.?\s*T\.?\s*(?:E\.?\s*A\.?\s*V?\.?)?/gi, (value) => /E/i.test(value) ? 'CFTEAV' : 'CFT')
     .replace(/[ \t]+/g, ' ');
+  const currency: 'ARS' | 'USD' = /(?:\bUSD\b|U\$S|US\$|d[oó]lares?)/i.test(normalized) ? 'USD' : 'ARS';
+  const amortizationSystem: 'french' | 'german' = /sistema\s+alem[aá]n/i.test(`${userInstruction}\n${normalized}`) ? 'german' : 'french';
+  const paymentPeriod: 'monthly' = 'monthly';
+  const paymentTiming: 'arrears' = 'arrears';
   const cashPrice = labeledMoney(normalized, ['precio\\s+de\\s+contado', 'precio\\s+final', 'valor\\s+del\\s+veh[ií]culo']);
   const downPayment = labeledMoney(normalized, ['anticipo', 'entrega\\s+inicial', 'pago\\s+inicial']);
   const principalExample = normalized.match(/(?:pr[eé]stamo|cr[eé]dito)(?:\s+(?:personal|prendario))?\s+de[ \t]*(?:ARS|\$)[ \t]*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)/i);
+  const conversationalPrincipal = normalized.match(/(?:me\s+quieren\s+prestar|me\s+prestan|van\s+a\s+prestar(?:me)?|prestar(?:me)?)(?:\s+(?:la\s+suma\s+de|un\s+total\s+de|de))?\s*(?:USD|U\$S|US\$|ARS|\$)?\s*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)\s*(?:de\s+)?(?:d[oó]lares?|pesos?)?/i);
   const delayedPrincipal = normalized.match(/(?:eleg[ií]|seleccion[ae]|indic[ae])?\s*(?:el\s+)?monto\s+(?:de\s+tu|del)?\s*(?:pr[eé]stamo|cr[eé]dito)[\s\S]{0,240}?(?:ARS|\$)\s*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)/i);
   const principal = labeledMoney(normalized, ['monto\\s+(?:del\\s+)?(?:pr[eé]stamo|cr[eé]dito)', 'monto\\s+financiad[oa]', 'importe\\s+financiad[oa]', 'importe\\s+a\\s+solicitar'])
     ?? parseLocaleNumber(delayedPrincipal?.[1] || '')
-    ?? parseLocaleNumber(principalExample?.[1] || '');
+    ?? parseLocaleNumber(principalExample?.[1] || '')
+    ?? parseLocaleNumber(conversationalPrincipal?.[1] || '');
   const rawScenarios = extractScenarioPairs(normalized);
   const requestedMonths = requestedMonthsFromInstruction(userInstruction);
   const selectedRawScenario = (requestedMonths !== null ? rawScenarios.find((scenario) => scenario.months === requestedMonths) : null)
     ?? (rawScenarios.length === 1 ? rawScenarios[0] : null);
   const installmentFromSeries = normalized.match(/\d{1,3}[ \t]*cuotas[ \t]*(?:iguales[ \t]*)?(?:de|a|:)?[ \t]*(?:ARS|\$)[ \t]*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)/i);
   const disclosedInstallment = normalized.match(/(?:cuota\s+total|primera\s+cuota)[^$\n]{0,180}(?:ARS|\$)[ \t]*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)/i);
-  const installment = selectedRawScenario?.installment ?? labeledMoney(normalized, ['valor\\s+(?:de\\s+(?:la\\s+)?)?cuota', 'cuota\\s+(?:mensual|promedio|inicial)', 'cada\\s+cuota'])
+  const disclosedInstallmentValue = selectedRawScenario?.installment ?? labeledMoney(normalized, ['valor\\s+(?:de\\s+(?:la\\s+)?)?cuota', 'cuota\\s+(?:mensual|promedio|inicial)', 'cada\\s+cuota'])
     ?? parseLocaleNumber(installmentFromSeries?.[1] || '')
     ?? parseLocaleNumber(disclosedInstallment?.[1] || '');
   const statedTotal = labeledMoney(normalized, ['monto\\s+total\\s+(?:a\\s+)?pagar', 'total\\s+(?:a\\s+)?pagar', 'precio\\s+financiado']);
@@ -168,25 +219,42 @@ export function extractLoanNumbers(text: string, userInstruction = ''): LoanNumb
   const tnaPercent = acronymPercent(normalized, 'TNA') ?? labeledPercent(normalized, ['tasa\\s+nominal\\s+anual']);
   const teaPercent = acronymPercent(normalized, 'TEA') ?? labeledPercent(normalized, ['tasa\\s+efectiva\\s+anual']);
   const cftPercent = acronymPercent(normalized, 'CFT') ?? labeledPercent(normalized, ['costo\\s+financiero\\s+total']);
-
-  const calculatedInstallmentsTotal = installment !== null && months !== null ? installment * months : null;
-  const calculatedKnownTotal = calculatedInstallmentsTotal !== null
-    ? calculatedInstallmentsTotal + (downPayment || 0)
-    : statedTotal;
+  const upfrontFeePercent = extractUpfrontFeePercent(normalized);
   const financedBase = principal ?? (cashPrice !== null ? Math.max(0, cashPrice - (downPayment || 0)) : null);
+  const modeledGermanPayments = disclosedInstallmentValue === null && financedBase !== null && months !== null && tnaPercent !== null && amortizationSystem === 'german'
+    ? germanPayments(financedBase, tnaPercent / 1200, months)
+    : [];
+  const estimatedInstallment = disclosedInstallmentValue === null && financedBase !== null && months !== null && tnaPercent !== null
+    ? amortizationSystem === 'german' ? modeledGermanPayments[0] ?? null : levelPayment(financedBase, tnaPercent / 1200, months)
+    : null;
+  const installment = disclosedInstallmentValue ?? estimatedInstallment;
+  const installmentEstimated = disclosedInstallmentValue === null && estimatedInstallment !== null;
+  const firstInstallment = amortizationSystem === 'german' && modeledGermanPayments.length > 0 ? modeledGermanPayments[0] : installment;
+  const lastInstallment = amortizationSystem === 'german' && modeledGermanPayments.length > 0 ? modeledGermanPayments[modeledGermanPayments.length - 1] : installment;
+  const upfrontFeeAmount = financedBase !== null && upfrontFeePercent !== null ? financedBase * upfrontFeePercent / 100 : null;
+  const netDisbursement = financedBase !== null ? financedBase - (upfrontFeeAmount || 0) : null;
+
+  const calculatedInstallmentsTotal = modeledGermanPayments.length > 0
+    ? modeledGermanPayments.reduce((sum, payment) => sum + payment, 0)
+    : installment !== null && months !== null ? installment * months : null;
+  const calculatedKnownTotal = calculatedInstallmentsTotal !== null
+    ? calculatedInstallmentsTotal + (downPayment || 0) + (upfrontFeeAmount || 0)
+    : statedTotal;
   const financingCost = calculatedInstallmentsTotal !== null && financedBase !== null
-    ? calculatedInstallmentsTotal - financedBase
+    ? calculatedInstallmentsTotal + (upfrontFeeAmount || 0) - financedBase
     : null;
   const financingCostPercent = financingCost !== null && financedBase && financedBase > 0
     ? financingCost / financedBase * 100
     : null;
-  const impliedMonthlyRate = financedBase && installment && months ? solveMonthlyRate(financedBase, installment, months) : null;
+  const impliedMonthlyRate = netDisbursement && modeledGermanPayments.length > 0
+    ? solveRateForPayments(netDisbursement, modeledGermanPayments)
+    : netDisbursement && installment && months ? solveMonthlyRate(netDisbursement, installment, months) : null;
   const impliedTna = impliedMonthlyRate !== null ? impliedMonthlyRate * 12 * 100 : null;
   const impliedTea = impliedMonthlyRate !== null ? (Math.pow(1 + impliedMonthlyRate, 12) - 1) * 100 : null;
   const scenarios: LoanScenario[] = rawScenarios.map((scenario) => {
     const scenarioTotal = scenario.installment * scenario.months;
-    const scenarioCost = financedBase !== null ? scenarioTotal - financedBase : null;
-    const scenarioMonthlyRate = financedBase !== null ? solveMonthlyRate(financedBase, scenario.installment, scenario.months) : null;
+    const scenarioCost = financedBase !== null ? scenarioTotal + (upfrontFeeAmount || 0) - financedBase : null;
+    const scenarioMonthlyRate = netDisbursement !== null ? solveMonthlyRate(netDisbursement, scenario.installment, scenario.months) : null;
     return {
       months: scenario.months,
       installment: scenario.installment,
@@ -215,7 +283,11 @@ export function extractLoanNumbers(text: string, userInstruction = ''): LoanNumb
   const warnings: string[] = [];
   const rateOptions = [allAcronymPercents(normalized, 'TNA'), allAcronymPercents(normalized, 'TEA'), allAcronymPercents(normalized, 'CFT')];
   if (rateOptions.some((values) => values.length > 1)) warnings.push('La página publica más de una tasa o CFT para perfiles de cliente diferentes; no deben combinarse entre sí y hay que identificar qué condición corresponde al solicitante.');
-  if (cftPercent === null && impliedTea !== null) warnings.push('La entidad no muestra un CFT oficial en la captura. ChamuyoCheck calculó la tasa implícita del flujo visible; puede diferir del CFT contractual si existen seguros, impuestos, comisiones, gastos iniciales o cuotas variables no mostrados.');
+  if (installmentEstimated) warnings.push(amortizationSystem === 'german'
+    ? 'Las cuotas fueron estimadas con sistema alemán, amortización constante, interés sobre saldo y pagos mensuales vencidos. Las cuotas son decrecientes.'
+    : 'La cuota fue estimada con sistema francés, pagos mensuales vencidos y TNA nominal dividida por 12. Si el contrato usa otro sistema, cuotas variables o una periodicidad distinta, el resultado cambia.');
+  if (upfrontFeePercent !== null) warnings.push('La comisión inicial se modeló como un pago al momento del desembolso: reduce el dinero neto disponible y eleva la tasa implícita.');
+  if (cftPercent === null && impliedTea !== null) warnings.push('El contenido aportado no muestra un CFT oficial. ChamuyoCheck calculó la tasa implícita del flujo visible; puede diferir del CFT contractual si existen seguros, impuestos, comisiones, gastos iniciales o cuotas variables no mostrados.');
   else if (cftPercent === null) warnings.push('Sin CFT ni un flujo completo no puede estimarse una tasa anual que incluya el costo visible.');
   if (/seguro/i.test(normalized) && !/(seguro[^.\n]{0,50}(?:sin\s+costo|bonificad[oa]|(?:\$|ARS)\s*[\d.,]+))/i.test(normalized)) warnings.push('Se menciona un seguro, pero no se identificó su importe.');
   if (/(?:primera\s+cuota|cuota\s+(?:inicial|desde)|cuota\s+total[^.\n]{0,180}primer\s+per[ií]odo)[^.\n]{0,180}(?:\$|ARS)\s*[\d.,]+/i.test(normalized)) warnings.push('La cuota publicada corresponde a una cuota inicial o período particular y podría variar durante el plazo.');
@@ -228,27 +300,35 @@ export function extractLoanNumbers(text: string, userInstruction = ''): LoanNumb
 
   const evidence = [
     cashPrice !== null ? `Precio de contado: $${cashPrice.toLocaleString('es-AR')}` : '',
-    principal !== null ? `Monto financiado declarado: $${principal.toLocaleString('es-AR')}` : '',
+    principal !== null ? `Monto financiado declarado: ${currency === 'USD' ? 'USD ' : '$'}${principal.toLocaleString('es-AR')}` : '',
     downPayment !== null ? `Anticipo: $${downPayment.toLocaleString('es-AR')}` : '',
-    installment !== null ? `Cuota: $${installment.toLocaleString('es-AR')}` : '',
+    installment !== null ? `${installmentEstimated ? 'Cuota estimada' : 'Cuota'}: ${currency === 'USD' ? 'USD ' : '$'}${installment.toLocaleString('es-AR')}` : '',
     months !== null ? `Plazo: ${months} cuotas/meses` : '',
+    installmentEstimated ? `Sistema de amortización aplicado: ${amortizationSystem === 'german' ? 'alemán (cuotas decrecientes)' : 'francés (cuotas iguales)'}.` : '',
+    installmentEstimated ? 'Periodicidad y momento de pago: cuotas mensuales vencidas, pagadas al final de cada mes.' : '',
     tnaPercent !== null ? `TNA: ${tnaPercent}%` : '',
     teaPercent !== null ? `TEA: ${teaPercent}%` : '',
     cftPercent !== null ? `CFT: ${cftPercent}%` : '',
+    upfrontFeePercent !== null ? `Comisión inicial: ${upfrontFeePercent}% (${currency === 'USD' ? 'USD ' : '$'}${upfrontFeeAmount?.toLocaleString('es-AR')})` : '',
+    netDisbursement !== null && upfrontFeeAmount !== null ? `Desembolso neto después de la comisión: ${currency === 'USD' ? 'USD ' : '$'}${netDisbursement.toLocaleString('es-AR')}` : '',
     selectedScenarioReason || '',
     rawScenarios.length > 1 ? `Alternativas visibles: ${rawScenarios.map((scenario) => `${scenario.months} cuotas de $${scenario.installment.toLocaleString('es-AR')}`).join('; ')}.` : '',
     validity ? `Vigencia informada: ${validity[1]} a ${validity[2]}` : '',
   ].filter(Boolean);
   const calculationBasis = [
-    calculatedInstallmentsTotal !== null ? `${months} × $${installment?.toLocaleString('es-AR')} = $${calculatedInstallmentsTotal.toLocaleString('es-AR')} en cuotas.` : '',
+    installmentEstimated && amortizationSystem === 'french' ? `Cuota teórica por sistema francés: capital × tasa mensual / [1 − (1 + tasa mensual)^−plazo].` : '',
+    installmentEstimated && amortizationSystem === 'german' ? `Sistema alemán: amortización de capital constante de ${currency === 'USD' ? 'USD ' : '$'}${financedBase !== null && months ? (financedBase / months).toLocaleString('es-AR') : '0'} por mes, más interés sobre el saldo pendiente.` : '',
+    amortizationSystem === 'german' && modeledGermanPayments.length > 0 ? `Primera cuota estimada: ${currency === 'USD' ? 'USD ' : '$'}${firstInstallment?.toLocaleString('es-AR')}; última cuota estimada: ${currency === 'USD' ? 'USD ' : '$'}${lastInstallment?.toLocaleString('es-AR')}; total de cuotas: ${currency === 'USD' ? 'USD ' : '$'}${calculatedInstallmentsTotal?.toLocaleString('es-AR')}.` : '',
+    calculatedInstallmentsTotal !== null && amortizationSystem === 'french' ? `${months} × ${currency === 'USD' ? 'USD ' : '$'}${installment?.toLocaleString('es-AR')} = ${currency === 'USD' ? 'USD ' : '$'}${calculatedInstallmentsTotal.toLocaleString('es-AR')} en cuotas.` : '',
+    upfrontFeeAmount !== null && netDisbursement !== null ? `Comisión inicial: ${currency === 'USD' ? 'USD ' : '$'}${upfrontFeeAmount.toLocaleString('es-AR')}; desembolso neto económico: ${currency === 'USD' ? 'USD ' : '$'}${netDisbursement.toLocaleString('es-AR')}.` : '',
     calculatedKnownTotal !== null && downPayment !== null ? `Anticipo + cuotas = $${calculatedKnownTotal.toLocaleString('es-AR')}.` : '',
-    financingCost !== null ? `Diferencia total entre cuotas y capital: $${financingCost.toLocaleString('es-AR')} (${financingCostPercent?.toFixed(2)}% del capital). Si no existen otros conceptos, esta diferencia representa el interés total pagado.` : '',
+    financingCost !== null ? `Diferencia total entre cuotas y capital: ${currency === 'USD' ? 'USD ' : '$'}${financingCost.toLocaleString('es-AR')} (${financingCostPercent?.toFixed(2)}% del capital). Si no existen otros conceptos, esta diferencia representa el interés total pagado.` : '',
     impliedMonthlyRate !== null ? `Tasa mensual implícita estimada: ${(impliedMonthlyRate * 100).toFixed(3)}%; TNA estimada: ${impliedTna?.toFixed(2)}%; TEA estimada: ${impliedTea?.toFixed(2)}% (costo anual efectivo visible).` : '',
     impliedMonthlyRate !== null && cftPercent === null ? `CFT visible estimado: ${impliedTea?.toFixed(2)}% efectivo anual, calculado solo con el capital, la cuota y el plazo visibles. No es el CFT oficial y puede aumentar si hay IVA, seguros, comisiones u otros cargos.` : '',
-    impliedMonthlyRate !== null ? 'Supuesto del cálculo: cuotas mensuales iguales pagadas al final de cada período, desembolso neto igual al capital informado y ausencia de cargos iniciales no visibles.' : '',
+    impliedMonthlyRate !== null ? `Supuesto del cálculo: cuotas mensuales iguales pagadas al final de cada período, ${upfrontFeeAmount !== null ? 'comisión informada pagada al inicio' : 'desembolso neto igual al capital informado'} y ausencia de otros cargos no visibles.` : '',
   ].filter(Boolean);
   const coreFields = [financedBase, installment, months].filter((value) => value !== null).length;
   const confidence = coreFields === 3 ? 'alta' : coreFields === 2 ? 'media' : 'baja';
 
-  return { cashPrice, principal: financedBase, downPayment, installment, months, tnaPercent, teaPercent, cftPercent, statedTotal, calculatedInstallmentsTotal, calculatedKnownTotal, financingCost, financingCostPercent, impliedMonthlyRatePercent: impliedMonthlyRate === null ? null : impliedMonthlyRate * 100, impliedTnaPercent: impliedTna, impliedTeaPercent: impliedTea, impliedVisibleCftPercent: impliedTea, scenarios, selectedScenarioReason, missingFields, warnings, evidence, calculationBasis, confidence };
+  return { currency, amortizationSystem, paymentPeriod, paymentTiming, cashPrice, principal: financedBase, downPayment, installment, months, tnaPercent, teaPercent, cftPercent, upfrontFeePercent, upfrontFeeAmount, netDisbursement, installmentEstimated, firstInstallment, lastInstallment, statedTotal, calculatedInstallmentsTotal, calculatedKnownTotal, financingCost, financingCostPercent, impliedMonthlyRatePercent: impliedMonthlyRate === null ? null : impliedMonthlyRate * 100, impliedTnaPercent: impliedTna, impliedTeaPercent: impliedTea, impliedVisibleCftPercent: impliedTea, scenarios, selectedScenarioReason, missingFields, warnings, evidence, calculationBasis, confidence };
 }

@@ -84,3 +84,39 @@ $130.381* $100.553+* $106.213+* $107.037*`;
   assert.match(result.selectedScenarioReason || '', /priorizó la instrucción.*36 meses/i);
   assert.match(result.calculationBasis.join(' '), /CFT visible estimado/i);
 });
+
+test('estima el costo ajustado cuando informan capital, TNA, plazo y comisión inicial', () => {
+  const result = extractLoanNumbers('Me quieren prestar 1.000.000 de dólares a 36 meses. Me dicen que la TNA es 30% pero me piden el 3% de comisión al inicio. ¿Cuánto sería la TNA real que pago en 36 meses?');
+  assert.equal(result.currency, 'USD');
+  assert.equal(result.principal, 1_000_000);
+  assert.equal(result.months, 36);
+  assert.equal(result.tnaPercent, 30);
+  assert.equal(result.upfrontFeePercent, 3);
+  assert.equal(result.upfrontFeeAmount, 30_000);
+  assert.equal(result.netDisbursement, 970_000);
+  assert.equal(result.installmentEstimated, true);
+  assert.equal(result.amortizationSystem, 'french');
+  assert.equal(result.paymentPeriod, 'monthly');
+  assert.equal(result.paymentTiming, 'arrears');
+  assert.ok(Math.abs((result.installment || 0) - 42_451.5767) < 0.01);
+  assert.ok(Math.abs((result.impliedTnaPercent || 0) - 32.3780) < 0.001);
+  assert.ok(Math.abs((result.impliedTeaPercent || 0) - 37.6425) < 0.001);
+  assert.equal(result.missingFields.length, 0);
+  assert.match(result.warnings.join(' '), /sistema francés/i);
+  assert.match(result.calculationBasis.join(' '), /desembolso neto económico/i);
+});
+
+test('respeta el sistema alemán pedido y calcula cuotas mensuales vencidas decrecientes', () => {
+  const result = extractLoanNumbers(
+    'Me quieren prestar 1.000.000 de dólares a 36 meses. La TNA es 30% y cobran 3% de comisión al inicio.',
+    'Calcular con sistema alemán.',
+  );
+  assert.equal(result.amortizationSystem, 'german');
+  assert.equal(result.paymentPeriod, 'monthly');
+  assert.equal(result.paymentTiming, 'arrears');
+  assert.ok(Math.abs((result.firstInstallment || 0) - 52_777.7778) < 0.01);
+  assert.ok(Math.abs((result.lastInstallment || 0) - 28_472.2222) < 0.01);
+  assert.ok(Math.abs((result.calculatedInstallmentsTotal || 0) - 1_462_500) < 0.01);
+  assert.ok((result.impliedTnaPercent || 0) > 32);
+  assert.match(result.warnings.join(' '), /sistema alemán.*cuotas.*decrecientes/i);
+});

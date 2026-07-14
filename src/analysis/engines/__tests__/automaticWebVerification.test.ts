@@ -235,3 +235,14 @@ test('local analysis exposes reproducible loan calculations and normalization pr
   const normalized = normalizeAI({ financialAnalysis: null }, fallback);
   assert.equal(normalized.financialAnalysis?.financingCost, 440_000);
 });
+
+test('local analysis solves a stated TNA plus upfront commission scenario', () => {
+  const text = 'Me quieren prestar 1.000.000 de dólares a 36 meses. Me dicen que la TNA es 30% pero me piden el 3% de comisión al inicio.';
+  const fallback = buildLocalAnalysis(text, 'Texto', '', null, '¿Cuánto sería la TNA real que pago en 36 meses?');
+  assert.equal(fallback.financialAnalysis?.installmentEstimated, true);
+  assert.equal(fallback.financialAnalysis?.missingFields.length, 0);
+  assert.equal(fallback.decisionAnswer?.status, 'answerable');
+  assert.match(fallback.decisionAnswer?.directAnswer || '', /TNA contractual sigue siendo 30,00%/i);
+  assert.match(fallback.decisionAnswer?.directAnswer || '', /TNA implícita ajustada.*32,38%/i);
+  assert.match(fallback.decisionAnswer?.directAnswer || '', /TEA implícita.*37,64%/i);
+});

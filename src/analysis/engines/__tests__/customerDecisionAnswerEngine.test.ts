@@ -31,3 +31,35 @@ test('no acusa estafa cuando no hay señales y explica qué falta verificar', ()
   assert.doesNotMatch(answer.directAnswer, /es una estafa/i);
   assert.ok(answer.nextActions.length > 0);
 });
+
+test('responde una consulta de TNA ajustada por comisión inicial sin pedir una cuota inexistente', () => {
+  const text = 'Me quieren prestar 1.000.000 de dólares a 36 meses. Me dicen que la TNA es 30% pero me piden el 3% de comisión al inicio.';
+  const instruction = '¿Cuánto sería la TNA real que pago en 36 meses?';
+  const financialAnalysis = extractLoanNumbers(text, instruction);
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text, userInstruction: instruction, financialAnalysis,
+    scamRiskAnalysis: analyzeScamRisk(text), argentinaLegalAnalysis: analyzeArgentinaLegal(text),
+  });
+  assert.equal(answer.kind, 'loan-cost');
+  assert.equal(answer.status, 'answerable');
+  assert.match(answer.title, /comisión eleva el costo real/i);
+  assert.match(answer.directAnswer, /TNA contractual sigue siendo 30,00%/i);
+  assert.match(answer.directAnswer, /sistema francés.*cuotas mensuales iguales y vencidas/i);
+  assert.match(answer.directAnswer, /desembolso neto de US\$\s*970\.000/i);
+  assert.match(answer.directAnswer, /TNA implícita ajustada.*32,38%/i);
+  assert.match(answer.directAnswer, /TEA implícita.*37,64%/i);
+  assert.match(answer.directAnswer, /No son un CFT oficial/i);
+});
+
+test('explica el sistema alemán cuando el usuario lo solicita', () => {
+  const text = 'Me prestan 1.000.000 de dólares a 36 meses con TNA 30% y 3% de comisión al inicio.';
+  const instruction = 'Calcular con sistema alemán.';
+  const financialAnalysis = extractLoanNumbers(text, instruction);
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text, userInstruction: instruction, financialAnalysis,
+    scamRiskAnalysis: analyzeScamRisk(text), argentinaLegalAnalysis: analyzeArgentinaLegal(text),
+  });
+  assert.equal(answer.status, 'answerable');
+  assert.match(answer.directAnswer, /sistema alemán.*cuotas mensuales vencidas y decrecientes/i);
+  assert.match(answer.findings.join(' '), /primera.*última/i);
+});
