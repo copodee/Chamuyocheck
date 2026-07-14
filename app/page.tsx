@@ -109,6 +109,15 @@ type Analysis = {
     conclusion: string;
   } | null;
   sourceUrl?: string | null;
+  decisionAnswer?: {
+    kind: 'loan-cost' | 'scam-prevention' | 'legal-document' | 'supported-review';
+    status: 'answerable' | 'partial' | 'needs-verification';
+    title: string;
+    directAnswer: string;
+    findings: string[];
+    nextActions: string[];
+    limitations: string[];
+  };
 };
 
 type InputMode = 'Texto' | 'PDF' | 'Imagen' | 'Web' | 'YouTube';
@@ -715,10 +724,10 @@ export default function Page() {
         <section className="heroGrid heroIntroGrid">
           <div className="panel heroIntroPanel">
             <div className="eyebrow">ANÁLISIS ESPECIALIZADO</div>
-            <h1>Créditos, estafas y derecho argentino</h1>
-            <p className="heroSubtitle">Entendé costos, detectá señales de engaño y revisá documentos antes de decidir.</p>
-            <p className="heroBody">ChamuyoCheck ofrece análisis especializado de finanzas, créditos, posibles estafas, ofertas engañosas, documentos legales y cuestiones de derecho argentino.</p>
-            <div className="heroCta">Pegá una consulta, un contrato o una oferta y recibí un análisis con alcance y evidencia claros.</div>
+            <h1>Antes de pagar, endeudarte o firmar</h1>
+            <p className="heroSubtitle">Descubrí cuánto terminás pagando, qué información falta y qué riesgos deberías verificar.</p>
+            <p className="heroBody">Subí una captura, una oferta, un enlace o un documento. ChamuyoCheck responde tu pregunta con cálculos reproducibles, señales observables y próximos pasos.</p>
+            <div className="heroCta">Preguntá: “¿Cuánto pago en total?”, “¿Me pueden estar estafando?” o “¿Qué obligación estoy aceptando?”.</div>
             <div className="heroHighlights">
               <div><strong>{localDoc.label}</strong><span>{localDoc.focus}</span></div>
               <div><strong>Modo</strong><span>{getInputDisplay(detected)}</span></div>
@@ -753,6 +762,14 @@ export default function Page() {
             <p className="legalDisclaimerSubtle">No se calculó ChamuyoScore ni se simuló una búsqueda externa. Esta limitación evita presentar como confiable un análisis para el que el producto todavía no tiene cobertura especializada.</p>
           </div>
         </section> : analysis && <section id="informe" className="analysisSection">
+        {analysis.decisionAnswer && <div className="panel legalResultPanel decisionAnswerPanel">
+          <div className="eyebrow">RESPUESTA A TU CONSULTA</div>
+          <h2>{analysis.decisionAnswer.title}</h2>
+          <p className="decisionDirectAnswer">{analysis.decisionAnswer.directAnswer}</p>
+          {analysis.decisionAnswer.findings.length > 0 && <><h3>Datos y hallazgos</h3><ul>{analysis.decisionAnswer.findings.map((item, index) => <li key={`decision-finding-${index}`}>{item}</li>)}</ul></>}
+          {analysis.decisionAnswer.nextActions.length > 0 && <><h3>Qué conviene hacer ahora</h3><ul>{analysis.decisionAnswer.nextActions.map((item, index) => <li key={`decision-action-${index}`}>{item}</li>)}</ul></>}
+          {analysis.decisionAnswer.limitations.length > 0 && <details><summary>Supuestos y datos que todavía deben verificarse</summary><ul>{analysis.decisionAnswer.limitations.map((item, index) => <li key={`decision-limit-${index}`}>{item}</li>)}</ul></details>}
+        </div>}
         <div className="heroGrid">
           <div className="panel scoreCard">
             <div className="scoreWrap">

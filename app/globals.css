@@ -420,3 +420,6 @@ textarea{min-height:210px;resize:vertical;font-family:ui-monospace,SFMono-Regula
 }
 @media(max-width:1180px){.statsGrid{grid-template-columns:1fr 1fr}}
 @media(max-width:720px){.statsGrid,.loginOptions{grid-template-columns:1fr}}
+.decisionAnswerPanel{margin-bottom:24px;border-color:rgba(32,226,173,.42);background:linear-gradient(135deg,rgba(32,226,173,.09),rgba(124,58,237,.08)),#101827}
+.decisionAnswerPanel h2{max-width:900px;margin-top:10px}
+.decisionDirectAnswer{font-size:1.25rem;line-height:1.65;max-width:1000px;color:#f5f3ff}

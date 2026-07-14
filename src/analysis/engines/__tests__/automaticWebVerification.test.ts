@@ -206,7 +206,10 @@ test('OCR with several loan alternatives follows the user instruction', async ()
   assert.equal(body.financialAnalysis?.scenarios.length, 4);
   assert.ok(body.financialAnalysis?.impliedTnaPercent > 0);
   assert.ok(body.financialAnalysis?.impliedVisibleCftPercent > 0);
-  assert.ok(body.score < 80, 'a calculable bank simulator must not be labeled extreme chamuyo');
+  assert.ok(body.score < 60, 'a calculable bank simulator must be presented as a calculation, not as extreme chamuyo');
+  assert.equal(body.decisionAnswer?.kind, 'loan-cost');
+  assert.equal(body.decisionAnswer?.status, 'answerable');
+  assert.match(body.decisionAnswer?.directAnswer || '', /36 cuotas sumarían.*TNA implícita.*CFT oficial no puede conocerse/is);
   assert.match(body.summary, /36.*106\.213.*TNA estimada.*CFT visible estimado/is);
 });
 

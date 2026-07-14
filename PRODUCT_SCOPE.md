@@ -18,6 +18,16 @@ Si la consulta está fuera del alcance:
 - no se calcula ni se muestra ChamuyoScore;
 - se informa el motivo y las tres áreas disponibles.
 
+## Respuesta orientada a la decisión
+
+Dentro del alcance, la instrucción del usuario define el resultado principal. El informe responde primero qué necesita decidir la persona y después presenta indicadores secundarios.
+
+- En créditos: total de cuotas, diferencia contra el capital, tasa implícita y costos que faltan confirmar.
+- En posibles estafas: señales observables, identidad pendiente y acciones antes de pagar o compartir datos.
+- En documentos legales: obligaciones, plazos, penalidades, hechos faltantes y fuentes normativas pertinentes.
+
+La ausencia de CFT, fuentes o cláusulas no convierte automáticamente el contenido en “chamuyo extremo”. Se informa como dato omitido, cálculo parcial o verificación pendiente.
+
 ## Integridad académica y uso de IA
 
 La detección concluyente de autoría por IA no forma parte de las especialidades activas. Un texto, por sí solo, no permite probar quién lo escribió. Esta exclusión evita acusaciones académicas sin evidencia suficiente.

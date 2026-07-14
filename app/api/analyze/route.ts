@@ -28,6 +28,7 @@ import { analyzeCommercialCourse } from '../../../src/lib/scams/commercialCourse
 import { analyzeArgentinaLegal } from '../../../src/lib/legal/argentinaLegalAnalysis';
 import { resolveUrlInput } from '../../../src/lib/extractors/inputUrl';
 import { describeFinancialUrl } from '../../../src/lib/finance/financialUrlContext';
+import { buildCustomerDecisionAnswer } from '../../../src/analysis/engines/customerDecisionAnswerEngine';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -550,6 +551,14 @@ export function buildLocalAnalysis(
     finalScore = Math.max(finalScore, scamRiskAnalysis.score);
   }
 
+  // Un flujo financiero calculable no es, por sí mismo, "chamuyo". La falta
+  // de CFT o de cargos se presenta como una limitación, no como una acusación.
+  if (financial && scamRiskAnalysis.score < 20) {
+    finalScore = financialDataComplete
+      ? (financialAnalysis?.warnings.length ? 35 : 20)
+      : Math.min(finalScore, 50);
+  }
+
   const applicableCategoryLabels = new Set(
     weightedResult.applicableDimensions.map((dimension) => dimension.label)
   );
@@ -599,6 +608,13 @@ export function buildLocalAnalysis(
     externalVerificationRequired: claimFirstResult.documentExternalVerificationPlan.externalVerificationRequired,
     externalVerificationPerformed: false,
   });
+  const decisionAnswer = buildCustomerDecisionAnswer({
+    documentText: text,
+    userInstruction,
+    financialAnalysis,
+    scamRiskAnalysis,
+    argentinaLegalAnalysis,
+  });
 
   return {
     documentIcon: domain.icon,
@@ -614,6 +630,7 @@ export function buildLocalAnalysis(
     detectedInput: inputKind,
     userInstruction: userInstruction || null,
     instructionApplied: userInstruction.length > 0,
+    decisionAnswer,
     analysisFocus,
     clarification,
     centralQuestion: scamRiskAnalysis.signals.length
@@ -734,6 +751,7 @@ export function normalizeAI(raw: any, fallback: ReturnType<typeof buildLocalAnal
     analysisFocus: fallback.analysisFocus,
     clarification: fallback.clarification,
     externalVerification: fallback.externalVerification,
+    decisionAnswer: fallback.decisionAnswer,
   };
   const protectedPresentation = buildLegalResultPresentation({
     score: normalized.score,
