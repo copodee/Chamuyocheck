@@ -2128,6 +2128,7 @@ Los organismos y bases sectoriales incorporados al catálogo son objetivos de en
 ## V21 Investment Intelligence - estadísticas agrícolas oficiales
 
 - La ruta `official-agricultural-statistics` consulta el catálogo oficial de Datos Argentina y el CSV vigente de Estimaciones Agrícolas de la Secretaría de Agricultura.
+- La ruta `official-livestock-data` consulta el catálogo oficial de la Secretaría de Agricultura y el CSV abierto de existencias bovinas de SENASA. Como ese archivo geográfico llega a 2019, el registro expone explícitamente el último año disponible y solo se usa como antecedente histórico por provincia/departamento; nunca se presenta como precio actual, aptitud del campo o rentabilidad.
 - El conector filtra cultivo y provincia, toma la última campaña disponible y agrega superficie sembrada/cosechada, producción, rendimiento y principales departamentos observados.
 - El archivo oficial se valida por host, tiene límite de tamaño y tiempo, y se conserva en caché durante 24 horas para evitar descargas repetidas o análisis bloqueados.
 - Producción y rendimiento históricos son contexto, no una recomendación: sin precios, costos, clima, aptitud del campo, logística y flujo de fondos, la verificación queda parcial y `externalVerificationPerformed=false`.

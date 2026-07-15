@@ -31,6 +31,7 @@ test('catalog distinguishes implemented investment connectors from remaining pla
   ]);
   assert.deepEqual(availability.map((item) => item.status), ['planned', 'implemented', 'planned', 'implemented']);
   assert.ok(providersForSourceTypes(['official-agricultural-statistics']).some((provider) => provider.id === 'argentina-agriculture' && provider.status === 'implemented'));
+  assert.ok(providersForSourceTypes(['official-livestock-data']).some((provider) => provider.id === 'senasa' && provider.status === 'implemented'));
   assert.ok(providersForSourceTypes(['official-agricultural-statistics']).some((provider) => provider.id === 'inta'));
   assert.ok(providersForSourceTypes(['international-trade-data']).some((provider) => provider.id === 'un-comtrade' && provider.status === 'implemented'));
   assert.ok(providersForSourceTypes(['international-trade-data']).some((provider) => provider.id === 'itc-trade-map' && provider.status === 'planned'));
