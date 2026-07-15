@@ -29,6 +29,29 @@ test('rutea inversiones agropecuarias a estadísticas y mercados sectoriales', (
   assert.ok(result.riskFlags.some((flag) => /proyección/i.test(flag)));
 });
 
+test('calcula producción, margen y retorno de un escenario agrícola sin presentarlo como dato observado', () => {
+  const result = analyzeInvestmentProject(
+    'Proyecto de soja en 600 hectáreas. Inversión inicial USD 500.000, rinde 3,5 toneladas por hectárea, precio por tonelada USD 400 y costo por hectárea USD 900.',
+    'Calcular producción, ingresos, costos, margen y retorno anual.'
+  );
+  assert.equal(result.sector, 'agriculture');
+  assert.equal(result.product, 'soja');
+  assert.equal(result.inputs.hectares, 600);
+  assert.equal(result.inputs.yieldTonsPerHectare, 3.5);
+  assert.equal(result.metrics.projectedProductionTons, 2100);
+  assert.equal(result.inputs.projectedAnnualRevenue, 840000);
+  assert.equal(result.inputs.projectedAnnualCosts, 540000);
+  assert.equal(result.metrics.projectedOperatingMargin, 300000);
+  assert.equal(result.metrics.projectedReturnOnInvestmentPercent, 60);
+  assert.ok(result.assumptions.some((item) => /escenario aritmético/i.test(item)));
+});
+
+test('normaliza rindes informados en kilogramos por hectárea', () => {
+  const result = analyzeInvestmentProject('Campo de trigo de 100 hectáreas con rinde de 4.500 kg por ha.', 'Analizar la inversión agrícola.');
+  assert.equal(result.inputs.yieldTonsPerHectare, 4.5);
+  assert.equal(result.metrics.projectedProductionTons, 450);
+});
+
 test('prioriza exportaciones cuando la propuesta depende de demanda internacional', () => {
   const result = analyzeInvestmentProject(
     'Proyecto para exportar vino y uva argentina a mercados internacionales con demanda mundial creciente.',
@@ -37,6 +60,7 @@ test('prioriza exportaciones cuando la propuesta depende de demanda internaciona
   assert.equal(result.sector, 'exports');
   assert.ok(result.sourceRequirements.some((source) => source.sourceType === 'official-trade-statistics'));
   assert.ok(result.sourceRequirements.some((source) => source.sourceType === 'international-trade-data'));
+  assert.ok(result.missingInputs.some((item) => /mercado de destino/i.test(item)));
 });
 
 test('marca promesas de rendimiento garantizado como riesgo, no como inversión buena', () => {

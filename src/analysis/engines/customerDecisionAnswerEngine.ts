@@ -83,6 +83,7 @@ function buildInvestmentAnswer(analysis: InvestmentProjectAnalysis): CustomerDec
   const findings = [
     `Sector detectado: ${analysis.sectorLabel}.`,
     analysis.location ? `Ubicación detectada: ${analysis.location}.` : '',
+    analysis.product ? `Producto detectado: ${analysis.product}.` : '',
     inputs.purchasePrice !== null ? `Precio de compra informado: ${money(inputs.purchasePrice, analysis.currency)}.` : '',
     inputs.squareMeters !== null ? `Superficie informada: ${inputs.squareMeters.toLocaleString('es-AR')} m².` : '',
     metrics.pricePerSquareMeter !== null ? `Precio calculado por m²: ${money(metrics.pricePerSquareMeter, analysis.currency)}.` : '',
@@ -90,6 +91,13 @@ function buildInvestmentAnswer(analysis: InvestmentProjectAnalysis): CustomerDec
     metrics.grossAnnualYieldPercent !== null ? `Rendimiento bruto anual preliminar: ${percent(metrics.grossAnnualYieldPercent)}.` : '',
     metrics.netAnnualYieldPercent !== null ? `Rendimiento neto anual preliminar bajo los supuestos visibles: ${percent(metrics.netAnnualYieldPercent)}.` : '',
     metrics.simplePaybackYears !== null ? `Recupero simple preliminar: ${metrics.simplePaybackYears.toLocaleString('es-AR', { maximumFractionDigits: 1 })} años.` : '',
+    inputs.hectares !== null ? `Superficie productiva informada: ${inputs.hectares.toLocaleString('es-AR')} hectáreas.` : '',
+    inputs.yieldTonsPerHectare !== null ? `Rinde informado: ${inputs.yieldTonsPerHectare.toLocaleString('es-AR')} toneladas por hectárea.` : '',
+    metrics.projectedProductionTons !== null ? `Producción proyectada por cálculo: ${metrics.projectedProductionTons.toLocaleString('es-AR')} toneladas.` : '',
+    inputs.projectedAnnualRevenue !== null ? `Ingresos anuales proyectados: ${money(inputs.projectedAnnualRevenue, analysis.currency)}.` : '',
+    inputs.projectedAnnualCosts !== null ? `Costos anuales proyectados: ${money(inputs.projectedAnnualCosts, analysis.currency)}.` : '',
+    metrics.projectedOperatingMargin !== null ? `Margen operativo proyectado: ${money(metrics.projectedOperatingMargin, analysis.currency)} (${percent(metrics.projectedOperatingMarginPercent || 0)} sobre ingresos).` : '',
+    metrics.projectedReturnOnInvestmentPercent !== null ? `Retorno anual preliminar sobre la inversión informada: ${percent(metrics.projectedReturnOnInvestmentPercent)}.` : '',
     ...analysis.assumptions,
     ...analysis.riskFlags,
   ].filter(Boolean);
@@ -111,6 +119,7 @@ function buildInvestmentAnswer(analysis: InvestmentProjectAnalysis): CustomerDec
       'Construir escenarios base, adverso y favorable; no usar una sola proyección de ventas, precio o alquiler.',
       analysis.sector === 'real-estate' ? 'Comparar inmuebles realmente equivalentes por localidad, barrio, tipología, estado, superficie y fecha; medir además oferta, días publicados y vacancia.' : '',
       analysis.sector === 'exports' ? 'Validar demanda por posición arancelaria, destino, volumen, precio, barreras sanitarias, logística, tipo de cambio y concentración de compradores.' : '',
+      ['agriculture', 'livestock', 'food-wine'].includes(analysis.sector || '') ? 'Usar campaña y región comparables; incorporar clima, escenario de rinde adverso, mermas, sanidad, logística, impuestos y capital de trabajo.' : '',
     ].filter(Boolean),
     limitations: analysis.missingInputs.map((item) => `Falta informar o verificar: ${item}.`),
   };

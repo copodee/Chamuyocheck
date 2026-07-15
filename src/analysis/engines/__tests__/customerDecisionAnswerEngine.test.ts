@@ -105,3 +105,22 @@ test('una oportunidad exportadora exige demanda, destinos, competidores y barrer
   assert.match(answer.nextActions.join(' '), /posición arancelaria.*destino.*barreras sanitarias/i);
   assert.match(answer.directAnswer, /no debe tratarse como una inversión recomendable/i);
 });
+
+test('expone producción, margen y retorno de un proyecto agrícola con sus límites', () => {
+  const text = 'Proyecto de soja en 600 hectáreas. Inversión inicial USD 500.000, rinde 3,5 toneladas por hectárea, precio por tonelada USD 400 y costo por hectárea USD 900.';
+  const instruction = 'Calcular producción, ingresos, costos, margen y retorno anual.';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text,
+    userInstruction: instruction,
+    financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(text),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(text),
+    investmentProjectAnalysis: analyzeInvestmentProject(text, instruction),
+  });
+  assert.equal(answer.kind, 'investment-project');
+  assert.match(answer.findings.join(' '), /Producto detectado: soja/i);
+  assert.match(answer.findings.join(' '), /Producción proyectada.*2\.100 toneladas/i);
+  assert.match(answer.findings.join(' '), /Margen operativo proyectado.*US\$\s*300\.000.*35,71%/i);
+  assert.match(answer.findings.join(' '), /Retorno anual preliminar.*60,00%/i);
+  assert.match(answer.nextActions.join(' '), /campaña y región.*clima.*rinde adverso/i);
+});

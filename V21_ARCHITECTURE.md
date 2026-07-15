@@ -2140,3 +2140,12 @@ Los organismos y bases sectoriales incorporados al catálogo son objetivos de en
 3. Series agropecuarias, ganaderas y regionales por producto y zona.
 4. Matriz exportadora por producto, destino, demanda, competencia y barreras.
 5. Escenarios base, adverso y favorable; sensibilidad y decisión explicada.
+
+## V21 Investment Intelligence - motor económico transversal
+
+- El análisis interno reconoce producto, superficie, rinde, precio unitario, costo por hectárea, ingresos, costos y capital de trabajo aportados por el usuario o extraídos del documento.
+- Cuando el flujo alcanza, calcula producción, ingreso anual, costo anual, margen operativo y retorno preliminar. Los resultados se identifican como escenarios aritméticos y no como datos observados ni recomendaciones.
+- En agricultura, ganadería y economías regionales el resultado exige campaña y región comparables, además de clima, pérdidas, sanidad, logística, impuestos y capital de trabajo.
+- En exportaciones se exige mercado de destino y comprador objetivo, además de producto, volumen, precio, barreras y costos.
+- En inmuebles no se afirma que una zona tenga potencial ni que una unidad sea fácil de alquilar sin comparables fechados de la localidad, barrio y tipología, junto con oferta, días publicados y vacancia.
+- La ausencia de datos esenciales produce un resultado parcial. Una rentabilidad extraordinaria o una proyección sin costos completos activa verificación reforzada.

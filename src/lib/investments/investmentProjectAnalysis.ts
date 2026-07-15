@@ -25,6 +25,7 @@ export type InvestmentProjectAnalysis = {
   secondarySectors: InvestmentSector[];
   confidence: number;
   location: string | null;
+  product: string | null;
   currency: 'ARS' | 'USD';
   inputs: {
     initialInvestment: number | null;
@@ -34,6 +35,13 @@ export type InvestmentProjectAnalysis = {
     monthlyRevenue: number | null;
     monthlyOperatingCosts: number | null;
     vacancyPercent: number | null;
+    hectares: number | null;
+    yieldTonsPerHectare: number | null;
+    unitPrice: number | null;
+    operatingCostPerHectare: number | null;
+    projectedAnnualRevenue: number | null;
+    projectedAnnualCosts: number | null;
+    workingCapital: number | null;
   };
   metrics: {
     pricePerSquareMeter: number | null;
@@ -42,6 +50,10 @@ export type InvestmentProjectAnalysis = {
     grossAnnualYieldPercent: number | null;
     netAnnualYieldPercent: number | null;
     simplePaybackYears: number | null;
+    projectedProductionTons: number | null;
+    projectedOperatingMargin: number | null;
+    projectedOperatingMarginPercent: number | null;
+    projectedReturnOnInvestmentPercent: number | null;
   };
   assumptions: string[];
   missingInputs: string[];
@@ -70,6 +82,26 @@ function amountAfter(text: string, labels: string[]): number | null {
 function detectLocation(text: string): string | null {
   const match = text.match(/\b(?:en|ubicad[oa]\s+en|localidad\s+de|zona\s+de)\s+([A-ZÁÉÍÓÚÑ][\p{L} .'-]{2,50})(?=[,.;\n]|\s+(?:por|con|a\s+un|y\s+un|para)\b)/iu);
   return match?.[1]?.trim() || null;
+}
+
+function detectProduct(text: string): string | null {
+  const products: Array<[string, RegExp]> = [
+    ['yerba mate', /\byerba(?:\s+mate)?\b/i],
+    ['aceitunas y aceite de oliva', /aceitun|aceite\s+de\s+oliva|oliv[ií]col/i],
+    ['uva y vino', /\buva\b|vino|vitivin[ií]col|bodega/i],
+    ['soja', /\bsoja\b/i], ['maíz', /\bma[ií]z\b/i], ['trigo', /\btrigo\b/i],
+    ['frutas', /frut|manzana|pera|lim[oó]n|naranja|ar[aá]ndano|cereza/i],
+    ['carne bovina', /carne\s+bovina|novillo|bovin|hacienda|feedlot/i],
+    ['leche', /\bleche\b|tambo|lecher/i],
+  ];
+  return products.find(([, pattern]) => pattern.test(text))?.[0] || null;
+}
+
+function normalizedYield(text: string): number | null {
+  const match = text.match(new RegExp(`(${numberToken})\\s*(t|toneladas?|kg|kilogramos?)\\s*(?:por|/)\\s*(?:ha|hect[aá]rea)`, 'i'));
+  const value = parseNumber(match?.[1]);
+  if (value === null) return null;
+  return /^(?:kg|kilogramos?)$/i.test(match?.[2] || '') ? value / 1000 : value;
 }
 
 const sectorRules: Array<{ sector: InvestmentSector; label: string; patterns: RegExp[] }> = [
@@ -140,6 +172,18 @@ export function analyzeInvestmentProject(documentText: string, userInstruction =
   const monthlyRevenue = amountAfter(text, ['ingresos? mensuales?', 'ventas mensuales?', 'facturaci[oó]n mensual', 'cobro mensual']) ?? monthlyRent;
   const monthlyOperatingCosts = amountAfter(text, ['costos? mensuales?', 'gastos? mensuales?', 'expensas', 'costo operativo mensual']);
   const vacancyPercent = parseNumber(text.match(/(?:vacancia|desocupaci[oó]n)\s*(?:de|:|=)?\s*(\d+(?:[.,]\d+)?)\s*%/i)?.[1]);
+  const hectares = parseNumber(text.match(new RegExp(`(${numberToken})\\s*(?:ha|hect[aá]reas?)`, 'i'))?.[1]);
+  const yieldTonsPerHectare = normalizedYield(text);
+  const unitPrice = amountAfter(text, ['precio por tonelada', 'precio por tn', 'valor por tonelada', 'precio unitario']);
+  const operatingCostPerHectare = amountAfter(text, ['costo por hect[aá]rea', 'costo por ha', 'gasto por hect[aá]rea']);
+  const explicitAnnualRevenue = amountAfter(text, ['ingresos? anuales?', 'ventas anuales?', 'facturaci[oó]n anual', 'exportaciones? anuales?']);
+  const explicitAnnualCosts = amountAfter(text, ['costos? anuales?', 'gastos? anuales?', 'costo operativo anual']);
+  const workingCapital = amountAfter(text, ['capital de trabajo', 'capital operativo']);
+  const projectedProductionTons = hectares !== null && yieldTonsPerHectare !== null ? hectares * yieldTonsPerHectare : null;
+  const projectedAnnualRevenue = explicitAnnualRevenue ?? (projectedProductionTons !== null && unitPrice !== null ? projectedProductionTons * unitPrice : null);
+  const projectedAnnualCosts = explicitAnnualCosts ?? (hectares !== null && operatingCostPerHectare !== null ? hectares * operatingCostPerHectare : null);
+  const projectedOperatingMargin = projectedAnnualRevenue !== null && projectedAnnualCosts !== null ? projectedAnnualRevenue - projectedAnnualCosts : null;
+  const projectedOperatingMarginPercent = projectedOperatingMargin !== null && projectedAnnualRevenue && projectedAnnualRevenue > 0 ? projectedOperatingMargin / projectedAnnualRevenue * 100 : null;
   const capital = initialInvestment ?? purchasePrice;
   const annualGrossIncome = monthlyRevenue !== null ? monthlyRevenue * 12 : null;
   const annualNetIncome = monthlyRevenue !== null
@@ -149,22 +193,32 @@ export function analyzeInvestmentProject(documentText: string, userInstruction =
   const netAnnualYieldPercent = capital && annualNetIncome !== null ? annualNetIncome / capital * 100 : null;
   const simplePaybackYears = capital && annualNetIncome && annualNetIncome > 0 ? capital / annualNetIncome : null;
   const pricePerSquareMeter = purchasePrice && squareMeters ? purchasePrice / squareMeters : null;
+  const projectedReturnOnInvestmentPercent = capital && projectedOperatingMargin !== null ? projectedOperatingMargin / capital * 100 : null;
   const assumptions: string[] = [];
   if (monthlyRevenue !== null && vacancyPercent === null) assumptions.push('No se informó vacancia; el rendimiento neto preliminar supone ocupación completa.');
   if (monthlyRevenue !== null && monthlyOperatingCosts === null) assumptions.push('No se informaron gastos operativos, impuestos, mantenimiento ni comisiones; el neto preliminar los toma como cero.');
   if (sector === 'real-estate') assumptions.push('La facilidad de alquiler no se infiere del precio: requiere demanda, oferta, días publicados y vacancia de la localidad y tipología.');
+  if (['agriculture', 'livestock', 'food-wine'].includes(sector || '') && projectedOperatingMargin !== null) assumptions.push('El margen es un escenario aritmético con los datos aportados: debe ajustarse por campaña, región, clima, pérdidas, sanidad, logística, impuestos y capital de trabajo.');
+  const monthlyBusinessSector = ['real-estate', 'retail-commerce', 'transport-logistics', 'services'].includes(sector || '');
   const missingInputs = [
     capital === null ? 'inversión inicial o precio de compra' : '',
-    monthlyRevenue === null ? 'ingreso o alquiler esperado y su periodicidad' : '',
-    monthlyOperatingCosts === null ? 'gastos operativos, impuestos, mantenimiento y comisiones' : '',
+    monthlyBusinessSector && monthlyRevenue === null ? 'ingreso o alquiler esperado y su periodicidad' : '',
+    monthlyBusinessSector && monthlyOperatingCosts === null ? 'gastos operativos, impuestos, mantenimiento y comisiones' : '',
     sector === 'real-estate' && squareMeters === null ? 'superficie cubierta y total' : '',
     sector === 'real-estate' && !detectLocation(text) ? 'localidad, barrio o zona exacta' : '',
     sector === 'real-estate' && vacancyPercent === null ? 'vacancia u ocupación esperada' : '',
+    ['agriculture', 'livestock', 'food-wine'].includes(sector || '') && hectares === null ? 'superficie productiva en hectáreas' : '',
+    sector === 'agriculture' && yieldTonsPerHectare === null ? 'rinde esperado por hectárea y campaña' : '',
+    ['agriculture', 'livestock', 'food-wine'].includes(sector || '') && projectedAnnualRevenue === null ? 'volumen y precio de venta, o ingresos anuales proyectados' : '',
+    ['agriculture', 'livestock', 'food-wine'].includes(sector || '') && projectedAnnualCosts === null ? 'costos operativos anuales completos' : '',
+    sector === 'exports' && !/(destino\s+(?:de|es|:)|pa[ií]s\s+(?:de|destino|objetivo|comprador)|comprador\s+(?:de|objetivo|identificado)|cliente\s+(?:en|del?\s+exterior|internacional))/i.test(text) ? 'mercado de destino y comprador objetivo' : '',
   ].filter(Boolean);
   const riskFlags: string[] = [];
   if (/rentabilidad|retorno|ganancia|resultado/.test(text.toLowerCase()) && /garantizad|asegurad|sin\s+riesgo/i.test(text)) riskFlags.push('Se promete rentabilidad garantizada o sin riesgo; una inversión real debe declarar escenarios adversos.');
   if ((netAnnualYieldPercent || grossAnnualYieldPercent || 0) > 100) riskFlags.push('El rendimiento anual implícito supera el capital invertido y exige evidencia extraordinaria del precio, volumen, costos y continuidad de la demanda.');
   if (/proyecci[oó]n|proyectad[oa]s?|crecer[aá]|aumentar[aá]|demanda/i.test(text) && !/(fuente|indec|bcra|inta|senasa|metodolog|serie|escenario)/i.test(text)) riskFlags.push('La proyección de demanda o crecimiento no identifica fuente, serie, fecha ni metodología.');
+  if (projectedAnnualRevenue !== null && projectedAnnualCosts === null) riskFlags.push('Se proyectan ingresos sin un costo anual completo; el retorno no puede considerarse neto.');
+  if ((projectedOperatingMarginPercent || 0) > 70) riskFlags.push('El margen operativo supera el 70% y exige revisar costos omitidos, mermas, impuestos, logística y capital de trabajo.');
   const sourceRequirements = sector ? [...commonSources, ...(sectorSources[sector] || [])] : [];
   const conclusion = !applicable
     ? 'No se detectó un proyecto de inversión.'
@@ -181,9 +235,10 @@ export function analyzeInvestmentProject(documentText: string, userInstruction =
     secondarySectors: ranked.slice(1).map((item) => item.sector),
     confidence: !applicable ? 0 : Math.min(0.98, 0.68 + (ranked[0]?.score || 1) * 0.1),
     location: detectLocation(text),
+    product: detectProduct(text),
     currency,
-    inputs: { initialInvestment, purchasePrice, squareMeters, monthlyRent, monthlyRevenue, monthlyOperatingCosts, vacancyPercent },
-    metrics: { pricePerSquareMeter, annualGrossIncome, annualNetIncome, grossAnnualYieldPercent, netAnnualYieldPercent, simplePaybackYears },
+    inputs: { initialInvestment, purchasePrice, squareMeters, monthlyRent, monthlyRevenue, monthlyOperatingCosts, vacancyPercent, hectares, yieldTonsPerHectare, unitPrice, operatingCostPerHectare, projectedAnnualRevenue, projectedAnnualCosts, workingCapital },
+    metrics: { pricePerSquareMeter, annualGrossIncome, annualNetIncome, grossAnnualYieldPercent, netAnnualYieldPercent, simplePaybackYears, projectedProductionTons, projectedOperatingMargin, projectedOperatingMarginPercent, projectedReturnOnInvestmentPercent },
     assumptions,
     missingInputs,
     riskFlags,
