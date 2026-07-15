@@ -29,3 +29,23 @@ test('hybrid flow uses paid search only when explicitly enabled', async () => {
   assert.equal(result.paidSearchUsed, true);
   assert.equal(result.execution.externalVerificationPerformed, false);
 });
+
+test('hybrid flow automatically collects official export history but does not recommend an investment from one source', async () => {
+  const text = 'Quiero invertir para exportar soja argentina y evaluar la demanda internacional.';
+  const plan = runClaimFirstPipeline(text).documentExternalVerificationPlan;
+  assert.ok(plan.suggestedSourceTypes.includes('international-trade-data'));
+  const fetchImpl = async (input: string | URL | Request): Promise<Response> => {
+    const year = Number(new URL(String(input)).searchParams.get('period'));
+    return new Response(JSON.stringify({ data: [{ period: year, primaryValue: 5_000_000 }] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  const result = await runHybridExternalVerification(client, text, plan, [], fetchImpl, false);
+  assert.equal(result.attempted, true);
+  assert.equal(result.route, 'inconclusive');
+  assert.equal(result.execution.status, 'partial');
+  assert.equal(result.execution.externalVerificationPerformed, false);
+  assert.equal(result.execution.records[0]?.sourceType, 'international-trade-data');
+  assert.match(result.rationale, /faltan precios, costos, destinos/i);
+});

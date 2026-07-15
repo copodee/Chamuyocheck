@@ -35,7 +35,8 @@ export const EXTERNAL_VERIFICATION_SOURCE_CATALOG: ExternalVerificationProvider[
   { id: 'sio-markets', name: 'SIO-Granos y SIO-Carnes', sourceTypes: ['commodity-market-data', 'official-livestock-data'], domains: ['economics', 'finance'], status: 'planned' },
   { id: 'regional-economies', name: 'INV, INYM y organismos de economías regionales', sourceTypes: ['official-regional-economy-data'], domains: ['economics', 'public-policy'], status: 'planned' },
   { id: 'argentina-customs', name: 'ARCA - Aduana', sourceTypes: ['customs-data', 'official-trade-statistics'], domains: ['economics', 'legal'], status: 'planned' },
-  { id: 'international-trade', name: 'UN Comtrade e ITC Trade Map', sourceTypes: ['international-trade-data'], domains: ['economics', 'public-policy'], status: 'planned' },
+  { id: 'un-comtrade', name: 'UN Comtrade', sourceTypes: ['international-trade-data'], domains: ['economics', 'public-policy'], status: 'implemented' },
+  { id: 'itc-trade-map', name: 'ITC Trade Map', sourceTypes: ['international-trade-data'], domains: ['economics', 'public-policy'], status: 'planned' },
   { id: 'real-estate-local', name: 'Catastros, municipios, registros y colegios profesionales provinciales', sourceTypes: ['official-real-estate-data'], domains: ['economics', 'legal'], status: 'planned' },
   { id: 'real-estate-comparables', name: 'Comparables inmobiliarios fechados y normalizados', sourceTypes: ['property-market-comparables'], domains: ['economics', 'finance'], status: 'planned' },
 ];

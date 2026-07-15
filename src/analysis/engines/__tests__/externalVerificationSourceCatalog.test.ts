@@ -29,7 +29,8 @@ test('catalog registers investment-sector sources as planned rather than pretend
   const availability = sourceAvailabilityForTypes([
     'official-real-estate-data', 'official-agricultural-statistics', 'official-trade-statistics', 'international-trade-data',
   ]);
-  assert.ok(availability.every((item) => item.status === 'planned'));
+  assert.deepEqual(availability.map((item) => item.status), ['planned', 'planned', 'planned', 'implemented']);
   assert.ok(providersForSourceTypes(['official-agricultural-statistics']).some((provider) => provider.id === 'inta'));
-  assert.ok(providersForSourceTypes(['international-trade-data']).some((provider) => provider.id === 'international-trade'));
+  assert.ok(providersForSourceTypes(['international-trade-data']).some((provider) => provider.id === 'un-comtrade' && provider.status === 'implemented'));
+  assert.ok(providersForSourceTypes(['international-trade-data']).some((provider) => provider.id === 'itc-trade-map' && provider.status === 'planned'));
 });

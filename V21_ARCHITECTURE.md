@@ -2101,6 +2101,15 @@ app/
 
 ---
 
+## V21 Investment Intelligence - comercio exterior gratuito
+
+- UN Comtrade se consulta por API pública para recuperar exportaciones argentinas observadas, por producto HS y año.
+- El conector admite soja, maíz, trigo, aceitunas, aceite de oliva, uvas, vinos, yerba mate, frutas y carne bovina.
+- La serie histórica se usa como antecedente verificable. No se interpreta por sí sola como demanda futura ni como recomendación de inversión.
+- Una oportunidad exportadora sólo puede calificarse de manera concluyente cuando además existen precios, costos, destinos, competidores, barreras y demanda importadora suficientes.
+
+---
+
 ## V21 Investment Intelligence - primera fase segura
 
 ### Alcance implementado
