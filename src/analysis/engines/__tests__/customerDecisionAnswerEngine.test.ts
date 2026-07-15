@@ -16,8 +16,12 @@ test('responde primero cuánto se paga y estima tasas para el plazo pedido', () 
   assert.equal(answer.kind, 'loan-cost');
   assert.equal(answer.status, 'answerable');
   assert.match(answer.directAnswer, /36 cuotas sumarían/i);
+  assert.match(answer.directAnswer, /sistema francés.*cuotas mensuales iguales y vencidas/i);
   assert.match(answer.directAnswer, /TNA implícita estimada/i);
   assert.match(answer.directAnswer, /CFT oficial no puede conocerse/i);
+  assert.match(answer.findings.join(' '), /Modelo de cálculo: sistema francés.*periodicidad mensual.*pagos vencidos/i);
+  assert.match(answer.findings.join(' '), /supuesto necesario.*confirmarse en el contrato/i);
+  assert.match(answer.findings.join(' '), /priorizó la instrucción.*36 meses/i);
   assert.match(answer.nextActions.join(' '), /CFT contractual/i);
 });
 
