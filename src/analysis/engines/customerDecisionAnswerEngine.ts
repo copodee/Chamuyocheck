@@ -23,10 +23,11 @@ type DecisionAnswerInput = {
 const money = (value: number, currency: 'ARS' | 'USD' = 'ARS') => value.toLocaleString('es-AR', { style: 'currency', currency, maximumFractionDigits: 2 });
 const percent = (value: number) => `${value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 
-function buildLoanAnswer(financial: LoanNumbers): CustomerDecisionAnswer {
+function buildLoanAnswer(financial: LoanNumbers, question: string): CustomerDecisionAnswer {
   const hasFlow = financial.principal !== null && financial.installment !== null && financial.months !== null;
   const hasImplicitRate = financial.impliedTnaPercent !== null && financial.impliedTeaPercent !== null;
   const modeledFromRate = financial.installmentEstimated && financial.tnaPercent !== null;
+  const asksInflationComparison = /\b(?:inflaci[oó]n|ipc|indec|rem|bcra|poder\s+adquisitivo|tasa\s+real)\b/i.test(question);
   const hasUpfrontFee = financial.upfrontFeePercent !== null && financial.upfrontFeeAmount !== null;
   const systemExplanation = financial.amortizationSystem === 'german'
     ? `Se aplicó sistema alemán: amortización de capital constante, cuotas mensuales vencidas y decrecientes, desde ${money(financial.firstInstallment || 0, financial.currency)} hasta ${money(financial.lastInstallment || 0, financial.currency)}.`
@@ -34,13 +35,17 @@ function buildLoanAnswer(financial: LoanNumbers): CustomerDecisionAnswer {
   const adjustedRateAnswer = modeledFromRate && hasImplicitRate
     ? `La TNA contractual sigue siendo ${percent(financial.tnaPercent || 0)}. ${systemExplanation} ${hasUpfrontFee ? `La comisión inicial de ${percent(financial.upfrontFeePercent || 0)} equivale a ${money(financial.upfrontFeeAmount || 0, financial.currency)} y deja un desembolso neto de ${money(financial.netDisbursement || 0, financial.currency)}. ` : ''}La TNA implícita ajustada por el flujo es ${percent(financial.impliedTnaPercent || 0)} y la TEA implícita es ${percent(financial.impliedTeaPercent || 0)}. No son un CFT oficial.`
     : '';
+  const baseDirectAnswer = hasFlow
+    ? `${adjustedRateAnswer || `${financial.months} cuotas sumarían ${money(financial.calculatedInstallmentsTotal || 0, financial.currency)}. ${hasImplicitRate ? `La TNA implícita estimada es ${percent(financial.impliedTnaPercent || 0)} y el costo efectivo anual visible es ${percent(financial.impliedTeaPercent || 0)}. ${financial.cftPercent === null ? 'El CFT oficial no puede conocerse sin los cargos e impuestos del contrato.' : `El CFT informado es ${percent(financial.cftPercent)}.`}` : 'Con los datos visibles no alcanza para estimar una tasa implícita.'}`}`
+    : `No se puede calcular todavía el costo solicitado porque faltan ${financial.missingFields.join(', ') || 'datos esenciales del flujo'}.`;
+  const inflationAnswer = asksInflationComparison && hasFlow
+    ? ` No puede afirmarse que sea “igual a la inflación” solamente porque el total nominal se duplique. El costo nominal visible es ${financial.financingCostPercent !== null ? percent(financial.financingCostPercent) : 'calculable con el flujo'} en ${financial.months} meses${hasImplicitRate ? ` y, bajo el supuesto de ${financial.months} cuotas mensuales iguales vencidas, la TEA implícita es ${percent(financial.impliedTeaPercent || 0)}` : ''}. La comparación correcta exige la inflación acumulada esperada para exactamente esos mismos ${financial.months} meses.`
+    : '';
   return {
     kind: 'loan-cost',
     status: hasFlow ? 'answerable' : 'partial',
     title: modeledFromRate && hasUpfrontFee ? 'La comisión eleva el costo real del préstamo' : hasFlow ? 'Esto es lo que pagarías con los datos visibles' : 'Faltan datos para calcular lo que pagarías',
-    directAnswer: hasFlow
-      ? `${adjustedRateAnswer || `${financial.months} cuotas sumarían ${money(financial.calculatedInstallmentsTotal || 0, financial.currency)}. ${hasImplicitRate ? `La TNA implícita estimada es ${percent(financial.impliedTnaPercent || 0)} y el costo efectivo anual visible es ${percent(financial.impliedTeaPercent || 0)}. ${financial.cftPercent === null ? 'El CFT oficial no puede conocerse sin los cargos e impuestos del contrato.' : `El CFT informado es ${percent(financial.cftPercent)}.`}` : 'Con los datos visibles no alcanza para estimar una tasa implícita.'}`}`
-      : `No se puede calcular todavía el costo solicitado porque faltan ${financial.missingFields.join(', ') || 'datos esenciales del flujo'}.`,
+    directAnswer: `${baseDirectAnswer}${inflationAnswer}`,
     findings: [
       financial.principal !== null ? `Capital contractual: ${money(financial.principal, financial.currency)}.` : '',
       financial.netDisbursement !== null && hasUpfrontFee ? `Dinero neto disponible después de la comisión: ${money(financial.netDisbursement, financial.currency)}.` : '',
@@ -54,20 +59,23 @@ function buildLoanAnswer(financial: LoanNumbers): CustomerDecisionAnswer {
       financial.impliedTnaPercent !== null ? `TNA implícita ajustada al flujo neto: ${percent(financial.impliedTnaPercent)}.` : '',
       financial.impliedTeaPercent !== null ? `TEA implícita estimada del flujo visible: ${percent(financial.impliedTeaPercent)}.` : '',
       financial.cftPercent !== null ? `CFT declarado por la entidad: ${percent(financial.cftPercent)}.` : '',
+      asksInflationComparison ? 'INDEC publica inflación observada mediante el IPC; no es una proyección futura.' : '',
+      asksInflationComparison ? 'El REM del BCRA reúne expectativas de analistas privados. No es una proyección propia del BCRA y debe tomarse la mediana del horizonte comparable.' : '',
     ].filter(Boolean),
     nextActions: [
       financial.cftPercent === null ? 'Pedir el CFT con IVA y todos los cargos. La tasa implícita calculada no reemplaza el CFT contractual.' : 'Comparar el CFT declarado con el contrato definitivo y la cotización vigente.',
       'Confirmar si las cuotas son fijas y si incluyen seguro, IVA, comisiones, sellados y gastos administrativos.',
       'Comparar el total final, no solamente el importe de la cuota.',
-    ],
+      asksInflationComparison ? `Contrastar el costo con la mediana vigente del REM para los próximos ${financial.months || 12} meses y luego verificar la inflación efectivamente observada en el IPC de INDEC.` : '',
+    ].filter(Boolean),
     limitations: financial.warnings.length ? financial.warnings : ['El cálculo usa exclusivamente los importes visibles y supone cuotas mensuales iguales.'],
   };
 }
 
 export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): CustomerDecisionAnswer {
   const question = `${input.userInstruction || ''}\n${input.documentText}`;
-  if (input.financialAnalysis && /(?:cu[aá]nto|total|costo|inter[eé]s|tna|tea|cft|cuota|pagar|pr[eé]stamo|cr[eé]dito|financi)/i.test(question)) {
-    return buildLoanAnswer(input.financialAnalysis);
+  if (input.financialAnalysis && /(?:cu[aá]nto|total|costo|inter[eé]s|tasa|inflaci[oó]n|tna|tea|cft|cuota|pag(?:ar|ando)|pr[eé]stamo|cr[eé]dito|financi)/i.test(question)) {
+    return buildLoanAnswer(input.financialAnalysis, question);
   }
   if (input.scamRiskAnalysis.applicable) {
     const hasSignals = input.scamRiskAnalysis.signals.length > 0;

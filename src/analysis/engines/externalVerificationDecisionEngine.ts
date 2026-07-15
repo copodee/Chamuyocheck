@@ -45,6 +45,8 @@ const BIOGRAPHICAL_FACT = /\b(?:nació|estudió|se\s+graduó|trabajó|ocupó\s+e
 const SIMPLE_DRUG_INDICATION = /\b(?:paracetamol|acetaminof[eé]n|ibuprofeno|aspirina)\b.*\b(?:es|sirve|indicado|usa)\s+para\b/i;
 const ILLICIT_DRUG = /\b(?:crystal(?:\s+meth)?|metanfetamina|coca[ií]na|crack|mdma|[eé]xtasis|hero[ií]na|fentanilo)\b/i;
 
+const ARGENTINA_INFLATION_COMPARISON = /\b(?:inflaci[oó]n|ipc|indec|rem)\b/i;
+
 function unique(values: string[]): string[] {
   return [...new Set(values)];
 }
@@ -87,6 +89,15 @@ export function decideExternalVerification(
       minimumIndependentSources: 1,
       recencyRequired: false,
       officialSourceRequired: false,
+    });
+  }
+
+  if ((primaryDomain === 'finance' || primaryDomain === 'economics') && ARGENTINA_INFLATION_COMPARISON.test(claimText)) {
+    return finish(true, 'La comparación entre el costo financiero y la inflación requiere separar el IPC observado de las expectativas para un horizonte equivalente.', {
+      suggestedSourceTypes: ['central-bank-data', 'official-statistics'],
+      minimumIndependentSources: 2,
+      recencyRequired: true,
+      officialSourceRequired: true,
     });
   }
 

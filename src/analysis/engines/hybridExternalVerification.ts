@@ -11,6 +11,7 @@ import { discoverFreeDrugLabel } from './connectors/freeDrugLabelConnector';
 import { verifyWikidataStructuredClaim } from './connectors/freeWikidataConnector';
 import { discoverEuropePmcEvidence } from './connectors/freeEuropePmcConnector';
 import { verifyArgentinaCriminalLaw } from './connectors/freeArgentinaLegalConnector';
+import { discoverArgentinaInflationEvidence } from './connectors/freeArgentinaInflationConnector';
 
 type SearchClient = Parameters<typeof runAutomaticWebVerification>[0];
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
@@ -73,7 +74,13 @@ export async function runHybridExternalVerification(
   const legalItems = plan.workItems.filter((item) => item.suggestedSourceTypes.includes('government-law-repository'));
   const legalResults = await Promise.all(legalItems.map((item) => verifyArgentinaCriminalLaw(claimText, item.claimIndexes, fetchImpl)));
   const legalRecords = legalResults.flatMap((result) => result.records);
-  const freeRecords = [...(free?.execution.records || []), ...rssRecords, ...labelRecords, ...wikidataRecords, ...researchRecords, ...legalRecords];
+  const inflationClaimIndexes = plan.workItems
+    .filter((item) => item.suggestedSourceTypes.includes('central-bank-data') && item.suggestedSourceTypes.includes('official-statistics'))
+    .flatMap((item) => item.claimIndexes);
+  const inflationRecords = inflationClaimIndexes.length
+    ? await discoverArgentinaInflationEvidence(claimText, [...new Set(inflationClaimIndexes)], fetchImpl)
+    : [];
+  const freeRecords = [...(free?.execution.records || []), ...rssRecords, ...labelRecords, ...wikidataRecords, ...researchRecords, ...legalRecords, ...inflationRecords];
   const freeExecution = registerExternalVerificationExecution(plan, freeRecords);
   if (freeExecution.externalVerificationPerformed) {
     const labelCorroborates = labelRecords.length > 0 && /\b(?:dolor\s+de\s+cabeza|cefalea)\b/i.test(claimText);
@@ -97,7 +104,7 @@ export async function runHybridExternalVerification(
   }
 
   if (!allowPaidSearch) {
-    return { attempted: requests.length > 0 || rssRecords.length > 0 || labelRecords.length > 0 || wikidataRecords.length > 0 || researchRecords.length > 0 || legalRecords.length > 0, assessment: 'inconclusive', rationale: 'No se obtuvieron fuentes suficientes que cumplan los requisitos de calidad, independencia y actualidad.', execution: freeExecution, route: 'inconclusive', paidSearchUsed: false };
+    return { attempted: requests.length > 0 || rssRecords.length > 0 || labelRecords.length > 0 || wikidataRecords.length > 0 || researchRecords.length > 0 || legalRecords.length > 0 || inflationRecords.length > 0, assessment: 'inconclusive', rationale: 'No se obtuvieron fuentes suficientes que cumplan los requisitos de calidad, independencia y actualidad.', execution: freeExecution, route: 'inconclusive', paidSearchUsed: false };
   }
 
   const paid = await runAutomaticWebVerification(client, claimText, plan, undefined, freeRecords);

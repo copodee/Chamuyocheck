@@ -18,7 +18,7 @@ import { providersForSourceTypes, sourceAvailabilityForTypes } from '../../../sr
 import { buildLegalResultPresentation } from '../../../src/analysis/engines/legalResultSafeguard';
 import { TERMS_VERSION } from '../../../src/lib/legal/terms';
 import { runHybridExternalVerification } from '../../../src/analysis/engines/hybridExternalVerification';
-import { classifyProductScope } from '../../../src/analysis/engines/productScopeClassifier';
+import { classifyProductScope, hasLoanCalculationSignals } from '../../../src/analysis/engines/productScopeClassifier';
 import { extractLoanNumbers } from '../../../src/lib/finance/loanMath';
 import { extractImageText } from '../../../src/lib/extractors/ocrExtractor';
 import { extractWebText as extractStructuredWebText } from '../../../src/lib/extractors/webExtractor';
@@ -29,6 +29,7 @@ import { analyzeArgentinaLegal } from '../../../src/lib/legal/argentinaLegalAnal
 import { resolveUrlInput } from '../../../src/lib/extractors/inputUrl';
 import { describeFinancialUrl } from '../../../src/lib/finance/financialUrlContext';
 import { buildCustomerDecisionAnswer } from '../../../src/analysis/engines/customerDecisionAnswerEngine';
+import type { ExternalVerificationSourceRecord } from '../../../src/analysis/types/externalVerification';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -374,7 +375,7 @@ export function buildLocalAnalysis(
 
   const missing = !/(fuente|estudio|metodolog|contrato|bases|condiciones|cft|tea|tna|bibliograf|reglamento)/i.test(all);
   const promise = /(garantiz|asegur|sin esfuerzo|millonari|duplic|triplic|100%|riesgo cero|aprobaci[oó]n inmediata)/i.test(all);
-  const financial = /(pr[eé]stamo|cuota|cft|tea|tna|cr[eé]dito|financiaci[oó]n|inter[eé]s|\$)/i.test(all);
+  const financial = hasLoanCalculationSignals(all);
   const financialAnalysis = financial ? extractLoanNumbers(text, userInstruction) : null;
   const scamRiskAnalysis = analyzeScamRisk(text);
   const commercialCourseAnalysis = analyzeCommercialCourse(text);
@@ -821,7 +822,7 @@ function applyVerificationResult(
     externalVerificationPerformed: verified,
     verificationSummary: sourceVerificationText,
   });
-  const retrievedRecord = retrievedSource ? {
+  const retrievedRecord: ExternalVerificationSourceRecord | null = retrievedSource ? {
     sourceType: 'company-disclosures',
     url: retrievedSource.url,
     title: retrievedSource.title || retrievedSource.institution || 'Fuente primaria consultada',
@@ -832,8 +833,17 @@ function applyVerificationResult(
   const executionRecords = retrievedRecord
     ? [...verification.execution.records, retrievedRecord]
     : verification.execution.records;
+  const economicSourceFindings = executionRecords
+    .filter((record) => ['central-bank-data', 'official-statistics'].includes(record.sourceType) && record.excerpt)
+    .map((record) => `${record.title}: ${record.excerpt}`);
+  const decisionAnswer = normalized.decisionAnswer && economicSourceFindings.length > 0
+    ? {
+        ...normalized.decisionAnswer,
+        findings: [...new Set([...normalized.decisionAnswer.findings, ...economicSourceFindings])],
+      }
+    : normalized.decisionAnswer;
   return {
-    ...normalized, ...presentation, score: adjustedScore,
+    ...normalized, ...presentation, score: adjustedScore, decisionAnswer,
     externalVerification: {
       ...normalized.externalVerification,
       externalVerificationPerformed: verified,

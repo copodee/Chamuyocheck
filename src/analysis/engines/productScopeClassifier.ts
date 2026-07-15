@@ -14,6 +14,13 @@ const financePatterns = [
   /\b(?:inversi[oó]n|rentabilidad|rendimiento|ganancia|retorno|broker|bono|acci[oó]n|fondo\s+com[uú]n|plazo\s+fijo|criptomoneda|bitcoin|ethereum|wallet)\b/i,
   /(?:\$|usd|ars)\s*\d[\d.,]*|\b\d+(?:[.,]\d+)?\s*%\b/i,
   /https?:\/\/[^\s]*(?:creditos?|prestamos?|microcreditos?|leasing|financiacion|hipotecario|prendario)[^\s]*/i,
+  /\b(?:inflaci[oó]n|ipc|indec|rem|bcra|poder\s+adquisitivo|valor\s+real|tasa\s+(?:real|contra\s+inflaci[oó]n))\b/i,
+  /\b\d[\d.,]*\s*(?:pesos?|d[oó]lares?)\b[\s\S]{0,100}\b(?:\d{1,3}\s*(?:meses?|cuotas?)|termin(?:ar[eé]|a|ar[ií]a)\s+pagando|total\s+(?:a\s+)?pagar)\b/i,
+];
+
+const loanCalculationPatterns = [
+  /\b(?:pr[eé]stamo|cr[eé]dito|cuota|cft|tea|tna|financiaci[oó]n|inter[eé]s|leasing|microcr[eé]dito)\b/i,
+  /\b\d[\d.,]*\s*(?:pesos?|d[oó]lares?)\b[\s\S]{0,120}\b(?:\d{1,3}\s*(?:meses?|cuotas?)|termin(?:ar[eé]|a|ar[ií]a)\s+pagando|total\s+(?:a\s+)?pagar)\b/i,
 ];
 
 const scamPatterns = [
@@ -33,6 +40,14 @@ const legalPatterns = [
 
 function matches(patterns: RegExp[], text: string): string[] {
   return patterns.flatMap((pattern) => text.match(pattern)?.[0] || []).slice(0, 4);
+}
+
+export function hasFinancialEconomicSignals(text: string): boolean {
+  return matches(financePatterns, text).length > 0;
+}
+
+export function hasLoanCalculationSignals(text: string): boolean {
+  return matches(loanCalculationPatterns, text).length > 0;
 }
 
 export function classifyProductScope(documentText: string, userInstruction = ''): ProductScopeResult {
