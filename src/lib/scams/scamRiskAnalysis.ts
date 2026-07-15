@@ -26,9 +26,11 @@ const rules: Rule[] = [
   { id: 'off-platform-payment', label: 'Pago por canal difícil de revertir o a tercero', pattern: /(?:cripto|usdt|gift card|tarjeta regalo|cuenta de un tercero|cuenta personal|wallet).{0,45}(?:pag|transfer|envi)|(?:pag|transfer|envi).{0,45}(?:cripto|usdt|gift card|cuenta de un tercero|cuenta personal|wallet)/i, weight: 18 },
   { id: 'identity-mismatch', label: 'Identidad o canal no verificable', pattern: /(?:n[uú]mero nuevo|cuenta nueva|perfil nuevo|no llames al banco|soporte por whatsapp|agente por telegram|asesor por telegram)/i, weight: 18 },
   { id: 'unrealistic-return', label: 'Retorno extraordinario en un plazo corto', pattern: /(?:\d{2,4}\s*%|duplic[aá]|triplic[aá]|multiplic[aá]).{0,55}(?:d[ií]a|semana|mes|poco tiempo)|(?:por d[ií]a|diario|semanal|mensual).{0,35}(?:\d{2,4}\s*%|duplic|triplic)/i, weight: 27 },
+  { id: 'automated-money-claim', label: 'Promesa de generar dinero mediante IA, algoritmo o autotrading', pattern: /(?:\bia\b|\bai\b|inteligencia artificial|algoritmo|autotrader|auto\s*trader|trading\s*bot|bot de (?:trading|inversi[oó]n)|robot de trading).{0,90}(?:hace|genera|gana|produce|multiplica|rentabilidad|ganancias?|dinero)|(?:dinero|ganancias?|rentabilidad).{0,90}(?:\bia\b|\bai\b|inteligencia artificial|algoritmo|autotrader|trading\s*bot|robot de trading)/i, weight: 22 },
+  { id: 'advertising-landing-link', label: 'Enlace de captación con seguimiento publicitario', pattern: /https?:\/\/\S+(?:campaign(?:_id|_name)?=|site_id=|thumbnail=|taboola|outbrain|subc=)\S*/i, weight: 10 },
 ];
 
-const scamContext = /estafa|fraude|enga[ñn]o|inversi[oó]n|rentabilidad|ganancia|premio|pr[eé]stamo|cr[eé]dito|transfer|deposit|referid|multinivel|ponzi|pir[aá]mid|phishing|banco|wallet|cripto|usdt|telegram|whatsapp/i;
+const scamContext = /estafa|scam|fraude|enga[ñn]o|inversi[oó]n|rentabilidad|ganancia|premio|pr[eé]stamo|cr[eé]dito|transfer|deposit|referid|multinivel|ponzi|pir[aá]mid|phishing|banco|wallet|cripto|usdt|telegram|whatsapp|autotrader|auto\s*trader|trading\s*bot|robot\s+de\s+trading|plataforma\s+de\s+trading/i;
 
 function excerpt(text: string, match: RegExpMatchArray): string {
   const index = match.index || 0;
@@ -36,22 +38,33 @@ function excerpt(text: string, match: RegExpMatchArray): string {
 }
 
 export function analyzeScamRisk(text: string): ScamRiskAnalysis {
+  let decodedText = text.replace(/\+/g, ' ');
+  try {
+    decodedText = decodeURIComponent(decodedText);
+  } catch {
+    // Conservamos el original si la URL contiene escapes incompletos.
+  }
+  const analysisText = `${text}\n${decodedText}`;
   const signals = rules.flatMap((rule) => {
-    const match = text.match(rule.pattern);
-    return match ? [{ id: rule.id, label: rule.label, evidence: excerpt(text, match), weight: rule.weight }] : [];
+    const match = analysisText.match(rule.pattern);
+    return match ? [{ id: rule.id, label: rule.label, evidence: excerpt(analysisText, match), weight: rule.weight }] : [];
   });
-  const applicable = scamContext.test(text) || signals.length > 0;
+  const applicable = scamContext.test(analysisText) || signals.length > 0;
   const score = Math.min(100, signals.reduce((sum, signal) => sum + signal.weight, 0));
   const level = score >= 70 ? 'muy-alto' : score >= 45 ? 'alto' : score >= 20 ? 'medio' : 'bajo';
   const missingInformation = [
-    !/(cuit|raz[oó]n social|nombre legal)/i.test(text) ? 'identidad legal y CUIT de la entidad' : '',
-    !/(cnv|bcra|registro|matr[ií]cula|autorizad)/i.test(text) ? 'registro o autorización del organismo competente' : '',
-    !/(contrato|t[eé]rminos|condiciones)/i.test(text) ? 'contrato y condiciones completas' : '',
-    !/(dominio|https?:\/\/|sitio web)/i.test(text) ? 'dominio y canal oficial verificables' : '',
+    !/(cuit|raz[oó]n social|nombre legal)/i.test(analysisText) ? 'identidad legal, jurisdicción y CUIT o número registral de la entidad' : '',
+    !/(cnv|bcra|registro|matr[ií]cula|autorizad|licen[cs]ia|regulad)/i.test(analysisText) ? 'registro o autorización del organismo competente' : '',
+    !/(contrato|t[eé]rminos|condiciones)/i.test(analysisText) ? 'contrato y condiciones completas' : '',
+    !/(dominio|https?:\/\/|sitio web)/i.test(analysisText) ? 'dominio y canal oficial verificables' : '',
+    !/(retiro|retirar|withdraw|custodia|broker|comisi[oó]n|cargo)/i.test(analysisText) ? 'custodia, intermediario, costos y reglas de retiro de fondos' : '',
+    !/(p[eé]rdida|riesgo|drawdown|rendimiento hist[oó]rico|metodolog[ií]a)/i.test(analysisText) ? 'riesgos, pérdidas posibles y metodología verificable del rendimiento anunciado' : '',
   ].filter(Boolean);
   const checks = [
     'Confirmar identidad, CUIT, dominio y canales desde el sitio oficial, sin usar enlaces del mensaje.',
     'Verificar autorización o advertencias en BCRA, CNV y organismos de defensa del consumidor según la actividad.',
+    'Comprobar la razón social en el registro de agentes o PSAV de CNV y, si declara operar en otro país, en el regulador de esa jurisdicción.',
+    'Revisar quién recibe y custodia los fondos, cómo se retiran, qué comisiones existen y si el rendimiento tiene una metodología auditable.',
     'No transferir, compartir claves ni instalar acceso remoto mientras existan señales pendientes.',
     'Guardar anuncio, conversación, comprobantes, URL y datos del destinatario para una revisión posterior.',
   ];
@@ -65,7 +78,7 @@ export function analyzeScamRisk(text: string): ScamRiskAnalysis {
     conclusion: !applicable
       ? 'No se detectó una oferta o interacción evaluable como posible estafa.'
       : signals.length === 0
-        ? 'No se detectaron patrones fuertes en el texto visible, pero eso no acredita legitimidad ni identidad.'
+        ? 'La oferta o el sitio no pudo validarse con los datos visibles. La ausencia de una señal fuerte no acredita legitimidad, autorización ni identidad.'
         : `Se detectaron ${signals.length} señales observables de riesgo. No prueban por sí solas una estafa o un delito.`,
   };
 }

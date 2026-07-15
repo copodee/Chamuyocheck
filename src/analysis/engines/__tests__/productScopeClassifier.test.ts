@@ -20,6 +20,15 @@ test('acepta posibles estafas e inversiones engañosas', () => {
   assert.equal(result.primaryArea, 'scam-risk');
 });
 
+test('acepta una URL desconocida cuando la instrucción pide verificar un scam de autotrading', () => {
+  const result = classifyProductScope(
+    'https://lpa.web-crewsstats.com/ifwv_v_3_es_lp_wcs/?title=La+IA+que+hace+dinero&campaign_id=48799180',
+    'Quiero saber si esa página es real o scam y si el autotrader es confiable.',
+  );
+  assert.equal(result.supported, true);
+  assert.equal(result.primaryArea, 'scam-risk');
+});
+
 test('acepta cursos que prometen éxito comercial', () => {
   const result = classifyProductScope('Curso para tener éxito en los negocios y aumentar la facturación.');
   assert.equal(result.supported, true);
@@ -30,6 +39,12 @@ test('acepta proyectos inmobiliarios, agropecuarios y exportadores', () => {
   assert.equal(classifyProductScope('Quiero invertir en un departamento para alquilar y calcular su rentabilidad.').primaryArea, 'investment-project');
   assert.equal(classifyProductScope('Analizar la viabilidad de una inversión agropecuaria en soja.').primaryArea, 'investment-project');
   assert.equal(classifyProductScope('Proyecto de exportación de vino: demanda internacional y retorno esperado.').primaryArea, 'investment-project');
+});
+
+test('acepta inversiones mineras, petroleras e inmobiliarias vinculadas con Vaca Muerta', () => {
+  assert.equal(classifyProductScope('Proyecto de inversión minera de litio en Catamarca.').primaryArea, 'investment-project');
+  assert.equal(classifyProductScope('Analizar una inversión de petróleo y gas en Vaca Muerta.').primaryArea, 'investment-project');
+  assert.equal(classifyProductScope('Quiero comprar terrenos y alquilar viviendas en Añelo, cerca de Vaca Muerta.').primaryArea, 'investment-project');
 });
 
 test('acepta derecho argentino, delitos y familia', () => {

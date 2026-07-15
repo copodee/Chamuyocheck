@@ -84,3 +84,28 @@ test('marca promesas de rendimiento garantizado como riesgo, no como inversión 
   assert.ok(result.riskFlags.some((flag) => /garantizada|garantizado|sin riesgo/i.test(flag)));
   assert.match(result.conclusion, /no debe tratarse como una inversión recomendable/i);
 });
+
+test('clasifica Vaca Muerta como petróleo y gas y no infiere valores inmobiliarios', () => {
+  const result = analyzeInvestmentProject(
+    'Proyecto de inversión en Vaca Muerta con viviendas para alquilar en Añelo y tierras cercanas a los yacimientos.',
+    'Evaluar rentabilidad petrolera y si los alquileres y terrenos tienen potencial.'
+  );
+  assert.equal(result.sector, 'oil-gas');
+  assert.ok(result.secondarySectors.includes('real-estate'));
+  assert.equal(result.product, 'petróleo y gas no convencional');
+  assert.ok(result.sourceRequirements.some((source) => source.sourceType === 'official-hydrocarbon-data'));
+  assert.ok(result.assumptions.some((item) => /comparables fechados/i.test(item)));
+  assert.ok(result.missingInputs.some((item) => /concesión|derecho de explotación/i.test(item)));
+});
+
+test('clasifica proyectos mineros y exige reservas e informe competente', () => {
+  const result = analyzeInvestmentProject(
+    'Proyecto de inversión minera de litio en Catamarca con rentabilidad proyectada.',
+    'Analizar si la inversión es realista.'
+  );
+  assert.equal(result.sector, 'mining');
+  assert.equal(result.product, 'litio');
+  assert.ok(result.sourceRequirements.some((source) => source.sourceType === 'official-mining-data'));
+  assert.ok(result.missingInputs.some((item) => /recursos y reservas/i.test(item)));
+  assert.ok(result.riskFlags.some((item) => /informe técnico competente/i.test(item)));
+});

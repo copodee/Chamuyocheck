@@ -128,6 +128,9 @@ function buildInvestmentAnswer(analysis: InvestmentProjectAnalysis): CustomerDec
       'Construir escenarios base, adverso y favorable; no usar una sola proyección de ventas, precio o alquiler.',
       analysis.sector === 'real-estate' ? 'Comparar inmuebles realmente equivalentes por localidad, barrio, tipología, estado, superficie y fecha; medir además oferta, días publicados y vacancia.' : '',
       analysis.sector === 'exports' ? 'Validar demanda por posición arancelaria, destino, volumen, precio, barreras sanitarias, logística, tipo de cambio y concentración de compradores.' : '',
+      analysis.sector === 'mining' ? 'Verificar título o concesión, informe competente de recursos y reservas, permisos ambientales, CAPEX, OPEX, regalías, logística, precio del mineral y costos de cierre.' : '',
+      analysis.sector === 'oil-gas' ? 'Verificar concesión, reservas, producción por pozo y formación, curva de declino, CAPEX, OPEX, regalías, capacidad de transporte, permisos y abandono.' : '',
+      analysis.secondarySectors.includes('real-estate') ? 'Para tierras, viviendas o alquileres cercanos, reunir comparables fechados de la misma localidad y tipología; la actividad sectorial no demuestra el valor inmobiliario.' : '',
       ['agriculture', 'livestock', 'food-wine'].includes(analysis.sector || '') ? 'Usar campaña y región comparables; incorporar clima, escenario de rinde adverso, mermas, sanidad, logística, impuestos y capital de trabajo.' : '',
     ].filter(Boolean),
     limitations: analysis.missingInputs.map((item) => `Falta informar o verificar: ${item}.`),
@@ -136,7 +139,7 @@ function buildInvestmentAnswer(analysis: InvestmentProjectAnalysis): CustomerDec
 
 export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): CustomerDecisionAnswer {
   const question = `${input.userInstruction || ''}\n${input.documentText}`;
-  const asksInvestment = /\b(?:inversi[oó]n|invertir|rentabilidad|renta|retorno|viabilidad|proyecto|alquiler|precio\s+por\s+m2|precio\s+por\s+metro|exportaci[oó]n|demanda\s+internacional)\b/i.test(question);
+  const asksInvestment = /\b(?:inversi[oó]n|invertir|rentabilidad|renta|retorno|viabilidad|proyecto|alquiler|precio\s+por\s+m2|precio\s+por\s+metro|exportaci[oó]n|demanda\s+internacional|miner[ií]a|minero|litio|cobre|oro|petr[oó]leo|gas\s+natural|hidrocarburo|vaca\s+muerta|yacimiento|tierras?|terrenos?)\b/i.test(question);
   if (input.investmentProjectAnalysis?.applicable && asksInvestment) {
     return buildInvestmentAnswer(input.investmentProjectAnalysis);
   }

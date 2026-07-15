@@ -66,3 +66,27 @@ test('hybrid flow automatically collects official agricultural production withou
   assert.ok(result.execution.records.some((record) => record.sourceType === 'official-agricultural-statistics'));
   assert.match(result.rationale, /faltan precios, costos, clima/i);
 });
+
+test('hybrid flow checks investment landing pages with free CNV and domain sources', async () => {
+  const text = 'https://lpa.web-crewsstats.com/ifwv_v_3_es_lp_wcs/?campaign_id=48799180&title=La+IA+que+hace+dinero\nQuiero saber si esa página es real o scam.';
+  const plan = runClaimFirstPipeline(text).documentExternalVerificationPlan;
+  assert.ok(plan.suggestedSourceTypes.includes('securities-regulator-cnv'));
+  assert.ok(plan.suggestedSourceTypes.includes('domain-registration-data'));
+  const fetchImpl = async (input: string | URL | Request): Promise<Response> => {
+    const url = String(input);
+    if (url.startsWith('https://rdap.org/domain/')) return new Response(JSON.stringify({
+      ldhName: 'WEB-CREWSSTATS.COM', status: ['active'],
+      events: [{ eventAction: 'registration', eventDate: '2026-05-01T10:00:00Z' }],
+    }), { status: 200 });
+    if (url.includes('argentina.gob.ar/cnv/')) return new Response('<html>CNV</html>', { status: 200 });
+    return new Response('', { status: 404 });
+  };
+  const result = await runHybridExternalVerification(client, text, plan, [], fetchImpl, false);
+  assert.equal(result.attempted, true);
+  assert.equal(result.route, 'free-connectors');
+  assert.equal(result.assessment, 'inconclusive');
+  assert.equal(result.paidSearchUsed, false);
+  assert.ok(result.execution.records.some((record) => record.sourceType === 'domain-registration-data'));
+  assert.ok(result.execution.records.some((record) => record.sourceType === 'securities-regulator-cnv'));
+  assert.match(result.rationale, /no prueban legitimidad ni fraude/i);
+});

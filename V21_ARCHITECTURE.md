@@ -2151,3 +2151,13 @@ Los organismos y bases sectoriales incorporados al catálogo son objetivos de en
 - La ausencia de datos esenciales produce un resultado parcial. Una rentabilidad extraordinaria o una proyección sin costos completos activa verificación reforzada.
 - Con un flujo anual suficiente se calculan tres sensibilidades internas: adversa (ingresos -20%, costos +15%), base y favorable (ingresos +15%, costos -5%). Estos porcentajes son pruebas de estrés transparentes, no pronósticos sectoriales.
 - La decisión diferencia evidencia insuficiente, señales de alto riesgo, escenario base negativo, sensibilidad a un escenario adverso y flujo positivo aún no verificado. Ninguno de esos estados autoriza por sí solo a afirmar que una inversión es buena.
+
+## V21 Investment Intelligence - minería, petróleo, gas y Vaca Muerta
+
+- El clasificador distingue minería de petróleo y gas, identifica minerales y reconoce Vaca Muerta como formación hidrocarburífera vinculada con la Cuenca Neuquina.
+- La ruta `official-mining-data` consulta la cartera oficial de proyectos del SIACAM por proyecto, provincia, mineral y etapa. La fecha publicada del recurso se expone porque una cartera antigua no acredita el estado actual.
+- La ruta `official-hydrocarbon-data` consulta producción oficial de la Secretaría de Energía por formación, yacimiento y período. Producción observada no equivale a reservas ni a rentabilidad futura.
+- Ambos sectores exigen concesión o título vigente, informe técnico competente, permisos, CAPEX, OPEX, regalías, impuestos, infraestructura, logística y costos ambientales de cierre o abandono.
+- Cuando una consulta combina Vaca Muerta con tierras, viviendas o alquileres, se activa también el análisis inmobiliario. Los precios y la facilidad de alquiler sólo pueden sostenerse con comparables fechados de la misma localidad y tipología, más oferta, vacancia y días de publicación.
+- Para la región Vaca Muerta se consulta además el stock y la condición de ocupación de viviendas del Censo 2022 publicado por la Dirección Provincial de Estadística y Censos de Neuquén. Este dato aporta contexto departamental, pero no se presenta como precio actual, alquiler ni vacancia locativa.
+- El motor prohíbe derivar valores inmobiliarios de la producción petrolera, gasífera o minera. Si no hay comparables suficientes, informa la limitación y mantiene la verificación incompleta.

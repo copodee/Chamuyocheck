@@ -1,5 +1,7 @@
 export type InvestmentSector =
   | 'real-estate'
+  | 'mining'
+  | 'oil-gas'
   | 'agriculture'
   | 'livestock'
   | 'food-wine'
@@ -94,6 +96,11 @@ function detectLocation(text: string): string | null {
 
 function detectProduct(text: string): string | null {
   const products: Array<[string, RegExp]> = [
+    ['petróleo y gas no convencional', /vaca\s+muerta|no\s+convencional|shale\s+(?:oil|gas)/i],
+    ['petróleo', /petr[oó]leo|crudo/i],
+    ['gas natural', /gas\s+natural/i],
+    ['litio', /\blitio\b/i], ['cobre', /\bcobre\b/i], ['oro', /\boro\b/i],
+    ['plata', /\bplata\b/i], ['uranio', /\buranio\b/i], ['potasio', /\bpotasio\b/i],
     ['yerba mate', /\byerba(?:\s+mate)?\b/i],
     ['aceitunas y aceite de oliva', /aceitun|aceite\s+de\s+oliva|oliv[ií]col/i],
     ['uva y vino', /\buva\b|vino|vitivin[ií]col|bodega/i],
@@ -113,6 +120,8 @@ function normalizedYield(text: string): number | null {
 }
 
 const sectorRules: Array<{ sector: InvestmentSector; label: string; patterns: RegExp[] }> = [
+  { sector: 'oil-gas', label: 'Petróleo, gas y Vaca Muerta', patterns: [/vaca\s+muerta|petr[oó]leo|gas\s+natural|hidrocarburo|upstream|midstream|downstream|yacimiento|pozo|shale\s+(?:oil|gas)|no\s+convencional/i] },
+  { sector: 'mining', label: 'Minería', patterns: [/miner[ií]a|minero|litio|cobre|\boro\b|\bplata\b|uranio|potasio|borato|cantera|proyecto\s+extractivo/i] },
   { sector: 'real-estate', label: 'Inversión inmobiliaria y alquileres', patterns: [/inmobiliari|departamento|propiedad|vivienda|alquiler|renta\s+locativa|metro(?:s)?\s+cuadrad|\bm2\b|lote|terreno/i] },
   { sector: 'agriculture', label: 'Agricultura y campos', patterns: [/\bcampo\b|agropecuari|agricultur|soja|ma[ií]z|trigo|oliv|aceituna|uva|frut|cosecha|hect[aá]rea|rinde|cultivo/i] },
   { sector: 'livestock', label: 'Ganadería', patterns: [/ganader|hacienda|bovin|vacun|feedlot|novillo|ternero|carne|tambo|lecher/i] },
@@ -131,6 +140,14 @@ const commonSources: InvestmentSourceRequirement[] = [
 ];
 
 const sectorSources: Record<InvestmentSector, InvestmentSourceRequirement[]> = {
+  mining: [
+    { sourceType: 'official-mining-data', institutions: ['SIACAM', 'Secretaría de Minería', 'SEGEMAR', 'autoridad minera provincial'], purpose: 'Proyecto, ubicación, mineral, etapa, concesión, geología, permisos y producción observada.', officialRequired: true },
+    { sourceType: 'official-commodity-market-data', institutions: ['Secretaría de Minería', 'mercados institucionales del mineral'], purpose: 'Precios de referencia, exportaciones y condiciones del mercado del mineral.', officialRequired: true },
+  ],
+  'oil-gas': [
+    { sourceType: 'official-hydrocarbon-data', institutions: ['Secretaría de Energía', 'Capítulo IV', 'autoridad hidrocarburífera provincial'], purpose: 'Producción observada por pozo, yacimiento, concesión, formación, provincia y período.', officialRequired: true },
+    { sourceType: 'official-energy-regulation', institutions: ['Secretaría de Energía', 'ENARGAS', 'autoridad provincial'], purpose: 'Concesiones, regalías, infraestructura, transporte, precios regulados y permisos.', officialRequired: true },
+  ],
   'real-estate': [
     { sourceType: 'official-real-estate-data', institutions: ['INDEC', 'registros de la propiedad', 'catastros y municipios provinciales'], purpose: 'Ubicación, características, permisos, población y datos oficiales disponibles.', officialRequired: true },
     { sourceType: 'property-market-comparables', institutions: ['colegios de escribanos', 'colegios inmobiliarios', 'portales con avisos fechados'], purpose: 'Comparables de venta y alquiler de la misma tipología, zona y fecha.', officialRequired: false },
@@ -165,7 +182,7 @@ export function analyzeInvestmentProject(documentText: string, userInstruction =
       score: rule.patterns.reduce((total, pattern) => {
         const flags = [...new Set(`${pattern.flags}g`.split(''))].join('');
         return total + (text.match(new RegExp(pattern.source, flags))?.length || 0);
-      }, 0),
+      }, 0) + (rule.sector === 'oil-gas' && /vaca\s+muerta/i.test(text) ? 3 : 0),
     }))
     .filter((rule) => rule.score > 0)
     .sort((a, b) => b.score - a.score);
@@ -206,6 +223,9 @@ export function analyzeInvestmentProject(documentText: string, userInstruction =
   if (monthlyRevenue !== null && vacancyPercent === null) assumptions.push('No se informó vacancia; el rendimiento neto preliminar supone ocupación completa.');
   if (monthlyRevenue !== null && monthlyOperatingCosts === null) assumptions.push('No se informaron gastos operativos, impuestos, mantenimiento ni comisiones; el neto preliminar los toma como cero.');
   if (sector === 'real-estate') assumptions.push('La facilidad de alquiler no se infiere del precio: requiere demanda, oferta, días publicados y vacancia de la localidad y tipología.');
+  if (sector === 'oil-gas') assumptions.push('La producción de Vaca Muerta o de un yacimiento no demuestra por sí sola rentabilidad futura ni el valor de tierras, viviendas o alquileres cercanos.');
+  if (sector === 'mining') assumptions.push('La inclusión en una cartera minera no acredita por sí sola reservas económicamente recuperables, permisos vigentes ni rentabilidad.');
+  if (ranked.some((item) => item.sector === 'real-estate') && ranked.some((item) => item.sector === 'oil-gas')) assumptions.push('Los valores inmobiliarios de una zona energética requieren comparables fechados de la misma localidad y tipología; no se derivan de la producción petrolera o gasífera.');
   if (['agriculture', 'livestock', 'food-wine'].includes(sector || '') && projectedOperatingMargin !== null) assumptions.push('El margen es un escenario aritmético con los datos aportados: debe ajustarse por campaña, región, clima, pérdidas, sanidad, logística, impuestos y capital de trabajo.');
   const monthlyBusinessSector = ['real-estate', 'retail-commerce', 'transport-logistics', 'services'].includes(sector || '');
   const missingInputs = [
@@ -220,12 +240,20 @@ export function analyzeInvestmentProject(documentText: string, userInstruction =
     ['agriculture', 'livestock', 'food-wine'].includes(sector || '') && projectedAnnualRevenue === null ? 'volumen y precio de venta, o ingresos anuales proyectados' : '',
     ['agriculture', 'livestock', 'food-wine'].includes(sector || '') && projectedAnnualCosts === null ? 'costos operativos anuales completos' : '',
     sector === 'exports' && !/(destino\s+(?:de|es|:)|pa[ií]s\s+(?:de|destino|objetivo|comprador)|comprador\s+(?:de|objetivo|identificado)|cliente\s+(?:en|del?\s+exterior|internacional))/i.test(text) ? 'mercado de destino y comprador objetivo' : '',
+    ['mining', 'oil-gas'].includes(sector || '') && !/(proyecto|yacimiento|concesi[oó]n|[aá]rea|bloque|cateo|mina)\s+(?:de|:)?\s*[\p{L}0-9]/iu.test(text) ? 'proyecto, yacimiento, concesión, área o bloque exacto' : '',
+    ['mining', 'oil-gas'].includes(sector || '') && !/(neuqu[eé]n|mendoza|r[ií]o\s+negro|chubut|santa\s+cruz|tierra\s+del\s+fuego|salta|jujuy|catamarca|san\s+juan|la\s+rioja|provincia)/i.test(text) ? 'provincia y localización exacta' : '',
+    ['mining', 'oil-gas'].includes(sector || '') ? 'título, concesión o derecho de explotación y estado de vigencia' : '',
+    sector === 'mining' ? 'recursos y reservas con clasificación, fecha y profesional competente' : '',
+    sector === 'oil-gas' ? 'reservas, curva de declino y perfil de producción por pozo o yacimiento' : '',
+    ['mining', 'oil-gas'].includes(sector || '') ? 'CAPEX, OPEX, regalías, impuestos, logística e infraestructura' : '',
+    ['mining', 'oil-gas'].includes(sector || '') ? 'permisos ambientales y costos de cierre, remediación o abandono' : '',
   ].filter(Boolean);
   const riskFlags: string[] = [];
   if (/rentabilidad|retorno|ganancia|resultado/.test(text.toLowerCase()) && /garantizad|asegurad|sin\s+riesgo/i.test(text)) riskFlags.push('Se promete rentabilidad garantizada o sin riesgo; una inversión real debe declarar escenarios adversos.');
   if ((netAnnualYieldPercent || grossAnnualYieldPercent || 0) > 100) riskFlags.push('El rendimiento anual implícito supera el capital invertido y exige evidencia extraordinaria del precio, volumen, costos y continuidad de la demanda.');
   if (/proyecci[oó]n|proyectad[oa]s?|crecer[aá]|aumentar[aá]|demanda/i.test(text) && !/(fuente|indec|bcra|inta|senasa|metodolog|serie|escenario)/i.test(text)) riskFlags.push('La proyección de demanda o crecimiento no identifica fuente, serie, fecha ni metodología.');
   if (projectedAnnualRevenue !== null && projectedAnnualCosts === null) riskFlags.push('Se proyectan ingresos sin un costo anual completo; el retorno no puede considerarse neto.');
+  if (['mining', 'oil-gas'].includes(sector || '') && /reserva|producci[oó]n|rentabilidad|ganancia|retorno/i.test(text) && !/(informe\s+t[eé]cnico|profesional\s+competente|secretar[ií]a\s+de\s+(?:energ[ií]a|miner[ií]a)|cap[ií]tulo\s+iv|siacam|segemar)/i.test(text)) riskFlags.push('La propuesta atribuye reservas, producción o rentabilidad sin identificar informe técnico competente ni registro oficial verificable.');
   if ((projectedOperatingMarginPercent || 0) > 70) riskFlags.push('El margen operativo supera el 70% y exige revisar costos omitidos, mermas, impuestos, logística y capital de trabajo.');
   const scenarioRevenue = projectedAnnualRevenue ?? annualGrossIncome;
   const scenarioCosts = projectedAnnualCosts ?? (annualGrossIncome !== null && annualNetIncome !== null ? annualGrossIncome - annualNetIncome : null);
@@ -272,7 +300,7 @@ export function analyzeInvestmentProject(documentText: string, userInstruction =
     applicable,
     sector,
     sectorLabel: ranked[0]?.label || (genericInvestment ? 'Proyecto de inversión' : 'Sin sector de inversión'),
-    secondarySectors: ranked.slice(1).map((item) => item.sector),
+    secondarySectors: [...new Set(ranked.slice(1).map((item) => item.sector))],
     confidence: !applicable ? 0 : Math.min(0.98, 0.68 + (ranked[0]?.score || 1) * 0.1),
     location: detectLocation(text),
     product: detectProduct(text),

@@ -4,8 +4,8 @@ import { EXTERNAL_VERIFICATION_SOURCE_CATALOG, providersForSourceTypes, sourceAv
 
 test('catalog distinguishes implemented connectors from planned providers', () => {
   const byId = new Map(EXTERNAL_VERIFICATION_SOURCE_CATALOG.map((provider) => [provider.id, provider]));
-  for (const id of ['infoleg', 'boletin-oficial', 'bcra', 'pubmed', 'who', 'world-bank', 'news', 'fda']) assert.equal(byId.get(id)?.status, 'implemented');
-  for (const id of ['anmat', 'ema', 'cnv', 'byma', 'crypto-market', 'blockchain-explorer', 'protocol-source', 'security-audit']) assert.equal(byId.get(id)?.status, 'planned');
+  for (const id of ['infoleg', 'boletin-oficial', 'bcra', 'pubmed', 'who', 'world-bank', 'news', 'fda', 'cnv', 'rdap']) assert.equal(byId.get(id)?.status, 'implemented');
+  for (const id of ['anmat', 'ema', 'byma', 'crypto-market', 'blockchain-explorer', 'protocol-source', 'security-audit']) assert.equal(byId.get(id)?.status, 'planned');
 });
 
 test('source availability distinguishes executable, planned and unregistered types', () => {
@@ -25,14 +25,27 @@ test('catalog resolves medication, capital-market and crypto targets', () => {
   assert.ok(providersForSourceTypes(['blockchain-explorer']).some((provider) => provider.id === 'blockchain-explorer'));
 });
 
+test('catalog exposes free checks for investment landing pages', () => {
+  assert.equal(sourceAvailabilityForTypes(['securities-regulator-cnv'])[0].status, 'implemented');
+  assert.equal(sourceAvailabilityForTypes(['domain-registration-data'])[0].status, 'implemented');
+  assert.equal(sourceAvailabilityForTypes(['company-registries'])[0].status, 'planned');
+});
+
 test('catalog distinguishes implemented investment connectors from remaining planned sources', () => {
   const availability = sourceAvailabilityForTypes([
     'official-real-estate-data', 'official-agricultural-statistics', 'official-trade-statistics', 'international-trade-data',
   ]);
-  assert.deepEqual(availability.map((item) => item.status), ['planned', 'implemented', 'planned', 'implemented']);
+  assert.deepEqual(availability.map((item) => item.status), ['implemented', 'implemented', 'planned', 'implemented']);
   assert.ok(providersForSourceTypes(['official-agricultural-statistics']).some((provider) => provider.id === 'argentina-agriculture' && provider.status === 'implemented'));
   assert.ok(providersForSourceTypes(['official-livestock-data']).some((provider) => provider.id === 'senasa' && provider.status === 'implemented'));
   assert.ok(providersForSourceTypes(['official-agricultural-statistics']).some((provider) => provider.id === 'inta'));
   assert.ok(providersForSourceTypes(['international-trade-data']).some((provider) => provider.id === 'un-comtrade' && provider.status === 'implemented'));
   assert.ok(providersForSourceTypes(['international-trade-data']).some((provider) => provider.id === 'itc-trade-map' && provider.status === 'planned'));
+});
+
+test('catalog exposes official mining and hydrocarbon connectors', () => {
+  assert.ok(providersForSourceTypes(['official-mining-data']).some((provider) => provider.id === 'argentina-mining' && provider.status === 'implemented'));
+  assert.ok(providersForSourceTypes(['official-hydrocarbon-data']).some((provider) => provider.id === 'argentina-hydrocarbons' && provider.status === 'implemented'));
+  assert.ok(providersForSourceTypes(['official-real-estate-data']).some((provider) => provider.id === 'neuquen-housing' && provider.status === 'implemented'));
+  assert.equal(sourceAvailabilityForTypes(['geological-survey-data'])[0].status, 'planned');
 });

@@ -372,15 +372,16 @@ export function buildLocalAnalysis(
   userInstruction = '',
   sourceUrl = ''
 ) {
-  const all = `${text} ${fileName}`.toLowerCase();
+  const analysisInput = `${userInstruction}\n${text}\n${fileName}\n${sourceUrl}`.trim();
+  const all = analysisInput.toLowerCase();
 
   const missing = !/(fuente|estudio|metodolog|contrato|bases|condiciones|cft|tea|tna|bibliograf|reglamento)/i.test(all);
   const promise = /(garantiz|asegur|sin esfuerzo|millonari|duplic|triplic|100%|riesgo cero|aprobaci[oó]n inmediata)/i.test(all);
   const financial = hasLoanCalculationSignals(all);
   const financialAnalysis = financial ? extractLoanNumbers(text, userInstruction) : null;
-  const scamRiskAnalysis = analyzeScamRisk(text);
-  const commercialCourseAnalysis = analyzeCommercialCourse(text);
-  const argentinaLegalAnalysis = analyzeArgentinaLegal(text);
+  const scamRiskAnalysis = analyzeScamRisk(analysisInput);
+  const commercialCourseAnalysis = analyzeCommercialCourse(analysisInput);
+  const argentinaLegalAnalysis = analyzeArgentinaLegal(analysisInput);
   const investmentProjectAnalysis = analyzeInvestmentProject(text, userInstruction);
   const financialDataComplete = Boolean(financialAnalysis && financialAnalysis.principal !== null && financialAnalysis.installment !== null && financialAnalysis.months !== null && financialAnalysis.impliedTeaPercent !== null);
   const financialRiskScore = !financial ? 0 : financialDataComplete
@@ -403,7 +404,7 @@ export function buildLocalAnalysis(
   );
 
   // V19: Claim-First Pipeline - extract and analyze individual claims first
-  const claimFirstResult = runClaimFirstPipeline(text);
+  const claimFirstResult = runClaimFirstPipeline(analysisInput);
   const externalVerificationPlanning = planExternalVerificationRequests(claimFirstResult.claims);
   const externalVerificationProviders = providersForSourceTypes(
     claimFirstResult.documentExternalVerificationPlan.suggestedSourceTypes

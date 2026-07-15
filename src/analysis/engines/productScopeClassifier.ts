@@ -27,10 +27,16 @@ const investmentProjectPatterns = [
   /\b(?:proyecto\s+de\s+inversi[oó]n|inversi[oó]n\s+(?:inmobiliaria|productiva|agropecuaria)|viabilidad|flujo\s+de\s+fondos|tasa\s+interna\s+de\s+retorno|\btir\b|\bvan\b|per[ií]odo\s+de\s+recupero)\b/i,
   /\b(?:inmueble|departamento|propiedad|alquiler|metro(?:s)?\s+cuadrad|hect[aá]rea|campo|ganader|soja|ma[ií]z|trigo|uva|vino|yerba|frut|exportaci[oó]n|comercio\s+exterior)\b[\s\S]{0,120}\b(?:invertir|inversi[oó]n|rentabilidad|renta|proyecto|retorno|precio|demanda)\b/i,
   /\b(?:sector\s+automotriz|inmobiliario|productivo|agropecuario|ganadero|transporte|log[ií]stica|servicios?)\b[\s\S]{0,100}\b(?:proyecci[oó]n|inversi[oó]n|viabilidad|demanda|rentabilidad)\b/i,
+  /\b(?:miner[ií]a|minero|litio|cobre|oro|plata|uranio|potasio|petr[oó]leo|gas\s+natural|hidrocarburos?|vaca\s+muerta|yacimiento|pozo)\b[\s\S]{0,140}\b(?:inversi[oó]n|proyecto|rentabilidad|retorno|producci[oó]n|tierras?|alquiler(?:es)?|viviendas?)\b/i,
+  /\b(?:inversi[oó]n|proyecto|rentabilidad|retorno|producci[oó]n)\b[\s\S]{0,140}\b(?:miner[ií]a|minero|litio|cobre|oro|plata|uranio|potasio|petr[oó]leo|gas\s+natural|hidrocarburos?|vaca\s+muerta|yacimiento|pozo)\b/i,
+  /\b(?:tierras?|terrenos?|viviendas?|alquiler(?:es)?)\b[\s\S]{0,120}\b(?:vaca\s+muerta|a[nñ]elo|neuqu[eé]n|zona\s+(?:petrolera|minera|energ[eé]tica))\b/i,
 ];
 
 const scamPatterns = [
-  /\b(?:estafa|fraude|enga[ñn]o|ponzi|pir[aá]mid(?:e|al)|multinivel|referidos?|suplantaci[oó]n|phishing|cuenta\s+m[uú]la)\b/i,
+  /\b(?:estafa|scam|fraude|enga[ñn]o|ponzi|pir[aá]mid(?:e|al)|multinivel|referidos?|suplantaci[oó]n|phishing|cuenta\s+m[uú]la)\b/i,
+  /\b(?:autotrader|auto\s*trader|trading\s*bot|bot\s+de\s+(?:trading|inversi[oó]n)|robot\s+de\s+trading|plataforma\s+de\s+trading|inversi[oó]n\s+automatizada)\b/i,
+  /\b(?:ia|ai|inteligencia\s+artificial|algoritmo|robot)\b[+\s\S]{0,80}\b(?:hace|genera|gana|produce|multiplica)\b[+\s\S]{0,30}\b(?:dinero|ganancias?|rentabilidad|ingresos?)\b/i,
+  /(?:https?:\/\/\S+)[\s\S]{0,180}\b(?:es\s+(?:real|leg[ií]tim[oa]|segur[oa])|scam|estafa|fraude|confiable)\b/i,
   /\b(?:ganancia|rentabilidad|retorno|beneficio)\s+(?:garantizad[oa]|asegurad[oa])\b/i,
   /\b(?:curso|mentor[ií]a|coaching|masterclass|capacitaci[oó]n|programa)\b.{0,80}\b(?:negocios?|emprendimientos?|ventas|facturaci[oó]n|[eé]xito|libertad financiera)\b/i,
   /\b(?:transfer[ií]|deposit[aá]|pag[aá])\b[\s\S]{0,80}\b(?:antes|anticipo|liberar|premio|cr[eé]dito|pr[eé]stamo)\b/i,
@@ -57,7 +63,14 @@ export function hasLoanCalculationSignals(text: string): boolean {
 }
 
 export function classifyProductScope(documentText: string, userInstruction = ''): ProductScopeResult {
-  const text = `${userInstruction}\n${documentText}`.trim();
+  const rawText = `${userInstruction}\n${documentText}`.trim();
+  let decodedText = rawText.replace(/\+/g, ' ');
+  try {
+    decodedText = decodeURIComponent(decodedText);
+  } catch {
+    // Una URL mal escapada no debe impedir la clasificación del contenido visible.
+  }
+  const text = `${rawText}\n${decodedText}`;
   const candidates: Array<{ area: SupportedProductArea; signals: string[] }> = [
     { area: 'scam-risk', signals: matches(scamPatterns, text) },
     { area: 'argentina-legal-documents', signals: matches(legalPatterns, text) },

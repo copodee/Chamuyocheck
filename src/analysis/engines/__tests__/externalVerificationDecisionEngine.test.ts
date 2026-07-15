@@ -91,6 +91,16 @@ test('agricultural and export investments route to sector-specific official sour
   assert.ok(exports.suggestedSourceTypes.includes('customs-data'));
 });
 
+test('mining and oil-gas investments route to official sector evidence', () => {
+  const mining = decide('Quiero evaluar una inversión minera de litio en Catamarca.');
+  assert.ok(mining.suggestedSourceTypes.includes('official-mining-data'));
+  assert.ok(mining.suggestedSourceTypes.includes('geological-survey-data'));
+
+  const oil = decide('Quiero invertir en Vaca Muerta y comprar viviendas para alquilar en Añelo.');
+  assert.ok(oil.suggestedSourceTypes.includes('official-hydrocarbon-data'));
+  assert.ok(oil.suggestedSourceTypes.includes('property-market-comparables'));
+});
+
 test('crypto claims route to market, on-chain, protocol and audit sources', () => {
   const result = decide('Este token de Ethereum tiene reservas suficientes y su contrato inteligente es seguro.');
   assert.equal(result.externalVerificationRequired, true);

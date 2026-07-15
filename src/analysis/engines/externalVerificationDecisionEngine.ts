@@ -46,10 +46,16 @@ const SIMPLE_DRUG_INDICATION = /\b(?:paracetamol|acetaminof[eé]n|ibuprofeno|asp
 const ILLICIT_DRUG = /\b(?:crystal(?:\s+meth)?|metanfetamina|coca[ií]na|crack|mdma|[eé]xtasis|hero[ií]na|fentanilo)\b/i;
 
 const ARGENTINA_INFLATION_COMPARISON = /\b(?:inflaci[oó]n|ipc|indec|rem)\b/i;
+const MINING_INVESTMENT = /\b(?:miner[ií]a|minero|litio|cobre|oro|plata|uranio|potasio|borato|cantera|proyecto\s+extractivo)\b/i;
+const OIL_GAS_INVESTMENT = /\b(?:vaca\s+muerta|petr[oó]leo|gas\s+natural|hidrocarburos?|upstream|midstream|yacimiento|pozo|shale\s+(?:oil|gas)|no\s+convencional)\b/i;
+const ENERGY_REGION_REAL_ESTATE = /\b(?:tierras?|terrenos?|viviendas?|departamentos?|alquiler(?:es)?|renta\s+locativa|precio\s+por\s+(?:m2|metro))\b/i;
 const REAL_ESTATE_INVESTMENT = /\b(?:inversi[oó]n\s+inmobiliaria|inmueble|departamento|propiedad|alquiler|renta\s+locativa|precio\s+por\s+(?:m2|metro)|metros?\s+cuadrados?|lote|terreno)\b/i;
 const AGRICULTURAL_INVESTMENT = /\b(?:campo|agropecuari[oa]|agricultur|ganader|hacienda|soja|ma[ií]z|trigo|aceituna|oliv|uva|vino|yerba|frut|cosecha|hect[aá]rea|rinde|cultivo)\b/i;
+const INDUSTRIAL_PARK_REAL_ESTATE = /\b(?:parque|polo|predio)\s+industrial|\b(?:nave|galp[oó]n|lote)\s+industrial\b/i;
+const PRODUCTIVE_INPUT_PRICES = /\b(?:cianuro\s+de\s+sodio|[aá]cido\s+sulf[uú]rico|fertilizantes?|urea|fosfato\s+diam[oó]nico|cloruro\s+de\s+potasio|muriato\s+de\s+potasio|equipamiento\s+(?:para|de)\s+ganado|m[aá]quina\s+de\s+orde(?:ñ|n)e|mixer\s+(?:de|para)\s+ganado)\b/i;
 const EXPORT_INVESTMENT = /\b(?:exportaci[oó]n|exportar|comercio\s+exterior|demanda\s+(?:mundial|internacional)|mercado\s+internacional|venta\s+al\s+exterior|aduana)\b/i;
 const SECTOR_INVESTMENT = /\b(?:proyecto\s+de\s+inversi[oó]n|invertir|inversi[oó]n|rentabilidad|retorno|viabilidad|flujo\s+de\s+fondos|\btir\b|\bvan\b)\b/i;
+const AUTOMATED_INVESTMENT_OFFER = /\b(?:scam|estafa|autotrader|auto\s*trader|trading\s*bot|bot\s+de\s+(?:trading|inversi[oó]n)|robot\s+de\s+trading|plataforma\s+de\s+trading|inversi[oó]n\s+automatizada)\b|\b(?:ia|ai|inteligencia\s+artificial|algoritmo|robot)\b.{0,80}\b(?:hace|genera|gana|produce|multiplica)\b.{0,30}\b(?:dinero|ganancias?|rentabilidad|ingresos?)\b/i;
 
 function unique(values: string[]): string[] {
   return [...new Set(values)];
@@ -96,9 +102,50 @@ export function decideExternalVerification(
     });
   }
 
+  if (AUTOMATED_INVESTMENT_OFFER.test(claimText)) {
+    return finish(true, 'Una oferta de inversión automatizada o una consulta sobre posible scam exige verificar la identidad del operador, su autorización, las alertas regulatorias, la custodia y retiro de fondos y la evidencia del rendimiento. La publicidad o el dominio no bastan para declararla legítima ni fraudulenta.', {
+      suggestedSourceTypes: ['securities-regulator-cnv', 'regulatory-records', 'company-registries', 'consumer-protection-agencies', 'domain-registration-data'],
+      minimumIndependentSources: 2,
+      recencyRequired: true,
+      officialSourceRequired: true,
+    });
+  }
+
   if ((primaryDomain === 'finance' || primaryDomain === 'economics') && ARGENTINA_INFLATION_COMPARISON.test(claimText)) {
     return finish(true, 'La comparación entre el costo financiero y la inflación requiere separar el IPC observado de las expectativas para un horizonte equivalente.', {
       suggestedSourceTypes: ['central-bank-data', 'official-statistics'],
+      minimumIndependentSources: 2,
+      recencyRequired: true,
+      officialSourceRequired: true,
+    });
+  }
+
+  if (OIL_GAS_INVESTMENT.test(claimText) && (SECTOR_INVESTMENT.test(claimText) || ENERGY_REGION_REAL_ESTATE.test(claimText))) {
+    const realEstateTypes = ENERGY_REGION_REAL_ESTATE.test(claimText)
+      ? ['official-real-estate-data', 'property-market-comparables']
+      : [];
+    return finish(true, 'La inversión petrolera o gasífera requiere producción oficial por período, yacimiento y formación, además de concesiones, reservas, costos, infraestructura y permisos. Los valores de tierras o alquileres deben verificarse con comparables inmobiliarios separados.', {
+      suggestedSourceTypes: ['official-hydrocarbon-data', 'official-energy-regulation', 'official-statistics', ...realEstateTypes],
+      minimumIndependentSources: 2,
+      recencyRequired: true,
+      officialSourceRequired: true,
+    });
+  }
+
+  if (MINING_INVESTMENT.test(claimText) && (SECTOR_INVESTMENT.test(claimText) || ENERGY_REGION_REAL_ESTATE.test(claimText) || PRODUCTIVE_INPUT_PRICES.test(claimText))) {
+    const realEstateTypes = ENERGY_REGION_REAL_ESTATE.test(claimText) ? ['official-real-estate-data', 'property-market-comparables'] : [];
+    const inputTypes = PRODUCTIVE_INPUT_PRICES.test(claimText) ? ['productive-input-price-benchmarks', 'supplier-comparables'] : [];
+    return finish(true, 'La inversión minera requiere cartera y registros oficiales, título o concesión, informe técnico de recursos y reservas, permisos, producción, costos y precios. Viviendas para trabajadores e insumos deben contrastarse con referencias fechadas y separadas.', {
+      suggestedSourceTypes: ['official-mining-data', 'geological-survey-data', 'official-commodity-market-data', 'official-statistics', ...realEstateTypes, ...inputTypes],
+      minimumIndependentSources: 2,
+      recencyRequired: true,
+      officialSourceRequired: true,
+    });
+  }
+
+  if (INDUSTRIAL_PARK_REAL_ESTATE.test(claimText)) {
+    return finish(true, 'El valor de un inmueble industrial requiere comprobar el parque y contrastar lotes, naves o galpones comparables de la misma zona, superficie, servicios, habilitación y fecha.', {
+      suggestedSourceTypes: ['official-industrial-park-registry', 'official-real-estate-data', 'industrial-property-comparables'],
       minimumIndependentSources: 2,
       recencyRequired: true,
       officialSourceRequired: true,
@@ -123,9 +170,10 @@ export function decideExternalVerification(
     });
   }
 
-  if (AGRICULTURAL_INVESTMENT.test(claimText) && SECTOR_INVESTMENT.test(claimText)) {
+  if ((AGRICULTURAL_INVESTMENT.test(claimText) && SECTOR_INVESTMENT.test(claimText)) || PRODUCTIVE_INPUT_PRICES.test(claimText)) {
+    const inputTypes = PRODUCTIVE_INPUT_PRICES.test(claimText) ? ['productive-input-price-benchmarks', 'supplier-comparables'] : [];
     return finish(true, 'La inversión agropecuaria o regional requiere datos actuales de producción, rindes, sanidad, costos y precios del producto y de la región.', {
-      suggestedSourceTypes: ['official-agricultural-statistics', 'commodity-market-data', 'official-livestock-data', 'official-regional-economy-data'],
+      suggestedSourceTypes: ['official-agricultural-statistics', 'commodity-market-data', 'official-livestock-data', 'official-regional-economy-data', ...inputTypes],
       minimumIndependentSources: 2,
       recencyRequired: true,
       officialSourceRequired: true,
