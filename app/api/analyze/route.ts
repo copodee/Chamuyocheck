@@ -28,7 +28,7 @@ import { analyzeCommercialCourse } from '../../../src/lib/scams/commercialCourse
 import { analyzeArgentinaLegal } from '../../../src/lib/legal/argentinaLegalAnalysis';
 import { resolveUrlInput } from '../../../src/lib/extractors/inputUrl';
 import { describeFinancialUrl } from '../../../src/lib/finance/financialUrlContext';
-import { buildCustomerDecisionAnswer } from '../../../src/analysis/engines/customerDecisionAnswerEngine';
+import { buildCustomerDecisionAnswer, enrichDecisionAnswerWithEconomicEvidence } from '../../../src/analysis/engines/customerDecisionAnswerEngine';
 import type { ExternalVerificationSourceRecord } from '../../../src/analysis/types/externalVerification';
 
 export const runtime = 'nodejs';
@@ -833,15 +833,11 @@ function applyVerificationResult(
   const executionRecords = retrievedRecord
     ? [...verification.execution.records, retrievedRecord]
     : verification.execution.records;
-  const economicSourceFindings = executionRecords
-    .filter((record) => ['central-bank-data', 'official-statistics'].includes(record.sourceType) && record.excerpt)
-    .map((record) => `${record.title}: ${record.excerpt}`);
-  const decisionAnswer = normalized.decisionAnswer && economicSourceFindings.length > 0
-    ? {
-        ...normalized.decisionAnswer,
-        findings: [...new Set([...normalized.decisionAnswer.findings, ...economicSourceFindings])],
-      }
-    : normalized.decisionAnswer;
+  const decisionAnswer = enrichDecisionAnswerWithEconomicEvidence(
+    normalized.decisionAnswer,
+    financial,
+    executionRecords
+  );
   return {
     ...normalized, ...presentation, score: adjustedScore, decisionAnswer,
     externalVerification: {

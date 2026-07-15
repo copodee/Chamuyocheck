@@ -4,7 +4,7 @@ import { classifyProductScope } from '../productScopeClassifier';
 import { extractLoanNumbers } from '../../../lib/finance/loanMath';
 import { analyzeScamRisk } from '../../../lib/scams/scamRiskAnalysis';
 import { analyzeArgentinaLegal } from '../../../lib/legal/argentinaLegalAnalysis';
-import { buildCustomerDecisionAnswer } from '../customerDecisionAnswerEngine';
+import { buildCustomerDecisionAnswer, enrichDecisionAnswerWithEconomicEvidence } from '../customerDecisionAnswerEngine';
 import { discoverArgentinaInflationEvidence } from '../connectors/freeArgentinaInflationConnector';
 
 const text = '500000 pesos a 12 meses. Me dice que terminaré pagando 1000000 de pesos. Me dicen que la tasa es igual a la inflación proyectada para ese período. ¿Es así?';
@@ -50,6 +50,9 @@ test('answers the calculation and explains the correct inflation comparison', ()
 test('consults free official inflation sources without calling REM a BCRA forecast', async () => {
   const fetchMock = async (input: string | URL | Request) => {
     const url = String(input);
+    if (url.includes('api.bcra.gob.ar')) return Response.json({
+      results: [{ fecha: '2026-06-30', valor: 22.3 }],
+    });
     if (url.includes('bcra.gob.ar')) return new Response(`
       <h2>RESUMEN EJECUTIVO | JUNIO DE 2026</h2>
       <p>En el presente informe, publicado el día 6 de julio de 2026.</p>
@@ -59,9 +62,20 @@ test('consults free official inflation sources without calling REM a BCRA foreca
     return new Response('<h1>INDEC - Informes técnicos del IPC</h1>', { status: 200 });
   };
   const records = await discoverArgentinaInflationEvidence(text, [0], fetchMock);
-  assert.equal(records.length, 2);
-  assert.deepEqual(records.map((record) => record.sourceType).sort(), ['central-bank-data', 'official-statistics']);
+  assert.equal(records.length, 3);
+  assert.deepEqual(records.map((record) => record.sourceType).sort(), ['central-bank-data', 'central-bank-data', 'official-statistics']);
   assert.match(records[0].excerpt || '', /2,0%/);
   assert.match(records[0].excerpt || '', /no proyecciones propias/i);
-  assert.match(records[1].excerpt || '', /observada/i);
+  assert.match(records[1].excerpt || '', /22,3%/);
+  assert.match(records[2].excerpt || '', /observada/i);
+
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text,
+    financialAnalysis: extractLoanNumbers(text),
+    scamRiskAnalysis: analyzeScamRisk(text),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(text),
+  });
+  const enriched = enrichDecisionAnswerWithEconomicEvidence(answer, extractLoanNumbers(text), records);
+  assert.match(enriched?.directAnswer || '', /mediana vigente.*22,30%/i);
+  assert.match(enriched?.directAnswer || '', /afirmación no coincide.*100,00%.*319,61%/i);
 });

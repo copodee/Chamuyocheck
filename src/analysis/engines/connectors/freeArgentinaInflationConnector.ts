@@ -3,7 +3,12 @@ import type { ExternalVerificationSourceRecord } from '../../types/externalVerif
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 const BCRA_REM_URL = 'https://www.bcra.gob.ar/relevamiento-expectativas-mercado-rem/';
+const BCRA_REM_12_MONTH_API_URL = 'https://api.bcra.gob.ar/estadisticas/v4.0/monetarias/29?limit=1';
 const INDEC_IPC_URL = 'https://www.indec.gob.ar/indec/web/Institucional-Indec-InformesTecnicos-47';
+
+type BcraMonetaryResponse = {
+  results?: Array<{ fecha?: string; valor?: number }>;
+};
 
 function plainText(html: string): string {
   return html
@@ -39,8 +44,9 @@ export async function discoverArgentinaInflationEvidence(
 
   const retrievedAt = new Date().toISOString();
   const records: ExternalVerificationSourceRecord[] = [];
-  const [bcra, indec] = await Promise.allSettled([
+  const [bcra, bcraTwelveMonths, indec] = await Promise.allSettled([
     fetchImpl(BCRA_REM_URL, { headers: { accept: 'text/html' } }),
+    fetchImpl(BCRA_REM_12_MONTH_API_URL, { headers: { accept: 'application/json', 'accept-language': 'es-AR' } }),
     fetchImpl(INDEC_IPC_URL, { headers: { accept: 'text/html' } }),
   ]);
 
@@ -62,6 +68,28 @@ export async function discoverArgentinaInflationEvidence(
         disclaimer ? 'El BCRA aclara que son pronósticos de participantes privados, no proyecciones propias del Banco Central.' : '',
       ].filter(Boolean).join(' '),
     });
+  }
+
+  if (bcraTwelveMonths.status === 'fulfilled' && bcraTwelveMonths.value.ok) {
+    try {
+      const payload = await bcraTwelveMonths.value.json() as BcraMonetaryResponse;
+      const observation = payload.results?.[0];
+      if (observation && Number.isFinite(observation.valor)) {
+        const value = Number(observation.valor);
+        records.push({
+          sourceType: 'central-bank-data',
+          url: BCRA_REM_12_MONTH_API_URL,
+          title: 'BCRA API — Inflación esperada REM para los próximos 12 meses',
+          retrievedAt,
+          sourceDate: observation.fecha,
+          claimIndexes,
+          official: true,
+          excerpt: `La mediana vigente del REM para los próximos 12 meses es ${value.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%${observation.fecha ? ` al ${observation.fecha}` : ''}. Son expectativas de participantes privados, no una proyección propia del BCRA.`,
+        });
+      }
+    } catch {
+      // A malformed or changed API response is omitted instead of being presented as evidence.
+    }
   }
 
   if (indec.status === 'fulfilled' && indec.value.ok) {

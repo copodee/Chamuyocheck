@@ -1,6 +1,7 @@
 import type { LoanNumbers } from '../../lib/finance/loanMath';
 import type { ScamRiskAnalysis } from '../../lib/scams/scamRiskAnalysis';
 import type { ArgentinaLegalAnalysis } from '../../lib/legal/argentinaLegalAnalysis';
+import type { ExternalVerificationSourceRecord } from '../types/externalVerification';
 
 export type CustomerDecisionAnswer = {
   kind: 'loan-cost' | 'scam-prevention' | 'legal-document' | 'supported-review';
@@ -103,5 +104,39 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
     directAnswer: 'La información disponible no permite todavía una respuesta accionable y suficientemente respaldada.', findings: [],
     nextActions: ['Aportar el documento, oferta o comunicación completa y formular una pregunta concreta.'],
     limitations: ['No se infiere una conclusión por la sola ausencia de información.'],
+  };
+}
+
+export function enrichDecisionAnswerWithEconomicEvidence(
+  answer: CustomerDecisionAnswer | undefined,
+  financial: LoanNumbers | null | undefined,
+  records: ExternalVerificationSourceRecord[]
+): CustomerDecisionAnswer | undefined {
+  if (!answer) return answer;
+  const economicFindings = records
+    .filter((record) => ['central-bank-data', 'official-statistics'].includes(record.sourceType) && record.excerpt)
+    .map((record) => `${record.title}: ${record.excerpt}`);
+  const enriched = economicFindings.length > 0
+    ? { ...answer, findings: [...new Set([...answer.findings, ...economicFindings])] }
+    : answer;
+  if (answer.kind !== 'loan-cost' || financial?.months !== 12) return enriched;
+
+  const remRecord = records.find((record) =>
+    record.sourceType === 'central-bank-data'
+    && /mediana vigente del REM para los pr[oó]ximos 12 meses es/i.test(record.excerpt || '')
+  );
+  const valueText = remRecord?.excerpt?.match(/pr[oó]ximos 12 meses es\s+([\d.,]+)%/i)?.[1];
+  if (!valueText) return enriched;
+  const remPercent = Number(valueText.replace(/\./g, '').replace(',', '.'));
+  if (!Number.isFinite(remPercent)) return enriched;
+
+  const comparisons = [
+    financial.financingCostPercent !== null ? `el costo nominal visible de ${percent(financial.financingCostPercent)}` : '',
+    financial.impliedTeaPercent !== null ? `la TEA implícita de ${percent(financial.impliedTeaPercent)}` : '',
+  ].filter(Boolean).join(' y ');
+  if (!comparisons) return enriched;
+  return {
+    ...enriched,
+    directAnswer: `${enriched.directAnswer} La mediana vigente del REM para los próximos 12 meses es ${percent(remPercent)}. Por lo tanto, la afirmación no coincide con la referencia consultada: ${comparisons} son superiores a esa expectativa.`,
   };
 }
