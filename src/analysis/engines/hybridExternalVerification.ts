@@ -13,6 +13,7 @@ import { discoverEuropePmcEvidence } from './connectors/freeEuropePmcConnector';
 import { verifyArgentinaCriminalLaw } from './connectors/freeArgentinaLegalConnector';
 import { discoverArgentinaInflationEvidence } from './connectors/freeArgentinaInflationConnector';
 import { discoverArgentinaExportEvidence } from './connectors/freeUnComtradeConnector';
+import { discoverArgentinaAgricultureEvidence } from './connectors/freeArgentinaAgricultureConnector';
 
 type SearchClient = Parameters<typeof runAutomaticWebVerification>[0];
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
@@ -87,7 +88,13 @@ export async function runHybridExternalVerification(
   const tradeRecords = tradeClaimIndexes.length
     ? await discoverArgentinaExportEvidence(claimText, [...new Set(tradeClaimIndexes)], fetchImpl)
     : [];
-  const freeRecords = [...(free?.execution.records || []), ...rssRecords, ...labelRecords, ...wikidataRecords, ...researchRecords, ...legalRecords, ...inflationRecords, ...tradeRecords];
+  const agricultureClaimIndexes = plan.workItems
+    .filter((item) => item.suggestedSourceTypes.includes('official-agricultural-statistics'))
+    .flatMap((item) => item.claimIndexes);
+  const agricultureRecords = agricultureClaimIndexes.length
+    ? await discoverArgentinaAgricultureEvidence(claimText, [...new Set(agricultureClaimIndexes)], fetchImpl)
+    : [];
+  const freeRecords = [...(free?.execution.records || []), ...rssRecords, ...labelRecords, ...wikidataRecords, ...researchRecords, ...legalRecords, ...inflationRecords, ...tradeRecords, ...agricultureRecords];
   const freeExecution = registerExternalVerificationExecution(plan, freeRecords);
   if (freeExecution.externalVerificationPerformed) {
     const labelCorroborates = labelRecords.length > 0 && /\b(?:dolor\s+de\s+cabeza|cefalea)\b/i.test(claimText);
@@ -111,10 +118,12 @@ export async function runHybridExternalVerification(
   }
 
   if (!allowPaidSearch) {
-    const rationale = tradeRecords.length > 0
+    const rationale = agricultureRecords.length > 0
+      ? 'Se obtuvieron producción, superficie y rendimiento oficiales del cultivo y la región, pero aún faltan precios, costos, clima, aptitud del campo, logística y flujo de fondos para evaluar la inversión.'
+      : tradeRecords.length > 0
       ? 'Se obtuvieron exportaciones argentinas observadas del producto, pero aún faltan precios, costos, destinos, competidores, barreras y demanda importadora para recomendar la inversión.'
       : 'No se obtuvieron fuentes suficientes que cumplan los requisitos de calidad, independencia y actualidad.';
-    return { attempted: requests.length > 0 || rssRecords.length > 0 || labelRecords.length > 0 || wikidataRecords.length > 0 || researchRecords.length > 0 || legalRecords.length > 0 || inflationRecords.length > 0 || tradeRecords.length > 0, assessment: 'inconclusive', rationale, execution: freeExecution, route: 'inconclusive', paidSearchUsed: false };
+    return { attempted: requests.length > 0 || rssRecords.length > 0 || labelRecords.length > 0 || wikidataRecords.length > 0 || researchRecords.length > 0 || legalRecords.length > 0 || inflationRecords.length > 0 || tradeRecords.length > 0 || agricultureRecords.length > 0, assessment: 'inconclusive', rationale, execution: freeExecution, route: 'inconclusive', paidSearchUsed: false };
   }
 
   const paid = await runAutomaticWebVerification(client, claimText, plan, undefined, freeRecords);

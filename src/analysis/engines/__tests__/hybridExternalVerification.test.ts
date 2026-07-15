@@ -49,3 +49,20 @@ test('hybrid flow automatically collects official export history but does not re
   assert.equal(result.execution.records[0]?.sourceType, 'international-trade-data');
   assert.match(result.rationale, /faltan precios, costos, destinos/i);
 });
+
+test('hybrid flow automatically collects official agricultural production without equating it to profitability', async () => {
+  const text = 'Quiero evaluar una inversión productiva en soja en Córdoba.';
+  const plan = runClaimFirstPipeline(text).documentExternalVerificationPlan;
+  assert.ok(plan.suggestedSourceTypes.includes('official-agricultural-statistics'));
+  const csv = `"cultivo","anio","campania","provincia","provincia_id","departamento","departamento_id","superficie_sembrada_ha","superficie_cosechada_ha","produccion_tm","rendimiento_kgxha"\n"Soja",2025,"2024/25","Córdoba",14,"Río Cuarto",14098,200,180,630,3500`;
+  const fetchImpl = async (input: string | URL | Request): Promise<Response> => String(input).includes('/api/3/action/package_show')
+    ? new Response(JSON.stringify({ success: true, result: { resources: [{ format: 'CSV', url: 'https://datos.magyp.gob.ar/agriculture.csv', last_modified: '2026-03-05T13:10:49.520271' }] } }), { status: 200 })
+    : new Response(csv, { status: 200 });
+  const result = await runHybridExternalVerification(client, text, plan, [], fetchImpl, false);
+  assert.equal(result.attempted, true);
+  assert.equal(result.route, 'inconclusive');
+  assert.equal(result.execution.status, 'partial');
+  assert.equal(result.execution.externalVerificationPerformed, false);
+  assert.ok(result.execution.records.some((record) => record.sourceType === 'official-agricultural-statistics'));
+  assert.match(result.rationale, /faltan precios, costos, clima/i);
+});

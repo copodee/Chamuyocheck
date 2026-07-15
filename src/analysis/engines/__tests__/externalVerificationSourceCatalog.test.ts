@@ -25,11 +25,12 @@ test('catalog resolves medication, capital-market and crypto targets', () => {
   assert.ok(providersForSourceTypes(['blockchain-explorer']).some((provider) => provider.id === 'blockchain-explorer'));
 });
 
-test('catalog registers investment-sector sources as planned rather than pretending they ran', () => {
+test('catalog distinguishes implemented investment connectors from remaining planned sources', () => {
   const availability = sourceAvailabilityForTypes([
     'official-real-estate-data', 'official-agricultural-statistics', 'official-trade-statistics', 'international-trade-data',
   ]);
-  assert.deepEqual(availability.map((item) => item.status), ['planned', 'planned', 'planned', 'implemented']);
+  assert.deepEqual(availability.map((item) => item.status), ['planned', 'implemented', 'planned', 'implemented']);
+  assert.ok(providersForSourceTypes(['official-agricultural-statistics']).some((provider) => provider.id === 'argentina-agriculture' && provider.status === 'implemented'));
   assert.ok(providersForSourceTypes(['official-agricultural-statistics']).some((provider) => provider.id === 'inta'));
   assert.ok(providersForSourceTypes(['international-trade-data']).some((provider) => provider.id === 'un-comtrade' && provider.status === 'implemented'));
   assert.ok(providersForSourceTypes(['international-trade-data']).some((provider) => provider.id === 'itc-trade-map' && provider.status === 'planned'));
