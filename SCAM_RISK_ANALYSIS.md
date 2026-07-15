@@ -1,6 +1,6 @@
 # Análisis preventivo de posibles estafas
 
-ChamuyoCheck identifica patrones observables en textos, páginas públicas y capturas leídas mediante OCR. La evaluación separa la evidencia visible de la conclusión jurídica.
+ChamuyoCheck identifica patrones observables en textos, páginas públicas, enlaces y capturas leídas mediante OCR. La evaluación separa la evidencia visible de la conclusión jurídica.
 
 ## Señales cubiertas
 
@@ -11,10 +11,28 @@ ChamuyoCheck identifica patrones observables en textos, páginas públicas y cap
 - solicitud de claves, códigos o acceso remoto;
 - pagos por canales difíciles de revertir o a terceros;
 - identidad o canal no verificable;
-- retornos extraordinarios en plazos cortos.
+- retornos extraordinarios en plazos cortos;
+- enlaces sin HTTPS, con credenciales incrustadas, direcciones IP o puertos inusuales;
+- acortadores, cadenas excesivas de subdominios, Punycode y extensiones que requieren cautela;
+- rutas que intentan inducir acceso, verificación, soporte, billetera o actualización de cuenta.
 
-Cada señal conserva un fragmento del contenido que justifica la alerta. El puntaje expresa acumulación de señales preventivas, no probabilidad de delito.
+Cada señal conserva una explicación breve y saneada. Los parámetros publicitarios, identificadores extensos y consultas completas de una URL no se reproducen en el informe. El puntaje expresa acumulación de señales preventivas, no probabilidad de delito.
+
+## Verificación externa gratuita
+
+Cuando la consulta corresponde a una oferta o inversión sospechosa, el sistema intenta contrastar el dominio exacto mediante fuentes públicas:
+
+- datos RDAP de registro y antigüedad del dominio;
+- alertas y registros públicos de la CNV cuando la propuesta es financiera;
+- ficha pública de reputación del dominio exacto en ScamAdviser, si está disponible;
+- investigaciones de seguridad relevantes, como antecedentes documentados de malvertising, cuando el enlace contiene indicadores de esa red publicitaria.
+
+Una fuente contextual no se usa como prueba contra un sitio concreto. Por ejemplo, un antecedente de malvertising distribuido mediante una red publicitaria no convierte automáticamente en fraudulento a todo anuncio de esa red.
+
+## Enfoque inspirado en verificadores de enlaces
+
+Se replican controles transparentes que también recomiendan herramientas como ESET Link Checker: revisar la escritura y estructura del dominio, el cifrado, las redirecciones o destinos ocultos y la coherencia entre la identidad declarada y el sitio real. No se copia ni se simula la base propietaria de amenazas de ESET; sin una API o licencia, ChamuyoCheck no afirma haber obtenido un veredicto de esa empresa.
 
 ## Resultado prudente
 
-El sistema no afirma que exista estafa, fraude o responsabilidad penal. Indica qué debe comprobarse: identidad legal, CUIT, dominio oficial, contrato y autorización o advertencias en organismos como BCRA, CNV y defensa del consumidor.
+El sistema no afirma que exista estafa, fraude o responsabilidad penal únicamente por estas señales. Explica el nivel de riesgo, qué evidencia externa obtuvo y qué debe comprobarse: identidad legal, CUIT, dominio oficial, contrato, custodia de fondos y autorización o advertencias en organismos como BCRA, CNV y defensa del consumidor.

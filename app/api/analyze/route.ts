@@ -28,7 +28,7 @@ import { analyzeCommercialCourse } from '../../../src/lib/scams/commercialCourse
 import { analyzeArgentinaLegal } from '../../../src/lib/legal/argentinaLegalAnalysis';
 import { resolveUrlInput } from '../../../src/lib/extractors/inputUrl';
 import { describeFinancialUrl } from '../../../src/lib/finance/financialUrlContext';
-import { buildCustomerDecisionAnswer, enrichDecisionAnswerWithEconomicEvidence } from '../../../src/analysis/engines/customerDecisionAnswerEngine';
+import { buildCustomerDecisionAnswer, enrichDecisionAnswerWithEconomicEvidence, enrichDecisionAnswerWithExternalEvidence } from '../../../src/analysis/engines/customerDecisionAnswerEngine';
 import type { ExternalVerificationSourceRecord } from '../../../src/analysis/types/externalVerification';
 import { analyzeInvestmentProject } from '../../../src/lib/investments/investmentProjectAnalysis';
 
@@ -838,8 +838,13 @@ function applyVerificationResult(
   const executionRecords = retrievedRecord
     ? [...verification.execution.records, retrievedRecord]
     : verification.execution.records;
-  const decisionAnswer = enrichDecisionAnswerWithEconomicEvidence(
+  const externallyEnrichedDecision = enrichDecisionAnswerWithExternalEvidence(
     normalized.decisionAnswer,
+    executionRecords,
+    verification.rationale
+  );
+  const decisionAnswer = enrichDecisionAnswerWithEconomicEvidence(
+    externallyEnrichedDecision,
     financial,
     executionRecords
   );
@@ -860,7 +865,7 @@ function applyVerificationResult(
         : verification.assessment === 'corroborated' ? 'La evidencia encontrada respalda la afirmación dentro de su alcance.' : verification.assessment === 'contradicted' ? 'La evidencia encontrada contradice la afirmación.' : 'La evidencia no permite responder con certeza.' } : {}),
       rationale: primarySourceRead ? sourceVerificationText : verification.rationale,
     },
-    evidenceFound: [...(normalized.evidenceFound || []), ...executionRecords.map((record) => `${record.title} — ${record.url}`)],
+    evidenceFound: [...(normalized.evidenceFound || []), ...executionRecords.map((record) => `Fuente externa consultada: ${record.title}.`)],
   };
 }
 

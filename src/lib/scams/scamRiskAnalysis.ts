@@ -34,21 +34,103 @@ const scamContext = /estafa|scam|fraude|enga[ñn]o|inversi[oó]n|rentabilidad|ga
 
 function excerpt(text: string, match: RegExpMatchArray): string {
   const index = match.index || 0;
-  return text.slice(Math.max(0, index - 35), Math.min(text.length, index + match[0].length + 45)).replace(/\s+/g, ' ').trim();
+  return sanitizeEvidence(text.slice(Math.max(0, index - 35), Math.min(text.length, index + match[0].length + 45)));
+}
+
+function decodeRepeatedly(value: string): string {
+  let decoded = value.replace(/\+/g, ' ');
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch { break; }
+  }
+  return decoded;
+}
+
+function safeUrlSummary(raw: string): string {
+  try {
+    const url = new URL(raw.replace(/[),.;]+$/, ''));
+    const path = url.pathname === '/' ? '' : url.pathname.slice(0, 70);
+    return `${url.protocol}//${url.hostname}${path}${url.search ? ' (parámetros omitidos)' : ''}`;
+  } catch {
+    return 'enlace externo (parámetros omitidos)';
+  }
+}
+
+function sanitizeEvidence(value: string): string {
+  const cleaned = value
+    .replace(/https?:\/\/[^\s<>"']+/gi, (url) => safeUrlSummary(url))
+    .replace(/(?:[?&]|\b)(?:subc|adid|site_id|site_domain|thumbnail|campaign_id|campaign_name|utm_[a-z_]+|gclid|fbclid)=[^\s&]*/gi, '')
+    .replace(/[%_+A-Za-z0-9=-]{120,}/g, '[parámetro extenso omitido]')
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned.length > 240 ? `${cleaned.slice(0, 237).trimEnd()}…` : cleaned;
+}
+
+const urlShorteners = new Set(['bit.ly', 'tinyurl.com', 't.co', 'cutt.ly', 'rebrand.ly', 'is.gd', 'shorturl.at', 'ow.ly']);
+const unusualTlds = /\.(?:top|xyz|click|work|cam|buzz|monster|gq|tk|ml|cf|ga)$/i;
+
+function urlStructureSignals(text: string): ScamSignal[] {
+  const rawUrls = [...text.matchAll(/https?:\/\/[^\s<>"']+/gi)].map((match) => match[0].replace(/[),.;]+$/, ''));
+  const signals: ScamSignal[] = [];
+  const seen = new Set<string>();
+  for (const raw of [...new Set(rawUrls)].slice(0, 3)) {
+    let url: URL;
+    try { url = new URL(raw); } catch { continue; }
+    const host = url.hostname.toLowerCase();
+    const add = (id: string, label: string, evidence: string, weight: number) => {
+      if (seen.has(id)) return;
+      seen.add(id);
+      signals.push({ id, label, evidence: sanitizeEvidence(evidence), weight });
+    };
+    if (url.protocol === 'http:') add('url-insecure-http', 'Enlace sin cifrado HTTPS', `El enlace de ${host} usa HTTP sin cifrado.`, 14);
+    if (url.username || url.password) add('url-embedded-credentials', 'URL con identidad incrustada antes del dominio', `El enlace incluye datos antes del dominio real ${host}, una técnica que puede confundir sobre el destino.`, 24);
+    if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(host) || /^\[[0-9a-f:]+\]$/i.test(host)) add('url-ip-host', 'Enlace dirigido a una dirección IP', `El destino muestra una dirección IP en lugar de un dominio identificable.`, 18);
+    if (host.includes('xn--')) add('url-punycode', 'Dominio internacionalizado que requiere revisar su escritura', `El dominio ${host} usa codificación Punycode y debe compararse carácter por carácter con el sitio oficial.`, 16);
+    if (urlShorteners.has(host)) add('url-shortener', 'Destino oculto detrás de un acortador', `El enlace usa ${host}; el destino final debe resolverse antes de confiar.`, 13);
+    if (host.split('.').length > 4) add('url-many-subdomains', 'Cantidad inusual de subdominios', `El enlace usa una cadena extensa de subdominios antes de ${host}.`, 9);
+    if (unusualTlds.test(host)) add('url-unusual-tld', 'Extensión de dominio que requiere cautela adicional', `El dominio ${host} usa una extensión frecuentemente empleada en sitios de vida corta; no demuestra fraude por sí sola.`, 7);
+    if (url.port && !['80', '443'].includes(url.port)) add('url-unusual-port', 'Puerto de red no habitual en el enlace', `El enlace de ${host} utiliza el puerto ${url.port}.`, 10);
+    if (/\b(?:login|signin|verify|verification|secure|wallet|support|account|actualizar|verificar|seguridad)\b/i.test(`${host.replace(/[-_.]/g, ' ')} ${url.pathname.replace(/[-_/]/g, ' ')}`)) {
+      add('url-sensitive-action', 'Enlace que solicita una acción sensible', `La dirección de ${host} contiene referencias a acceso, verificación, seguridad, billetera o soporte. Debe abrirse desde el canal oficial, no desde el mensaje.`, 9);
+    }
+  }
+  return signals;
+}
+
+function signalEvidence(rule: Rule, analysisText: string, match: RegExpMatchArray): string {
+  if (rule.id === 'advertising-landing-link') {
+    const urlMatch = match[0].match(/https?:\/\/[^\s<>"']+/i);
+    if (urlMatch) {
+      try {
+        const url = new URL(urlMatch[0]);
+        return `Enlace de captación en ${url.hostname} con parámetros de seguimiento publicitario.`;
+      } catch { /* Use the generic evidence below. */ }
+    }
+  }
+  if (rule.id === 'automated-money-claim') {
+    const rawUrl = analysisText.match(/https?:\/\/[^\s<>"']+/i)?.[0];
+    if (rawUrl) {
+      try {
+        const title = new URL(rawUrl).searchParams.get('title');
+        if (title) return sanitizeEvidence(`Promesa publicitaria: “${decodeRepeatedly(title)}”.`);
+      } catch { /* Use the matched excerpt below. */ }
+    }
+  }
+  return excerpt(analysisText, match);
 }
 
 export function analyzeScamRisk(text: string): ScamRiskAnalysis {
-  let decodedText = text.replace(/\+/g, ' ');
-  try {
-    decodedText = decodeURIComponent(decodedText);
-  } catch {
-    // Conservamos el original si la URL contiene escapes incompletos.
-  }
+  const decodedText = decodeRepeatedly(text);
   const analysisText = `${text}\n${decodedText}`;
-  const signals = rules.flatMap((rule) => {
+  const contentSignals = rules.flatMap((rule) => {
     const match = analysisText.match(rule.pattern);
-    return match ? [{ id: rule.id, label: rule.label, evidence: excerpt(analysisText, match), weight: rule.weight }] : [];
+    return match ? [{ id: rule.id, label: rule.label, evidence: signalEvidence(rule, analysisText, match), weight: rule.weight }] : [];
   });
+  const signals = [...contentSignals, ...urlStructureSignals(text)];
   const applicable = scamContext.test(analysisText) || signals.length > 0;
   const score = Math.min(100, signals.reduce((sum, signal) => sum + signal.weight, 0));
   const level = score >= 70 ? 'muy-alto' : score >= 45 ? 'alto' : score >= 20 ? 'medio' : 'bajo';

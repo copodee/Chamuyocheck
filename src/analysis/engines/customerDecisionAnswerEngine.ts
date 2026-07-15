@@ -148,10 +148,13 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   }
   if (input.scamRiskAnalysis.applicable) {
     const hasSignals = input.scamRiskAnalysis.signals.length > 0;
+    const elevatedRisk = ['alto', 'muy-alto'].includes(input.scamRiskAnalysis.level);
     return {
       kind: 'scam-prevention', status: hasSignals ? 'needs-verification' : 'partial',
-      title: hasSignals ? 'Hay señales que conviene verificar antes de pagar' : 'No alcanza para confirmar que la operación sea segura',
-      directAnswer: input.scamRiskAnalysis.conclusion,
+      title: elevatedRisk ? 'La propuesta presenta un riesgo elevado: no pagues sin verificarla' : hasSignals ? 'Hay señales que conviene verificar antes de pagar' : 'No alcanza para confirmar que la operación sea segura',
+      directAnswer: elevatedRisk
+        ? `Evaluación preliminar: riesgo ${input.scamRiskAnalysis.level === 'muy-alto' ? 'muy alto' : 'alto'}. ${input.scamRiskAnalysis.conclusion} No puede afirmarse que sea una estafa sin identificar al operador y contrastar su autorización, pero tampoco debe tratarse como una oferta confiable.`
+        : input.scamRiskAnalysis.conclusion,
       findings: input.scamRiskAnalysis.signals.map((signal) => `${signal.label}: “${signal.evidence}”.`),
       nextActions: input.scamRiskAnalysis.checks,
       limitations: ['La ausencia de patrones conocidos no acredita la identidad, legitimidad o solvencia de la contraparte.'],
@@ -172,6 +175,29 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
     directAnswer: 'La información disponible no permite todavía una respuesta accionable y suficientemente respaldada.', findings: [],
     nextActions: ['Aportar el documento, oferta o comunicación completa y formular una pregunta concreta.'],
     limitations: ['No se infiere una conclusión por la sola ausencia de información.'],
+  };
+}
+
+export function enrichDecisionAnswerWithExternalEvidence(
+  answer: CustomerDecisionAnswer | undefined,
+  records: ExternalVerificationSourceRecord[],
+  verificationRationale?: string
+): CustomerDecisionAnswer | undefined {
+  if (!answer || answer.kind !== 'scam-prevention') return answer;
+  const relevant = records
+    .filter((record) => ['domain-registration-data', 'domain-reputation', 'security-research', 'consumer-protection-agencies', 'securities-regulator-cnv'].includes(record.sourceType) && record.excerpt)
+    .slice(0, 5)
+    .map((record) => `${record.title}: ${record.excerpt}`);
+  if (!relevant.length && !verificationRationale) return answer;
+  return {
+    ...answer,
+    directAnswer: `${answer.directAnswer}${verificationRationale ? ` Verificación externa: ${verificationRationale}` : ''}`,
+    findings: [...new Set([...answer.findings, ...relevant])],
+    limitations: [...new Set([
+      ...answer.limitations,
+      'Una reputación baja, un dominio reciente o un antecedente de malvertising son señales de riesgo; no demuestran por sí solos un delito.',
+      'La ausencia de una coincidencia en un registro o listado de alertas no equivale a autorización ni garantiza seguridad.',
+    ])],
   };
 }
 

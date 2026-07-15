@@ -32,3 +32,26 @@ test('un pedido concreto de compartir el token sí dispara la alerta', () => {
   const result = analyzeScamRisk('Pasame tu token de seguridad para habilitar el préstamo.');
   assert.equal(result.signals.some((signal) => signal.id === 'credential-request'), true);
 });
+
+test('limpia enlaces publicitarios extensos de todos los hallazgos', () => {
+  const url = 'https://lpa.web-crewsstats.com/ifwv_v_3_es_lp_wcs/?subc=abc123&site_domain=taboolanews.com&thumbnail=https%25253A%25252F%25252Fcdn.example.com%25252Fimage.png&title=La+IA+que+hace+dinero%25253A+ganancias+autom%C3%A1ticas&campaign_id=48799180&campaign_name=ARG_AI';
+  const result = analyzeScamRisk(`${url}\nQuiero saber si esta propuesta de autotrading es real o scam.`);
+  const evidence = result.signals.map((signal) => signal.evidence).join(' ');
+  assert.ok(result.signals.some((signal) => signal.id === 'advertising-landing-link'));
+  assert.ok(result.signals.some((signal) => signal.id === 'automated-money-claim'));
+  assert.match(evidence, /web-crewsstats\.com|Promesa publicitaria/i);
+  assert.doesNotMatch(evidence, /campaign_id=|thumbnail=|subc=|%2525|https?:\/\/[^\s]+\?/i);
+  assert.ok(result.signals.every((signal) => signal.evidence.length <= 240));
+});
+
+test('revisa la estructura de una URL con criterios transparentes de seguridad', () => {
+  const result = analyzeScamRisk('http://usuario@xn--bcher-kva.top:8080/login/verificar?campaign_id=1');
+  const ids = result.signals.map((signal) => signal.id);
+  assert.ok(ids.includes('url-insecure-http'));
+  assert.ok(ids.includes('url-embedded-credentials'));
+  assert.ok(ids.includes('url-punycode'));
+  assert.ok(ids.includes('url-unusual-tld'));
+  assert.ok(ids.includes('url-unusual-port'));
+  assert.ok(ids.includes('url-sensitive-action'));
+  assert.equal(result.level, 'muy-alto');
+});

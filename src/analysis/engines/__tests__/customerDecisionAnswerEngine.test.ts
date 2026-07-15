@@ -4,7 +4,7 @@ import { extractLoanNumbers } from '../../../lib/finance/loanMath';
 import { analyzeScamRisk } from '../../../lib/scams/scamRiskAnalysis';
 import { analyzeArgentinaLegal } from '../../../lib/legal/argentinaLegalAnalysis';
 import { analyzeInvestmentProject } from '../../../lib/investments/investmentProjectAnalysis';
-import { buildCustomerDecisionAnswer } from '../customerDecisionAnswerEngine';
+import { buildCustomerDecisionAnswer, enrichDecisionAnswerWithExternalEvidence } from '../customerDecisionAnswerEngine';
 
 test('responde primero cuánto se paga y estima tasas para el plazo pedido', () => {
   const text = 'Monto del préstamo $1.007.000. 12 cuotas de $130.381. 24 cuotas de $100.553. 36 cuotas de $106.213. 48 cuotas de $107.037.';
@@ -126,4 +126,22 @@ test('expone producción, margen y retorno de un proyecto agrícola con sus lím
   assert.match(answer.findings.join(' '), /Escenario base.*US\$\s*300\.000.*60,00%/i);
   assert.match(answer.directAnswer, /tres escenarios internos son positivos.*no equivale a una recomendación/i);
   assert.match(answer.nextActions.join(' '), /campaña y región.*clima.*rinde adverso/i);
+});
+
+test('incorpora evidencia externa a la respuesta de scam con su alcance correcto', () => {
+  const base = buildCustomerDecisionAnswer({
+    documentText: 'Autotrader con IA que genera dinero sin riesgo.',
+    userInstruction: '¿Es real o scam?',
+    financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk('Autotrader con IA que genera dinero sin riesgo.'),
+    argentinaLegalAnalysis: analyzeArgentinaLegal('Autotrader con IA que genera dinero sin riesgo.'),
+  });
+  const answer = enrichDecisionAnswerWithExternalEvidence(base, [{
+    sourceType: 'domain-reputation', url: 'https://example.test/check', title: 'Reputación del dominio exacto',
+    retrievedAt: new Date().toISOString(), claimIndexes: [0], official: false,
+    excerpt: 'El servicio informa reputación baja; su evaluación es orientativa.',
+  }], 'La consulta externa fue parcial.');
+  assert.match(answer?.findings.join(' ') || '', /reputación baja/i);
+  assert.match(answer?.directAnswer || '', /consulta externa fue parcial/i);
+  assert.match(answer?.limitations.join(' ') || '', /no demuestran por sí solos un delito/i);
 });
