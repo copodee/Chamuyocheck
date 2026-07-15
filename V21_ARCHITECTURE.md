@@ -2161,3 +2161,11 @@ Los organismos y bases sectoriales incorporados al catálogo son objetivos de en
 - Cuando una consulta combina Vaca Muerta con tierras, viviendas o alquileres, se activa también el análisis inmobiliario. Los precios y la facilidad de alquiler sólo pueden sostenerse con comparables fechados de la misma localidad y tipología, más oferta, vacancia y días de publicación.
 - Para la región Vaca Muerta se consulta además el stock y la condición de ocupación de viviendas del Censo 2022 publicado por la Dirección Provincial de Estadística y Censos de Neuquén. Este dato aporta contexto departamental, pero no se presenta como precio actual, alquiler ni vacancia locativa.
 - El motor prohíbe derivar valores inmobiliarios de la producción petrolera, gasífera o minera. Si no hay comparables suficientes, informa la limitación y mantiene la verificación incompleta.
+
+## V21 Link Identity Audit
+
+- La lectura web conserva URL solicitada, URL final y cadena de redirecciones como evidencia técnica separada.
+- Cada salto se valida contra la política de destinos públicos antes de realizar la siguiente conexión; no se confía en la validación inicial si el servidor redirige.
+- El dominio registrable permite comparar el sitio anunciado con el operador final sin confundir subdominios, redes publicitarias ni nombres de medios incluidos en parámetros.
+- Una redirección entre dominios activa una señal preventiva, pero no prueba por sí sola una estafa.
+- La salida pública usa URLs resumidas y excluye parámetros de seguimiento para evitar desbordes visuales, ruido analítico y exposición innecesaria de identificadores.

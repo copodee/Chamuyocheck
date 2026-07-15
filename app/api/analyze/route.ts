@@ -27,6 +27,7 @@ import { extractYoutubeTranscript } from '../../../src/lib/extractors/youtubeTra
 import { analyzeCommercialCourse } from '../../../src/lib/scams/commercialCourseAnalysis';
 import { analyzeArgentinaLegal } from '../../../src/lib/legal/argentinaLegalAnalysis';
 import { resolveUrlInput } from '../../../src/lib/extractors/inputUrl';
+import { auditUrlIdentity, summarizePublicUrl } from '../../../src/lib/scams/urlIdentityAudit';
 import { describeFinancialUrl } from '../../../src/lib/finance/financialUrlContext';
 import { buildCustomerDecisionAnswer, enrichDecisionAnswerWithEconomicEvidence, enrichDecisionAnswerWithExternalEvidence } from '../../../src/analysis/engines/customerDecisionAnswerEngine';
 import type { ExternalVerificationSourceRecord } from '../../../src/analysis/types/externalVerification';
@@ -952,14 +953,16 @@ export async function POST(req: Request) {
         extraction = { ok: true, text: youtube.text, pages: null, chars: youtube.text.length, note: youtube.note };
       } else {
         const web = await extractStructuredWebText(url);
+        const urlAudit = auditUrlIdentity(url, web.finalUrl, web.redirectChain);
         webText = [
-          `URL analizada: ${url}`,
+          `Enlace analizado: ${summarizePublicUrl(url)}`,
+          urlAudit?.analysisText || '',
           financialUrl?.contextText || '',
           web.title ? `Título: ${web.title}` : '',
           web.text || `Estado de lectura: ${web.note}`,
         ].filter(Boolean).join('\n');
         extraction = { ok: web.ok, text: web.text, pages: null, chars: web.text.length, note: web.note };
-        if (web.ok) retrievedSource = { url, title: web.title || financialUrl?.institution || 'Página consultada', institution: financialUrl?.institution || null };
+        if (web.ok) retrievedSource = { url: web.finalUrl || url, title: web.title || financialUrl?.institution || 'Página consultada', institution: financialUrl?.institution || null };
       }
     }
 

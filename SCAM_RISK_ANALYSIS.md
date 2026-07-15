@@ -36,3 +36,12 @@ Se replican controles transparentes que también recomiendan herramientas como E
 ## Resultado prudente
 
 El sistema no afirma que exista estafa, fraude o responsabilidad penal únicamente por estas señales. Explica el nivel de riesgo, qué evidencia externa obtuvo y qué debe comprobarse: identidad legal, CUIT, dominio oficial, contrato, custodia de fondos y autorización o advertencias en organismos como BCRA, CNV y defensa del consumidor.
+
+## Identidad del enlace y redirecciones
+
+- La URL pegada y el destino final se registran por separado.
+- Las redirecciones se siguen manualmente, con un máximo de cinco saltos, y cada destino se valida antes de conectarse.
+- Se bloquean destinos locales, privados o no públicos incluso cuando aparecen después de una redirección, para evitar accesos internos inducidos por una página externa.
+- Un cambio de dominio durante la redirección se informa como señal observable que requiere revisar quién opera realmente el servicio.
+- Campos publicitarios como `site_domain`, el medio donde apareció el anuncio y otros parámetros de campaña se tratan solo como contexto de distribución. Nunca prueban la identidad del operador ni sustituyen al dominio final.
+- Los informes muestran dominios y rutas breves. No reproducen consultas publicitarias, identificadores de seguimiento ni fragmentos extensos de la URL.

@@ -55,3 +55,8 @@ test('revisa la estructura de una URL con criterios transparentes de seguridad',
   assert.ok(ids.includes('url-sensitive-action'));
   assert.equal(result.level, 'muy-alto');
 });
+
+test('marca cuando la lectura termina en un dominio distinto del enlace aportado', () => {
+  const result = analyzeScamRisk('Auditoría de identidad del enlace. Dominio del enlace aportado: anuncio.example. Destino final observado: operador.example; no coincide con el dominio inicial.');
+  assert.ok(result.signals.some((signal) => signal.id === 'cross-domain-redirect'));
+});

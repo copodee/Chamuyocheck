@@ -161,6 +161,62 @@ test('a Banco Provincia loan URL pasted as text is read and routed to finance', 
   }
 });
 
+test('web analysis audits the real redirect destination without exposing tracking parameters', async () => {
+  const originalFetch = globalThis.fetch;
+  const landingHtml = `<html><head><title>Plataforma de inversión automatizada</title></head><body>
+    Activá nuestro autotrading con inteligencia artificial. Registrate para conocer rendimientos,
+    condiciones, identidad del operador y metodología de inversión.
+  </body></html>`;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const requested = String(input);
+    if (requested.startsWith('https://anuncio.example/click')) {
+      return new Response(null, {
+        status: 302,
+        headers: { location: 'https://operador.example/inversion' },
+      });
+    }
+    if (requested === 'https://operador.example/inversion') {
+      return new Response(landingHtml, {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      });
+    }
+    return new Response('', { status: 503 });
+  }) as typeof fetch;
+  try {
+    const form = new FormData();
+    form.set('text', 'Quiero saber si esta propuesta de autotrading es real o scam. https://anuncio.example/click?campaign_id=48799180&site_domain=taboolanews.com&utm_source=publicidad');
+    form.set('termsAccepted', 'true');
+    form.set('termsVersion', TERMS_VERSION);
+    const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+    const body = await response.json();
+    const publicPayload = JSON.stringify({
+      extractedPreview: body.extractedPreview,
+      summary: body.summary,
+      issues: body.issues,
+      evidenceFound: body.evidenceFound,
+      decisionAnswer: body.decisionAnswer,
+      scamSignals: body.scamRiskAnalysis.signals.map((signal: any) => ({
+        id: signal.id,
+        label: signal.label,
+        evidence: signal.evidence,
+      })),
+    });
+    assert.equal(response.status, 200);
+    assert.notEqual(body.scopeStatus, 'out-of-scope');
+    assert.equal(body.detectedInput, 'Web');
+    assert.equal(body.externalVerification.externalVerificationPerformed, true);
+    assert.equal(body.externalVerification.execution.records.length, 1);
+    assert.equal(body.externalVerification.execution.records[0].url, 'https://operador.example/inversion');
+    assert.equal(body.scamRiskAnalysis.signals.some((signal: any) => signal.id === 'cross-domain-redirect'), true);
+    assert.match(publicPayload, /operador\.example/);
+    assert.match(publicPayload, /taboolanews\.com.*No se consideran el operador financiero ni el destino final/i);
+    assert.doesNotMatch(publicPayload, /campaign_id=48799180|utm_source=publicidad/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('client-side OCR text is analyzed without uploading the image to server OCR', async () => {
   const form = new FormData();
   form.set('text', 'Indicame las condiciones y cuánto interés pagaría.');

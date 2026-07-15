@@ -28,6 +28,7 @@ const rules: Rule[] = [
   { id: 'unrealistic-return', label: 'Retorno extraordinario en un plazo corto', pattern: /(?:\d{2,4}\s*%|duplic[aá]|triplic[aá]|multiplic[aá]).{0,55}(?:d[ií]a|semana|mes|poco tiempo)|(?:por d[ií]a|diario|semanal|mensual).{0,35}(?:\d{2,4}\s*%|duplic|triplic)/i, weight: 27 },
   { id: 'automated-money-claim', label: 'Promesa de generar dinero mediante IA, algoritmo o autotrading', pattern: /(?:\bia\b|\bai\b|inteligencia artificial|algoritmo|autotrader|auto\s*trader|trading\s*bot|bot de (?:trading|inversi[oó]n)|robot de trading).{0,90}(?:hace|genera|gana|produce|multiplica|rentabilidad|ganancias?|dinero)|(?:dinero|ganancias?|rentabilidad).{0,90}(?:\bia\b|\bai\b|inteligencia artificial|algoritmo|autotrader|trading\s*bot|robot de trading)/i, weight: 22 },
   { id: 'advertising-landing-link', label: 'Enlace de captación con seguimiento publicitario', pattern: /https?:\/\/\S+(?:campaign(?:_id|_name)?=|site_id=|thumbnail=|taboola|outbrain|subc=)\S*/i, weight: 10 },
+  { id: 'cross-domain-redirect', label: 'El enlace redirige a un dominio diferente', pattern: /Auditor[ií]a de identidad del enlace\.[\s\S]{0,320}Destino final observado:\s*[^;\n]+; no coincide con el dominio inicial/i, weight: 16 },
 ];
 
 const scamContext = /estafa|scam|fraude|enga[ñn]o|inversi[oó]n|rentabilidad|ganancia|premio|pr[eé]stamo|cr[eé]dito|transfer|deposit|referid|multinivel|ponzi|pir[aá]mid|phishing|banco|wallet|cripto|usdt|telegram|whatsapp|autotrader|auto\s*trader|trading\s*bot|robot\s+de\s+trading|plataforma\s+de\s+trading/i;
