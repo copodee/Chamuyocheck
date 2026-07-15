@@ -2149,3 +2149,5 @@ Los organismos y bases sectoriales incorporados al catálogo son objetivos de en
 - En exportaciones se exige mercado de destino y comprador objetivo, además de producto, volumen, precio, barreras y costos.
 - En inmuebles no se afirma que una zona tenga potencial ni que una unidad sea fácil de alquilar sin comparables fechados de la localidad, barrio y tipología, junto con oferta, días publicados y vacancia.
 - La ausencia de datos esenciales produce un resultado parcial. Una rentabilidad extraordinaria o una proyección sin costos completos activa verificación reforzada.
+- Con un flujo anual suficiente se calculan tres sensibilidades internas: adversa (ingresos -20%, costos +15%), base y favorable (ingresos +15%, costos -5%). Estos porcentajes son pruebas de estrés transparentes, no pronósticos sectoriales.
+- La decisión diferencia evidencia insuficiente, señales de alto riesgo, escenario base negativo, sensibilidad a un escenario adverso y flujo positivo aún no verificado. Ninguno de esos estados autoriza por sí solo a afirmar que una inversión es buena.

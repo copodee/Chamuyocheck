@@ -122,5 +122,8 @@ test('expone producción, margen y retorno de un proyecto agrícola con sus lím
   assert.match(answer.findings.join(' '), /Producción proyectada.*2\.100 toneladas/i);
   assert.match(answer.findings.join(' '), /Margen operativo proyectado.*US\$\s*300\.000.*35,71%/i);
   assert.match(answer.findings.join(' '), /Retorno anual preliminar.*60,00%/i);
+  assert.match(answer.findings.join(' '), /Escenario adverso.*US\$\s*51\.000.*10,20%/i);
+  assert.match(answer.findings.join(' '), /Escenario base.*US\$\s*300\.000.*60,00%/i);
+  assert.match(answer.directAnswer, /tres escenarios internos son positivos.*no equivale a una recomendación/i);
   assert.match(answer.nextActions.join(' '), /campaña y región.*clima.*rinde adverso/i);
 });

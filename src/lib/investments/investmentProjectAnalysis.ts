@@ -55,6 +55,14 @@ export type InvestmentProjectAnalysis = {
     projectedOperatingMarginPercent: number | null;
     projectedReturnOnInvestmentPercent: number | null;
   };
+  scenarios: Array<{
+    name: 'adverse' | 'base' | 'favorable';
+    annualRevenue: number;
+    annualCosts: number;
+    operatingResult: number;
+    returnOnInvestmentPercent: number | null;
+  }>;
+  assessment: 'insufficient-evidence' | 'high-risk' | 'negative-base-case' | 'sensitive-to-adverse-case' | 'positive-unverified';
   assumptions: string[];
   missingInputs: string[];
   riskFlags: string[];
@@ -219,6 +227,38 @@ export function analyzeInvestmentProject(documentText: string, userInstruction =
   if (/proyecci[oó]n|proyectad[oa]s?|crecer[aá]|aumentar[aá]|demanda/i.test(text) && !/(fuente|indec|bcra|inta|senasa|metodolog|serie|escenario)/i.test(text)) riskFlags.push('La proyección de demanda o crecimiento no identifica fuente, serie, fecha ni metodología.');
   if (projectedAnnualRevenue !== null && projectedAnnualCosts === null) riskFlags.push('Se proyectan ingresos sin un costo anual completo; el retorno no puede considerarse neto.');
   if ((projectedOperatingMarginPercent || 0) > 70) riskFlags.push('El margen operativo supera el 70% y exige revisar costos omitidos, mermas, impuestos, logística y capital de trabajo.');
+  const scenarioRevenue = projectedAnnualRevenue ?? annualGrossIncome;
+  const scenarioCosts = projectedAnnualCosts ?? (annualGrossIncome !== null && annualNetIncome !== null ? annualGrossIncome - annualNetIncome : null);
+  const scenarioFactors = [
+    { name: 'adverse' as const, revenue: 0.8, costs: 1.15 },
+    { name: 'base' as const, revenue: 1, costs: 1 },
+    { name: 'favorable' as const, revenue: 1.15, costs: 0.95 },
+  ];
+  const scenarios = scenarioRevenue !== null && scenarioCosts !== null
+    ? scenarioFactors.map((scenario) => {
+        const revenue = scenarioRevenue * scenario.revenue;
+        const costs = scenarioCosts * scenario.costs;
+        const operatingResult = revenue - costs;
+        return {
+          name: scenario.name,
+          annualRevenue: revenue,
+          annualCosts: costs,
+          operatingResult,
+          returnOnInvestmentPercent: capital ? operatingResult / capital * 100 : null,
+        };
+      })
+    : [];
+  const baseScenario = scenarios.find((scenario) => scenario.name === 'base');
+  const adverseScenario = scenarios.find((scenario) => scenario.name === 'adverse');
+  const assessment: InvestmentProjectAnalysis['assessment'] = riskFlags.length > 0
+    ? 'high-risk'
+    : !baseScenario || capital === null
+      ? 'insufficient-evidence'
+      : baseScenario.operatingResult <= 0
+        ? 'negative-base-case'
+        : (adverseScenario?.operatingResult || 0) <= 0
+          ? 'sensitive-to-adverse-case'
+          : 'positive-unverified';
   const sourceRequirements = sector ? [...commonSources, ...(sectorSources[sector] || [])] : [];
   const conclusion = !applicable
     ? 'No se detectó un proyecto de inversión.'
@@ -239,6 +279,8 @@ export function analyzeInvestmentProject(documentText: string, userInstruction =
     currency,
     inputs: { initialInvestment, purchasePrice, squareMeters, monthlyRent, monthlyRevenue, monthlyOperatingCosts, vacancyPercent, hectares, yieldTonsPerHectare, unitPrice, operatingCostPerHectare, projectedAnnualRevenue, projectedAnnualCosts, workingCapital },
     metrics: { pricePerSquareMeter, annualGrossIncome, annualNetIncome, grossAnnualYieldPercent, netAnnualYieldPercent, simplePaybackYears, projectedProductionTons, projectedOperatingMargin, projectedOperatingMarginPercent, projectedReturnOnInvestmentPercent },
+    scenarios,
+    assessment,
     assumptions,
     missingInputs,
     riskFlags,

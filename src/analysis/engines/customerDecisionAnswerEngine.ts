@@ -98,6 +98,7 @@ function buildInvestmentAnswer(analysis: InvestmentProjectAnalysis): CustomerDec
     inputs.projectedAnnualCosts !== null ? `Costos anuales proyectados: ${money(inputs.projectedAnnualCosts, analysis.currency)}.` : '',
     metrics.projectedOperatingMargin !== null ? `Margen operativo proyectado: ${money(metrics.projectedOperatingMargin, analysis.currency)} (${percent(metrics.projectedOperatingMarginPercent || 0)} sobre ingresos).` : '',
     metrics.projectedReturnOnInvestmentPercent !== null ? `Retorno anual preliminar sobre la inversión informada: ${percent(metrics.projectedReturnOnInvestmentPercent)}.` : '',
+    ...analysis.scenarios.map((scenario) => `Escenario ${scenario.name === 'adverse' ? 'adverso' : scenario.name === 'base' ? 'base' : 'favorable'}: resultado operativo anual ${money(scenario.operatingResult, analysis.currency)}${scenario.returnOnInvestmentPercent !== null ? ` (${percent(scenario.returnOnInvestmentPercent)} sobre la inversión)` : ''}.`),
     ...analysis.assumptions,
     ...analysis.riskFlags,
   ].filter(Boolean);
@@ -112,7 +113,15 @@ function buildInvestmentAnswer(analysis: InvestmentProjectAnalysis): CustomerDec
       : hasReturnCalculation
         ? 'Este es el rendimiento preliminar con los datos aportados'
         : 'Faltan datos para medir la viabilidad de la inversión',
-    directAnswer: analysis.conclusion,
+    directAnswer: `${analysis.conclusion} ${analysis.assessment === 'negative-base-case'
+      ? 'El escenario base arroja resultado operativo negativo.'
+      : analysis.assessment === 'sensitive-to-adverse-case'
+        ? 'El escenario base es positivo, pero pasa a pérdida bajo el escenario adverso y por eso la propuesta es sensible.'
+        : analysis.assessment === 'positive-unverified'
+          ? 'Los tres escenarios internos son positivos, pero eso no acredita demanda, precios ni costos externos y no equivale a una recomendación.'
+          : analysis.assessment === 'high-risk'
+            ? 'Las señales de riesgo impiden presentar el proyecto como una oportunidad recomendable.'
+            : 'Todavía no existe un flujo suficiente para clasificar su viabilidad.'}`,
     findings,
     nextActions: [
       ...sourceActions,

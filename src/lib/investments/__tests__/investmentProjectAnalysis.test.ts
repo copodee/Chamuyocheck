@@ -43,7 +43,20 @@ test('calcula producción, margen y retorno de un escenario agrícola sin presen
   assert.equal(result.inputs.projectedAnnualCosts, 540000);
   assert.equal(result.metrics.projectedOperatingMargin, 300000);
   assert.equal(result.metrics.projectedReturnOnInvestmentPercent, 60);
+  assert.deepEqual(result.scenarios.map((scenario) => scenario.name), ['adverse', 'base', 'favorable']);
+  assert.equal(result.scenarios.find((scenario) => scenario.name === 'adverse')?.operatingResult, 51000);
+  assert.equal(result.assessment, 'positive-unverified');
   assert.ok(result.assumptions.some((item) => /escenario aritmético/i.test(item)));
+});
+
+test('advierte cuando el proyecto sólo es positivo en el escenario base', () => {
+  const result = analyzeInvestmentProject(
+    'Proyecto de maíz en 100 hectáreas. Inversión inicial USD 300.000, ingresos anuales USD 200.000 y costos anuales USD 170.000.',
+    'Evaluar la inversión y su sensibilidad.'
+  );
+  assert.equal(result.assessment, 'sensitive-to-adverse-case');
+  assert.equal(result.scenarios.find((scenario) => scenario.name === 'base')?.operatingResult, 30000);
+  assert.ok((result.scenarios.find((scenario) => scenario.name === 'adverse')?.operatingResult || 0) < 0);
 });
 
 test('normaliza rindes informados en kilogramos por hectárea', () => {
