@@ -71,6 +71,26 @@ test('Argentine capital-market claims route to CNV and BYMA source types', () =>
   assert.ok(result.suggestedSourceTypes.includes('market-operator-byma'));
 });
 
+test('real-estate investments require local comparables and official data', () => {
+  const result = decide('Quiero invertir en un departamento en Córdoba para alquilar y conocer su rentabilidad.');
+  assert.equal(result.externalVerificationRequired, true);
+  assert.equal(result.externalVerificationPerformed, false);
+  assert.equal(result.recencyRequired, true);
+  assert.ok(result.suggestedSourceTypes.includes('official-real-estate-data'));
+  assert.ok(result.suggestedSourceTypes.includes('property-market-comparables'));
+});
+
+test('agricultural and export investments route to sector-specific official sources', () => {
+  const agriculture = decide('Analizar una inversión ganadera y agrícola de soja en Argentina.');
+  assert.ok(agriculture.suggestedSourceTypes.includes('official-agricultural-statistics'));
+  assert.ok(agriculture.suggestedSourceTypes.includes('official-livestock-data'));
+
+  const exports = decide('Quiero invertir en exportar vino argentino según la demanda internacional.');
+  assert.ok(exports.suggestedSourceTypes.includes('official-trade-statistics'));
+  assert.ok(exports.suggestedSourceTypes.includes('international-trade-data'));
+  assert.ok(exports.suggestedSourceTypes.includes('customs-data'));
+});
+
 test('crypto claims route to market, on-chain, protocol and audit sources', () => {
   const result = decide('Este token de Ethereum tiene reservas suficientes y su contrato inteligente es seguro.');
   assert.equal(result.externalVerificationRequired, true);

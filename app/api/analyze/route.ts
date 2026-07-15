@@ -30,6 +30,7 @@ import { resolveUrlInput } from '../../../src/lib/extractors/inputUrl';
 import { describeFinancialUrl } from '../../../src/lib/finance/financialUrlContext';
 import { buildCustomerDecisionAnswer, enrichDecisionAnswerWithEconomicEvidence } from '../../../src/analysis/engines/customerDecisionAnswerEngine';
 import type { ExternalVerificationSourceRecord } from '../../../src/analysis/types/externalVerification';
+import { analyzeInvestmentProject } from '../../../src/lib/investments/investmentProjectAnalysis';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -380,6 +381,7 @@ export function buildLocalAnalysis(
   const scamRiskAnalysis = analyzeScamRisk(text);
   const commercialCourseAnalysis = analyzeCommercialCourse(text);
   const argentinaLegalAnalysis = analyzeArgentinaLegal(text);
+  const investmentProjectAnalysis = analyzeInvestmentProject(text, userInstruction);
   const financialDataComplete = Boolean(financialAnalysis && financialAnalysis.principal !== null && financialAnalysis.installment !== null && financialAnalysis.months !== null && financialAnalysis.impliedTeaPercent !== null);
   const financialRiskScore = !financial ? 0 : financialDataComplete
     ? (financialAnalysis?.warnings.length ? 42 : 24)
@@ -615,6 +617,7 @@ export function buildLocalAnalysis(
     financialAnalysis,
     scamRiskAnalysis,
     argentinaLegalAnalysis,
+    investmentProjectAnalysis,
   });
 
   return {
@@ -713,6 +716,7 @@ export function buildLocalAnalysis(
     scamRiskAnalysis,
     commercialCourseAnalysis,
     argentinaLegalAnalysis,
+    investmentProjectAnalysis,
     sourceUrl: sourceUrl || null,
     refutationPoints: [
       'Verificar autor, fecha, fuente original y trazabilidad del contenido.',

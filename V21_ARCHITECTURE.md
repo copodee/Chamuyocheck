@@ -2098,3 +2098,28 @@ app/
 ---
 
 **End of V21_ARCHITECTURE.md**
+
+---
+
+## V21 Investment Intelligence - primera fase segura
+
+### Alcance implementado
+
+- Clasificación determinística de inversiones inmobiliarias, agropecuarias, ganaderas, economías regionales, exportaciones, industria, comercio, transporte y servicios.
+- Cálculos locales cuando existen datos suficientes: precio por metro cuadrado, ingreso anual, rendimiento bruto y neto, y recupero simple.
+- Requisitos específicos de evidencia por sector y localidad. Una promesa no se presenta como inversión recomendable hasta contrastarla con fuentes reales.
+- En inmuebles se separan precio, alquiler, vacancia, gastos y liquidez. La facilidad de alquiler requiere comparables de la misma localidad, barrio, tipología y fecha.
+- En agro, ganadería y economías regionales se exigen producción, rindes, sanidad, costos y precios actuales.
+- En exportaciones se exigen posición arancelaria, volumen, destinos, precios, competidores, barreras sanitarias y concentración de compradores.
+
+### Estado de conectores
+
+Los organismos y bases sectoriales incorporados al catálogo son objetivos de enrutamiento. Hasta que un conector recupere y valide una fuente real, `externalVerificationPerformed` permanece en `false`. Esta fase no simula búsquedas ni inventa comparables.
+
+### Fases siguientes
+
+1. Conectores oficiales gratuitos con normalización temporal y geográfica.
+2. Comparables inmobiliarios por localidad y tipología, con deduplicación y fecha.
+3. Series agropecuarias, ganaderas y regionales por producto y zona.
+4. Matriz exportadora por producto, destino, demanda, competencia y barreras.
+5. Escenarios base, adverso y favorable; sensibilidad y decisión explicada.

@@ -2,9 +2,10 @@ import type { LoanNumbers } from '../../lib/finance/loanMath';
 import type { ScamRiskAnalysis } from '../../lib/scams/scamRiskAnalysis';
 import type { ArgentinaLegalAnalysis } from '../../lib/legal/argentinaLegalAnalysis';
 import type { ExternalVerificationSourceRecord } from '../types/externalVerification';
+import type { InvestmentProjectAnalysis } from '../../lib/investments/investmentProjectAnalysis';
 
 export type CustomerDecisionAnswer = {
-  kind: 'loan-cost' | 'scam-prevention' | 'legal-document' | 'supported-review';
+  kind: 'loan-cost' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'supported-review';
   status: 'answerable' | 'partial' | 'needs-verification';
   title: string;
   directAnswer: string;
@@ -19,6 +20,7 @@ type DecisionAnswerInput = {
   financialAnalysis: LoanNumbers | null;
   scamRiskAnalysis: ScamRiskAnalysis;
   argentinaLegalAnalysis: ArgentinaLegalAnalysis;
+  investmentProjectAnalysis?: InvestmentProjectAnalysis | null;
 };
 
 const money = (value: number, currency: 'ARS' | 'USD' = 'ARS') => value.toLocaleString('es-AR', { style: 'currency', currency, maximumFractionDigits: 2 });
@@ -75,8 +77,51 @@ function buildLoanAnswer(financial: LoanNumbers, question: string): CustomerDeci
   };
 }
 
+function buildInvestmentAnswer(analysis: InvestmentProjectAnalysis): CustomerDecisionAnswer {
+  const { metrics, inputs } = analysis;
+  const hasReturnCalculation = metrics.grossAnnualYieldPercent !== null;
+  const findings = [
+    `Sector detectado: ${analysis.sectorLabel}.`,
+    analysis.location ? `Ubicación detectada: ${analysis.location}.` : '',
+    inputs.purchasePrice !== null ? `Precio de compra informado: ${money(inputs.purchasePrice, analysis.currency)}.` : '',
+    inputs.squareMeters !== null ? `Superficie informada: ${inputs.squareMeters.toLocaleString('es-AR')} m².` : '',
+    metrics.pricePerSquareMeter !== null ? `Precio calculado por m²: ${money(metrics.pricePerSquareMeter, analysis.currency)}.` : '',
+    inputs.monthlyRent !== null ? `Alquiler mensual informado: ${money(inputs.monthlyRent, analysis.currency)}.` : '',
+    metrics.grossAnnualYieldPercent !== null ? `Rendimiento bruto anual preliminar: ${percent(metrics.grossAnnualYieldPercent)}.` : '',
+    metrics.netAnnualYieldPercent !== null ? `Rendimiento neto anual preliminar bajo los supuestos visibles: ${percent(metrics.netAnnualYieldPercent)}.` : '',
+    metrics.simplePaybackYears !== null ? `Recupero simple preliminar: ${metrics.simplePaybackYears.toLocaleString('es-AR', { maximumFractionDigits: 1 })} años.` : '',
+    ...analysis.assumptions,
+    ...analysis.riskFlags,
+  ].filter(Boolean);
+  const sourceActions = analysis.sourceRequirements.map((requirement) =>
+    `Contrastar ${requirement.purpose.toLowerCase()} con ${requirement.institutions.join(', ')}.`
+  );
+  return {
+    kind: 'investment-project',
+    status: analysis.riskFlags.length > 0 ? 'needs-verification' : 'partial',
+    title: analysis.riskFlags.length > 0
+      ? 'La propuesta necesita verificación reforzada antes de invertir'
+      : hasReturnCalculation
+        ? 'Este es el rendimiento preliminar con los datos aportados'
+        : 'Faltan datos para medir la viabilidad de la inversión',
+    directAnswer: analysis.conclusion,
+    findings,
+    nextActions: [
+      ...sourceActions,
+      'Construir escenarios base, adverso y favorable; no usar una sola proyección de ventas, precio o alquiler.',
+      analysis.sector === 'real-estate' ? 'Comparar inmuebles realmente equivalentes por localidad, barrio, tipología, estado, superficie y fecha; medir además oferta, días publicados y vacancia.' : '',
+      analysis.sector === 'exports' ? 'Validar demanda por posición arancelaria, destino, volumen, precio, barreras sanitarias, logística, tipo de cambio y concentración de compradores.' : '',
+    ].filter(Boolean),
+    limitations: analysis.missingInputs.map((item) => `Falta informar o verificar: ${item}.`),
+  };
+}
+
 export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): CustomerDecisionAnswer {
   const question = `${input.userInstruction || ''}\n${input.documentText}`;
+  const asksInvestment = /\b(?:inversi[oó]n|invertir|rentabilidad|renta|retorno|viabilidad|proyecto|alquiler|precio\s+por\s+m2|precio\s+por\s+metro|exportaci[oó]n|demanda\s+internacional)\b/i.test(question);
+  if (input.investmentProjectAnalysis?.applicable && asksInvestment) {
+    return buildInvestmentAnswer(input.investmentProjectAnalysis);
+  }
   if (input.financialAnalysis && /(?:cu[aá]nto|total|costo|inter[eé]s|tasa|inflaci[oó]n|tna|tea|cft|cuota|pag(?:ar|ando)|pr[eé]stamo|cr[eé]dito|financi)/i.test(question)) {
     return buildLoanAnswer(input.financialAnalysis, question);
   }

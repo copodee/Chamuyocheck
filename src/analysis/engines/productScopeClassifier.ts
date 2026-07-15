@@ -1,4 +1,4 @@
-export type SupportedProductArea = 'finance-credit' | 'scam-risk' | 'argentina-legal-documents';
+export type SupportedProductArea = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents';
 
 export type ProductScopeResult = {
   supported: boolean;
@@ -23,6 +23,12 @@ const loanCalculationPatterns = [
   /\b\d[\d.,]*\s*(?:pesos?|d[oó]lares?)\b[\s\S]{0,120}\b(?:\d{1,3}\s*(?:meses?|cuotas?)|termin(?:ar[eé]|a|ar[ií]a)\s+pagando|total\s+(?:a\s+)?pagar)\b/i,
 ];
 
+const investmentProjectPatterns = [
+  /\b(?:proyecto\s+de\s+inversi[oó]n|inversi[oó]n\s+(?:inmobiliaria|productiva|agropecuaria)|viabilidad|flujo\s+de\s+fondos|tasa\s+interna\s+de\s+retorno|\btir\b|\bvan\b|per[ií]odo\s+de\s+recupero)\b/i,
+  /\b(?:inmueble|departamento|propiedad|alquiler|metro(?:s)?\s+cuadrad|hect[aá]rea|campo|ganader|soja|ma[ií]z|trigo|uva|vino|yerba|frut|exportaci[oó]n|comercio\s+exterior)\b[\s\S]{0,120}\b(?:invertir|inversi[oó]n|rentabilidad|renta|proyecto|retorno|precio|demanda)\b/i,
+  /\b(?:sector\s+automotriz|inmobiliario|productivo|agropecuario|ganadero|transporte|log[ií]stica|servicios?)\b[\s\S]{0,100}\b(?:proyecci[oó]n|inversi[oó]n|viabilidad|demanda|rentabilidad)\b/i,
+];
+
 const scamPatterns = [
   /\b(?:estafa|fraude|enga[ñn]o|ponzi|pir[aá]mid(?:e|al)|multinivel|referidos?|suplantaci[oó]n|phishing|cuenta\s+m[uú]la)\b/i,
   /\b(?:ganancia|rentabilidad|retorno|beneficio)\s+(?:garantizad[oa]|asegurad[oa])\b/i,
@@ -32,7 +38,7 @@ const scamPatterns = [
 ];
 
 const legalPatterns = [
-  /\b(?:ley|leyes|legal|ilegal|derecho|normativa|c[oó]digo\s+(?:penal|civil)|art[ií]culo\s+\d+|delito|pena|prisi[oó]n|condena|denuncia|demanda|sentencia|tribunal|juez|abogad[oa])\b/i,
+  /\b(?:ley|leyes|legal|ilegal|derecho|normativa|c[oó]digo\s+(?:penal|civil)|art[ií]culo\s+\d+|delito|pena|prisi[oó]n|condena|denuncia|demanda\s+judicial|demandar|sentencia|tribunal|juez|abogad[oa])\b/i,
   /\b(?:contrato|cl[aá]usula|obligaci[oó]n|incumplimiento|rescisi[oó]n|jurisdicci[oó]n|penalidad|intimaci[oó]n|carta\s+documento)\b/i,
   /\b(?:divorcio|separaci[oó]n|alimentos|cuota\s+alimentaria|r[eé]gimen\s+de\s+comunicaci[oó]n|responsabilidad\s+parental|bienes\s+gananciales|compensaci[oó]n\s+econ[oó]mica)\b/i,
   /\b(?:robo|hurto|homicidio|lesiones|amenazas|defraudaci[oó]n|violencia\s+de\s+g[eé]nero)\b/i,
@@ -55,6 +61,7 @@ export function classifyProductScope(documentText: string, userInstruction = '')
   const candidates: Array<{ area: SupportedProductArea; signals: string[] }> = [
     { area: 'scam-risk', signals: matches(scamPatterns, text) },
     { area: 'argentina-legal-documents', signals: matches(legalPatterns, text) },
+    { area: 'investment-project', signals: matches(investmentProjectPatterns, text) },
     { area: 'finance-credit', signals: matches(financePatterns, text) },
   ];
   const ranked = candidates.filter((item) => item.signals.length > 0);

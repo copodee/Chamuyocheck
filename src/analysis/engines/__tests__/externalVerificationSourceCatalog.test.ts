@@ -24,3 +24,12 @@ test('catalog resolves medication, capital-market and crypto targets', () => {
   assert.deepEqual(providersForSourceTypes(['market-operator-byma']).map((provider) => provider.id), ['byma']);
   assert.ok(providersForSourceTypes(['blockchain-explorer']).some((provider) => provider.id === 'blockchain-explorer'));
 });
+
+test('catalog registers investment-sector sources as planned rather than pretending they ran', () => {
+  const availability = sourceAvailabilityForTypes([
+    'official-real-estate-data', 'official-agricultural-statistics', 'official-trade-statistics', 'international-trade-data',
+  ]);
+  assert.ok(availability.every((item) => item.status === 'planned'));
+  assert.ok(providersForSourceTypes(['official-agricultural-statistics']).some((provider) => provider.id === 'inta'));
+  assert.ok(providersForSourceTypes(['international-trade-data']).some((provider) => provider.id === 'international-trade'));
+});

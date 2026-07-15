@@ -26,6 +26,12 @@ test('acepta cursos que prometen éxito comercial', () => {
   assert.equal(result.primaryArea, 'scam-risk');
 });
 
+test('acepta proyectos inmobiliarios, agropecuarios y exportadores', () => {
+  assert.equal(classifyProductScope('Quiero invertir en un departamento para alquilar y calcular su rentabilidad.').primaryArea, 'investment-project');
+  assert.equal(classifyProductScope('Analizar la viabilidad de una inversión agropecuaria en soja.').primaryArea, 'investment-project');
+  assert.equal(classifyProductScope('Proyecto de exportación de vino: demanda internacional y retorno esperado.').primaryArea, 'investment-project');
+});
+
 test('acepta derecho argentino, delitos y familia', () => {
   assert.equal(classifyProductScope('¿Qué pena establece el Código Penal argentino para el hurto?').primaryArea, 'argentina-legal-documents');
   assert.equal(classifyProductScope('Necesito revisar un convenio de divorcio y cuota alimentaria.').primaryArea, 'argentina-legal-documents');

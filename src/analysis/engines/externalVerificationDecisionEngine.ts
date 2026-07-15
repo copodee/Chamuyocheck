@@ -46,6 +46,10 @@ const SIMPLE_DRUG_INDICATION = /\b(?:paracetamol|acetaminof[eé]n|ibuprofeno|asp
 const ILLICIT_DRUG = /\b(?:crystal(?:\s+meth)?|metanfetamina|coca[ií]na|crack|mdma|[eé]xtasis|hero[ií]na|fentanilo)\b/i;
 
 const ARGENTINA_INFLATION_COMPARISON = /\b(?:inflaci[oó]n|ipc|indec|rem)\b/i;
+const REAL_ESTATE_INVESTMENT = /\b(?:inversi[oó]n\s+inmobiliaria|inmueble|departamento|propiedad|alquiler|renta\s+locativa|precio\s+por\s+(?:m2|metro)|metros?\s+cuadrados?|lote|terreno)\b/i;
+const AGRICULTURAL_INVESTMENT = /\b(?:campo|agropecuari[oa]|agricultur|ganader|hacienda|soja|ma[ií]z|trigo|aceituna|oliv|uva|vino|yerba|frut|cosecha|hect[aá]rea|rinde|cultivo)\b/i;
+const EXPORT_INVESTMENT = /\b(?:exportaci[oó]n|exportar|comercio\s+exterior|demanda\s+(?:mundial|internacional)|mercado\s+internacional|venta\s+al\s+exterior|aduana)\b/i;
+const SECTOR_INVESTMENT = /\b(?:proyecto\s+de\s+inversi[oó]n|invertir|inversi[oó]n|rentabilidad|retorno|viabilidad|flujo\s+de\s+fondos|\btir\b|\bvan\b)\b/i;
 
 function unique(values: string[]): string[] {
   return [...new Set(values)];
@@ -95,6 +99,42 @@ export function decideExternalVerification(
   if ((primaryDomain === 'finance' || primaryDomain === 'economics') && ARGENTINA_INFLATION_COMPARISON.test(claimText)) {
     return finish(true, 'La comparación entre el costo financiero y la inflación requiere separar el IPC observado de las expectativas para un horizonte equivalente.', {
       suggestedSourceTypes: ['central-bank-data', 'official-statistics'],
+      minimumIndependentSources: 2,
+      recencyRequired: true,
+      officialSourceRequired: true,
+    });
+  }
+
+  if (REAL_ESTATE_INVESTMENT.test(claimText) && SECTOR_INVESTMENT.test(claimText)) {
+    return finish(true, 'La viabilidad inmobiliaria requiere comparar precio por metro cuadrado, alquileres, vacancia, liquidez y costos de la misma localidad, zona, tipología y fecha.', {
+      suggestedSourceTypes: ['official-real-estate-data', 'property-market-comparables', 'official-statistics'],
+      minimumIndependentSources: 2,
+      recencyRequired: true,
+      officialSourceRequired: true,
+    });
+  }
+
+  if (EXPORT_INVESTMENT.test(claimText) && SECTOR_INVESTMENT.test(claimText)) {
+    return finish(true, 'La oportunidad exportadora requiere contrastar exportaciones argentinas, demanda internacional, precios, destinos, competidores y barreras de acceso.', {
+      suggestedSourceTypes: ['official-trade-statistics', 'international-trade-data', 'customs-data'],
+      minimumIndependentSources: 2,
+      recencyRequired: true,
+      officialSourceRequired: true,
+    });
+  }
+
+  if (AGRICULTURAL_INVESTMENT.test(claimText) && SECTOR_INVESTMENT.test(claimText)) {
+    return finish(true, 'La inversión agropecuaria o regional requiere datos actuales de producción, rindes, sanidad, costos y precios del producto y de la región.', {
+      suggestedSourceTypes: ['official-agricultural-statistics', 'commodity-market-data', 'official-livestock-data', 'official-regional-economy-data'],
+      minimumIndependentSources: 2,
+      recencyRequired: true,
+      officialSourceRequired: true,
+    });
+  }
+
+  if (SECTOR_INVESTMENT.test(claimText)) {
+    return finish(true, 'La viabilidad de una inversión exige estadísticas sectoriales actuales, datos macroeconómicos y evidencia independiente de demanda, precios y costos.', {
+      suggestedSourceTypes: ['official-sector-statistics', 'official-statistics', 'central-bank-data', 'economic-research'],
       minimumIndependentSources: 2,
       recencyRequired: true,
       officialSourceRequired: true,

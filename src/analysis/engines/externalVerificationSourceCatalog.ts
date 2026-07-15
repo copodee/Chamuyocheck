@@ -28,6 +28,16 @@ export const EXTERNAL_VERIFICATION_SOURCE_CATALOG: ExternalVerificationProvider[
   { id: 'blockchain-explorer', name: 'Network-specific blockchain explorers', sourceTypes: ['blockchain-explorer'], domains: ['finance', 'technology'], status: 'planned' },
   { id: 'protocol-source', name: 'Protocol documentation and verified source code', sourceTypes: ['protocol-documentation'], domains: ['finance', 'technology'], status: 'planned' },
   { id: 'security-audit', name: 'Independent smart-contract security audits', sourceTypes: ['independent-security-audits'], domains: ['finance', 'technology'], status: 'planned' },
+  { id: 'indec-sectors', name: 'INDEC - estadísticas sectoriales, precios y comercio exterior', sourceTypes: ['official-sector-statistics', 'official-real-estate-data', 'official-trade-statistics'], domains: ['economics', 'finance'], status: 'planned' },
+  { id: 'argentina-agriculture', name: 'Secretaría de Agricultura, Ganadería y Pesca', sourceTypes: ['official-agricultural-statistics', 'official-livestock-data', 'official-regional-economy-data'], domains: ['economics', 'finance'], status: 'planned' },
+  { id: 'inta', name: 'Instituto Nacional de Tecnología Agropecuaria', sourceTypes: ['official-agricultural-statistics', 'official-regional-economy-data'], domains: ['economics', 'science'], status: 'planned' },
+  { id: 'senasa', name: 'Servicio Nacional de Sanidad y Calidad Agroalimentaria', sourceTypes: ['official-livestock-data', 'official-regional-economy-data'], domains: ['economics', 'public-policy'], status: 'planned' },
+  { id: 'sio-markets', name: 'SIO-Granos y SIO-Carnes', sourceTypes: ['commodity-market-data', 'official-livestock-data'], domains: ['economics', 'finance'], status: 'planned' },
+  { id: 'regional-economies', name: 'INV, INYM y organismos de economías regionales', sourceTypes: ['official-regional-economy-data'], domains: ['economics', 'public-policy'], status: 'planned' },
+  { id: 'argentina-customs', name: 'ARCA - Aduana', sourceTypes: ['customs-data', 'official-trade-statistics'], domains: ['economics', 'legal'], status: 'planned' },
+  { id: 'international-trade', name: 'UN Comtrade e ITC Trade Map', sourceTypes: ['international-trade-data'], domains: ['economics', 'public-policy'], status: 'planned' },
+  { id: 'real-estate-local', name: 'Catastros, municipios, registros y colegios profesionales provinciales', sourceTypes: ['official-real-estate-data'], domains: ['economics', 'legal'], status: 'planned' },
+  { id: 'real-estate-comparables', name: 'Comparables inmobiliarios fechados y normalizados', sourceTypes: ['property-market-comparables'], domains: ['economics', 'finance'], status: 'planned' },
 ];
 
 export function providersForSourceTypes(sourceTypes: string[]): ExternalVerificationProvider[] {

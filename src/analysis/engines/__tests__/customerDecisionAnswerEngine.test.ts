@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { extractLoanNumbers } from '../../../lib/finance/loanMath';
 import { analyzeScamRisk } from '../../../lib/scams/scamRiskAnalysis';
 import { analyzeArgentinaLegal } from '../../../lib/legal/argentinaLegalAnalysis';
+import { analyzeInvestmentProject } from '../../../lib/investments/investmentProjectAnalysis';
 import { buildCustomerDecisionAnswer } from '../customerDecisionAnswerEngine';
 
 test('responde primero cuánto se paga y estima tasas para el plazo pedido', () => {
@@ -66,4 +67,41 @@ test('explica el sistema alemán cuando el usuario lo solicita', () => {
   assert.equal(answer.status, 'answerable');
   assert.match(answer.directAnswer, /sistema alemán.*cuotas mensuales vencidas y decrecientes/i);
   assert.match(answer.findings.join(' '), /primera.*última/i);
+});
+
+test('responde la instrucción inmobiliaria con métricas preliminares y requisitos locales', () => {
+  const text = 'Departamento en Córdoba, precio de compra USD 100.000, 50 m2, alquiler mensual USD 700, gastos mensuales USD 100 y vacancia 5%.';
+  const instruction = 'Calcular precio por metro, rendimiento y decir si será fácil alquilarlo.';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text,
+    userInstruction: instruction,
+    financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(text),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(text),
+    investmentProjectAnalysis: analyzeInvestmentProject(text, instruction),
+  });
+  assert.equal(answer.kind, 'investment-project');
+  assert.equal(answer.status, 'partial');
+  assert.match(answer.findings.join(' '), /Precio calculado por m².*2\.000/i);
+  assert.match(answer.findings.join(' '), /Rendimiento bruto anual preliminar.*8,40%/i);
+  assert.match(answer.findings.join(' '), /Rendimiento neto anual preliminar.*6,78%/i);
+  assert.match(answer.nextActions.join(' '), /localidad.*tipología.*vacancia/i);
+  assert.doesNotMatch(answer.directAnswer, /es una buena inversión|inversión recomendable/i);
+});
+
+test('una oportunidad exportadora exige demanda, destinos, competidores y barreras', () => {
+  const text = 'Proyecto para exportar vino argentino con demanda mundial creciente y retorno asegurado.';
+  const instruction = 'Validar si es una buena inversión para vender al exterior.';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text,
+    userInstruction: instruction,
+    financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(text),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(text),
+    investmentProjectAnalysis: analyzeInvestmentProject(text, instruction),
+  });
+  assert.equal(answer.kind, 'investment-project');
+  assert.equal(answer.status, 'needs-verification');
+  assert.match(answer.nextActions.join(' '), /posición arancelaria.*destino.*barreras sanitarias/i);
+  assert.match(answer.directAnswer, /no debe tratarse como una inversión recomendable/i);
 });
