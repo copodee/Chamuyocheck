@@ -61,6 +61,18 @@ function parseLocaleNumber(raw: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function expandMagnitudeAmounts(text: string): string {
+  const expand = (raw: string, multiplier: number): string => {
+    const parsed = parseLocaleNumber(raw);
+    return parsed === null ? raw : String(parsed * multiplier);
+  };
+
+  return text
+    .replace(/(\d+(?:[.,]\d+)?)\s*(?:mill[oó]n(?:es)?|MM)\b/gi, (_match, amount: string) => expand(amount, 1_000_000))
+    .replace(/(\d+(?:[.,]\d+)?)\s*M(?=\s|de\b|$)/gi, (_match, amount: string) => `${expand(amount, 1_000_000)} `)
+    .replace(/(\d+(?:[.,]\d+)?)\s*(?:mil|K)\b/gi, (_match, amount: string) => expand(amount, 1_000));
+}
+
 function labeledMoney(text: string, labels: string[]): number | null {
   const amount = '([\\d]{1,3}(?:[. ][\\d]{3})+(?:,[\\d]{1,2})?|[\\d]+(?:,[\\d]{1,2})?)';
   for (const label of labels) {
@@ -83,17 +95,26 @@ function labeledPercent(text: string, labels: string[]): number | null {
 }
 
 function acronymPercent(text: string, acronym: 'TNA' | 'TEA' | 'CFT'): number | null {
-  const pattern = acronym === 'CFT'
+  const prefixPattern = acronym === 'CFT'
     ? /\b(?:CFTEAV|CFTEA|CFTNAV|CFTNA|CFT)\b[).:\s-]*(?:con\s+IVA)?\s*(?:de|:|=)?\s*([\d.,]+)\s*%/i
     : new RegExp(`\\b${acronym}V?\\b[).:\\s-]*(?:de|:|=|fija|es)?\\s*([\\d.,]+)\\s*%`, 'i');
-  return parseLocaleNumber(text.match(pattern)?.[1] || '');
+  const suffixPattern = acronym === 'CFT'
+    ? /([\d.,]+)\s*%\s*(?:de\s+)?(?:CFTEAV|CFTEA|CFTNAV|CFTNA|CFT)\b/i
+    : new RegExp(`([\\d.,]+)\\s*%\\s*(?:de\\s+)?${acronym}V?\\b`, 'i');
+  return parseLocaleNumber(text.match(prefixPattern)?.[1] || text.match(suffixPattern)?.[1] || '');
 }
 
 function allAcronymPercents(text: string, acronym: 'TNA' | 'TEA' | 'CFT'): number[] {
-  const source = acronym === 'CFT'
+  const prefixSource = acronym === 'CFT'
     ? '\\b(?:CFTEAV|CFTEA|CFTNAV|CFTNA|CFT)\\b[).:\\s-]*(?:con\\s+IVA)?\\s*(?:de|:|=)?\\s*([\\d.,]+)\\s*%'
     : `\\b${acronym}V?\\b[).:\\s-]*(?:de|:|=|fija|es)?\\s*([\\d.,]+)\\s*%`;
-  return [...text.matchAll(new RegExp(source, 'gi'))]
+  const suffixSource = acronym === 'CFT'
+    ? '([\\d.,]+)\\s*%\\s*(?:de\\s+)?(?:CFTEAV|CFTEA|CFTNAV|CFTNA|CFT)\\b'
+    : `([\\d.,]+)\\s*%\\s*(?:de\\s+)?${acronym}V?\\b`;
+  return [
+    ...text.matchAll(new RegExp(prefixSource, 'gi')),
+    ...text.matchAll(new RegExp(suffixSource, 'gi')),
+  ]
     .map((match) => parseLocaleNumber(match[1] || ''))
     .filter((value): value is number => value !== null)
     .filter((value, index, values) => values.indexOf(value) === index);
@@ -156,7 +177,7 @@ function requestedMonthsFromInstruction(instruction: string): number | null {
 
 function extractScenarioPairs(text: string): Array<{ months: number; installment: number }> {
   const money = '([\\d]{1,3}(?:[. ][\\d]{3})+(?:,[\\d]{1,2})?|[\\d]+(?:,[\\d]{1,2})?)';
-  const direct = [...text.matchAll(new RegExp(`(\\d{1,3})[ \\t]*cuotas?(?:[ \\t]+iguales)?[ \\t]*(?:de|a|:)?[ \\t]*(?:ARS|\\$)[ \\t]*${money}`, 'gi'))]
+  const direct = [...text.matchAll(new RegExp(`(\\d{1,3})[ \\t]*(?:cuotas?|pagos?)(?:[ \\t]+mensuales?)?(?:[ \\t]+iguales)?[ \\t]*(?:de|a|por|:)[ \\t]*(?:USD|U\\$S|US\\$|ARS|\\$)?[ \\t]*${money}`, 'gi'))]
     .map((match) => ({ months: Number(match[1]), installment: parseLocaleNumber(match[2] || '') }))
     .filter((item): item is { months: number; installment: number } => Number.isFinite(item.months) && item.installment !== null);
 
@@ -176,6 +197,50 @@ function extractScenarioPairs(text: string): Array<{ months: number; installment
   return direct;
 }
 
+type LoanSemanticSlots = {
+  principal: number | null;
+  months: number | null;
+  installment: number | null;
+  statedTotal: number | null;
+};
+
+const semanticMoney = '([\\d]{1,3}(?:[. ][\\d]{3})+(?:,[\\d]{1,2})?|[\\d]+(?:,[\\d]{1,2})?)';
+const semanticCurrency = '(?:USD|U\\$S|US\\$|ARS|\\$)?';
+const semanticUnit = '(?:\\s*(?:de\\s+)?(?:pesos?|d[oó]lares?))?';
+
+function firstSemanticAmount(text: string, patterns: RegExp[]): number | null {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    const value = parseLocaleNumber(match?.[1] || '');
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+function extractLoanSemanticSlots(text: string): LoanSemanticSlots {
+  const principal = firstSemanticAmount(text, [
+    new RegExp(`(?:me\\s+(?:ofrecen|ofrecieron|ofrece|dan|dieron|prestan|prestaron|quieren\\s+prestar)|van\\s+a\\s+prestar(?:me)?|recib(?:o|ir[ií]a)|solicito|pido)(?:\\s+(?:un\\s+pr[eé]stamo|un\\s+cr[eé]dito|la\\s+suma|un\\s+monto|un\\s+total))?(?:\\s+de)?\\s*${semanticCurrency}\\s*${semanticMoney}${semanticUnit}`, 'i'),
+    new RegExp(`(?:capital|monto|importe|pr[eé]stamo|cr[eé]dito)(?:\\s+(?:recibido|otorgado|solicitado|financiado|inicial))?(?:\\s+(?:es|de|:|=))?\\s*${semanticCurrency}\\s*${semanticMoney}${semanticUnit}`, 'i'),
+    new RegExp(`(?:^|\\s)${semanticCurrency}\\s*${semanticMoney}${semanticUnit}[\\s\\S]{0,80}?(?:a\\s+devolver|a\\s+pagar|financiad[oa]|en\\s+\\d{1,3}\\s*(?:cuotas?|meses?))`, 'i'),
+  ]);
+
+  const monthsMatch = text.match(/(\d{1,3})\s*(?:cuotas?|mes(?:es)?|pagos?\s+mensuales?)/i);
+  const parsedMonths = monthsMatch ? Number(monthsMatch[1]) : null;
+  const months = parsedMonths && parsedMonths > 0 ? parsedMonths : null;
+
+  const installment = firstSemanticAmount(text, [
+    new RegExp(`\\d{1,3}\\s*(?:cuotas?|pagos?)(?:\\s+mensuales?)?(?:\\s+iguales?)?\\s*(?:de|a|por|:)\\s*${semanticCurrency}\\s*${semanticMoney}${semanticUnit}`, 'i'),
+    new RegExp(`(?:cuota|pago)(?:\\s+(?:mensual|individual))?(?:\\s+(?:es|de|a|por|:|=))?\\s*${semanticCurrency}\\s*${semanticMoney}${semanticUnit}`, 'i'),
+    new RegExp(`(?:cada\\s+cuota|importe\\s+de\\s+(?:cada|la)\\s+cuota|valor\\s+de\\s+(?:cada|la)\\s+cuota)(?:\\s+(?:es|de|:|=))?\\s*${semanticCurrency}\\s*${semanticMoney}${semanticUnit}`, 'i'),
+  ]);
+
+  const statedTotal = firstSemanticAmount(text, [
+    new RegExp(`(?:total(?:\\s+final)?(?:\\s+a\\s+pagar)?|monto\\s+final|termin(?:ar[eé]|o|ar[ií]a)\\s+pagando|voy\\s+a\\s+pagar\\s+en\\s+total|devolver(?:[eé]|[ií]a)?\\s+en\\s+total)(?:\\s+(?:es|de|:|=))?\\s*${semanticCurrency}\\s*${semanticMoney}${semanticUnit}`, 'i'),
+  ]);
+
+  return { principal, months, installment, statedTotal };
+}
+
 function argentinaDate(raw: string): Date | null {
   const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (!match) return null;
@@ -184,13 +249,15 @@ function argentinaDate(raw: string): Date | null {
 }
 
 export function extractLoanNumbers(text: string, userInstruction = ''): LoanNumbers {
-  const normalized = text
+  const normalized = expandMagnitudeAmounts(text)
     .replace(/\u00a0/g, ' ')
     .replace(/([.,])\s+(?=\d{1,2}\b)/g, '$1')
     .replace(/\bT\.?\s*N\.?\s*A\.?(?:\s*V\.?)?/gi, 'TNAV')
     .replace(/\bT\.?\s*E\.?\s*A\.?(?:\s*V\.?)?/gi, 'TEAV')
-    .replace(/\bC\.?\s*F\.?\s*T\.?\s*(?:E\.?\s*A\.?\s*V?\.?)?/gi, (value) => /E/i.test(value) ? 'CFTEAV' : 'CFT')
+    .replace(/\bC\.?\s*F\.?\s*T\.?\s*E\.?\s*A\.?\s*V?\.?/gi, 'CFTEAV')
+    .replace(/\bC\.?\s*F\.?\s*T\.?/gi, 'CFT')
     .replace(/[ \t]+/g, ' ');
+  const semanticSlots = extractLoanSemanticSlots(normalized);
   const currency: 'ARS' | 'USD' = /(?:\bUSD\b|U\$S|US\$|d[oó]lares?)/i.test(normalized) ? 'USD' : 'ARS';
   const amortizationSystem: 'french' | 'german' = /sistema\s+alem[aá]n/i.test(`${userInstruction}\n${normalized}`) ? 'german' : 'french';
   const paymentPeriod: 'monthly' = 'monthly';
@@ -205,32 +272,47 @@ export function extractLoanNumbers(text: string, userInstruction = ''): LoanNumb
     ?? parseLocaleNumber(delayedPrincipal?.[1] || '')
     ?? parseLocaleNumber(principalExample?.[1] || '')
     ?? parseLocaleNumber(conversationalPrincipal?.[1] || '')
-    ?? parseLocaleNumber(economicFlowPrincipal?.[1] || '');
+    ?? parseLocaleNumber(economicFlowPrincipal?.[1] || '')
+    ?? semanticSlots.principal;
   const rawScenarios = extractScenarioPairs(normalized);
   const requestedMonths = requestedMonthsFromInstruction(userInstruction);
   const selectedRawScenario = (requestedMonths !== null ? rawScenarios.find((scenario) => scenario.months === requestedMonths) : null)
     ?? (rawScenarios.length === 1 ? rawScenarios[0] : null);
   const installmentFromSeries = normalized.match(/\d{1,3}[ \t]*cuotas[ \t]*(?:iguales[ \t]*)?(?:de|a|:)?[ \t]*(?:ARS|\$)[ \t]*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)/i);
   const disclosedInstallment = normalized.match(/(?:cuota\s+total|primera\s+cuota)[^$\n]{0,180}(?:ARS|\$)[ \t]*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)/i);
-  const disclosedInstallmentValue = selectedRawScenario?.installment ?? labeledMoney(normalized, ['valor\\s+(?:de\\s+(?:la\\s+)?)?cuota', 'cuota\\s+(?:mensual|promedio|inicial)', 'cada\\s+cuota'])
+  const disclosedInstallmentValue = selectedRawScenario?.installment ?? semanticSlots.installment ?? labeledMoney(normalized, ['valor\\s+(?:de\\s+(?:la\\s+)?)?cuota', 'cuota\\s+(?:mensual|promedio|inicial)', 'cada\\s+cuota'])
     ?? parseLocaleNumber(installmentFromSeries?.[1] || '')
     ?? parseLocaleNumber(disclosedInstallment?.[1] || '');
   const conversationalTotal = normalized.match(/(?:termin(?:ar[eé]|a|ar[ií]a|o)\s+pagando|voy\s+a\s+pagar|devolver(?:[eé]|ia|ía)?)(?:\s+(?:un\s+total\s+de|la\s+suma\s+de))?\s*(?:ARS|USD|U\$S|US\$|\$)?\s*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)\s*(?:de\s+)?(?:pesos?|d[oó]lares?)?/i);
-  const statedTotal = labeledMoney(normalized, ['monto\\s+total\\s+(?:a\\s+)?pagar', 'total\\s+(?:a\\s+)?pagar', 'precio\\s+financiado'])
+  const statedTotal = semanticSlots.statedTotal ?? labeledMoney(normalized, ['monto\\s+total\\s+(?:a\\s+)?pagar', 'total\\s+(?:a\\s+)?pagar', 'precio\\s+financiado'])
     ?? parseLocaleNumber(conversationalTotal?.[1] || '');
   const countMatch = normalized.match(/(?:cantidad\s+de\s+cuotas|plazo|en)\s*(?:de|:|=)?\s*(\d{1,3})\s*(?:cuotas|meses)/i)
     || normalized.match(/(\d{1,3})\s*(?:cuotas|meses)/i);
-  const months = selectedRawScenario?.months ?? (countMatch ? Number(countMatch[1]) : null);
+  const months = selectedRawScenario?.months ?? semanticSlots.months ?? (countMatch ? Number(countMatch[1]) : null);
   const tnaPercent = acronymPercent(normalized, 'TNA') ?? labeledPercent(normalized, ['tasa\\s+nominal\\s+anual']);
   const teaPercent = acronymPercent(normalized, 'TEA') ?? labeledPercent(normalized, ['tasa\\s+efectiva\\s+anual']);
   const cftPercent = acronymPercent(normalized, 'CFT') ?? labeledPercent(normalized, ['costo\\s+financiero\\s+total']);
+  const contractualRateDescription = tnaPercent !== null
+    ? 'TNA nominal dividida por 12'
+    : teaPercent !== null
+      ? 'TEA convertida a tasa efectiva mensual'
+      : cftPercent !== null
+        ? 'CFT anual convertido a tasa efectiva mensual'
+        : 'la tasa contractual informada';
   const upfrontFeePercent = extractUpfrontFeePercent(normalized);
   const financedBase = principal ?? (cashPrice !== null ? Math.max(0, cashPrice - (downPayment || 0)) : null);
-  const modeledGermanPayments = disclosedInstallmentValue === null && financedBase !== null && months !== null && tnaPercent !== null && amortizationSystem === 'german'
-    ? germanPayments(financedBase, tnaPercent / 1200, months)
+  const contractualMonthlyRate = tnaPercent !== null
+    ? tnaPercent / 1200
+    : teaPercent !== null
+      ? Math.pow(1 + teaPercent / 100, 1 / 12) - 1
+      : cftPercent !== null
+        ? Math.pow(1 + cftPercent / 100, 1 / 12) - 1
+        : null;
+  const modeledGermanPayments = disclosedInstallmentValue === null && financedBase !== null && months !== null && contractualMonthlyRate !== null && amortizationSystem === 'german'
+    ? germanPayments(financedBase, contractualMonthlyRate, months)
     : [];
-  const rateEstimatedInstallment = disclosedInstallmentValue === null && financedBase !== null && months !== null && tnaPercent !== null
-    ? amortizationSystem === 'german' ? modeledGermanPayments[0] ?? null : levelPayment(financedBase, tnaPercent / 1200, months)
+  const rateEstimatedInstallment = disclosedInstallmentValue === null && financedBase !== null && months !== null && contractualMonthlyRate !== null
+    ? amortizationSystem === 'german' ? modeledGermanPayments[0] ?? null : levelPayment(financedBase, contractualMonthlyRate, months)
     : null;
   const totalEstimatedInstallment = disclosedInstallmentValue === null && rateEstimatedInstallment === null && statedTotal !== null && months !== null && months > 0
     ? statedTotal / months
@@ -296,7 +378,7 @@ export function extractLoanNumbers(text: string, userInstruction = ''): LoanNumb
   if (installmentEstimationBasis === 'stated-total') warnings.push(`El total declarado se distribuyó en ${months} cuotas mensuales iguales y vencidas bajo el supuesto de sistema francés. Si existe anticipo, cuota final, período de gracia o cuotas variables, la tasa implícita cambia.`);
   else if (installmentEstimated) warnings.push(amortizationSystem === 'german'
     ? 'Las cuotas fueron estimadas con sistema alemán, amortización constante, interés sobre saldo y pagos mensuales vencidos. Las cuotas son decrecientes.'
-    : 'La cuota fue estimada con sistema francés, pagos mensuales vencidos y TNA nominal dividida por 12. Si el contrato usa otro sistema, cuotas variables o una periodicidad distinta, el resultado cambia.');
+    : `La cuota fue estimada con sistema francés, pagos mensuales vencidos y ${contractualRateDescription}. Si el contrato usa otro sistema, cuotas variables o una periodicidad distinta, el resultado cambia.`);
   if (upfrontFeePercent !== null) warnings.push('La comisión inicial se modeló como un pago al momento del desembolso: reduce el dinero neto disponible y eleva la tasa implícita.');
   if (cftPercent === null && impliedTea !== null) warnings.push('El contenido aportado no muestra un CFT oficial. ChamuyoCheck calculó la tasa implícita del flujo visible; puede diferir del CFT contractual si existen seguros, impuestos, comisiones, gastos iniciales o cuotas variables no mostrados.');
   else if (cftPercent === null) warnings.push('Sin CFT ni un flujo completo no puede estimarse una tasa anual que incluya el costo visible.');

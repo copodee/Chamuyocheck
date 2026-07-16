@@ -120,3 +120,92 @@ test('respeta el sistema alemán pedido y calcula cuotas mensuales vencidas decr
   assert.ok((result.impliedTnaPercent || 0) > 32);
   assert.match(result.warnings.join(' '), /sistema alemán.*cuotas.*decrecientes/i);
 });
+
+test('calcula una cuota francesa cuando el capital se expresa como 1M', () => {
+  const result = extractLoanNumbers('Cuanto pago de cuota si me prestan 1M de pesos en 12 meses al 30% TNA');
+  assert.equal(result.principal, 1_000_000);
+  assert.equal(result.months, 12);
+  assert.equal(result.tnaPercent, 30);
+  assert.equal(result.amortizationSystem, 'french');
+  assert.equal(result.installmentEstimated, true);
+  assert.ok(Math.abs((result.installment || 0) - 97_487.1270) < 0.01);
+  assert.ok(Math.abs((result.calculatedInstallmentsTotal || 0) - 1_169_845.5239) < 0.02);
+  assert.equal(result.missingFields.length, 0);
+});
+
+test('comprende magnitudes monetarias escritas en millones y miles', () => {
+  const millions = extractLoanNumbers('Me prestan 1,5 millones de pesos a 24 meses con TNA 40%.');
+  const thousands = extractLoanNumbers('Me prestan 500k pesos a 12 meses con TNA 25%.');
+  assert.equal(millions.principal, 1_500_000);
+  assert.equal(thousands.principal, 500_000);
+  assert.ok((millions.installment || 0) > 0);
+  assert.ok((thousands.installment || 0) > 0);
+});
+
+test('calcula un préstamo genérico informado con TEA sin depender de la consulta anterior', () => {
+  const result = extractLoanNumbers('15000000 pesos en 24 cuotas con TEA 30%');
+
+  assert.equal(result.principal, 15_000_000);
+  assert.equal(result.months, 24);
+  assert.equal(result.teaPercent, 30);
+  assert.equal(result.tnaPercent, null);
+  assert.ok(result.installment !== null);
+  assert.ok(Math.abs(result.installment - 812_098.293548) < 0.01);
+  assert.ok(result.calculatedInstallmentsTotal !== null);
+  assert.ok(Math.abs(result.calculatedInstallmentsTotal - 19_490_359.045153) < 0.02);
+  assert.deepEqual(result.missingFields, []);
+});
+
+test('separa capital, plazo y cuota en una oferta redactada libremente', () => {
+  const result = extractLoanNumbers(
+    'me ofrecen 10000000 de pesos a devolver en 12 cuotas mensuales de 1500000. que tasa de interes pago?',
+  );
+
+  assert.equal(result.principal, 10_000_000);
+  assert.equal(result.months, 12);
+  assert.equal(result.installment, 1_500_000);
+  assert.equal(result.calculatedInstallmentsTotal, 18_000_000);
+  assert.equal(result.financingCost, 8_000_000);
+  assert.equal(result.financingCostPercent, 80);
+  assert.ok(result.impliedTnaPercent !== null);
+  assert.ok(result.impliedTeaPercent !== null);
+  assert.deepEqual(result.missingFields, []);
+});
+
+test('asigna roles financieros por contexto y no por la posicion del numero', () => {
+  const variants = [
+    'Me dan $10.000.000 y pago 12 cuotas de $1.500.000',
+    'Recibo 10 millones de pesos; son 12 pagos mensuales de 1,5 millones',
+  ];
+
+  for (const text of variants) {
+    const result = extractLoanNumbers(text);
+    assert.equal(result.principal, 10_000_000);
+    assert.equal(result.months, 12);
+    assert.equal(result.installment, 1_500_000);
+    assert.deepEqual(result.missingFields, []);
+  }
+});
+
+test('distingue TNA, TEA y CFT y acepta 1Mde sin espacio', () => {
+  const tna = extractLoanNumbers('Cuanto pago si me prestan 1Mde pesos en 12 cuotas con TNA 30%');
+  const tea = extractLoanNumbers('Cuanto pago si me prestan 1Mde pesos en 12 cuotas con TEA 30%');
+  const cft = extractLoanNumbers('Cuanto pago si me prestan 1Mde pesos en 12 cuotas con CFT 30%');
+
+  for (const result of [tna, tea, cft]) {
+    assert.equal(result.principal, 1_000_000);
+    assert.equal(result.months, 12);
+    assert.equal(result.installmentEstimated, true);
+    assert.deepEqual(result.missingFields, []);
+  }
+
+  assert.equal(tna.tnaPercent, 30);
+  assert.equal(tna.teaPercent, null);
+  assert.equal(tna.cftPercent, null);
+  assert.equal(tea.tnaPercent, null);
+  assert.equal(tea.teaPercent, 30);
+  assert.equal(tea.cftPercent, null);
+  assert.equal(cft.tnaPercent, null);
+  assert.equal(cft.teaPercent, null);
+  assert.equal(cft.cftPercent, 30);
+});
