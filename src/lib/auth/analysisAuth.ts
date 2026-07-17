@@ -17,12 +17,14 @@ export async function authenticateAnalysisRequest(request: Request): Promise<Aut
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
+  const publicKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !publicKey) {
     return { ok: false, status: 503, error: 'El registro de usuarios todavía no está configurado en este entorno.' };
   }
 
-  const client = createClient(url, anonKey, {
+  const client = createClient(url, publicKey, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
   });
