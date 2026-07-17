@@ -5,7 +5,7 @@ import type { ExternalVerificationSourceRecord } from '../types/externalVerifica
 import type { InvestmentProjectAnalysis } from '../../lib/investments/investmentProjectAnalysis';
 
 export type CustomerDecisionAnswer = {
-  kind: 'loan-cost' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'supported-review';
+  kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'supported-review';
   status: 'answerable' | 'partial' | 'needs-verification';
   title: string;
   directAnswer: string;
@@ -26,20 +26,67 @@ type DecisionAnswerInput = {
 const money = (value: number, currency: 'ARS' | 'USD' = 'ARS') => value.toLocaleString('es-AR', { style: 'currency', currency, maximumFractionDigits: 2 });
 const percent = (value: number) => `${value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 
+function isFinancialProductComparison(text: string): boolean {
+  return /cuenta\s+remunerada|billetera\s+(?:virtual|digital)|money\s*market|fondo\s+com[uú]n|\bFCI\b|plazo\s+fijo|cauci[oó]n|dep[oó]sito\s+bancario|le\s+gana\s+.*plazo\s+fijo/i.test(text);
+}
+
+function buildFinancialProductComparisonAnswer(text: string): CustomerDecisionAnswer {
+  const compact = text.replace(/\s+/g, ' ');
+  const tnas = [...compact.matchAll(/(?:TNA|tasa\s+nominal\s+anual)\s*(?:del?|:|=)?\s*([\d.,]+)\s*%/gi)]
+    .map((match) => `TNA publicada: ${match[1]}%.`)
+    .slice(0, 4);
+  const gains = [...compact.matchAll(/(?:ganancia|rendimiento|inter[eé]s)\s*(?:estimad[oa])?\s*(?:de|:|=)?\s*\$\s*([\d.]+)/gi)]
+    .map((match) => `Ganancia nominal publicada: $${match[1]}.`)
+    .slice(0, 4);
+  const caps = [...compact.matchAll(/(?:tope|m[aá]ximo|l[ií]mite)\s*(?:de|:|=)?\s*\$\s*([\d.]+)/gi)]
+    .map((match) => `Tope remunerado publicado: $${match[1]}.`)
+    .slice(0, 3);
+  return {
+    kind: 'financial-product-comparison',
+    status: 'needs-verification',
+    title: 'La nota compara alternativas de ahorro; no describe un crédito ni un proyecto productivo',
+    directAnswer: 'La propuesta puede superar a ciertos plazos fijos solamente bajo las tasas, topes, requisitos y fecha indicados. La comparación debe hacerse con el mismo capital y período, y distinguir una tasa promocional o variable de una tasa garantizada. El título de la nota, por sí solo, no demuestra que sea la mejor opción.',
+    findings: [
+      'Producto detectado: alternativas financieras de corto plazo, como cuentas remuneradas, billeteras, fondos money market o plazo fijo.',
+      ...tnas,
+      ...gains,
+      ...caps,
+      /requisit|operaciones|consumo|compras/i.test(compact) ? 'La tasa puede depender de requisitos de uso, consumo u operaciones que deben cumplirse.' : '',
+      /variable|indicativ|puede\s+cambiar|no\s+garantiz/i.test(compact) ? 'El rendimiento informado puede variar y no necesariamente está garantizado durante todo el período.' : '',
+    ].filter(Boolean),
+    nextActions: [
+      'Verificar la tasa vigente y la fecha directamente en el sitio o la aplicación oficial de cada entidad.',
+      'Comparar el rendimiento neto para el mismo monto y la misma cantidad de días.',
+      'Revisar el tope remunerado, los requisitos para acceder a la tasa, la liquidez y las eventuales comisiones o impuestos.',
+      'Confirmar si el rendimiento es fijo, promocional o variable y qué protección regulatoria corresponde al producto.',
+    ],
+    limitations: ['Las tasas y condiciones pueden cambiar después de la publicación. Una nota periodística es una fuente secundaria y no reemplaza los términos vigentes de cada entidad.'],
+  };
+}
+
 function buildLoanAnswer(financial: LoanNumbers, question: string): CustomerDecisionAnswer {
   const hasFlow = financial.principal !== null && financial.installment !== null && financial.months !== null;
   const hasImplicitRate = financial.impliedTnaPercent !== null && financial.impliedTeaPercent !== null;
-  const modeledFromRate = financial.installmentEstimated && financial.tnaPercent !== null;
+  const modeledFromRate = financial.installmentEstimated && (
+    financial.tnaPercent !== null
+    || financial.teaPercent !== null
+    || financial.cftPercent !== null
+  );
   const asksInflationComparison = /\b(?:inflaci[oó]n|ipc|indec|rem|bcra|poder\s+adquisitivo|tasa\s+real)\b/i.test(question);
   const hasUpfrontFee = financial.upfrontFeePercent !== null && financial.upfrontFeeAmount !== null;
   const systemExplanation = financial.amortizationSystem === 'german'
-    ? `Para el cálculo se aplicó sistema alemán: amortización de capital constante, cuotas mensuales vencidas y decrecientes, desde ${money(financial.firstInstallment || 0, financial.currency)} hasta ${money(financial.lastInstallment || 0, financial.currency)}.`
-    : `Para estimar la tasa implícita se usó sistema francés: ${financial.months} cuotas mensuales iguales y vencidas de ${money(financial.installment || 0, financial.currency)}. Esto describe el modelo de cálculo y no acredita que sea el sistema contractual.`;
-  const adjustedRateAnswer = modeledFromRate && hasImplicitRate
-    ? `La TNA contractual sigue siendo ${percent(financial.tnaPercent || 0)}. ${systemExplanation} ${hasUpfrontFee ? `La comisión inicial de ${percent(financial.upfrontFeePercent || 0)} equivale a ${money(financial.upfrontFeeAmount || 0, financial.currency)} y deja un desembolso neto de ${money(financial.netDisbursement || 0, financial.currency)}. ` : ''}La TNA implícita ajustada por el flujo es ${percent(financial.impliedTnaPercent || 0)} y la TEA implícita es ${percent(financial.impliedTeaPercent || 0)}. No son un CFT oficial.`
+    ? 'El cálculo usa sistema alemán: cuotas mensuales vencidas y decrecientes, con amortización de capital constante.'
+    : 'El cálculo usa sistema francés: cuotas mensuales iguales y vencidas, pagadas al final de cada mes.';
+  const paymentSummary = hasFlow
+    ? financial.amortizationSystem === 'german'
+      ? `Las ${financial.months} cuotas irían desde ${money(financial.firstInstallment || 0, financial.currency)} hasta ${money(financial.lastInstallment || 0, financial.currency)} y sumarían ${money(financial.calculatedInstallmentsTotal || 0, financial.currency)}.`
+      : `La cuota mensual ${financial.installmentEstimated ? 'estimada' : 'informada'} es ${money(financial.installment || 0, financial.currency)} y ${financial.months} cuotas sumarían un total estimado de ${money(financial.calculatedInstallmentsTotal || 0, financial.currency)}.`
+    : '';
+  const adjustedRateAnswer = modeledFromRate && financial.tnaPercent !== null && hasImplicitRate
+    ? `La TNA contractual sigue siendo ${percent(financial.tnaPercent || 0)}. ${hasUpfrontFee ? `La comisión inicial de ${percent(financial.upfrontFeePercent || 0)} equivale a ${money(financial.upfrontFeeAmount || 0, financial.currency)} y deja un desembolso neto de ${money(financial.netDisbursement || 0, financial.currency)}. ` : ''}La TNA implícita ajustada por el flujo es ${percent(financial.impliedTnaPercent || 0)} y la TEA implícita es ${percent(financial.impliedTeaPercent || 0)}. No son un CFT oficial.`
     : '';
   const baseDirectAnswer = hasFlow
-    ? `${adjustedRateAnswer || `${financial.months} cuotas sumarían ${money(financial.calculatedInstallmentsTotal || 0, financial.currency)}. ${systemExplanation} ${hasImplicitRate ? `La TNA implícita estimada es ${percent(financial.impliedTnaPercent || 0)} y el costo efectivo anual visible es ${percent(financial.impliedTeaPercent || 0)}. ${financial.cftPercent === null ? 'El CFT oficial no puede conocerse sin los cargos e impuestos del contrato.' : `El CFT informado es ${percent(financial.cftPercent)}.`}` : 'Con los datos visibles no alcanza para estimar una tasa implícita.'}`}`
+    ? `${paymentSummary} ${systemExplanation} ${adjustedRateAnswer || `${hasImplicitRate ? `La TNA implícita estimada es ${percent(financial.impliedTnaPercent || 0)} y el costo efectivo anual visible es ${percent(financial.impliedTeaPercent || 0)}. ${financial.cftPercent === null ? 'El CFT oficial no puede conocerse sin los cargos e impuestos del contrato.' : `El CFT informado es ${percent(financial.cftPercent)}.`}` : 'Con los datos visibles no alcanza para estimar una tasa implícita.'}`}`
     : `No se puede calcular todavía el costo solicitado porque faltan ${financial.missingFields.join(', ') || 'datos esenciales del flujo'}.`;
   const inflationAnswer = asksInflationComparison && hasFlow
     ? ` No puede afirmarse que sea “igual a la inflación” solamente porque el total nominal se duplique. El costo nominal visible es ${financial.financingCostPercent !== null ? percent(financial.financingCostPercent) : 'calculable con el flujo'} en ${financial.months} meses${hasImplicitRate ? ` y, bajo el supuesto de ${financial.months} cuotas mensuales iguales vencidas, la TEA implícita es ${percent(financial.impliedTeaPercent || 0)}` : ''}. La comparación correcta exige la inflación acumulada esperada para exactamente esos mismos ${financial.months} meses.`
@@ -61,6 +108,7 @@ function buildLoanAnswer(financial: LoanNumbers, question: string): CustomerDeci
       financial.calculatedKnownTotal !== null && hasUpfrontFee ? `Salida nominal total, incluida la comisión inicial: ${money(financial.calculatedKnownTotal, financial.currency)}.` : '',
       financial.financingCost !== null && financial.financingCostPercent !== null ? `Costo nominal por encima del capital, incluida la comisión conocida: ${money(financial.financingCost, financial.currency)} (${percent(financial.financingCostPercent)} del capital).` : '',
       financial.tnaPercent !== null ? `TNA contractual informada: ${percent(financial.tnaPercent)}.` : '',
+      financial.teaPercent !== null ? `TEA contractual informada: ${percent(financial.teaPercent)}.` : '',
       financial.impliedTnaPercent !== null ? `TNA implícita ajustada al flujo neto: ${percent(financial.impliedTnaPercent)}.` : '',
       financial.impliedTeaPercent !== null ? `TEA implícita estimada del flujo visible: ${percent(financial.impliedTeaPercent)}.` : '',
       financial.cftPercent !== null ? `CFT declarado por la entidad: ${percent(financial.cftPercent)}.` : '',
@@ -139,6 +187,9 @@ function buildInvestmentAnswer(analysis: InvestmentProjectAnalysis): CustomerDec
 
 export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): CustomerDecisionAnswer {
   const question = `${input.userInstruction || ''}\n${input.documentText}`;
+  if (isFinancialProductComparison(question)) {
+    return buildFinancialProductComparisonAnswer(question);
+  }
   const asksInvestment = /\b(?:inversi[oó]n|invertir|rentabilidad|renta|retorno|viabilidad|proyecto|alquiler|precio\s+por\s+m2|precio\s+por\s+metro|exportaci[oó]n|demanda\s+internacional|miner[ií]a|minero|litio|cobre|oro|petr[oó]leo|gas\s+natural|hidrocarburo|vaca\s+muerta|yacimiento|tierras?|terrenos?)\b/i.test(question);
   if (input.investmentProjectAnalysis?.applicable && asksInvestment) {
     return buildInvestmentAnswer(input.investmentProjectAnalysis);

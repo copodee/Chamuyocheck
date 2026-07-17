@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { readLocalHistory, type HistoryItem } from '../src/lib/history/localHistory';
 import { TERMS_SECTIONS, TERMS_STORAGE_KEY, TERMS_VERSION } from '../src/lib/legal/terms';
 import { extractImageTextInBrowser } from '../src/lib/extractors/browserOcr';
+import { getSupabaseClient } from '../src/lib/supabase/client';
+import type { Session } from '@supabase/supabase-js';
 
 type Cat = { name: string; score: number; explanation: string };
 type Analysis = {
@@ -122,8 +124,19 @@ type Analysis = {
 
 type InputMode = 'Texto' | 'PDF' | 'Imagen' | 'Web' | 'YouTube';
 
-const FREE_LIMIT = 3;
-const FREE_CHARS = 250;
+type AnalysisCategoryId = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents';
+
+const ANALYSIS_CATEGORIES: Array<{
+  id: AnalysisCategoryId;
+  icon: string;
+  label: string;
+  description: string;
+}> = [
+  { id: 'finance-credit', icon: '💳', label: 'Finanzas y créditos', description: 'Préstamos, cuotas, tasas, CFT, inflación y costo total.' },
+  { id: 'investment-project', icon: '📈', label: 'Inversiones', description: 'Inmuebles, agro, industria, energía, minería y proyectos.' },
+  { id: 'scam-risk', icon: '🛡️', label: 'Posibles estafas', description: 'Sitios, ofertas, autotrading, promesas y pedidos de dinero.' },
+  { id: 'argentina-legal-documents', icon: '⚖️', label: 'Derecho argentino', description: 'Contratos, documentos, delitos, penas, familia y seguros.' },
+];
 
 function Bar({ score }: { score: number }) {
   return <div className="bar"><div className="fill" style={{ ['--w' as any]: `${Math.max(0, Math.min(100, score || 0))}%` }} /></div>;
@@ -138,6 +151,14 @@ function detectUrlType(s: string) {
 function fmt(bytes: number) {
   if (!bytes) return '';
   return bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function friendlyAuthError(message: string) {
+  if (/invalid login credentials/i.test(message)) return 'El email o la clave no son correctos.';
+  if (/user already registered/i.test(message)) return 'Ese email ya tiene una cuenta. Probá ingresar.';
+  if (/email not confirmed/i.test(message)) return 'Confirmá tu cuenta desde el email que te enviamos.';
+  if (/password should be at least/i.test(message)) return 'La clave debe tener al menos 6 caracteres.';
+  return 'No se pudo completar el acceso. Revisá los datos y volvé a intentar.';
 }
 
 function inferLocalDoc(text: string, file: File | null, url: string) {
@@ -438,8 +459,15 @@ function getScoreExplanationItems(analysis: Analysis, inputKind: string, text: s
 }
 
 export default function Page() {
-  const [plan, setPlan] = useState<'starter' | 'pro'>('pro');
-  const [used, setUsed] = useState(0);
+  const [session, setSession] = useState<Session | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [authMessage, setAuthMessage] = useState('');
   const [text, setText] = useState('');
   const [url, setUrl] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -460,9 +488,27 @@ export default function Page() {
   const [showTerms, setShowTerms] = useState(false);
   const [termsError, setTermsError] = useState('');
   const [instructionError, setInstructionError] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<AnalysisCategoryId | null>(null);
+  const [categoryError, setCategoryError] = useState('');
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const categoryRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => { setUsed(Number(localStorage.getItem('cc_used') || '0')); }, []);
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setSessionLoading(false);
+      return;
+    }
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setSessionLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setSessionLoading(false);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
   useEffect(() => {
     try {
       const acceptance = JSON.parse(localStorage.getItem(TERMS_STORAGE_KEY) || '{}');
@@ -483,9 +529,58 @@ export default function Page() {
     }
   }, []);
 
-  function setUsage(n: number) {
-    setUsed(n);
-    localStorage.setItem('cc_used', String(n));
+  async function submitEmailAuth(event: React.FormEvent) {
+    event.preventDefault();
+    setAuthError('');
+    setAuthMessage('');
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setAuthError('Falta configurar Supabase en este entorno.');
+      return;
+    }
+    if (!authEmail.trim() || authPassword.length < 6) {
+      setAuthError('Ingresá un email válido y una clave de al menos 6 caracteres.');
+      return;
+    }
+    setAuthLoading(true);
+    const result = authMode === 'signup'
+      ? await supabase.auth.signUp({
+        email: authEmail.trim(),
+        password: authPassword,
+        options: { data: { full_name: authName.trim() } },
+      })
+      : await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword });
+    setAuthLoading(false);
+    if (result.error) {
+      setAuthError(friendlyAuthError(result.error.message));
+      return;
+    }
+    if (authMode === 'signup' && !result.data.session) {
+      setAuthMessage('Revisá tu email y confirmá la cuenta para ingresar.');
+    }
+  }
+
+  async function signInWithGoogle() {
+    setAuthError('');
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setAuthError('Falta configurar Supabase en este entorno.');
+      return;
+    }
+    setAuthLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) {
+      setAuthLoading(false);
+      setAuthError(friendlyAuthError(error.message));
+    }
+  }
+
+  async function signOut() {
+    const supabase = getSupabaseClient();
+    await supabase?.auth.signOut();
   }
 
   function acceptCurrentTerms() {
@@ -500,15 +595,16 @@ export default function Page() {
     setTermsAccepted(false);
   }
 
-  const isPro = plan === 'pro';
   const detected = file ? (file.type.includes('pdf') || file.name.toLowerCase().endsWith('.pdf') ? 'PDF' : file.type.startsWith('image/') ? 'Imagen' : 'Archivo') : url ? detectUrlType(url) : activeInput;
   const localDoc = inferLocalDoc(text, file, url);
-  const locked = !isPro && used >= FREE_LIMIT;
-  const textTooLong = !isPro && text.length > FREE_CHARS;
-  const proInput = !isPro && detected !== 'Texto';
 
   function onFile(f: File | undefined | null) {
     if (!f) return;
+    if (!selectedCategory) {
+      setCategoryError('Elegí una categoría antes de cargar contenido.');
+      categoryRef.current?.focus();
+      return;
+    }
     setFile(f);
     setAnalysis(null);
     setActiveInput(f.type.startsWith('image/') ? 'Imagen' : 'PDF');
@@ -517,10 +613,20 @@ export default function Page() {
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
     setDrag(false);
+    if (!selectedCategory) {
+      setCategoryError('Elegí una categoría antes de cargar contenido.');
+      categoryRef.current?.focus();
+      return;
+    }
     onFile(e.dataTransfer.files?.[0]);
   }
 
   function chooseInputMode(mode: InputMode) {
+    if (!selectedCategory) {
+      setCategoryError('Elegí una categoría antes de seleccionar el tipo de contenido.');
+      categoryRef.current?.focus();
+      return;
+    }
     setActiveInput(mode);
     if (mode === 'PDF' || mode === 'Imagen') {
       setUrl('');
@@ -536,13 +642,22 @@ export default function Page() {
   }
 
   async function analyze() {
-    if (locked || textTooLong || proInput) return;
-    const requiresInstruction = Boolean(file || url || activeInput === 'PDF' || activeInput === 'Imagen' || activeInput === 'Web' || activeInput === 'YouTube');
-    if (requiresInstruction && !text.trim()) {
-      setInstructionError('Escribí qué necesitás saber del contenido. El análisis se basará en esa instrucción.');
+    if (!session) {
+      setAuthError('Registrate o iniciá sesión para realizar el análisis.');
+      document.getElementById('registro')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    if (!selectedCategory) {
+      setCategoryError('Elegí una categoría antes de ingresar tu consulta.');
+      categoryRef.current?.focus();
+      return;
+    }
+    if (!text.trim()) {
+      setInstructionError('Escribí qué necesitás saber. El análisis se basará siempre en esa consulta.');
       document.querySelector<HTMLTextAreaElement>('#analysis-instruction')?.focus();
       return;
     }
+    setCategoryError('');
     setInstructionError('');
     if (!termsAccepted) {
       setTermsError('Debés leer y aceptar los Términos y Condiciones antes de analizar contenido.');
@@ -562,6 +677,7 @@ export default function Page() {
       form.append('text', text);
       form.append('url', url);
       form.append('inputType', detected);
+      form.append('selectedCategory', selectedCategory);
       form.append('termsAccepted', 'true');
       form.append('termsVersion', TERMS_VERSION);
       if (file?.type.startsWith('image/')) {
@@ -579,14 +695,18 @@ export default function Page() {
       const requestTimeout = window.setTimeout(() => controller.abort(), 60_000);
       let res: Response;
       try {
-        res = await fetch('/api/analyze', { method: 'POST', body: form, signal: controller.signal });
+        res = await fetch('/api/analyze', {
+          method: 'POST',
+          body: form,
+          signal: controller.signal,
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
       } finally {
         window.clearTimeout(requestTimeout);
       }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Error');
       setAnalysis(data);
-      if (!isPro) setUsage(used + 1);
       setTimeout(() => document.getElementById('informe')?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch (e: any) {
       alert(e?.name === 'AbortError'
@@ -630,6 +750,9 @@ export default function Page() {
     setTab('Resumen');
     setLoading(false);
     setSteps([]);
+    setSelectedCategory(null);
+    setCategoryError('');
+    setInstructionError('');
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       setTimeout(() => document.getElementById('inicio-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
@@ -672,7 +795,9 @@ export default function Page() {
     setShowScoreExplanation(false);
   };
   const sectionTitle = activeView === 'historial' ? 'Historial' : activeView === 'favoritos' ? 'Favoritos' : activeView === 'plantillas' ? 'Plantillas' : activeView === 'comparar' ? 'Comparar' : activeView === 'mejorar' ? 'Mejorar documento' : activeView === 'ajustes' ? 'Ajustes' : 'Inicio';
-  const sectionHint = activeView === 'historial' ? 'Se muestra el historial local guardado en este navegador.' : activeView === 'favoritos' ? 'Acá aparecerán los elementos marcados como favoritos.' : activeView === 'plantillas' ? 'Podés reutilizar plantillas para análisis y mejoras.' : activeView === 'comparar' ? 'La comparación de documentos está disponible para usuarios Pro.' : activeView === 'mejorar' ? 'Este panel permite proponer mejoras de claridad, respaldo y verificación.' : activeView === 'ajustes' ? 'Configuración básica del producto y preferencias del análisis.' : 'Volvé al formulario principal para cargar un nuevo contenido.';
+  const sectionHint = activeView === 'historial' ? 'Se muestra el historial local guardado en este navegador.' : activeView === 'favoritos' ? 'Acá aparecerán los elementos marcados como favoritos.' : activeView === 'plantillas' ? 'Podés reutilizar plantillas para análisis y mejoras.' : activeView === 'comparar' ? 'La comparación de documentos está habilitada durante la beta.' : activeView === 'mejorar' ? 'Este panel permite proponer mejoras de claridad, respaldo y verificación.' : activeView === 'ajustes' ? 'Configuración básica del producto y preferencias del análisis.' : 'Volvé al formulario principal para cargar un nuevo contenido.';
+  const userName = String(session?.user.user_metadata?.full_name || session?.user.email || 'Usuario');
+  const userInitial = userName.slice(0, 1).toUpperCase();
 
   return <div className="appShell">
     {showTerms && <div className="termsBackdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowTerms(false); }}><section className="termsModal" role="dialog" aria-modal="true" aria-labelledby="terms-title"><div className="termsHeader"><div><h2 id="terms-title">Términos y Condiciones</h2><span>Versión {TERMS_VERSION}</span></div><button type="button" className="iconBtn" aria-label="Cerrar términos" onClick={() => setShowTerms(false)}>×</button></div><div className="termsBody"><p>Leé estos términos antes de usar ChamuyoCheck. La aceptación es obligatoria para realizar análisis.</p>{TERMS_SECTIONS.map((section) => <section key={section.title}><h3>{section.title}</h3><p>{section.body}</p></section>)}<p className="legalDisclaimerSubtle">Este texto establece condiciones operativas iniciales y debe ser revisado por asesoría jurídica argentina antes del lanzamiento comercial definitivo.</p></div><div className="termsActions"><button type="button" className="ghost" onClick={() => setShowTerms(false)}>Cerrar</button><button type="button" className="primary" onClick={acceptCurrentTerms}>Acepto los Términos y Condiciones</button></div></section></div>}
@@ -685,13 +810,13 @@ export default function Page() {
         <button type="button" className={activeView === 'historial' ? 'active' : ''} onClick={openHistory}>◴ Historial</button>
         <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>
         <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>
-        <button type="button" className={activeView === 'comparar' ? 'active' : ''} onClick={openCompare}>⚖ Comparar <small>PRO</small></button>
+        <button type="button" className={activeView === 'comparar' ? 'active' : ''} onClick={openCompare}>⚖ Comparar</button>
         <button type="button" className={activeView === 'mejorar' ? 'active' : ''} onClick={openImprove}>↑ Mejorar documento</button>
         <button type="button" className={activeView === 'ajustes' ? 'active' : ''} onClick={openSettings}>⚙ Ajustes</button>
         <button type="button">? Ayuda</button>
       </div>
-      <div className="proBox"><b>🔎 CHAMUYOCHECK</b><p>Revisá créditos, posibles estafas y documentos legales argentinos.</p><button type="button" onClick={() => setPlan('pro')}>Ver planes</button></div>
-      <div className="userBox"><div className="avatar">V</div><div><b>Visitante</b><div className="hint">{isPro ? 'Plan Pro' : 'Plan Starter'}</div></div></div>
+      <div className="proBox"><b>ACCESO BETA COMPLETO</b><p>Todos los formatos y análisis están habilitados. No se realizan cobros.</p></div>
+      <div className="userBox"><div className="avatar">{session ? userInitial : 'V'}</div><div><b>{session ? userName : 'Sin ingresar'}</b><div className="hint">{session ? 'Beta completa' : 'Registro requerido'}</div></div>{session && <button type="button" className="termsLink" onClick={signOut}>Salir</button>}</div>
     </aside>
     <main className="main">
       <div className="mobileTopbar">
@@ -712,7 +837,7 @@ export default function Page() {
         <button type="button" className={activeView === 'historial' ? 'active' : ''} onClick={openHistory}>◴ Historial</button>
         <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>
         <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>
-        <button type="button" className={activeView === 'comparar' ? 'active' : ''} onClick={openCompare}>⚖ Comparar <small>PRO</small></button>
+        <button type="button" className={activeView === 'comparar' ? 'active' : ''} onClick={openCompare}>⚖ Comparar</button>
         <button type="button" className={activeView === 'mejorar' ? 'active' : ''} onClick={openImprove}>↑ Mejorar documento</button>
         <button type="button" className={activeView === 'ajustes' ? 'active' : ''} onClick={openSettings}>⚙ Ajustes</button>
       </div>}
@@ -721,6 +846,25 @@ export default function Page() {
         <div className="topActions"><button type="button" className="ghost" onClick={() => setAnalysis(null)}>Analizar otro</button><button type="button" className="ghost">Descargar informe⌄</button><button type="button" className="iconBtn">⋮</button></div>
       </div>
       {activeView === 'inicio' ? <>
+        {!session && !sessionLoading && <section id="registro" className="panel authPanel" aria-labelledby="auth-title">
+          <div>
+            <div className="eyebrow">REGISTRO OBLIGATORIO</div>
+            <h2 id="auth-title">{authMode === 'signup' ? 'Creá tu cuenta para usar ChamuyoCheck' : 'Ingresá a tu cuenta'}</h2>
+            <p>Durante la beta, todo usuario registrado tiene acceso completo a textos, enlaces, imágenes y documentos. No se realizan cobros.</p>
+          </div>
+          <form className="authForm" onSubmit={submitEmailAuth}>
+            {authMode === 'signup' && <label>Nombre<input value={authName} onChange={(event) => setAuthName(event.target.value)} autoComplete="name" /></label>}
+            <label>Email<input type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} autoComplete="email" required /></label>
+            <label>Clave<input type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} minLength={6} required /></label>
+            {authError && <div className="termsError" role="alert">{authError}</div>}
+            {authMessage && <div className="authMessage" role="status">{authMessage}</div>}
+            <div className="authActions">
+              <button type="submit" className="primary" disabled={authLoading}>{authLoading ? 'Procesando…' : authMode === 'signup' ? 'Crear cuenta' : 'Ingresar'}</button>
+              <button type="button" className="ghost" onClick={signInWithGoogle} disabled={authLoading}>Continuar con Google</button>
+            </div>
+            <button type="button" className="termsLink authSwitch" onClick={() => { setAuthMode((mode) => mode === 'signup' ? 'signin' : 'signup'); setAuthError(''); setAuthMessage(''); }}>{authMode === 'signup' ? 'Ya tengo cuenta' : 'Quiero crear una cuenta'}</button>
+          </form>
+        </section>}
         <section className="heroGrid heroIntroGrid">
           <div className="panel heroIntroPanel">
             <div className="eyebrow">ANÁLISIS ESPECIALIZADO</div>
@@ -734,22 +878,36 @@ export default function Page() {
             </div>
           </div>
           <div className="panel inputPanel" id="inicio-form">
-            <div className="tabs">{(['Texto', 'PDF', 'Imagen', 'Web', 'YouTube'] as InputMode[]).map((x) => <button key={x} type="button" className={`tab ${detected === x || (detected === 'Archivo' && x === 'PDF') ? 'active' : ''}`} onClick={() => x === 'PDF' || x === 'Imagen' ? chooseInputMode(x) : chooseInputMode(x)}>{x}</button>)}</div>
-            <div className={`drop ${drag ? 'drag' : ''}`} onClick={() => { if (activeInput === 'PDF' || activeInput === 'Imagen') fileRef.current?.click(); }} onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}>
+            <div ref={categoryRef} tabIndex={-1} className="categoryPicker" aria-labelledby="category-picker-title">
+              <div className="categoryMeta"><span className="categoryStep">PASO 1</span><span className="betaBadge">VERSIÓN BETA</span></div>
+              <h2 id="category-picker-title">Elegí la categoría</h2>
+              <p>La categoría define el tipo de análisis y las fuentes que corresponden.</p>
+              <div className="categoryGrid" role="radiogroup" aria-required="true">
+                {ANALYSIS_CATEGORIES.map((category) => <button key={category.id} type="button" role="radio" aria-checked={selectedCategory === category.id} className={`categoryOption ${selectedCategory === category.id ? 'selected' : ''}`} onClick={() => { setSelectedCategory(category.id); setCategoryError(''); setAnalysis(null); setFile(null); setUrl(''); setText(''); setActiveInput('Texto'); }}>
+                  <span className="categoryOptionIcon" aria-hidden="true">{category.icon}</span>
+                  <span><strong>{category.label}</strong><span>{category.description}</span></span>
+                </button>)}
+              </div>
+              {categoryError && <div className="termsError" role="alert">{categoryError}</div>}
+            </div>
+            <div className={`analysisInputStage ${selectedCategory ? '' : 'locked'}`} aria-disabled={!selectedCategory}>
+            <div className="analysisStepTitle"><span>PASO 2</span> Cargá el contenido y escribí tu pregunta</div>
+            <div className="tabs">{(['Texto', 'PDF', 'Imagen', 'Web', 'YouTube'] as InputMode[]).map((x) => <button key={x} type="button" disabled={!selectedCategory} className={`tab ${detected === x || (detected === 'Archivo' && x === 'PDF') ? 'active' : ''}`} onClick={() => chooseInputMode(x)}>{x}</button>)}</div>
+            <div className={`drop ${drag ? 'drag' : ''}`} onClick={() => { if (!selectedCategory) { setCategoryError('Elegí una categoría antes de cargar contenido.'); categoryRef.current?.focus(); return; } if (activeInput === 'PDF' || activeInput === 'Imagen') fileRef.current?.click(); }} onDragOver={(e) => { e.preventDefault(); if (selectedCategory) setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}>
               <h3>Pegá o arrastrá cualquier contenido</h3>
-              <p>Texto · PDF · imágenes · capturas · sitios web · videos de YouTube. La temática se detecta automáticamente.</p>
+              <p>Texto · PDF · imágenes · capturas · sitios web · videos de YouTube. La categoría elegida guía el análisis y el sistema identifica el subtema.</p>
               {file && <span className="filePill">{file.name} · {fmt(file.size)}</span>}
             </div>
-            {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}
+            {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" disabled={!selectedCategory} value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}
             <label htmlFor="analysis-instruction"><b>{detected === 'Texto' && !file && !url ? 'Escribí tu consulta' : 'Indicá qué necesitás saber'}</b></label>
-            <textarea id="analysis-instruction" value={text} onChange={(e) => { setText(e.target.value); setInstructionError(''); }} placeholder={activeInput === 'YouTube' ? 'Ejemplo: analizá si la propuesta del curso es coherente y qué riesgos tiene.' : activeInput === 'Web' ? 'Ejemplo: calculá el costo total del préstamo y explicá sus condiciones.' : activeInput === 'Imagen' || file?.type.startsWith('image/') ? 'Ejemplo: calculá la TNA y el costo anual efectivo para la alternativa de 36 meses.' : 'Ejemplo: calculá el costo real del crédito, revisá esta posible estafa o explicá esta cláusula según el derecho argentino.'} />
+            <textarea id="analysis-instruction" disabled={!selectedCategory} value={text} onChange={(e) => { setText(e.target.value); setInstructionError(''); }} placeholder={selectedCategory ? (activeInput === 'YouTube' ? 'Ejemplo: analizá si la propuesta del curso es coherente y qué riesgos tiene.' : activeInput === 'Web' ? 'Ejemplo: calculá el costo total del préstamo y explicá sus condiciones.' : activeInput === 'Imagen' || file?.type.startsWith('image/') ? 'Ejemplo: calculá la TNA y el costo anual efectivo para la alternativa de 36 meses.' : 'Explicá con precisión qué necesitás saber sobre el contenido.') : 'Primero elegí una categoría.'} />
             {instructionError && <div className="termsError" role="alert">{instructionError}</div>}
-            {!isPro && <div className={`counter ${textTooLong ? 'bad' : ''}`}>{text.length}/{FREE_CHARS}</div>}
             <div className="termsConsent"><input id="terms-consent" type="checkbox" checked={termsAccepted} onChange={(e) => e.target.checked ? acceptCurrentTerms() : revokeTermsAcceptance()} /><label htmlFor="terms-consent">Leí y acepto los <button type="button" className="termsLink" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>Términos y Condiciones</button> (versión {TERMS_VERSION}).</label></div>
             {termsError && <div className="termsError" role="alert">{termsError}</div>}
-            <div className="ctaRow"><button type="button" className="primary" onClick={analyze} disabled={loading || locked || textTooLong || proInput}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">Entrada: {getInputLabel(detected, Boolean(file))}</span></div>
-            {(locked || textTooLong || proInput) && <div className="paywall">Starter permite 3 análisis de texto de hasta 250 caracteres. Pasá a Pro para todas las funciones.</div>}
+            <div className="ctaRow"><button type="button" className="primary" onClick={analyze} disabled={loading || sessionLoading || !selectedCategory || !text.trim()}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">{session ? `Entrada: ${getInputLabel(detected, Boolean(file))}` : 'Registrate para analizar'}</span></div>
+            {session && <div className="betaAccessNote">Beta completa activa: sin límites ni cobros.</div>}
             {loading && <div className="loading">{steps.map((s, i) => <p key={i}>{s}</p>)}</div>}
+            </div>
           </div>
         </section>
         {analysis?.scopeStatus === 'out-of-scope' ? <section id="informe" className="analysisSection">
@@ -872,7 +1030,7 @@ export default function Page() {
           {templatesItems.length ? <ul style={{ color: '#ddd4f4', lineHeight: 1.6, marginTop: '14px' }}>{templatesItems.map((item, i) => <li key={i}>{item}</li>)}</ul> : <div className="paywall" style={{ marginTop: '14px' }}>Todavía no hay plantillas guardadas.</div>}
         </>}
         {activeView === 'comparar' && <>
-          {isPro ? <div className="paywall" style={{ marginTop: '14px' }}>Compará dos documentos y revisá diferencias de riesgo, contexto y evidencia.</div> : <div className="paywall" style={{ marginTop: '14px' }}>Activá Pro para comparar documentos y acceder a funciones avanzadas.</div>}
+          <div className="paywall" style={{ marginTop: '14px' }}>Compará dos documentos y revisá diferencias de riesgo, contexto y evidencia.</div>
         </>}
         {activeView === 'mejorar' && <>
           <div className="paywall" style={{ marginTop: '14px' }}>Podés abrir el panel de mejora desde aquí para revisar la estructura, las fuentes y los puntos a reforzar.</div>

@@ -109,3 +109,15 @@ test('clasifica proyectos mineros y exige reservas e informe competente', () => 
   assert.ok(result.missingInputs.some((item) => /recursos y reservas/i.test(item)));
   assert.ok(result.riskFlags.some((item) => /informe técnico competente/i.test(item)));
 });
+
+test('no convierte una comparación de inversión financiera en un proyecto sectorial', () => {
+  const result = analyzeInvestmentProject(
+    'Inversión rápida y sencilla: una cuenta remunerada con TNA del 31% le gana por varios puntos al plazo fijo de grandes bancos. El saldo remunerado tiene un tope de $800.000.',
+    '¿Qué te parece esta propuesta y cuáles son sus límites?'
+  );
+  assert.equal(result.applicable, false);
+  assert.equal(result.sector, null);
+  assert.equal(result.location, null);
+  assert.equal(result.product, null);
+  assert.equal(result.inputs.hectares, null);
+});

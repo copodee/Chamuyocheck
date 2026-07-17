@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { POST } from '../../../../app/api/analyze/route';
+import { handleAnalyzeRequest } from '../../../../app/api/analyze/route';
 import { TERMS_VERSION } from '../../../lib/legal/terms';
 
 function formRequest(url: string) {
   const form = new FormData();
   form.set('url', url);
+  form.set('selectedCategory', 'scam-risk');
   form.set('text', 'Analizá la coherencia de la propuesta comercial.');
   form.set('termsAccepted', 'true');
   form.set('termsVersion', TERMS_VERSION);
@@ -21,7 +22,7 @@ test('YouTube analiza un curso solo desde subtítulos públicos', async () => {
       ? new Response('<transcript><text>Este curso te enseña a facturar un millón por mes sin experiencia. Casos de éxito garantizados. Cuesta 500000 pesos.</text></transcript>', { status: 200 })
       : new Response('', { status: 404 })) as typeof fetch;
   try {
-    const response = await POST(formRequest('https://youtu.be/abcdefghijk'));
+    const response = await handleAnalyzeRequest(formRequest('https://youtu.be/abcdefghijk'));
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.commercialCourseAnalysis.applicable, true);
@@ -33,7 +34,7 @@ test('YouTube sin subtítulos se detiene sin fingir análisis', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => new Response('<script>ytInitialPlayerResponse = {"videoDetails":{"title":"Curso"}};</script>', { status: 200 })) as typeof fetch;
   try {
-    const response = await POST(formRequest('https://youtu.be/abcdefghijk'));
+    const response = await handleAnalyzeRequest(formRequest('https://youtu.be/abcdefghijk'));
     const body = await response.json();
     assert.equal(response.status, 422);
     assert.equal(body.extractionStatus, 'not-analyzed');

@@ -90,7 +90,7 @@ function amountAfter(text: string, labels: string[]): number | null {
 }
 
 function detectLocation(text: string): string | null {
-  const match = text.match(/\b(?:en|ubicad[oa]\s+en|localidad\s+de|zona\s+de)\s+([A-ZÁÉÍÓÚÑ][\p{L} .'-]{2,50})(?=[,.;\n]|\s+(?:por|con|a\s+un|y\s+un|para)\b)/iu);
+  const match = text.match(/\b(?:ubicad[oa]\s+en|localidad\s+de|zona\s+de|barrio\s+de|provincia\s+de|(?:departamento|casa|inmueble|campo|proyecto|planta|local|terreno|vivienda)\s+en)\s+([A-ZÁÉÍÓÚÑ][\p{L} .'-]{2,50})(?=[,.;\n]|\s+(?:por|con|a\s+un|y\s+un|para)\b)/iu);
   return match?.[1]?.trim() || null;
 }
 
@@ -105,7 +105,7 @@ function detectProduct(text: string): string | null {
     ['aceitunas y aceite de oliva', /aceitun|aceite\s+de\s+oliva|oliv[ií]col/i],
     ['uva y vino', /\buva\b|vino|vitivin[ií]col|bodega/i],
     ['soja', /\bsoja\b/i], ['maíz', /\bma[ií]z\b/i], ['trigo', /\btrigo\b/i],
-    ['frutas', /frut|manzana|pera|lim[oó]n|naranja|ar[aá]ndano|cereza/i],
+    ['frutas', /\b(?:frutas?|frutícola|fruticultura|manzanas?|peras?|limones?|naranjas?|arándanos?|cerezas?)\b/i],
     ['carne bovina', /carne\s+bovina|novillo|bovin|hacienda|feedlot/i],
     ['leche', /\bleche\b|tambo|lecher/i],
   ];
@@ -123,16 +123,24 @@ const sectorRules: Array<{ sector: InvestmentSector; label: string; patterns: Re
   { sector: 'oil-gas', label: 'Petróleo, gas y Vaca Muerta', patterns: [/vaca\s+muerta|petr[oó]leo|gas\s+natural|hidrocarburo|upstream|midstream|downstream|yacimiento|pozo|shale\s+(?:oil|gas)|no\s+convencional/i] },
   { sector: 'mining', label: 'Minería', patterns: [/miner[ií]a|minero|litio|cobre|\boro\b|\bplata\b|uranio|potasio|borato|cantera|proyecto\s+extractivo/i] },
   { sector: 'real-estate', label: 'Inversión inmobiliaria y alquileres', patterns: [/inmobiliari|departamento|propiedad|vivienda|alquiler|renta\s+locativa|metro(?:s)?\s+cuadrad|\bm2\b|lote|terreno/i] },
-  { sector: 'agriculture', label: 'Agricultura y campos', patterns: [/\bcampo\b|agropecuari|agricultur|soja|ma[ií]z|trigo|oliv|aceituna|uva|frut|cosecha|hect[aá]rea|rinde|cultivo/i] },
+  { sector: 'agriculture', label: 'Agricultura y campos', patterns: [/\bcampo\b|agropecuari|agricultur|soja|ma[ií]z|trigo|oliv|aceituna|\buva\b|\bfrutas?\b|frutícola|cosecha|hect[aá]rea|rinde|cultivo/i] },
   { sector: 'livestock', label: 'Ganadería', patterns: [/ganader|hacienda|bovin|vacun|feedlot|novillo|ternero|carne|tambo|lecher/i] },
   { sector: 'food-wine', label: 'Alimentos, vino y economías regionales', patterns: [/vino|bodega|vitivin[ií]col|yerba\s+mate|alimentos?|bebidas?|mosto/i] },
   { sector: 'exports', label: 'Exportaciones y demanda internacional', patterns: [/export|comercio\s+exterior|mercado\s+internacional|demanda\s+mundial|venta\s+al\s+exterior|aduana|destino\s+externo/i] },
   { sector: 'automotive', label: 'Industria automotriz', patterns: [/automotriz|automotor|veh[ií]cul|autopart|concesionari/i] },
   { sector: 'manufacturing', label: 'Producción e industria', patterns: [/industria|f[aá]brica|manufactur|planta\s+productiva|capacidad\s+instalada|producci[oó]n/i] },
   { sector: 'retail-commerce', label: 'Comercio', patterns: [/comercio|local\s+comercial|ventas\s+minoristas|retail|tienda|supermercado/i] },
-  { sector: 'transport-logistics', label: 'Transporte y logística', patterns: [/transporte|log[ií]stica|flete|camiones?|dep[oó]sito|distribuci[oó]n|[uú]ltima\s+milla/i] },
-  { sector: 'services', label: 'Servicios', patterns: [/servicios?|consultor[ií]a|software|turismo|hotel|gastronom/i] },
+  { sector: 'transport-logistics', label: 'Transporte y logística', patterns: [/transporte|log[ií]stica|flete|camiones?|dep[oó]sito\s+(?:log[ií]stico|industrial)|centro\s+de\s+distribuci[oó]n|[uú]ltima\s+milla/i] },
+  { sector: 'services', label: 'Servicios', patterns: [/empresa\s+de\s+servicios|proyecto\s+de\s+servicios|consultor[ií]a|software|turismo|hotel|gastronom/i] },
 ];
+
+function isSavingsOrMarketProduct(text: string): boolean {
+  return /cuenta\s+remunerada|billetera\s+(?:virtual|digital)|money\s*market|fondo\s+com[uú]n|\bFCI\b|plazo\s+fijo|cauci[oó]n|dep[oó]sito\s+bancario|\bTNA\b|\bTEA\b|rendimiento\s+(?:diario|mensual|anual)|tasa\s+nominal\s+anual/i.test(text);
+}
+
+function hasProductiveProjectSignals(text: string): boolean {
+  return /proyecto\s+(?:productivo|inmobiliario|minero|industrial|agropecuario|ganadero|petrolero|log[ií]stico|comercial)|emprendimiento|planta\s+productiva|explotaci[oó]n|capex|opex|hect[aá]reas?|metros?\s+cuadrados?|\bm2\b|rinde\s+(?:esperado|por)|producci[oó]n\s+(?:anual|mensual|proyectada)|ingresos?\s+(?:anuales?|mensuales?)|costos?\s+(?:anuales?|mensuales?)/i.test(text);
+}
 
 const commonSources: InvestmentSourceRequirement[] = [
   { sourceType: 'official-statistics', institutions: ['INDEC'], purpose: 'Actividad, precios, empleo y contexto macroeconómico observados.', officialRequired: true },
@@ -174,7 +182,12 @@ const sectorSources: Record<InvestmentSector, InvestmentSourceRequirement[]> = {
   'general-investment': [],
 };
 
-export function analyzeInvestmentProject(documentText: string, userInstruction = ''): InvestmentProjectAnalysis {
+export function analyzeInvestmentProject(
+  documentText: string,
+  userInstruction = '',
+  forceApplicable = false,
+  suppressApplicable = false
+): InvestmentProjectAnalysis {
   const text = `${userInstruction}\n${documentText}`.trim();
   const ranked = sectorRules
     .map((rule) => ({
@@ -187,8 +200,14 @@ export function analyzeInvestmentProject(documentText: string, userInstruction =
     .filter((rule) => rule.score > 0)
     .sort((a, b) => b.score - a.score);
   const genericInvestment = /inversi[oó]n|invertir|proyecto|rentabilidad|retorno|tasa\s+interna|tir\b|van\b|recupero|flujo\s+de\s+fondos/i.test(text);
-  const applicable = genericInvestment || ranked.length > 0;
-  const sector = ranked[0]?.sector || (genericInvestment ? 'general-investment' : null);
+  const savingsProduct = isSavingsOrMarketProduct(text);
+  const productiveProject = hasProductiveProjectSignals(text);
+  const applicable = suppressApplicable
+    ? false
+    : forceApplicable || (savingsProduct && !productiveProject ? false : genericInvestment || ranked.length > 0);
+  const sector = applicable
+    ? (ranked[0]?.sector || (forceApplicable || genericInvestment ? 'general-investment' : null))
+    : null;
   const currency: 'ARS' | 'USD' = /(?:us\$|u\$s|usd|d[oó]lares?)/i.test(text) ? 'USD' : 'ARS';
   const purchasePrice = amountAfter(text, ['precio de compra', 'precio del inmueble', 'valor de compra', 'valor del inmueble', 'precio de venta']);
   const initialInvestment = amountAfter(text, ['inversi[oó]n inicial', 'capital inicial', 'monto a invertir', 'invertir(?:[ií]a|é|e)?']) ?? purchasePrice;
@@ -299,7 +318,7 @@ export function analyzeInvestmentProject(documentText: string, userInstruction =
   return {
     applicable,
     sector,
-    sectorLabel: ranked[0]?.label || (genericInvestment ? 'Proyecto de inversión' : 'Sin sector de inversión'),
+    sectorLabel: applicable ? (ranked[0]?.label || (genericInvestment ? 'Proyecto de inversión' : 'Sin sector de inversión')) : 'Producto financiero de ahorro o inversión',
     secondarySectors: [...new Set(ranked.slice(1).map((item) => item.sector))],
     confidence: !applicable ? 0 : Math.min(0.98, 0.68 + (ranked[0]?.score || 1) * 0.1),
     location: detectLocation(text),

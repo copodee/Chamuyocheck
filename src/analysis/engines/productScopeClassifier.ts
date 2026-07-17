@@ -1,5 +1,16 @@
 export type SupportedProductArea = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents';
 
+export const supportedProductAreas: SupportedProductArea[] = [
+  'finance-credit',
+  'investment-project',
+  'scam-risk',
+  'argentina-legal-documents',
+];
+
+export function isSupportedProductArea(value: string): value is SupportedProductArea {
+  return supportedProductAreas.includes(value as SupportedProductArea);
+}
+
 export type ProductScopeResult = {
   supported: boolean;
   primaryArea: SupportedProductArea | null;
@@ -62,7 +73,11 @@ export function hasLoanCalculationSignals(text: string): boolean {
   return matches(loanCalculationPatterns, text).length > 0;
 }
 
-export function classifyProductScope(documentText: string, userInstruction = ''): ProductScopeResult {
+export function classifyProductScope(
+  documentText: string,
+  userInstruction = '',
+  selectedCategory?: SupportedProductArea | null
+): ProductScopeResult {
   const rawText = `${userInstruction}\n${documentText}`.trim();
   let decodedText = rawText.replace(/\+/g, ' ');
   try {
@@ -77,6 +92,21 @@ export function classifyProductScope(documentText: string, userInstruction = '')
     { area: 'investment-project', signals: matches(investmentProjectPatterns, text) },
     { area: 'finance-credit', signals: matches(financePatterns, text) },
   ];
+  if (selectedCategory) {
+    const selected = candidates.find((item) => item.area === selectedCategory);
+    const secondaryAreas = candidates
+      .filter((item) => item.area !== selectedCategory && item.signals.length > 0)
+      .sort((a, b) => b.signals.length - a.signals.length)
+      .map((item) => item.area);
+    return {
+      supported: true,
+      primaryArea: selectedCategory,
+      secondaryAreas,
+      confidence: selected?.signals.length ? 0.98 : 0.9,
+      reason: `La categoría ${selectedCategory} fue elegida por el usuario y define el contexto principal del análisis.`,
+      matchedSignals: candidates.flatMap((item) => item.signals).slice(0, 6),
+    };
+  }
   const ranked = candidates.filter((item) => item.signals.length > 0);
   if (!ranked.length) {
     return {

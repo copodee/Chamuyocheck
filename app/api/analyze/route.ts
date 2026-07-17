@@ -18,7 +18,12 @@ import { providersForSourceTypes, sourceAvailabilityForTypes } from '../../../sr
 import { buildLegalResultPresentation } from '../../../src/analysis/engines/legalResultSafeguard';
 import { TERMS_VERSION } from '../../../src/lib/legal/terms';
 import { runHybridExternalVerification } from '../../../src/analysis/engines/hybridExternalVerification';
-import { classifyProductScope, hasLoanCalculationSignals } from '../../../src/analysis/engines/productScopeClassifier';
+import {
+  classifyProductScope,
+  hasLoanCalculationSignals,
+  isSupportedProductArea,
+  type SupportedProductArea,
+} from '../../../src/analysis/engines/productScopeClassifier';
 import { extractLoanNumbers } from '../../../src/lib/finance/loanMath';
 import { extractImageText } from '../../../src/lib/extractors/ocrExtractor';
 import { extractWebText as extractStructuredWebText } from '../../../src/lib/extractors/webExtractor';
@@ -32,6 +37,7 @@ import { describeFinancialUrl } from '../../../src/lib/finance/financialUrlConte
 import { buildCustomerDecisionAnswer, enrichDecisionAnswerWithEconomicEvidence, enrichDecisionAnswerWithExternalEvidence } from '../../../src/analysis/engines/customerDecisionAnswerEngine';
 import type { ExternalVerificationSourceRecord } from '../../../src/analysis/types/externalVerification';
 import { analyzeInvestmentProject } from '../../../src/lib/investments/investmentProjectAnalysis';
+import { authenticateAnalysisRequest, recordSuccessfulAnalysis } from '../../../src/lib/auth/analysisAuth';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -371,7 +377,8 @@ export function buildLocalAnalysis(
   fileName: string,
   extraction: Extraction | null,
   userInstruction = '',
-  sourceUrl = ''
+  sourceUrl = '',
+  selectedCategory?: SupportedProductArea | null
 ) {
   const analysisInput = `${userInstruction}\n${text}\n${fileName}\n${sourceUrl}`.trim();
   const all = analysisInput.toLowerCase();
@@ -383,7 +390,12 @@ export function buildLocalAnalysis(
   const scamRiskAnalysis = analyzeScamRisk(analysisInput);
   const commercialCourseAnalysis = analyzeCommercialCourse(analysisInput);
   const argentinaLegalAnalysis = analyzeArgentinaLegal(analysisInput);
-  const investmentProjectAnalysis = analyzeInvestmentProject(text, userInstruction);
+  const investmentProjectAnalysis = analyzeInvestmentProject(
+    text,
+    userInstruction,
+    selectedCategory === 'investment-project',
+    Boolean(selectedCategory && selectedCategory !== 'investment-project')
+  );
   const financialDataComplete = Boolean(financialAnalysis && financialAnalysis.principal !== null && financialAnalysis.installment !== null && financialAnalysis.months !== null && financialAnalysis.impliedTeaPercent !== null);
   const financialRiskScore = !financial ? 0 : financialDataComplete
     ? (financialAnalysis?.warnings.length ? 42 : 24)
@@ -599,20 +611,6 @@ export function buildLocalAnalysis(
   const clarification = detectEntityAmbiguity(text);
   const shortText = inputKind === 'Texto' && text.trim().length < 220;
   const riskLabel = finalScore > 80 ? 'Chamuyo extremo' : finalScore > 60 ? 'Alto chamuyo' : finalScore > 40 ? 'Requiere verificación' : 'Bajo chamuyo';
-  const protectedPresentation = buildLegalResultPresentation({
-    score: finalScore,
-    risk: riskLabel,
-    confidence: extraction?.chars ? 'Media/Alta' : 'Media',
-    baseSummary: financialAnalysis?.calculationBasis.length
-      ? `${topic.summary} Cálculo reproducible: ${financialAnalysis.calculationBasis.join(' ')}`
-      : topic.summary,
-    baseConclusion: financialDataComplete
-      ? `Se calcularon los importes visibles. ${financialAnalysis?.warnings.length ? 'Existen advertencias que deben revisarse antes de comparar o contratar.' : 'No se detectaron inconsistencias aritméticas con los datos extraídos.'}`
-      : topic.prudentConclusion,
-    categoryScores,
-    externalVerificationRequired: claimFirstResult.documentExternalVerificationPlan.externalVerificationRequired,
-    externalVerificationPerformed: false,
-  });
   const decisionAnswer = buildCustomerDecisionAnswer({
     documentText: text,
     userInstruction,
@@ -621,7 +619,37 @@ export function buildLocalAnalysis(
     argentinaLegalAnalysis,
     investmentProjectAnalysis,
   });
-
+  const decisionSummary = `${decisionAnswer.title}. ${decisionAnswer.directAnswer}`;
+  const loanAnalysis = decisionAnswer.kind === 'loan-cost';
+  const decisionConclusion = [
+    decisionAnswer.findings[0],
+    decisionAnswer.nextActions[0],
+    decisionAnswer.limitations[0],
+  ].filter(Boolean).join(' ');
+  const sensitivePersonalClaim = topic.key === 'sensitive-allegation';
+  const verificationPending = claimFirstResult.documentExternalVerificationPlan.externalVerificationRequired && !loanAnalysis;
+  const mandatoryUnverifiedConclusion =
+    'Esta afirmación no puede ser validada con las fuentes disponibles. La consulta no puede responderse con certeza.';
+  const protectedPresentation = buildLegalResultPresentation({
+    score: finalScore,
+    risk: riskLabel,
+    confidence: extraction?.chars ? 'Media/Alta' : 'Media',
+    baseSummary: sensitivePersonalClaim
+      ? topic.summary
+      : decisionAnswer.kind === 'loan-cost' && financialAnalysis?.calculationBasis.length
+      ? `${topic.summary} Cálculo reproducible: ${financialAnalysis.calculationBasis.join(' ')}`
+      : decisionSummary,
+    baseConclusion: sensitivePersonalClaim
+      ? topic.prudentConclusion
+      : verificationPending
+        ? `${mandatoryUnverifiedConclusion} ${decisionConclusion || topic.prudentConclusion}`
+        : decisionAnswer.kind === 'loan-cost' && financialDataComplete
+      ? `Se calcularon los importes visibles. ${financialAnalysis?.warnings.length ? 'Existen advertencias que deben revisarse antes de comparar o contratar.' : 'No se detectaron inconsistencias aritméticas con los datos extraídos.'}`
+      : decisionConclusion || topic.prudentConclusion,
+    categoryScores,
+    externalVerificationRequired: claimFirstResult.documentExternalVerificationPlan.externalVerificationRequired,
+    externalVerificationPerformed: false,
+  });
   return {
     documentIcon: domain.icon,
     documentType: domain.label,
@@ -641,7 +669,7 @@ export function buildLocalAnalysis(
     clarification,
     centralQuestion: scamRiskAnalysis.signals.length
       ? '¿Qué señales concretas presenta la oferta y qué identidad o autorización falta verificar?'
-      : financial ? '¿Cuál es el costo total verificable y qué cargos todavía faltan?' : '¿Puedo confiar en esto sin pedir más evidencia?',
+      : loanAnalysis ? '¿Cuál es el costo total verificable y qué cargos todavía faltan?' : '¿Puedo confiar en esto sin pedir más evidencia?',
     summary: protectedPresentation.summary,
     prudentConclusion: protectedPresentation.prudentConclusion,
     resultJustification: protectedPresentation.resultJustification,
@@ -657,7 +685,7 @@ export function buildLocalAnalysis(
       academicAuthorship.possibleAIUsage ? 'Se detectaron señales concretas que justifican revisión docente, pero no prueban autoría por IA.' : '',
       promise ? 'Promesa o resultado atractivo sin margen claro de incertidumbre.' : '',
       missing ? (shortText ? 'La afirmación requiere verificación externa y contexto adicional.' : 'Faltan fuentes o metodología verificable.') : '',
-      financial && !financialDataComplete ? 'Faltan datos para calcular los costos financieros completos.' : '',
+      loanAnalysis && !financialDataComplete ? 'Faltan datos para calcular los costos financieros completos.' : '',
       ...(financialAnalysis?.warnings || []),
       ...scamRiskAnalysis.signals.map((signal) => `${signal.label}: “${signal.evidence}”.`),
       ...argentinaLegalAnalysis.issues.map((issue) => `${issue.label}: ${issue.explanation} Fragmento: “${issue.evidence}”.`),
@@ -671,14 +699,14 @@ export function buildLocalAnalysis(
       '¿Qué evidencia verificable aparece dentro del contenido?',
       academic ? '¿El autor puede defender oralmente el trabajo y mostrar borradores?' : '',
       ...academicAuthorship.oralDefenseQuestions,
-      financial ? '¿Cuál es el CFT efectivo anual con IVA incluido?' : ''
+      loanAnalysis ? '¿Cuál es el CFT efectivo anual con IVA incluido?' : ''
     ].filter(Boolean),
     missingInformation: [
       shortText ? 'verificación externa y contexto adicional' : 'fuentes verificables',
       'autor, fecha y origen del contenido',
       'metodología o base del dato',
       academic ? 'borradores, historial de edición, fuentes y defensa oral' : '',
-      financial && !financialDataComplete ? 'CFT, importe de cuota, plazo y monto financiado' : '',
+      loanAnalysis && !financialDataComplete ? 'CFT, importe de cuota, plazo y monto financiado' : '',
       ...(financialAnalysis?.missingFields || [])
       , ...scamRiskAnalysis.missingInformation, ...argentinaLegalAnalysis.factsNeeded
     ].filter(Boolean),
@@ -689,14 +717,14 @@ export function buildLocalAnalysis(
       `Elementos verificables detectados: revisar nombres, fechas, cifras y fuentes dentro de ${inputText.phrase}.`,
       missing ? 'Afirmaciones que requieren fuente o metodología adicional.' : 'El contenido incluye algunos elementos que pueden contrastarse.',
       academic ? 'Señales académicas: revisar bibliografía, coherencia del estilo y defensa oral.' : 'No se activó como eje académico principal.',
-      financial ? 'Señales financieras: verificar CFT, TEA, TNA, comisiones, seguros e IVA.' : 'No se activó como oferta financiera principal.',
-      ...(financialAnalysis?.evidence || []), ...(financialAnalysis?.calculationBasis || [])
+      loanAnalysis ? 'Señales de crédito: verificar CFT, TEA, TNA, comisiones, seguros e IVA.' : decisionAnswer.kind === 'financial-product-comparison' ? 'Se detectó una comparación de productos de ahorro e inversión de corto plazo.' : 'No se activó como oferta financiera principal.',
+      ...(loanAnalysis ? financialAnalysis?.evidence || [] : []), ...(loanAnalysis ? financialAnalysis?.calculationBasis || [] : [])
       , ...scamRiskAnalysis.signals.map((signal) => `Señal observable — ${signal.label}: “${signal.evidence}”.`), ...argentinaLegalAnalysis.issues.map((issue) => `Fragmento jurídico — ${issue.label}: “${issue.evidence}”.`)
     ].filter(Boolean),
     scoreExplanation: buildScoreExplanation(text, topic.key, inputKind, finalScore, [
       missing ? 'Faltan fuentes o metodología verificable.' : '',
       promise ? 'Hay promesas fuertes o lenguaje absoluto.' : '',
-      financial && !financialDataComplete ? 'Faltan datos para calcular los costos financieros completos.' : financial ? 'Los importes visibles fueron recalculados de forma reproducible.' : '',
+      loanAnalysis && !financialDataComplete ? 'Faltan datos para calcular los costos financieros completos.' : loanAnalysis ? 'Los importes visibles fueron recalculados de forma reproducible.' : '',
       academic ? 'Falta trazabilidad o contexto metodológico.' : ''
     ].filter(Boolean), verification, reasoning, universalReasoning, weightedResult, claimFirstResult),
     claimAnalysis: claimFirstResult,
@@ -724,7 +752,7 @@ export function buildLocalAnalysis(
       'Verificar autor, fecha, fuente original y trazabilidad del contenido.',
       'Pedir respaldo para las afirmaciones centrales.',
       'Distinguir hechos observables de opiniones o inferencias.',
-      financial ? 'Exigir contrato completo y costo financiero total.' : '',
+      loanAnalysis ? 'Exigir contrato completo y costo financiero total.' : '',
       academic ? 'Pedir borradores, fuentes y defensa oral antes de concluir uso de IA.' : ''
     ].filter(Boolean),
     improvementPlan: [...scamRiskAnalysis.checks, ...reasoning.recommendations, ...buildRecommendations(text, topic.key, inputKind), ...buildRiskItems(text, inputKind)].filter(Boolean).slice(0, 8),
@@ -751,6 +779,7 @@ export function normalizeAI(raw: any, fallback: ReturnType<typeof buildLocalAnal
     scamRiskAnalysis: fallback.scamRiskAnalysis,
     commercialCourseAnalysis: fallback.commercialCourseAnalysis,
     argentinaLegalAnalysis: fallback.argentinaLegalAnalysis,
+    investmentProjectAnalysis: fallback.investmentProjectAnalysis,
     sourceUrl: fallback.sourceUrl,
     academicAuthorshipAnalysis: fallback.academicAuthorshipAnalysis,
     userInstruction: fallback.userInstruction,
@@ -783,7 +812,7 @@ function applyVerificationResult(
   const verified = verification.execution.externalVerificationPerformed || primarySourceRead;
   const safetyFloor = fallback.claimAnalysis.dominantClaim?.minimumScore || 0;
   const financial = normalized.financialAnalysis;
-  const financialEvidenceScore = financial
+  const financialEvidenceScore = normalized.decisionAnswer?.kind === 'loan-cost' && financial
     ? financial.warnings.length > 0 || financial.missingFields.length > 0 ? 42 : 24
     : null;
   const adjustedScore = financialEvidenceScore !== null
@@ -811,23 +840,6 @@ function applyVerificationResult(
   const sourceVerificationText = primarySourceRead
     ? 'La fuente primaria fue consultada y queda registrada; no se realizó un contraste independiente de la identidad de la entidad ni de la vigencia de la oferta.'
     : undefined;
-  const presentation = buildLegalResultPresentation({
-    score: adjustedScore,
-    risk: adjustedScore > 80 ? 'Chamuyo extremo' : adjustedScore > 60 ? 'Alto chamuyo' : adjustedScore > 40 ? 'Requiere verificación' : 'Bajo chamuyo',
-    confidence: normalized.confidence,
-    baseSummary: financialSummary || (verified
-      ? `La consulta de fuentes externas fue completada. Evaluación: ${verification.assessment}. ${verification.rationale}`
-      : `${clarification ? `${clarification} ` : ''}${inconclusiveMessage} ${verification.rationale}`),
-    baseConclusion: financial
-      ? financial.missingFields.length > 0
-        ? `El cálculo es parcial: faltan ${financial.missingFields.join(', ')}. No debe suponerse que el costo visible incluye cargos no informados.`
-        : 'Los importes visibles fueron recalculados; revisá que la cuota, el plazo y los cargos correspondan a la oferta vigente antes de contratar.'
-      : verified ? `Revisá las fuentes citadas y su alcance. Resultado de contraste: ${verification.assessment}.` : (clarification || inconclusiveMessage),
-    categoryScores: normalized.categoryScores,
-    externalVerificationRequired: normalized.externalVerification.externalVerificationRequired,
-    externalVerificationPerformed: verified,
-    verificationSummary: sourceVerificationText,
-  });
   const retrievedRecord: ExternalVerificationSourceRecord | null = retrievedSource ? {
     sourceType: 'company-disclosures',
     url: retrievedSource.url,
@@ -849,6 +861,30 @@ function applyVerificationResult(
     financial,
     executionRecords
   );
+  const isLoanAnswer = decisionAnswer?.kind === 'loan-cost';
+  const decisionSummary = decisionAnswer
+    ? `${decisionAnswer.title}. ${decisionAnswer.directAnswer}`
+    : '';
+  const decisionConclusion = decisionAnswer
+    ? [decisionAnswer.findings[0], decisionAnswer.nextActions[0], decisionAnswer.limitations[0]].filter(Boolean).join(' ')
+    : '';
+  const presentation = buildLegalResultPresentation({
+    score: adjustedScore,
+    risk: adjustedScore > 80 ? 'Chamuyo extremo' : adjustedScore > 60 ? 'Alto chamuyo' : adjustedScore > 40 ? 'Requiere verificación' : 'Bajo chamuyo',
+    confidence: normalized.confidence,
+    baseSummary: (isLoanAnswer ? financialSummary : decisionSummary) || (verified
+      ? `La consulta de fuentes externas fue completada. Evaluación: ${verification.assessment}. ${verification.rationale}`
+      : `${clarification ? `${clarification} ` : ''}${inconclusiveMessage} ${verification.rationale}`),
+    baseConclusion: isLoanAnswer && financial
+      ? financial.missingFields.length > 0
+        ? `El cálculo es parcial: faltan ${financial.missingFields.join(', ')}. No debe suponerse que el costo visible incluye cargos no informados.`
+        : 'Los importes visibles fueron recalculados; revisá que la cuota, el plazo y los cargos correspondan a la oferta vigente antes de contratar.'
+      : decisionConclusion || (verified ? `Revisá las fuentes citadas y su alcance. Resultado de contraste: ${verification.assessment}.` : (clarification || inconclusiveMessage)),
+    categoryScores: normalized.categoryScores,
+    externalVerificationRequired: normalized.externalVerification.externalVerificationRequired,
+    externalVerificationPerformed: verified,
+    verificationSummary: sourceVerificationText,
+  });
   return {
     ...normalized, ...presentation, score: adjustedScore, decisionAnswer,
     externalVerification: {
@@ -870,7 +906,7 @@ function applyVerificationResult(
   };
 }
 
-export async function POST(req: Request) {
+export async function handleAnalyzeRequest(req: Request) {
   try {
     const form = await req.formData();
 
@@ -885,6 +921,7 @@ export async function POST(req: Request) {
     const clientOcrConfidence = Number(form.get('ocrConfidence') || 0);
     const termsAccepted = form.get('termsAccepted') === 'true';
     const termsVersion = String(form.get('termsVersion') || '');
+    const selectedCategoryRaw = String(form.get('selectedCategory') || '').trim();
 
     if (!termsAccepted || termsVersion !== TERMS_VERSION) {
       return NextResponse.json({
@@ -892,6 +929,13 @@ export async function POST(req: Request) {
         termsVersion: TERMS_VERSION,
       }, { status: 428 });
     }
+
+    if (!isSupportedProductArea(selectedCategoryRaw)) {
+      return NextResponse.json({
+        error: 'Elegí una categoría válida antes de ingresar tu consulta.',
+      }, { status: 400 });
+    }
+    const selectedCategory: SupportedProductArea = selectedCategoryRaw;
 
     let fileName = '';
     let fileType = '';
@@ -986,12 +1030,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Ingresá texto, una URL o un documento si querés analizar contenido.' }, { status: 400 });
     }
 
-    const productScope = classifyProductScope(documentText, userInstruction);
+    const productScope = classifyProductScope(documentText, userInstruction, selectedCategory);
     if (!productScope.supported) {
       return NextResponse.json(buildOutOfScopeAnalysis(documentText, inputKind, productScope.reason));
     }
 
-    const fallback = buildLocalAnalysis(documentText, inputKind, fileName, extraction, userInstruction, url);
+    const fallback = buildLocalAnalysis(documentText, inputKind, fileName, extraction, userInstruction, url, selectedCategory);
 
     const openai = process.env.OPENAI_API_KEY && openAIAnalysisEnabled()
       ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20_000, maxRetries: 0 })
@@ -1008,6 +1052,9 @@ export async function POST(req: Request) {
 
 INSTRUCCIÓN DEL USUARIO (define el foco; no pertenece al documento):
 ${userInstruction || 'Consulta de texto ingresada directamente por el usuario.'}
+
+CATEGORÍA ELEGIDA POR EL USUARIO (define el dominio principal y no debe ser reemplazada por detección automática):
+${selectedCategory}
 
 CONTENIDO DEL DOCUMENTO (único contenido que debe clasificarse y evaluarse):
 ${documentText.slice(0, 18000)}
@@ -1033,4 +1080,17 @@ ${JSON.stringify(webVerification)}`;
     console.error('Route.ts error:', error instanceof Error ? error.message : String(error));
     return NextResponse.json({ error: 'No se pudo analizar el contenido.' }, { status: 500 });
   }
+}
+
+export async function POST(req: Request) {
+  const authentication = await authenticateAnalysisRequest(req);
+  if (authentication.ok === false) {
+    return NextResponse.json({ error: authentication.error }, { status: authentication.status });
+  }
+
+  const response = await handleAnalyzeRequest(req);
+  if (response.ok) {
+    await recordSuccessfulAnalysis(authentication.client);
+  }
+  return response;
 }

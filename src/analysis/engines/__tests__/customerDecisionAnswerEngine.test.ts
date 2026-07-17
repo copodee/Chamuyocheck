@@ -26,6 +26,25 @@ test('responde primero cuánto se paga y estima tasas para el plazo pedido', () 
   assert.match(answer.nextActions.join(' '), /CFT contractual/i);
 });
 
+test('calcula una consulta simple con capital abreviado, plazo y TNA', () => {
+  const text = 'Cuanto pago de cuota si me prestan 1M de pesos en 12 meses al 30% TNA';
+  const financialAnalysis = extractLoanNumbers(text);
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text,
+    userInstruction: text,
+    financialAnalysis,
+    scamRiskAnalysis: analyzeScamRisk(text),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(text),
+  });
+  assert.equal(answer.kind, 'loan-cost');
+  assert.equal(answer.status, 'answerable');
+  assert.match(answer.title, /esto es lo que pagarías/i);
+  assert.match(answer.directAnswer, /cuota mensual estimada.*97\.487/i);
+  assert.match(answer.directAnswer, /total estimado.*1\.169\.845/i);
+  assert.match(answer.directAnswer, /sistema francés.*mensuales iguales y vencidas/i);
+  assert.doesNotMatch(answer.directAnswer, /faltan datos/i);
+});
+
 test('no acusa estafa cuando no hay señales y explica qué falta verificar', () => {
   const text = 'Préstamo personal de entidad desconocida. Consultar condiciones.';
   const answer = buildCustomerDecisionAnswer({
@@ -144,4 +163,22 @@ test('incorpora evidencia externa a la respuesta de scam con su alcance correcto
   assert.match(answer?.findings.join(' ') || '', /reputación baja/i);
   assert.match(answer?.directAnswer || '', /consulta externa fue parcial/i);
   assert.match(answer?.limitations.join(' ') || '', /no demuestran por sí solos un delito/i);
+});
+
+test('responde una nota de cuenta remunerada sin inventar sectores ni tratarla como préstamo', () => {
+  const text = 'Inversión rápida y sencilla: una cuenta remunerada con TNA del 31% le gana por varios puntos al plazo fijo de grandes bancos. El saldo remunerado tiene un tope de $800.000 y la tasa puede cambiar.';
+  const instruction = '¿Qué te parece esta propuesta?';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text,
+    userInstruction: instruction,
+    financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(text),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(text),
+    investmentProjectAnalysis: analyzeInvestmentProject(text, instruction),
+  });
+  const completeAnswer = [answer.directAnswer, ...answer.findings, ...answer.nextActions, ...answer.limitations].join(' ');
+  assert.equal(answer.kind, 'financial-product-comparison');
+  assert.match(completeAnswer, /TNA.*31%/i);
+  assert.match(completeAnswer, /tope.*800\.000/i);
+  assert.doesNotMatch(completeAnswer, /transporte|logística|frutas|hectáreas|\bCFT\b/i);
 });

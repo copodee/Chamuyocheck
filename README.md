@@ -1,3 +1,18 @@
+# Estado actual: registro obligatorio y beta completa
+
+ChamuyoCheck exige una cuenta real para analizar contenido. El usuario puede registrarse con correo electrónico y clave o ingresar con Google mediante Supabase Auth. La API valida la sesión en el servidor antes de iniciar cada análisis.
+
+Durante la beta, todas las cuentas registradas tienen acceso completo a texto, enlaces, imágenes, PDFs y demás funciones disponibles, sin cupos ni cobros. El modo de facturación permanece desactivado y los endpoints de pago rechazan operaciones para impedir cargos accidentales.
+
+La arquitectura futura de suscripciones web está reservada para Google Pay mediante un procesador o gateway compatible. Google Workspace y el ingreso con Google identifican al usuario, pero no procesan ni liquidan cobros. Google Play Billing se reservaría para una futura aplicación Android distribuida por Play. La activación comercial requerirá crear el perfil de pagos, obtener el Merchant ID, contratar un procesador compatible, verificar el dominio y recién entonces habilitar explícitamente `BILLING_ENFORCEMENT_ENABLED`.
+
+## Activación de cuentas
+
+1. Ejecutar `src/lib/supabase/schema.sql` en el proyecto de Supabase.
+2. Configurar `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` en el entorno local y de producción.
+3. Habilitar correo electrónico y, si se desea, el proveedor Google en Supabase Auth.
+4. Registrar la URL pública y las URLs de redirección autorizadas en Supabase y Google.
+
 # ChamuyoCheck V9.1 - Lee PDF real
 
 Cambio clave:
@@ -62,13 +77,12 @@ RC1 consolida ChamuyoCheck como base de producto:
 - `src/lib/history`
 - `src/lib/billing`
 
-## Próximo paso recomendado
-RC2 debería conectar usuarios reales:
-- Auth con Google.
-- Base de datos.
-- Historial persistente.
-- Plan Starter / Pro en servidor.
-- Preparación para Google Play Billing.
+## Estado actual de usuarios y acceso
+- Registro e ingreso real por email y contraseña.
+- Acceso con Google mediante Supabase Auth.
+- Sesión validada en el servidor antes de analizar.
+- Uso completo para todas las cuentas registradas mientras dure la beta.
+- Cobros y restricciones desactivados hasta una activación comercial expresa.
 
 
 # RC2 Dashboard Premium
@@ -82,33 +96,20 @@ Actualización visual inspirada en dashboard profesional:
 - El resguardo legal grande del informe queda eliminado visualmente.
 
 
-# RC3 Free Plan + Historial local
+# RC3 Free Plan + Historial local (histórico, reemplazado)
 
-Incluye:
-- Historial local visible en sidebar.
-- Guarda últimos 8 análisis en localStorage.
-- Plan Starter: 3 usos gratis de texto hasta 250 caracteres.
-- Bloqueo visual de funciones Pro cuando no corresponde.
-- Botón de prueba para alternar Starter / Pro hasta conectar login y billing real.
+Esta etapa experimental fue retirada. Sus límites locales y controles simulados no forman parte del producto actual.
 
 
-# V11 Producto Comercial
+# V11 Producto Comercial (histórico)
 
-Incluye:
-- Dashboard premium RC2.
-- Historial local RC3.
-- Plan Starter / Pro visual.
-- Modal de suscripción Pro.
-- Botón Conectar Google visual.
-- Exportación de informe vía impresión/PDF del navegador.
-- Placeholders técnicos para Google Auth, Google Play Billing y exportación de informes.
-- Preparado para conectar backend real en la próxima versión.
+Esta versión introdujo el dashboard y la exportación visual. Las simulaciones de planes y facturación de esa etapa fueron eliminadas; el estado vigente es acceso beta completo con cuenta obligatoria.
 
 ## Próximo paso
 V12 debería conectar servicios reales:
 - Auth con Google.
 - Base de datos para historial.
-- Mercado Pago web / Google Play Billing Android.
+- Facturación web futura mediante Google Pay y un procesador compatible.
 - PDF export real con branding.
 
 
@@ -156,23 +157,23 @@ Incluye:
 # V15 Beta - Usuarios e Historial
 
 Incluye:
-- Preparación real para Supabase Auth.
+- Supabase Auth real.
 - Cliente Supabase en `src/lib/supabase/client.ts`.
 - SQL schema para perfiles y análisis en `src/lib/supabase/schema.sql`.
 - Historial cloud-ready en `src/lib/history/cloudHistory.ts`.
-- Modal de login visual: Google / email.
-- Dashboard con métricas: análisis guardados, plan, modo historial y usos gratis.
-- Historial indica modo Local o Nube.
-- Mantiene Starter / Pro.
+- Registro e ingreso por email y contraseña, más acceso con Google.
+- Validación del token de sesión en el endpoint de análisis.
+- Perfil automático con acceso `beta_full` y registro de usos exitosos.
+- Sin planes pagos, límites ni cobros activos durante la beta.
 
 ## Para activar Supabase real
-1. Crear proyecto en Supabase.
+1. Usar el proyecto de Supabase del producto.
 2. Ejecutar `src/lib/supabase/schema.sql`.
 3. Configurar:
    - NEXT_PUBLIC_SUPABASE_URL
    - NEXT_PUBLIC_SUPABASE_ANON_KEY
-   - SUPABASE_SERVICE_ROLE_KEY
-4. Conectar llamadas reales desde la UI.
+4. Habilitar Email y Google en los proveedores de autenticación de Supabase.
+5. Registrar en Google y Supabase las URLs autorizadas del dominio de producción.
 
 
 # V15.1 Build Fix
@@ -184,26 +185,16 @@ Corrige el error de compilación en Vercel:
 - Mantiene las carpetas `src/` como arquitectura futura.
 
 
-# V15.2 MercadoPago Build Fix
+# V15.2 Integración de pago retirada (histórico)
 
-Corrige el nuevo error de build en Vercel:
-
-`Module not found: Can't resolve 'mercadopago'`
-
-Cambios:
-- Agrega `mercadopago` a dependencies en `package.json`.
-- Mantiene las correcciones de V15.1.
+La integración de cobro experimental de esta etapa fue retirada y no forma parte del diseño vigente.
 
 
-# V15.3 Checkout Stub Fix
+# V15.3 Checkout seguro desactivado
 
-Corrige el error de build por MercadoPago:
-- Reemplaza `app/api/checkout/route.ts` por un endpoint seguro sin dependencia externa.
-- Elimina `mercadopago` de `package.json`.
-- Deja el checkout como integración pendiente hasta completar usuarios, planes y variables reales.
-
-Motivo:
-El checkout no debe romper el deploy mientras todavía estamos conectando Supabase/Auth.
+- El checkout rechaza cualquier intento de cobro mientras `BILLING_ENFORCEMENT_ENABLED` no sea exactamente `true`.
+- La futura pasarela queda reservada para Google Pay web mediante un procesador compatible.
+- No se aceptan pagos ni eventos hasta que exista una cuenta comercial, un Merchant ID, un dominio verificado y validación criptográfica del procesador.
 
 
 # V15.4 Regex Build Fix

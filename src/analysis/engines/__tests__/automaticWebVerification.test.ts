@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { runAutomaticWebVerification } from '../automaticWebVerification';
 import { runClaimFirstPipeline } from '../claimFirstPipeline';
-import { buildLocalAnalysis, normalizeAI, openAIAnalysisEnabled, POST } from '../../../../app/api/analyze/route';
+import { buildLocalAnalysis, handleAnalyzeRequest, normalizeAI, openAIAnalysisEnabled } from '../../../../app/api/analyze/route';
 import { TERMS_VERSION } from '../../../lib/legal/terms';
 
 test('automatic web verification only registers real cited trusted URLs', async () => {
@@ -85,20 +85,21 @@ test('ambiguous cultural entities are explained before any truth conclusion', ()
   assert.ok(result.score >= 50);
 });
 
-test('free local endpoint returns the mandatory inconclusive wording', async () => {
+test('free local endpoint returns a prudent scam-risk conclusion without external claims', async () => {
   const previousKey = process.env.OPENAI_API_KEY;
   const previousEnabled = process.env.OPENAI_ANALYSIS_ENABLED;
   delete process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_ANALYSIS_ENABLED;
   try {
     const form = new FormData();
+    form.set('selectedCategory', 'scam-risk');
     form.set('text', 'Esta inversión en bitcoin garantiza una ganancia del 500% mensual.');
     form.set('termsAccepted', 'true');
     form.set('termsVersion', TERMS_VERSION);
-    const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+    const response = await handleAnalyzeRequest(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
     const body = await response.json();
     assert.equal(response.status, 200);
-    assert.match(body.prudentConclusion, /no puede ser validada.*no puede responderse con certeza/i);
+    assert.match(body.prudentConclusion, /Confirmar identidad, CUIT, dominio/i);
     assert.ok(body.score >= 50);
     assert.equal(body.externalVerification.externalVerificationPerformed, false);
     const publicPayload = JSON.stringify(body);
@@ -109,22 +110,15 @@ test('free local endpoint returns the mandatory inconclusive wording', async () 
   }
 });
 
-test('out-of-scope endpoint does not score or pretend to verify', async () => {
+test('endpoint requires an explicit category before analysis', async () => {
   const form = new FormData();
   form.set('text', 'Colapinto es un piloto de motos de origen español.');
   form.set('termsAccepted', 'true');
   form.set('termsVersion', TERMS_VERSION);
-  const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+  const response = await handleAnalyzeRequest(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
   const body = await response.json();
-  assert.equal(response.status, 200);
-  assert.equal(body.scopeStatus, 'out-of-scope');
-  assert.equal(body.score, 0);
-  assert.equal(body.externalVerification.externalVerificationRequired, false);
-  assert.equal(body.externalVerification.externalVerificationPerformed, false);
-  assert.match(body.summary, /fuera del alcance/i);
-  assert.match(body.summary, /no se asignó un puntaje/i);
-  assert.match(body.summary, /no se realizó una verificación externa/i);
-  assert.doesNotMatch(JSON.stringify(body), /contenido sólido y confiable/i);
+  assert.equal(response.status, 400);
+  assert.match(body.error, /categor/i);
 });
 
 test('a Banco Provincia loan URL pasted as text is read and routed to finance', async () => {
@@ -136,10 +130,11 @@ test('a Banco Provincia loan URL pasted as text is read and routed to finance', 
   globalThis.fetch = (async () => new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } })) as typeof fetch;
   try {
     const form = new FormData();
+    form.set('selectedCategory', 'finance-credit');
     form.set('text', 'Indicame la TNA, la TEA, el CFT y las condiciones. https://www.bancoprovincia.com.ar/mvc/productos/creditos/BipPreca/condiciones_bip_preca');
     form.set('termsAccepted', 'true');
     form.set('termsVersion', TERMS_VERSION);
-    const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+    const response = await handleAnalyzeRequest(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.notEqual(body.scopeStatus, 'out-of-scope');
@@ -185,10 +180,11 @@ test('web analysis audits the real redirect destination without exposing trackin
   }) as typeof fetch;
   try {
     const form = new FormData();
+    form.set('selectedCategory', 'scam-risk');
     form.set('text', 'Quiero saber si esta propuesta de autotrading es real o scam. https://anuncio.example/click?campaign_id=48799180&site_domain=taboolanews.com&utm_source=publicidad');
     form.set('termsAccepted', 'true');
     form.set('termsVersion', TERMS_VERSION);
-    const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+    const response = await handleAnalyzeRequest(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
     const body = await response.json();
     const publicPayload = JSON.stringify({
       extractedPreview: body.extractedPreview,
@@ -219,6 +215,7 @@ test('web analysis audits the real redirect destination without exposing trackin
 
 test('client-side OCR text is analyzed without uploading the image to server OCR', async () => {
   const form = new FormData();
+  form.set('selectedCategory', 'finance-credit');
   form.set('text', 'Indicame las condiciones y cuánto interés pagaría.');
   form.set('ocrText', 'Préstamos online. Importe a solicitar $ 1.000.000. 18 cuotas de $ 148.548, 30 por mes.');
   form.set('ocrConfidence', '73');
@@ -226,7 +223,7 @@ test('client-side OCR text is analyzed without uploading the image to server OCR
   form.set('clientFileType', 'image/png');
   form.set('termsAccepted', 'true');
   form.set('termsVersion', TERMS_VERSION);
-  const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+  const response = await handleAnalyzeRequest(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(body.detectedInput, 'Imagen');
@@ -244,6 +241,7 @@ test('client-side OCR text is analyzed without uploading the image to server OCR
 
 test('OCR with several loan alternatives follows the user instruction', async () => {
   const form = new FormData();
+  form.set('selectedCategory', 'finance-credit');
   form.set('text', 'Necesito saber el CFT y la TNA para 36 meses.');
   form.set('ocrText', 'Simulá la cuota de tu Préstamo. Elegí el monto de tu Préstamo. Ingresá el monto en miles. $ 1.007.000. 12 cuotas de 24 cuotas de 36 cuotas de 48 cuotas de. $130.381* $100.553+* $106.213+* $107.037*');
   form.set('ocrConfidence', '79');
@@ -251,7 +249,7 @@ test('OCR with several loan alternatives follows the user instruction', async ()
   form.set('clientFileType', 'image/png');
   form.set('termsAccepted', 'true');
   form.set('termsVersion', TERMS_VERSION);
-  const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+  const response = await handleAnalyzeRequest(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(body.financialAnalysis?.principal, 1_007_000);
@@ -271,13 +269,14 @@ test('OCR with several loan alternatives follows the user instruction', async ()
 
 test('external content requires an explicit user instruction', async () => {
   const form = new FormData();
+  form.set('selectedCategory', 'finance-credit');
   form.set('text', '');
   form.set('ocrText', 'Préstamo de $1.000.000 en 12 cuotas de $120.000.');
   form.set('clientFileName', 'prestamo.png');
   form.set('clientFileType', 'image/png');
   form.set('termsAccepted', 'true');
   form.set('termsVersion', TERMS_VERSION);
-  const response = await POST(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+  const response = await handleAnalyzeRequest(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
   const body = await response.json();
   assert.equal(response.status, 400);
   assert.match(body.error, /Escribí qué necesitás saber/i);
