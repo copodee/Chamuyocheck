@@ -80,3 +80,23 @@ test('el leasing público no presume una cesión universal de coparticipación',
   assert.match(rendered, /no un requisito universal|no presumir que siempre/i);
   assert.match(rendered, /autorización presupuestaria y de endeudamiento/i);
 });
+
+test('compara leasing internacional sin convertir IFRS 16 en ley contractual o fiscal europea', () => {
+  const result = buildLocalAnalysis('Compará el leasing argentino con Estados Unidos y Europa.', 'Texto', '', null, '', '', 'argentina-legal-documents');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /UCC Article 2A/i);
+  assert.match(findings, /ASC Topic 842/i);
+  assert.match(findings, /IFRS 16/i);
+  assert.match(findings, /No existe un contrato civil único de leasing para toda la Unión/i);
+  assert.match(findings, /IVA, deducciones, depreciación.*país por país/i);
+});
+
+test('la categoría leasing usa especialista y dimensiones propias', () => {
+  const result = buildLocalAnalysis('Compará un leasing de maquinaria con un préstamo. Canon, opción de compra, IVA, seguro y valor residual.', 'Texto', '', null, '', '', 'leasing-specialist');
+  assert.equal(result.decisionAnswer?.kind, 'leasing-specialist');
+  assert.equal(result.topic, 'leasing');
+  assert.ok(result.categoryScores.some((item) => item.name === 'Estructura contractual del leasing'));
+  assert.ok(result.categoryScores.some((item) => item.name === 'Tratamiento tributario'));
+  assert.ok(result.categoryScores.some((item) => item.name === 'Registro y oponibilidad'));
+  assert.equal(result.categoryScores.some((item) => item.name === 'Riesgo financiero'), false);
+});

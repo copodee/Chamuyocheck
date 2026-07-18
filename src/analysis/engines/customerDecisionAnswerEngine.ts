@@ -4,9 +4,10 @@ import type { ArgentinaLegalAnalysis } from '../../lib/legal/argentinaLegalAnaly
 import type { ExternalVerificationSourceRecord } from '../types/externalVerification';
 import type { InvestmentProjectAnalysis } from '../../lib/investments/investmentProjectAnalysis';
 import { leasingKnowledge } from '../../lib/leasing/argentinaLeasingKnowledge';
+import { buildInternationalLeasingFindings } from '../../lib/leasing/internationalLeasingComparison';
 
 export type CustomerDecisionAnswer = {
-  kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'supported-review';
+  kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'leasing-specialist' | 'supported-review';
   status: 'answerable' | 'partial' | 'needs-verification';
   title: string;
   directAnswer: string;
@@ -262,14 +263,16 @@ function buildLegalDebtEnforcementAnswer(analysis: ArgentinaLegalAnalysis): Cust
   };
 }
 
-function buildLeasingAnswer(selectedCategory: string | undefined): CustomerDecisionAnswer {
+function buildLeasingAnswer(selectedCategory: string | undefined, question: string): CustomerDecisionAnswer {
   const kind: CustomerDecisionAnswer['kind'] = selectedCategory === 'finance-credit'
     ? 'financial-product-comparison'
     : selectedCategory === 'investment-project'
       ? 'investment-project'
       : selectedCategory === 'scam-risk'
         ? 'scam-prevention'
-        : 'legal-document';
+        : selectedCategory === 'leasing-specialist'
+          ? 'leasing-specialist'
+          : 'legal-document';
   const focus = selectedCategory === 'finance-credit'
     ? 'Para compararlo con un préstamo hay que llevar ambos a un mismo flujo después de impuestos: anticipo, cánones, IVA, comisiones, seguros, mantenimiento, opción de compra, costo del crédito alternativo y valor residual.'
     : selectedCategory === 'investment-project'
@@ -279,6 +282,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined): CustomerDecis
         : 'Jurídicamente deben revisarse el bien, canon, opción de compra, responsabilidades, inscripción, seguros, mantenimiento, mora, restitución y jurisdicción; la conveniencia económica e impositiva se informa por separado.';
   const currentTaxRule = leasingKnowledge('tax')[0].statement;
   const publicSectorRules = leasingKnowledge('public-sector').map((item) => item.statement);
+  const internationalFindings = buildInternationalLeasingFindings(question);
   return {
     kind,
     status: 'partial',
@@ -290,6 +294,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined): CustomerDecis
       'Modalidades económicas a distinguir: leasing financiero, leasing operativo o asimilado a locación y lease-back. La denominación comercial no reemplaza el análisis de las condiciones legales y tributarias.',
       'Una ventaja fiscal sólo existe si el tomador puede computarla conforme su actividad, afectación del bien, impuesto, jurisdicción y documentación; no debe sumarse como ahorro sin verificar su utilización efectiva.',
       ...publicSectorRules,
+      ...internationalFindings,
     ],
     nextActions: [
       'Comparar leasing, préstamo y compra al contado con el mismo activo, plazo y valor residual, usando flujos mensuales después de impuestos.',
@@ -298,6 +303,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined): CustomerDecis
       'Confirmar con asesoramiento contable el encuadre en Ganancias, IVA e impuestos provinciales antes de atribuir una ventaja impositiva.',
       'Si el tomador es público, verificar competencia para contratar, procedimiento de selección, autorización presupuestaria y de endeudamiento, capacidad de repago, garantía ofrecida y autorización o encuadre BCRA; no presumir que siempre debe ceder coparticipación.',
       'Si el bien es importado, verificar antes de contratar el régimen aduanero y el texto ordenado vigente de Exterior y Cambios del BCRA para cada pago al exterior.',
+      internationalFindings.length ? 'Para una comparación internacional definitiva, indicar país o estado, residencia fiscal de las partes, tipo de activo, moneda, proveedor, plazo, opción, estándar contable y lugar de registro.' : '',
     ],
     limitations: ['Faltan tipo y valor del bien, dador, plazo, cánones, opción, tasa o costo alternativo, destino, jurisdicción, impuestos aplicables y capacidad real de aprovechar deducciones o créditos fiscales.'],
   };
@@ -308,7 +314,7 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   const legalCategorySelected = input.selectedCategory === 'argentina-legal-documents';
   const explicitQuestion = input.userInstruction?.trim() || input.documentText;
   if (/\bleasing\b|lease[ -]?back|arrendamiento\s+financiero|opci[oó]n\s+de\s+compra/i.test(explicitQuestion)) {
-    return buildLeasingAnswer(input.selectedCategory);
+    return buildLeasingAnswer(input.selectedCategory, explicitQuestion);
   }
   if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.subtopic === 'sexual-offense') {
     return buildSexualOffenseAnswer(input.argentinaLegalAnalysis);

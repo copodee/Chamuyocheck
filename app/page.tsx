@@ -137,7 +137,7 @@ type Analysis = {
   } | null;
   sourceUrl?: string | null;
   decisionAnswer?: {
-    kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'supported-review';
+    kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'leasing-specialist' | 'supported-review';
     status: 'answerable' | 'partial' | 'needs-verification';
     title: string;
     directAnswer: string;
@@ -149,7 +149,7 @@ type Analysis = {
 
 type InputMode = 'Texto' | 'PDF' | 'Imagen' | 'Web' | 'YouTube';
 
-type AnalysisCategoryId = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents';
+type AnalysisCategoryId = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents' | 'leasing-specialist';
 
 const ANALYSIS_CATEGORIES: Array<{
   id: AnalysisCategoryId;
@@ -161,6 +161,7 @@ const ANALYSIS_CATEGORIES: Array<{
   { id: 'investment-project', icon: '📈', label: 'Inversiones', description: 'Inmuebles, agro, industria, energía, minería y proyectos.' },
   { id: 'scam-risk', icon: '🛡️', label: 'Posibles estafas', description: 'Sitios, ofertas, autotrading, promesas y pedidos de dinero.' },
   { id: 'argentina-legal-documents', icon: '⚖️', label: 'Derecho argentino', description: 'Contratos, documentos, delitos, penas, familia y seguros.' },
+  { id: 'leasing-specialist', icon: '🏗️', label: 'Leasing', description: 'Contrato, cánones, impuestos, registros, importación, sector público y comparación internacional.' },
 ];
 
 function Bar({ score }: { score: number }) {
@@ -471,7 +472,9 @@ function getScoreExplanationItems(analysis: Analysis, inputKind: string, text: s
   }
 
   const answerKind = analysis.decisionAnswer?.kind;
-  if (answerKind === 'legal-document') {
+  if (answerKind === 'leasing-specialist') {
+    items.push('El puntaje de leasing evalúa por separado contrato, flujo económico, impuestos, registración, riesgo residual, sector público, importación y normativa internacional aplicable.');
+  } else if (answerKind === 'legal-document') {
     items.push('El puntaje jurídico aumenta cuando faltan la resolución, la notificación, la liquidación, la jurisdicción o los hechos necesarios para controlar la consecuencia legal.');
   } else if (answerKind === 'loan-cost' || answerKind === 'financial-product-comparison') {
     items.push('El puntaje financiero aumenta cuando faltan costos, tasas, cargos o condiciones visibles.');

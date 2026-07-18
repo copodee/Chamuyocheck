@@ -1,10 +1,11 @@
-export type SupportedProductArea = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents';
+export type SupportedProductArea = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents' | 'leasing-specialist';
 
 export const supportedProductAreas: SupportedProductArea[] = [
   'finance-credit',
   'investment-project',
   'scam-risk',
   'argentina-legal-documents',
+  'leasing-specialist',
 ];
 
 export function isSupportedProductArea(value: string): value is SupportedProductArea {
@@ -32,6 +33,12 @@ const financePatterns = [
 const loanCalculationPatterns = [
   /\b(?:pr[eé]stamo|cr[eé]dito|cuota|cft|tea|tna|financiaci[oó]n|inter[eé]s|leasing|microcr[eé]dito)\b/i,
   /\b\d[\d.,]*\s*(?:pesos?|d[oó]lares?)\b[\s\S]{0,120}\b(?:\d{1,3}\s*(?:meses?|cuotas?)|termin(?:ar[eé]|a|ar[ií]a)\s+pagando|total\s+(?:a\s+)?pagar)\b/i,
+];
+
+const leasingPatterns = [
+  /\b(?:leasing|arrendamiento\s+financiero|lease[ -]?back|sale[ -]?and[ -]?leaseback|maxi\s*canon|opci[oó]n\s+de\s+compra)\b/i,
+  /\b(?:dador|tomador|canon|valor\s+residual)\b[\s\S]{0,100}\b(?:bien|contrato|financi|compra|leasing)\b/i,
+  /\b(?:decreto\s+1038|decreto\s+152\/2022|art[ií]culo\s+1238|ifrs\s*16|asc\s*842|ucc\s*2a)\b/i,
 ];
 
 const investmentProjectPatterns = [
@@ -87,6 +94,7 @@ export function classifyProductScope(
   }
   const text = `${rawText}\n${decodedText}`;
   const candidates: Array<{ area: SupportedProductArea; signals: string[] }> = [
+    { area: 'leasing-specialist', signals: matches(leasingPatterns, text) },
     { area: 'scam-risk', signals: matches(scamPatterns, text) },
     { area: 'argentina-legal-documents', signals: matches(legalPatterns, text) },
     { area: 'investment-project', signals: matches(investmentProjectPatterns, text) },
