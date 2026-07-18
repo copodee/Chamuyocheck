@@ -52,6 +52,12 @@ test('acepta derecho argentino, delitos y familia', () => {
   assert.equal(classifyProductScope('Necesito revisar un convenio de divorcio y cuota alimentaria.').primaryArea, 'argentina-legal-documents');
 });
 
+test('acepta lenguaje cotidiano sobre penas por delitos sexuales', () => {
+  const result = classifyProductScope('¿Cuántos años de cárcel le dan a un violador?');
+  assert.equal(result.supported, true);
+  assert.equal(result.primaryArea, 'argentina-legal-documents');
+});
+
 test('no confunde cargos económicos con una consulta financiera', () => {
   const result = classifyProductScope('El ministro de economía es homosexual.');
   assert.equal(result.supported, false);

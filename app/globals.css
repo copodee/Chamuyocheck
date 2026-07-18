@@ -56,9 +56,9 @@ button,input,textarea{font:inherit}
 .primary{border:0;background:var(--cyan);color:#03130f}
 .iconBtn{width:58px}
 .heroGrid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;align-items:stretch}
-.heroIntroGrid{grid-template-columns:1fr 1fr}
+.heroIntroGrid{grid-template-columns:1fr 1fr;align-items:start}
 .panel{border:1px solid var(--border);background:linear-gradient(180deg,rgba(17,24,39,.90),rgba(9,14,26,.95));border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28)}
-.heroIntroPanel{padding:28px;display:flex;flex-direction:column;justify-content:center;gap:12px}
+.heroIntroPanel{padding:28px;display:flex;flex-direction:column;justify-content:flex-start;gap:12px}
 .eyebrow{display:inline-flex;width:max-content;border:1px solid rgba(39,239,189,.28);background:rgba(39,239,189,.10);color:#93f7d4;border-radius:999px;padding:7px 12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;font-size:11px}
 .heroIntroPanel h1{margin:0;font-size:clamp(28px,3vw,42px);line-height:1.05}
 .heroSubtitle{margin:0;color:#84f2c8;font-size:18px;font-weight:700}

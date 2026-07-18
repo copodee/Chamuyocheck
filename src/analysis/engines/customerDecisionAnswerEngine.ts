@@ -185,8 +185,54 @@ function buildInvestmentAnswer(analysis: InvestmentProjectAnalysis): CustomerDec
   };
 }
 
+function buildSexualOffenseAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return {
+    kind: 'legal-document',
+    status: analysis.jurisdiction === 'argentina' ? 'partial' : 'needs-verification',
+    title: 'La pena depende de la conducta y de las circunstancias del caso',
+    directAnswer: analysis.jurisdiction === 'argentina'
+      ? 'En Argentina no existe una única pena para lo que coloquialmente se llama “violación”. El artículo 119 del Código Penal prevé distintas escalas: de 6 meses a 4 años para el abuso sexual básico; de 4 a 10 años si es gravemente ultrajante; de 6 a 15 años cuando existe acceso carnal u otros actos análogos; y de 8 a 20 años para determinados supuestos agravados. Si como resultado ocurre la muerte de la víctima, el artículo 124 prevé prisión perpetua. La escala aplicable no puede determinarse sin los hechos y la calificación jurídica concreta.'
+      : 'No puede indicarse una pena sin conocer el país o jurisdicción. Las escalas cambian según la ley aplicable y las circunstancias concretas.',
+    findings: analysis.jurisdiction === 'argentina'
+      ? ['Marco normativo a contrastar: artículos 119, 120 y 124 del Código Penal de la Nación, texto actualizado.', '“Violador” es una expresión coloquial; la calificación legal exige identificar la conducta prevista por la norma.']
+      : [],
+    nextActions: [
+      'Precisar jurisdicción, edad de la víctima, modalidad de la conducta, agravantes, daños y resultado.',
+      ...analysis.sourceTargets.map((source) => `Contrastar con ${source}.`),
+      'Consultar a una persona profesional del derecho penal antes de aplicar una escala a un caso concreto.',
+    ],
+    limitations: analysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
+  };
+}
+
+function buildChildSupportAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return {
+    kind: 'legal-document',
+    status: analysis.jurisdiction === 'argentina' ? 'partial' : 'needs-verification',
+    title: 'La obligación alimentaria no termina con el divorcio',
+    directAnswer: analysis.jurisdiction === 'argentina'
+      ? 'En Argentina, ambos progenitores deben sostener a su hijo. La obligación alimentaria se extiende, como regla, hasta los 21 años. Puede continuar hasta los 25 años si el hijo estudia o se capacita y eso le impide mantenerse por sus propios medios. En tu caso, como tu hijo tiene 8 años, la obligación continúa; el monto no surge solamente de la edad, sino de sus necesidades, las posibilidades económicas de ambos progenitores y el valor económico de las tareas de cuidado.'
+      : 'La edad hasta la cual corresponde la cuota alimentaria depende de la jurisdicción. Hace falta indicar el país antes de aplicar una regla concreta.',
+    findings: analysis.jurisdiction === 'argentina'
+      ? ['Regla general: artículo 658 del Código Civil y Comercial de la Nación.', 'Extensión por estudios o capacitación: artículo 663.', 'La cuota comprende, entre otros rubros, manutención, educación, vivienda, salud, vestimenta y esparcimiento; las tareas de cuidado también tienen valor económico.']
+      : [],
+    nextActions: [
+      'Reunir comprobantes de los gastos actuales del hijo y datos de ingresos de ambos progenitores.',
+      ...analysis.sourceTargets.map((source) => `Contrastar con ${source}.`),
+      'Si no hay acuerdo, consultar asistencia jurídica para fijar o reclamar judicialmente la cuota.',
+    ],
+    limitations: ['La edad define la duración general de la obligación, pero no determina por sí sola el monto de la cuota.'],
+  };
+}
+
 export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): CustomerDecisionAnswer {
   const question = `${input.userInstruction || ''}\n${input.documentText}`;
+  if (input.argentinaLegalAnalysis.applicable && /violaci[oó]n|violador(?:a|es)?|abuso\s+sexual|acceso\s+carnal/i.test(question)) {
+    return buildSexualOffenseAnswer(input.argentinaLegalAnalysis);
+  }
+  if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.area === 'family' && /alimentos?|cuota\s+alimentaria|divorci/i.test(question)) {
+    return buildChildSupportAnswer(input.argentinaLegalAnalysis);
+  }
   if (isFinancialProductComparison(question)) {
     return buildFinancialProductComparisonAnswer(question);
   }
