@@ -52,9 +52,11 @@ Separar la decisión de verificar de la ejecución de una búsqueda. V21C debe i
    - `externalVerificationPerformed` sólo puede cambiar a `true` si existe evidencia auditable asociada.
    - Una verificación completa exige cobertura por claim, fuentes independientes suficientes, URL válida, fecha y fuente oficial cuando corresponda.
 
-4. **Consumo en reporte/UI (no implementada)**
+4. **Consumo en reporte/UI (implementada)**
    - Mostrar requerido, realizado, fuentes consultadas y límites.
-   - Requiere revisión separada; no implica por sí sola cambios de scoring.
+   - El informe distingue fuentes efectivamente consultadas de conectores disponibles o planificados.
+   - Expone requisitos mínimos, necesidad de vigencia o fuente oficial y afirmaciones pendientes con sus motivos.
+   - No implica cambios de scoring y no presenta capacidad técnica como evidencia.
 
 ## Invariantes de las fases 1, 2 y fundación de fase 3
 

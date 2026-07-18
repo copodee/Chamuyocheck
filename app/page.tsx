@@ -53,6 +53,28 @@ type Analysis = {
     externalVerificationPerformed: boolean;
     conclusion?: string;
     rationale?: string;
+    plan?: {
+      claimsRequiringExternalVerification: number;
+      suggestedSourceTypes: string[];
+      minimumIndependentSources: number;
+      recencyRequired: boolean;
+      officialSourceRequired: boolean;
+      jurisdictions: string[];
+    };
+    providers?: Array<{ id: string; name: string; status: 'implemented' | 'planned'; sourceTypes: string[] }>;
+    sourceAvailability?: Array<{
+      sourceType: string;
+      status: 'implemented' | 'planned' | 'unregistered';
+      providerIds: string[];
+    }>;
+    claims?: Array<{
+      claimIndex: number;
+      text: string;
+      externalVerificationRequired: boolean;
+      externalVerificationPerformed: boolean;
+      explicitRequestCount: number;
+      pendingReasons: string[];
+    }>;
     execution?: {
       status: string;
       records: Array<{ url: string; title: string; sourceType: string; sourceDate?: string; official: boolean }>;
@@ -146,6 +168,16 @@ function detectUrlType(s: string) {
   if (/youtu\.be|youtube\.com/i.test(s)) return 'YouTube';
   if (/^https?:\/\//i.test(s)) return 'Web';
   return 'Texto';
+}
+
+function verificationSourceLabel(sourceType: string) {
+  return sourceType.replace(/-/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function availabilityLabel(status: 'implemented' | 'planned' | 'unregistered') {
+  if (status === 'implemented') return 'Disponible';
+  if (status === 'planned') return 'Planificada, todavía no disponible';
+  return 'Sin conector registrado';
 }
 
 function fmt(bytes: number) {
@@ -942,7 +974,22 @@ export default function Page() {
             <p><b>Estado:</b> {analysis.externalVerification.externalVerificationPerformed ? 'Completada con fuentes auditables' : 'Inconclusa o no completada'}</p>
             <p><b>Conclusión:</b> {analysis.externalVerification.conclusion || 'No existe evidencia suficiente para responder con certeza.'}</p>
             {analysis.externalVerification.rationale && <p>{analysis.externalVerification.rationale}</p>}
-            {analysis.externalVerification.execution?.records?.length ? <ul>{analysis.externalVerification.execution.records.map((record, index) => <li key={`${record.url}-${index}`}><a href={record.url} target="_blank" rel="noreferrer">{record.title}</a> <small>({record.sourceType}{record.official ? ', oficial' : ''}{record.sourceDate ? `, ${record.sourceDate.slice(0, 10)}` : ''})</small></li>)}</ul> : <p>No se obtuvieron suficientes fuentes reales que cumplan los requisitos del dominio.</p>}
+            {analysis.externalVerification.plan && <div className="verificationRequirements" aria-label="Requisitos de verificación">
+              <span><b>{analysis.externalVerification.plan.claimsRequiringExternalVerification}</b> afirmaciones a verificar</span>
+              <span><b>{analysis.externalVerification.plan.minimumIndependentSources}</b> fuentes independientes como mínimo</span>
+              {analysis.externalVerification.plan.officialSourceRequired && <span>Requiere fuente oficial</span>}
+              {analysis.externalVerification.plan.recencyRequired && <span>Requiere información vigente</span>}
+            </div>}
+            {analysis.externalVerification.sourceAvailability?.length ? <details open={!analysis.externalVerification.externalVerificationPerformed}>
+              <summary>Fuentes requeridas y disponibilidad</summary>
+              <ul>{analysis.externalVerification.sourceAvailability.map((source) => <li key={source.sourceType}><b>{verificationSourceLabel(source.sourceType)}:</b> {availabilityLabel(source.status)}</li>)}</ul>
+            </details> : null}
+            {analysis.externalVerification.execution?.records?.length ? <><h3>Fuentes efectivamente consultadas</h3><ul>{analysis.externalVerification.execution.records.map((record, index) => <li key={`${record.url}-${index}`}><a href={record.url} target="_blank" rel="noreferrer">{record.title}</a> <small>({verificationSourceLabel(record.sourceType)}{record.official ? ', oficial' : ''}{record.sourceDate ? `, ${record.sourceDate.slice(0, 10)}` : ''})</small></li>)}</ul></> : <p>No se obtuvieron fuentes auditables suficientes. Las fuentes disponibles o planificadas arriba indican capacidad técnica, no una consulta realizada.</p>}
+            {analysis.externalVerification.claims?.some((claim) => claim.externalVerificationRequired && !claim.externalVerificationPerformed) && <details>
+              <summary>Afirmaciones pendientes de verificación</summary>
+              <ul>{analysis.externalVerification.claims.filter((claim) => claim.externalVerificationRequired && !claim.externalVerificationPerformed).map((claim) => <li key={claim.claimIndex}><b>“{claim.text}”</b>{claim.pendingReasons.length > 0 && <><br /><small>{claim.pendingReasons.join(' ')}</small></>}</li>)}</ul>
+            </details>}
+            <p className="legalDisclaimerSubtle">El estado sólo cambia a completado cuando existen fuentes reales, fechadas y vinculadas con las afirmaciones correspondientes. La disponibilidad de un conector no prueba ni refuta el contenido.</p>
           </div>}
           {analysis.financialAnalysis && <div className="panel legalResultPanel">
             <h2>Cálculo financiero extraído</h2>
