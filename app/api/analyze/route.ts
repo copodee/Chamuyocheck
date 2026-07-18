@@ -614,6 +614,7 @@ export function buildLocalAnalysis(
   const decisionAnswer = buildCustomerDecisionAnswer({
     documentText: text,
     userInstruction,
+    selectedCategory,
     financialAnalysis,
     scamRiskAnalysis,
     argentinaLegalAnalysis,

@@ -25,7 +25,7 @@ function evidence(text: string, pattern: RegExp): string {
 }
 
 export function analyzeArgentinaLegal(text: string, assumeArgentina = false): ArgentinaLegalAnalysis {
-  const legal = /ley|legal|ilegal|derecho|contrato|cl[aá]usula|delito|pena|prisi[oó]n|c[aá]rcel|hurto|robo|violaci[oó]n|violador(?:a|es)?|abuso sexual|integridad sexual|divorci\w*|alimentos?|cuota\s+aliment(?:o|aria)|jurisdicci[oó]n|rescisi[oó]n|incumplimiento/i.test(text);
+  const legal = assumeArgentina || /ley|legal|ilegal|derecho|contrato|cl[aá]usula|delito|pena|prisi[oó]n|c[aá]rcel|hurto|robo|violaci[oó]n|violador(?:a|es)?|abuso sexual|integridad sexual|divorci\w*|alimentos?|cuota\s+aliment(?:o|aria)|jurisdicci[oó]n|rescisi[oó]n|incumplimiento|sentencia|honorarios?|costas?\s+judiciales?|ejecuci[oó]n\s+judicial/i.test(text);
   const jurisdiction = assumeArgentina || /argentina|argentino|c[oó]digo (?:civil|penal)|infoleg|bolet[ií]n oficial/i.test(text) ? 'argentina' : 'not-specified';
   const family = /divorci\w*|separaci[oó]n|alimentos?|cuota\s+aliment(?:o|aria)|responsabilidad parental|r[eé]gimen de comunicaci[oó]n|bienes gananciales|compensaci[oó]n econ[oó]mica/i.test(text);
   const criminal = /\b(?:delito|penas?|prisi[oó]n|c[aá]rcel|condena|hurto|robo|homicidio|lesiones|amenazas|defraudaci[oó]n|violaci[oó]n|violador(?:a|es)?|abuso sexual|integridad sexual)\b|c[oó]digo penal/i.test(text);
