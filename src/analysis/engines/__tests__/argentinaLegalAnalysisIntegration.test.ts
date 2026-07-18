@@ -33,3 +33,10 @@ test('prioriza derecho de familia frente a la palabra cuota', () => {
   assert.match(result.decisionAnswer?.directAnswer || '', /hasta los 25 años/i);
   assert.doesNotMatch(result.decisionAnswer?.directAnswer || '', /CFT|costo solicitado/i);
 });
+
+test('la categoría legal prevalece ante costos, pagos y honorarios jurídicos', () => {
+  const result = buildLocalAnalysis('¿Qué costos y honorarios tengo que pagar si no cumplo una sentencia?', 'Texto', '', null, '', '', 'argentina-legal-documents');
+  assert.equal(result.decisionAnswer?.kind, 'legal-document');
+  assert.equal(result.argentinaLegalAnalysis.jurisdiction, 'argentina');
+  assert.doesNotMatch(result.decisionAnswer?.directAnswer || '', /CFT|cuotas financieras|monto financiado/i);
+});

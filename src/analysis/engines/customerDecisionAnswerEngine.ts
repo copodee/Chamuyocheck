@@ -17,6 +17,7 @@ export type CustomerDecisionAnswer = {
 type DecisionAnswerInput = {
   documentText: string;
   userInstruction?: string;
+  selectedCategory?: string;
   financialAnalysis: LoanNumbers | null;
   scamRiskAnalysis: ScamRiskAnalysis;
   argentinaLegalAnalysis: ArgentinaLegalAnalysis;
@@ -225,13 +226,28 @@ function buildChildSupportAnswer(analysis: ArgentinaLegalAnalysis): CustomerDeci
   };
 }
 
+function buildGeneralLegalAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return {
+    kind: 'legal-document', status: analysis.jurisdiction === 'argentina' ? 'partial' : 'needs-verification',
+    title: `Qué implica esta consulta de ${analysis.areaLabel.toLowerCase()}`,
+    directAnswer: analysis.conclusion,
+    findings: analysis.issues.map((issue) => `${issue.label}: ${issue.explanation}`),
+    nextActions: [...analysis.sourceTargets.map((source) => `Contrastar con ${source}.`), 'Revisar el documento y los hechos completos antes de tomar una decisión o enviar una intimación.'],
+    limitations: analysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
+  };
+}
+
 export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): CustomerDecisionAnswer {
   const question = `${input.userInstruction || ''}\n${input.documentText}`;
+  const legalCategorySelected = input.selectedCategory === 'argentina-legal-documents';
   if (input.argentinaLegalAnalysis.applicable && /violaci[oó]n|violador(?:a|es)?|abuso\s+sexual|acceso\s+carnal/i.test(question)) {
     return buildSexualOffenseAnswer(input.argentinaLegalAnalysis);
   }
   if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.area === 'family' && /alimentos?|cuota\s+alimentaria|divorci/i.test(question)) {
     return buildChildSupportAnswer(input.argentinaLegalAnalysis);
+  }
+  if (legalCategorySelected) {
+    return buildGeneralLegalAnswer(input.argentinaLegalAnalysis);
   }
   if (isFinancialProductComparison(question)) {
     return buildFinancialProductComparisonAnswer(question);
@@ -258,14 +274,7 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
     };
   }
   if (input.argentinaLegalAnalysis.applicable) {
-    return {
-      kind: 'legal-document', status: input.argentinaLegalAnalysis.jurisdiction === 'argentina' ? 'partial' : 'needs-verification',
-      title: `Qué implica esta consulta de ${input.argentinaLegalAnalysis.areaLabel.toLowerCase()}`,
-      directAnswer: input.argentinaLegalAnalysis.conclusion,
-      findings: input.argentinaLegalAnalysis.issues.map((issue) => `${issue.label}: ${issue.explanation}`),
-      nextActions: [...input.argentinaLegalAnalysis.sourceTargets.map((source) => `Contrastar con ${source}.`), 'Revisar el documento y los hechos completos antes de tomar una decisión o enviar una intimación.'],
-      limitations: input.argentinaLegalAnalysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
-    };
+    return buildGeneralLegalAnswer(input.argentinaLegalAnalysis);
   }
   return {
     kind: 'supported-review', status: 'needs-verification', title: 'Qué puede concluirse con la información aportada',
