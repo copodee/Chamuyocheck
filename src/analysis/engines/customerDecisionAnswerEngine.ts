@@ -5,6 +5,7 @@ import type { ExternalVerificationSourceRecord } from '../types/externalVerifica
 import type { InvestmentProjectAnalysis } from '../../lib/investments/investmentProjectAnalysis';
 import { leasingKnowledge } from '../../lib/leasing/argentinaLeasingKnowledge';
 import { buildInternationalLeasingFindings } from '../../lib/leasing/internationalLeasingComparison';
+import { LEASING_TAXPAYER_PROFILES, verifiedProvincialStampProfiles } from '../../lib/leasing/argentinaLeasingTaxMatrix';
 
 export type CustomerDecisionAnswer = {
   kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'leasing-specialist' | 'supported-review';
@@ -283,6 +284,15 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
   const currentTaxRule = leasingKnowledge('tax')[0].statement;
   const publicSectorRules = leasingKnowledge('public-sector').map((item) => item.statement);
   const internationalFindings = buildInternationalLeasingFindings(question);
+  const asksTax = /imposit|tribut|ganancias|iva|sellos|arba|agip|monotribut|persona\s+(?:jur[ií]dica|humana)|exenci/i.test(question);
+  const taxFindings = asksTax ? [
+    `Persona jurídica: ${LEASING_TAXPAYER_PROFILES.company}`,
+    `Persona humana en régimen general: ${LEASING_TAXPAYER_PROFILES['human-general-regime']}`,
+    `Monotributista: ${LEASING_TAXPAYER_PROFILES.monotributista}`,
+    `Uso personal: ${LEASING_TAXPAYER_PROFILES.consumer}`,
+    ...verifiedProvincialStampProfiles().map((item) => `${item.jurisdiction} (${item.fiscalYear}): ${item.treatment} ${item.exemptions.join(' ')}`),
+    'Sellos es provincial: no existe una única alícuota argentina. Para las demás jurisdicciones debe verificarse la ley anual vigente antes de informar tasa o exención; el sistema no presume que el leasing esté exento.',
+  ] : [];
   return {
     kind,
     status: 'partial',
@@ -293,6 +303,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       `Marco tributario nacional vigente desde el 29/03/2022: ${currentTaxRule}`,
       'Modalidades económicas a distinguir: leasing financiero, leasing operativo o asimilado a locación y lease-back. La denominación comercial no reemplaza el análisis de las condiciones legales y tributarias.',
       'Una ventaja fiscal sólo existe si el tomador puede computarla conforme su actividad, afectación del bien, impuesto, jurisdicción y documentación; no debe sumarse como ahorro sin verificar su utilización efectiva.',
+      ...taxFindings,
       ...publicSectorRules,
       ...internationalFindings,
     ],
