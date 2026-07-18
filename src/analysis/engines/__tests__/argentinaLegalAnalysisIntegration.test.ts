@@ -50,3 +50,33 @@ test('la categoría legal excluye puntajes y explicaciones financieras', () => {
   assert.ok(result.categoryScores.some((item) => item.name === 'Revisión jurídica necesaria'));
   assert.doesNotMatch(rendered, /CFT|monto financiado|tasa implícita|Riesgo financiero/i);
 });
+
+test('responde sobre embargo e intereses por honorarios impagos', () => {
+  const result = buildLocalAnalysis('No le pagué a un abogado, me embargaron las cuentas de mi banco y me cobran intereses por la deuda. ¿Está bien?', 'Texto', '', null, '', '', 'argentina-legal-documents');
+  const rendered = JSON.stringify(result);
+  assert.equal(result.decisionAnswer?.kind, 'legal-document');
+  assert.match(result.decisionAnswer?.directAnswer || '', /Puede estar bien.*no se puede confirmar/is);
+  assert.match(result.decisionAnswer?.directAnswer || '', /orden judicial/i);
+  assert.match(result.decisionAnswer?.findings.join(' ') || '', /diez días.*ejecución de sentencia/is);
+  assert.doesNotMatch(rendered, /No se detectaron alertas textuales específicas|CFT|monto financiado|tasa implícita|Riesgo financiero/i);
+});
+
+test('trata el leasing como especialidad transversal sin confundir el puntaje principal', () => {
+  const legal = buildLocalAnalysis('¿Qué debo revisar en un contrato de leasing y qué dice el artículo 1238?', 'Texto', '', null, '', '', 'argentina-legal-documents');
+  const finance = buildLocalAnalysis('Compará un leasing con un préstamo para comprar una máquina.', 'Texto', '', null, '', '', 'finance-credit');
+  assert.equal(legal.argentinaLegalAnalysis.subtopic, 'leasing');
+  assert.equal(legal.decisionAnswer?.kind, 'legal-document');
+  assert.match(legal.decisionAnswer?.findings.join(' ') || '', /Decreto 1038\/2000.*Decreto 152\/2022.*50%.*10%/is);
+  assert.doesNotMatch(legal.decisionAnswer?.findings.join(' ') || '', /20%.*inmuebles no destinados/i);
+  assert.equal(legal.categoryScores.some((item) => /Riesgo financiero/i.test(item.name)), false);
+  assert.equal(finance.decisionAnswer?.kind, 'financial-product-comparison');
+  assert.match(finance.decisionAnswer?.directAnswer || '', /mismo flujo después de impuestos/i);
+});
+
+test('el leasing público no presume una cesión universal de coparticipación', () => {
+  const result = buildLocalAnalysis('¿Un municipio puede financiar maquinaria con leasing y tiene que ceder coparticipación?', 'Texto', '', null, '', '', 'argentina-legal-documents');
+  const rendered = JSON.stringify(result.decisionAnswer);
+  assert.match(rendered, /sector público no financiero/i);
+  assert.match(rendered, /no un requisito universal|no presumir que siempre/i);
+  assert.match(rendered, /autorización presupuestaria y de endeudamiento/i);
+});

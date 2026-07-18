@@ -36,3 +36,17 @@ test('reconoce una consulta coloquial por violación y pide los hechos relevante
   assert.equal(result.area, 'criminal');
   assert.ok(result.factsNeeded.some((item) => /edad de la víctima/i.test(item)));
 });
+
+test('subcategoriza las ramas jurídicas y asigna sus fuentes oficiales', () => {
+  const civil = analyzeArgentinaLegal('Me embargaron por una deuda y me cobran intereses.', true);
+  const commercial = analyzeArgentinaLegal('Una sociedad entró en concurso preventivo y los socios discuten el directorio.', true);
+  const administrative = analyzeArgentinaLegal('Quiero recurrir una multa de un organismo estatal y revisar el acto administrativo.', true);
+  assert.equal(civil.legalBranch, 'civil');
+  assert.ok(civil.sourceTargets.some((item) => /Código Civil y Comercial/i.test(item)));
+  assert.equal(commercial.legalBranch, 'commercial');
+  assert.ok(commercial.sourceTargets.some((item) => /Ley General de Sociedades 19\.550/i.test(item)));
+  assert.ok(commercial.sourceTargets.some((item) => /Concursos y Quiebras 24\.522/i.test(item)));
+  assert.equal(administrative.legalBranch, 'administrative');
+  assert.ok(administrative.sourceTargets.some((item) => /19\.549/i.test(item)));
+  assert.ok(administrative.sourceTargets.some((item) => /1759\/72/i.test(item)));
+});

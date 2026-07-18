@@ -11,6 +11,9 @@ export type ArgentinaLegalAnalysis = {
   jurisdiction: 'argentina' | 'not-specified';
   area: 'contracts' | 'criminal' | 'family' | 'other-legal';
   areaLabel: string;
+  legalBranch: 'family' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'general';
+  subtopic: 'family-support' | 'sexual-offense' | 'debt-enforcement' | 'leasing' | 'criminal-penalty' | 'contract-review' | 'general-legal';
+  intent: 'validity' | 'amount-or-duration' | 'consequences' | 'next-steps' | 'document-review' | 'general';
   issues: LegalIssue[];
   factsNeeded: string[];
   sourceTargets: string[];
@@ -30,8 +33,36 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false): Ar
   const family = /divorci\w*|separaci[oó]n|alimentos?|cuota\s+aliment(?:o|aria)|responsabilidad parental|r[eé]gimen de comunicaci[oó]n|bienes gananciales|compensaci[oó]n econ[oó]mica/i.test(text);
   const criminal = /\b(?:delito|penas?|prisi[oó]n|c[aá]rcel|condena|hurto|robo|homicidio|lesiones|amenazas|defraudaci[oó]n|violaci[oó]n|violador(?:a|es)?|abuso sexual|integridad sexual)\b|c[oó]digo penal/i.test(text);
   const contracts = /contrato|cl[aá]usula|rescisi[oó]n|incumplimiento|penalidad|jurisdicci[oó]n|t[eé]rminos y condiciones|locaci[oó]n|compraventa/i.test(text);
+  const administrative = /acto\s+administrativo|procedimiento\s+administrativo|recurso\s+administrativo|administraci[oó]n\s+p[uú]blica|organismo\s+(?:p[uú]blico|estatal)|ministerio|municipalidad|estado\s+nacional|habilitaci[oó]n|licencia|concesi[oó]n|multa\s+(?:administrativa|estatal)|arca|afip|anmat/i.test(text);
+  const commercial = /sociedad(?:es)?|socios?|accionistas?|acciones|directorio|empresa|concurso\s+preventivo|quiebra|insolvencia|cheque|pagar[eé]|fondo\s+de\s+comercio|ley\s+general\s+de\s+sociedades/i.test(text);
+  const civil = contracts || /da[ñn]os?|perjuicios?|responsabilidad\s+civil|deuda|acreedor|deudor|embarg|ejecuci[oó]n|sucesi[oó]n|herencia|propiedad|alquiler|obligaci[oó]n|intereses?|honorarios?/i.test(text);
+  const legalBranch = family ? 'family' : criminal ? 'criminal' : administrative ? 'administrative' : commercial ? 'commercial' : civil ? 'civil' : 'general';
   const area = family ? 'family' : criminal ? 'criminal' : contracts ? 'contracts' : 'other-legal';
-  const areaLabel = area === 'family' ? 'Familia y divorcio' : area === 'criminal' ? 'Derecho penal' : area === 'contracts' ? 'Contratos y obligaciones' : 'Consulta jurídica general';
+  const areaLabel = legalBranch === 'family' ? 'Familia' : legalBranch === 'criminal' ? 'Derecho penal' : legalBranch === 'civil' ? 'Derecho civil' : legalBranch === 'commercial' ? 'Derecho comercial' : legalBranch === 'administrative' ? 'Derecho administrativo' : 'Consulta jurídica general';
+  const subtopic = /\bleasing\b|lease[ -]?back|arrendamiento\s+financiero|opci[oó]n\s+de\s+compra/i.test(text)
+    ? 'leasing'
+    : /violaci[oó]n|violador(?:a|es)?|abuso sexual|acceso carnal/i.test(text)
+    ? 'sexual-offense'
+    : family && /alimentos?|cuota\s+aliment|hij[oa]s?/i.test(text)
+      ? 'family-support'
+      : /honorarios?|abogad[oa]|embarg|ejecuci[oó]n|intimaci[oó]n|acreedor|deudor|mora|intereses?.{0,40}deuda|deuda.{0,40}intereses?/i.test(text)
+        ? 'debt-enforcement'
+        : criminal
+          ? 'criminal-penalty'
+          : contracts
+            ? 'contract-review'
+            : 'general-legal';
+  const intent = /(?:est[aá]\s+bien|es\s+v[aá]lid[oa]|es\s+legal|corresponde|pueden?|deben?).{0,30}\?/i.test(text)
+    ? 'validity'
+    : /cu[aá]nt[oa]s?|hasta\s+qu[eé]|monto|porcentaje|tasa|a[ñn]os?|pena/i.test(text)
+      ? 'amount-or-duration'
+      : /qu[eé]\s+pasa|consecuencias?|no\s+(?:le\s+)?pagu|incumpl|mora/i.test(text)
+        ? 'consequences'
+        : /qu[eé]\s+(?:puedo|debo|conviene)\s+hacer|c[oó]mo\s+(?:reclamo|impugno|apelo)/i.test(text)
+          ? 'next-steps'
+          : /revis|analiz|cl[aá]usula|documento|contrato/i.test(text)
+            ? 'document-review'
+            : 'general';
   const rules = [
     { id: 'unilateral-change', label: 'Modificación unilateral', pattern: /(?:podr[aá]|se reserva el derecho de).{0,55}(?:modificar|cambiar).{0,45}(?:sin aviso|sin consentimiento|unilateralmente)/i, explanation: 'Permite que una parte altere condiciones sin un mecanismo claro de información o aceptación.', severity: 'alta' as const },
     { id: 'automatic-renewal', label: 'Renovación automática', pattern: /renovaci[oó]n autom[aá]tica|se renovar[aá] autom[aá]ticamente/i, explanation: 'Debe revisarse el plazo para cancelar, el medio habilitado y el aviso previo.', severity: 'media' as const },
@@ -53,20 +84,32 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false): Ar
     area === 'criminal' ? 'descripción completa de la conducta, intención, circunstancias y evidencia' : '',
     area === 'criminal' && /violaci[oó]n|violador(?:a|es)?|abuso sexual/i.test(text) ? 'edad de la víctima, modalidad del hecho, existencia de acceso carnal, agravantes, daños y resultado' : '',
     area === 'family' ? 'domicilio de las partes, existencia de hijos, acuerdos, bienes y medidas vigentes' : '',
+    /honorarios?|abogad[oa]|embarg|ejecuci[oó]n/i.test(text) ? 'jurisdicción, expediente, regulación o convenio, firmeza, notificación, orden de embargo y liquidación de capital e intereses' : '',
     !/(art[ií]culo|ley \d|c[oó]digo|normativa)/i.test(text) ? 'norma o fundamento jurídico invocado' : '',
   ].filter(Boolean);
-  const sourceTargets = area === 'criminal'
+  const sourceTargets = subtopic === 'leasing'
+    ? ['Código Civil y Comercial de la Nación, artículos 1227 a 1250', 'Decreto 1038/2000, con artículo 2 sustituido por el Decreto 152/2022', 'Leyes de Impuesto a las Ganancias e IVA vigentes y normativa ARCA aplicable', 'Registro correspondiente al tipo de bien para la oponibilidad del contrato', 'Textos ordenados vigentes del BCRA si intervienen una entidad financiera, el sector público o pagos al exterior']
+    : legalBranch === 'criminal'
     ? ['Código Penal de la Nación en InfoLEG/Argentina.gob.ar', 'Boletín Oficial para reformas y vigencia', 'Jurisprudencia oficial pertinente si la interpretación depende del caso']
-    : area === 'family'
+    : legalBranch === 'family'
       ? ['Código Civil y Comercial de la Nación en InfoLEG/Argentina.gob.ar', 'Normativa procesal de la jurisdicción correspondiente', 'Jurisprudencia oficial pertinente']
-      : area === 'contracts'
-        ? ['Código Civil y Comercial de la Nación en InfoLEG/Argentina.gob.ar', 'Ley de Defensa del Consumidor cuando exista relación de consumo', 'Boletín Oficial para vigencia y modificaciones']
-        : ['InfoLEG/Argentina.gob.ar', 'Boletín Oficial', 'Normativa de la jurisdicción correspondiente'];
+      : legalBranch === 'administrative'
+        ? ['Ley Nacional de Procedimientos Administrativos 19.549 si interviene la Administración nacional', 'Decreto 1759/72 reglamentario si corresponde', 'Ley especial del organismo y normativa provincial o municipal según la jurisdicción']
+        : legalBranch === 'commercial'
+          ? ['Ley General de Sociedades 19.550 cuando corresponda', 'Ley de Concursos y Quiebras 24.522 si existe insolvencia o proceso concursal', 'Código Civil y Comercial de la Nación y normativa registral o sectorial aplicable']
+          : /honorarios?|abogad[oa]|embarg|ejecuci[oó]n/i.test(text)
+          ? ['Ley 27.423 de honorarios profesionales si interviene la justicia nacional o federal', 'Código Procesal Civil y Comercial aplicable a la jurisdicción', 'Código Civil y Comercial de la Nación para intereses y obligaciones']
+          : legalBranch === 'civil'
+            ? ['Código Civil y Comercial de la Nación', 'Código Procesal Civil y Comercial aplicable a la jurisdicción', 'Ley especial pertinente, como Defensa del Consumidor, locaciones o seguros, según el caso']
+            : ['InfoLEG/Argentina.gob.ar', 'Boletín Oficial', 'Normativa de la jurisdicción correspondiente'];
   return {
     applicable: legal,
     jurisdiction,
     area,
     areaLabel,
+    legalBranch,
+    subtopic,
+    intent,
     issues,
     factsNeeded,
     sourceTargets,
@@ -76,6 +119,8 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false): Ar
         ? 'La jurisdicción no está suficientemente identificada; no corresponde aplicar automáticamente el derecho argentino.'
         : issues.length
           ? 'Se identificaron cláusulas o afirmaciones que requieren contraste normativo y revisión del contexto completo.'
-          : 'No se detectaron alertas textuales específicas, pero la validez o consecuencia jurídica no puede determinarse sin hechos y normativa aplicable.',
+          : subtopic === 'debt-enforcement'
+            ? 'La exigibilidad de la deuda, los intereses y el embargo requiere revisar el título, la resolución u orden judicial, las notificaciones, la liquidación y la normativa procesal aplicable.'
+            : 'No se detectaron alertas textuales específicas, pero la validez o consecuencia jurídica no puede determinarse sin hechos y normativa aplicable.',
   };
 }
