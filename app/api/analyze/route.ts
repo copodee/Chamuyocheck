@@ -385,7 +385,10 @@ export function buildLocalAnalysis(
 
   const missing = !/(fuente|estudio|metodolog|contrato|bases|condiciones|cft|tea|tna|bibliograf|reglamento)/i.test(all);
   const promise = /(garantiz|asegur|sin esfuerzo|millonari|duplic|triplic|100%|riesgo cero|aprobaci[oó]n inmediata)/i.test(all);
-  const financial = hasLoanCalculationSignals(all);
+  // Cuando la persona elige una categoría, esa decisión también gobierna las
+  // variables de puntaje. Palabras ambiguas como "cuota" no deben activar el
+  // motor financiero dentro de Derecho argentino u otra especialidad.
+  const financial = (!selectedCategory || selectedCategory === 'finance-credit') && hasLoanCalculationSignals(all);
   const financialAnalysis = financial ? extractLoanNumbers(text, userInstruction) : null;
   const scamRiskAnalysis = analyzeScamRisk(analysisInput);
   const commercialCourseAnalysis = analyzeCommercialCourse(analysisInput);
@@ -600,9 +603,12 @@ export function buildLocalAnalysis(
   }
   if (argentinaLegalAnalysis.applicable) {
     const legalIssueScore = Math.min(100, argentinaLegalAnalysis.issues.reduce((total, issue) => total + (issue.severity === 'alta' ? 28 : issue.severity === 'media' ? 16 : 8), 0));
+    const legalVerificationScore = claimFirstResult.documentExternalVerificationPlan.externalVerificationRequired ? 50 : 0;
     categoryScores.push({
       name: 'Revisión jurídica necesaria',
-      score: argentinaLegalAnalysis.jurisdiction === 'not-specified' ? Math.max(50, legalIssueScore) : legalIssueScore,
+      score: argentinaLegalAnalysis.jurisdiction === 'not-specified'
+        ? Math.max(50, legalIssueScore, legalVerificationScore)
+        : Math.max(legalIssueScore, legalVerificationScore),
       explanation: argentinaLegalAnalysis.conclusion,
     });
   }

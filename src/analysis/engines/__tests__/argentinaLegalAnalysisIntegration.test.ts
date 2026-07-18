@@ -40,3 +40,13 @@ test('la categoría legal prevalece ante costos, pagos y honorarios jurídicos',
   assert.equal(result.argentinaLegalAnalysis.jurisdiction, 'argentina');
   assert.doesNotMatch(result.decisionAnswer?.directAnswer || '', /CFT|cuotas financieras|monto financiado/i);
 });
+
+test('la categoría legal excluye puntajes y explicaciones financieras', () => {
+  const result = buildLocalAnalysis('Me estoy separando y tengo hijos menores. ¿Hasta cuántos años tengo que darle una cuota de alimento?', 'Texto', '', null, '', '', 'argentina-legal-documents');
+  const rendered = JSON.stringify(result);
+  assert.equal(result.decisionAnswer?.kind, 'legal-document');
+  assert.equal(result.financialAnalysis, null);
+  assert.equal(result.categoryScores.some((item) => /financiero|ponzi/i.test(item.name)), false);
+  assert.ok(result.categoryScores.some((item) => item.name === 'Revisión jurídica necesaria'));
+  assert.doesNotMatch(rendered, /CFT|monto financiado|tasa implícita|Riesgo financiero/i);
+});
