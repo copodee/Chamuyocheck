@@ -57,8 +57,8 @@ const scamPatterns = [
 const legalPatterns = [
   /\b(?:ley|leyes|legal|ilegal|derecho|normativa|c[oó]digo\s+(?:penal|civil)|art[ií]culo\s+\d+|delito|pena|prisi[oó]n|condena|denuncia|demanda\s+judicial|demandar|sentencia|tribunal|juez|abogad[oa])\b/i,
   /\b(?:contrato|cl[aá]usula|obligaci[oó]n|incumplimiento|rescisi[oó]n|jurisdicci[oó]n|penalidad|intimaci[oó]n|carta\s+documento)\b/i,
-  /\b(?:divorcio|separaci[oó]n|alimentos|cuota\s+alimentaria|r[eé]gimen\s+de\s+comunicaci[oó]n|responsabilidad\s+parental|bienes\s+gananciales|compensaci[oó]n\s+econ[oó]mica)\b/i,
-  /\b(?:robo|hurto|homicidio|lesiones|amenazas|defraudaci[oó]n|violencia\s+de\s+g[eé]nero)\b/i,
+  /\b(?:divorci\w*|separaci[oó]n|alimentos?|cuota\s+aliment(?:o|aria)|r[eé]gimen\s+de\s+comunicaci[oó]n|responsabilidad\s+parental|bienes\s+gananciales|compensaci[oó]n\s+econ[oó]mica)\b/i,
+  /\b(?:robo|hurto|homicidio|lesiones|amenazas|defraudaci[oó]n|violencia\s+de\s+g[eé]nero|c[aá]rcel|violaci[oó]n|violador(?:a|es)?|abuso\s+sexual|integridad\s+sexual)\b/i,
 ];
 
 function matches(patterns: RegExp[], text: string): string[] {

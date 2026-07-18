@@ -389,7 +389,7 @@ export function buildLocalAnalysis(
   const financialAnalysis = financial ? extractLoanNumbers(text, userInstruction) : null;
   const scamRiskAnalysis = analyzeScamRisk(analysisInput);
   const commercialCourseAnalysis = analyzeCommercialCourse(analysisInput);
-  const argentinaLegalAnalysis = analyzeArgentinaLegal(analysisInput);
+  const argentinaLegalAnalysis = analyzeArgentinaLegal(analysisInput, selectedCategory === 'argentina-legal-documents');
   const investmentProjectAnalysis = analyzeInvestmentProject(
     text,
     userInstruction,
@@ -1041,9 +1041,12 @@ export async function handleAnalyzeRequest(req: Request) {
       ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20_000, maxRetries: 0 })
       : null;
     const noPaidClient = { chat: { completions: { create: async () => { throw new Error('Paid search disabled.'); } } } };
+    const verificationText = selectedCategory === 'argentina-legal-documents'
+      ? `Jurisdicción elegida por el usuario: Argentina. ${documentText}`
+      : documentText;
     const webVerification = await runHybridExternalVerification(
       (openai || noPaidClient) as any,
-      documentText,
+      verificationText,
       fallback.claimAnalysis.documentExternalVerificationPlan,
       fallback.externalVerification.planning.requests
     );

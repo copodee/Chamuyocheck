@@ -28,3 +28,11 @@ test('no asume Argentina cuando falta jurisdicción', () => {
   assert.equal(result.jurisdiction, 'not-specified');
   assert.match(result.conclusion, /no corresponde aplicar automáticamente/);
 });
+
+test('reconoce una consulta coloquial por violación y pide los hechos relevantes', () => {
+  const result = analyzeArgentinaLegal('¿Cuántos años de cárcel le dan a un violador?', true);
+  assert.equal(result.applicable, true);
+  assert.equal(result.jurisdiction, 'argentina');
+  assert.equal(result.area, 'criminal');
+  assert.ok(result.factsNeeded.some((item) => /edad de la víctima/i.test(item)));
+});

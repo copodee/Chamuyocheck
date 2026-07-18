@@ -24,11 +24,11 @@ function evidence(text: string, pattern: RegExp): string {
   return text.slice(Math.max(0, index - 35), Math.min(text.length, index + match[0].length + 55)).replace(/\s+/g, ' ').trim();
 }
 
-export function analyzeArgentinaLegal(text: string): ArgentinaLegalAnalysis {
-  const legal = /ley|legal|ilegal|derecho|contrato|cl[aá]usula|delito|pena|prisi[oó]n|hurto|robo|divorcio|alimentos|jurisdicci[oó]n|rescisi[oó]n|incumplimiento/i.test(text);
-  const jurisdiction = /argentina|argentino|c[oó]digo (?:civil|penal)|infoleg|bolet[ií]n oficial/i.test(text) ? 'argentina' : 'not-specified';
-  const family = /divorcio|separaci[oó]n|alimentos|cuota alimentaria|responsabilidad parental|r[eé]gimen de comunicaci[oó]n|bienes gananciales|compensaci[oó]n econ[oó]mica/i.test(text);
-  const criminal = /\b(?:delito|penas?|prisi[oó]n|condena|hurto|robo|homicidio|lesiones|amenazas|defraudaci[oó]n)\b|c[oó]digo penal/i.test(text);
+export function analyzeArgentinaLegal(text: string, assumeArgentina = false): ArgentinaLegalAnalysis {
+  const legal = /ley|legal|ilegal|derecho|contrato|cl[aá]usula|delito|pena|prisi[oó]n|c[aá]rcel|hurto|robo|violaci[oó]n|violador(?:a|es)?|abuso sexual|integridad sexual|divorci\w*|alimentos?|cuota\s+aliment(?:o|aria)|jurisdicci[oó]n|rescisi[oó]n|incumplimiento/i.test(text);
+  const jurisdiction = assumeArgentina || /argentina|argentino|c[oó]digo (?:civil|penal)|infoleg|bolet[ií]n oficial/i.test(text) ? 'argentina' : 'not-specified';
+  const family = /divorci\w*|separaci[oó]n|alimentos?|cuota\s+aliment(?:o|aria)|responsabilidad parental|r[eé]gimen de comunicaci[oó]n|bienes gananciales|compensaci[oó]n econ[oó]mica/i.test(text);
+  const criminal = /\b(?:delito|penas?|prisi[oó]n|c[aá]rcel|condena|hurto|robo|homicidio|lesiones|amenazas|defraudaci[oó]n|violaci[oó]n|violador(?:a|es)?|abuso sexual|integridad sexual)\b|c[oó]digo penal/i.test(text);
   const contracts = /contrato|cl[aá]usula|rescisi[oó]n|incumplimiento|penalidad|jurisdicci[oó]n|t[eé]rminos y condiciones|locaci[oó]n|compraventa/i.test(text);
   const area = family ? 'family' : criminal ? 'criminal' : contracts ? 'contracts' : 'other-legal';
   const areaLabel = area === 'family' ? 'Familia y divorcio' : area === 'criminal' ? 'Derecho penal' : area === 'contracts' ? 'Contratos y obligaciones' : 'Consulta jurídica general';
@@ -51,6 +51,7 @@ export function analyzeArgentinaLegal(text: string): ArgentinaLegalAnalysis {
     area === 'contracts' && !/(partes|locador|locatario|comprador|vendedor|proveedor|consumidor)/i.test(text) ? 'identidad y carácter de las partes' : '',
     area === 'contracts' && !/(fecha|vigencia|plazo|desde|hasta)/i.test(text) ? 'fecha, vigencia y plazo contractual' : '',
     area === 'criminal' ? 'descripción completa de la conducta, intención, circunstancias y evidencia' : '',
+    area === 'criminal' && /violaci[oó]n|violador(?:a|es)?|abuso sexual/i.test(text) ? 'edad de la víctima, modalidad del hecho, existencia de acceso carnal, agravantes, daños y resultado' : '',
     area === 'family' ? 'domicilio de las partes, existencia de hijos, acuerdos, bienes y medidas vigentes' : '',
     !/(art[ií]culo|ley \d|c[oó]digo|normativa)/i.test(text) ? 'norma o fundamento jurídico invocado' : '',
   ].filter(Boolean);
