@@ -127,6 +127,9 @@ type Analysis = {
     jurisdiction: 'argentina' | 'not-specified';
     area: 'contracts' | 'criminal' | 'family' | 'other-legal';
     areaLabel: string;
+    legalBranch: 'family' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'general';
+    subtopic: string;
+    intent: string;
     issues: Array<{ id: string; label: string; evidence: string; explanation: string; severity: 'baja' | 'media' | 'alta' }>;
     factsNeeded: string[];
     sourceTargets: string[];
@@ -134,7 +137,7 @@ type Analysis = {
   } | null;
   sourceUrl?: string | null;
   decisionAnswer?: {
-    kind: 'loan-cost' | 'scam-prevention' | 'legal-document' | 'supported-review';
+    kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'supported-review';
     status: 'answerable' | 'partial' | 'needs-verification';
     title: string;
     directAnswer: string;
@@ -467,10 +470,13 @@ function getScoreExplanationItems(analysis: Analysis, inputKind: string, text: s
     }
   }
 
-  if (analysis.topic === 'health') {
+  const answerKind = analysis.decisionAnswer?.kind;
+  if (answerKind === 'legal-document') {
+    items.push('El puntaje jurídico aumenta cuando faltan la resolución, la notificación, la liquidación, la jurisdicción o los hechos necesarios para controlar la consecuencia legal.');
+  } else if (answerKind === 'loan-cost' || answerKind === 'financial-product-comparison') {
+    items.push('El puntaje financiero aumenta cuando faltan costos, tasas, cargos o condiciones visibles.');
+  } else if (analysis.topic === 'health') {
     items.push('Se penaliza cuando la afirmación promete efectos o seguridad sin una base clínica clara.');
-  } else if (analysis.topic === 'finance') {
-    items.push('Se penaliza cuando faltan costos, tasas, cargos o condiciones visibles.');
   } else if (analysis.topic === 'legal') {
     items.push('Se penaliza cuando hay cláusulas ambiguas o ausencia de contexto contractual.');
   } else if (analysis.topic === 'employment') {

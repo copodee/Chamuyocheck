@@ -382,17 +382,21 @@ export function buildLocalAnalysis(
 ) {
   const analysisInput = `${userInstruction}\n${text}\n${fileName}\n${sourceUrl}`.trim();
   const all = analysisInput.toLowerCase();
+  const unrestrictedLegacyAnalysis = !selectedCategory;
+  const financeCategory = unrestrictedLegacyAnalysis || selectedCategory === 'finance-credit';
+  const scamCategory = unrestrictedLegacyAnalysis || selectedCategory === 'scam-risk';
+  const legalCategory = unrestrictedLegacyAnalysis || selectedCategory === 'argentina-legal-documents';
 
   const missing = !/(fuente|estudio|metodolog|contrato|bases|condiciones|cft|tea|tna|bibliograf|reglamento)/i.test(all);
   const promise = /(garantiz|asegur|sin esfuerzo|millonari|duplic|triplic|100%|riesgo cero|aprobaci[oó]n inmediata)/i.test(all);
   // Cuando la persona elige una categoría, esa decisión también gobierna las
   // variables de puntaje. Palabras ambiguas como "cuota" no deben activar el
   // motor financiero dentro de Derecho argentino u otra especialidad.
-  const financial = (!selectedCategory || selectedCategory === 'finance-credit') && hasLoanCalculationSignals(all);
+  const financial = financeCategory && hasLoanCalculationSignals(all);
   const financialAnalysis = financial ? extractLoanNumbers(text, userInstruction) : null;
-  const scamRiskAnalysis = analyzeScamRisk(analysisInput);
-  const commercialCourseAnalysis = analyzeCommercialCourse(analysisInput);
-  const argentinaLegalAnalysis = analyzeArgentinaLegal(analysisInput, selectedCategory === 'argentina-legal-documents');
+  const scamRiskAnalysis = analyzeScamRisk(scamCategory ? analysisInput : '');
+  const commercialCourseAnalysis = analyzeCommercialCourse(scamCategory ? analysisInput : '');
+  const argentinaLegalAnalysis = analyzeArgentinaLegal(legalCategory ? analysisInput : '', selectedCategory === 'argentina-legal-documents');
   const investmentProjectAnalysis = analyzeInvestmentProject(
     text,
     userInstruction,
@@ -403,11 +407,11 @@ export function buildLocalAnalysis(
   const financialRiskScore = !financial ? 0 : financialDataComplete
     ? (financialAnalysis?.warnings.length ? 42 : 24)
     : 78;
-  const pyramid = /\b(?:referidos?|multinivel|ponzi|pir[aá]mid(?:al)?|invitar)\b|ingresos\s+pasivos|rentabilidad\s+garantizada|red\s+de\s+(?:referidos|vendedores|inversores)/i.test(all);
-  const academic = /(trabajo acad[eé]mico|facultad|colegio|alumno|ensayo|monograf|tesis|bibliograf|docente|hecha con ia|hecho con ia|chatgpt)/i.test(all);
+  const pyramid = scamCategory && /\b(?:referidos?|multinivel|ponzi|pir[aá]mid(?:al)?|invitar)\b|ingresos\s+pasivos|rentabilidad\s+garantizada|red\s+de\s+(?:referidos|vendedores|inversores)/i.test(all);
+  const academic = unrestrictedLegacyAnalysis && /(trabajo acad[eé]mico|facultad|colegio|alumno|ensayo|monograf|tesis|bibliograf|docente|hecha con ia|hecho con ia|chatgpt)/i.test(all);
   const academicAuthorship = analyzeAcademicAuthorship(text);
   const analysisFocus = detectInstructionFocus(userInstruction);
-  const health = /(medicamento|\bsalud\b|m[eé]dico|tratamiento|suplemento|dieta|cura|dolor|c[aá]ncer)/i.test(all);
+  const health = unrestrictedLegacyAnalysis && /(medicamento|\bsalud\b|m[eé]dico|tratamiento|suplemento|dieta|cura|dolor|c[aá]ncer)/i.test(all);
 
   const riskScore = clamp(
     18 +
@@ -465,7 +469,7 @@ export function buildLocalAnalysis(
     domain = detectDomain(text, inputKind);
   }
 
-  const topic = detectTopic(text, inputKind);
+  const topic = detectTopic(text, inputKind, selectedCategory);
   const evidence = extractEvidenceSignals(text);
 
   // Universal claim reasoning: runs FIRST — catches scientific impossibilities,
@@ -505,14 +509,16 @@ export function buildLocalAnalysis(
     {
       name: 'Transparencia',
       score: financial ? 75 : missing ? 64 : 18,
-      explanation: 'Evalúa claridad de condiciones, costos, límites, responsables y metodología.'
+      explanation: selectedCategory === 'argentina-legal-documents'
+        ? 'Evalúa si están identificados los hechos, documentos, decisiones, jurisdicción y reglas necesarias para controlar la consecuencia jurídica.'
+        : 'Evalúa claridad de condiciones, costos, límites, responsables y metodología.'
     },
-    {
+    ...(scamCategory ? [{
       name: 'Manipulación emocional',
       score: promise ? 65 : 12,
       explanation: 'Detecta urgencia, promesas extraordinarias o lenguaje manipulador.'
-    },
-    {
+    }] : []),
+    ...(financeCategory ? [{
       name: 'Riesgo financiero',
       score: financialRiskScore,
       explanation: !financial
@@ -520,17 +526,17 @@ export function buildLocalAnalysis(
         : financialDataComplete
           ? 'Se identificaron capital, cuota y plazo; se calculó la tasa implícita del flujo y debe leerse junto con los supuestos y cargos visibles.'
           : `No puede calcularse el costo completo: faltan ${financialAnalysis?.missingFields.join(', ') || 'datos esenciales'}.`
-    },
-    {
+    }] : []),
+    ...(scamCategory ? [{
       name: 'Riesgo piramidal/Ponzi',
       score: pyramid ? 86 : 0,
       explanation: pyramid ? 'Hay señales de referidos, ingresos pasivos o rentabilidad prometida.' : 'No se detectaron señales piramidales fuertes.'
-    },
-    {
+    }] : []),
+    ...(unrestrictedLegacyAnalysis ? [{
       name: 'Posible IA académica',
       score: academic ? 72 : 0,
       explanation: academic ? 'Estimación no concluyente: revisar estilo, fuentes, borradores y defensa oral.' : 'No se activó como eje principal.'
-    }
+    }] : [])
   ];
 
   // Domain-aware weighted scoring: only count applicable dimensions
@@ -546,7 +552,7 @@ export function buildLocalAnalysis(
     financial,
     pyramid,
     hasHealthClaim(text),
-    hasLegalClaim(text),
+    selectedCategory === 'argentina-legal-documents' || hasLegalClaim(text),
     hasAcademicClaim(text),
     claimNature.primaryNature
   );
@@ -715,10 +721,14 @@ export function buildLocalAnalysis(
       academic ? 'borradores, historial de edición, fuentes y defensa oral' : '',
       loanAnalysis && !financialDataComplete ? 'CFT, importe de cuota, plazo y monto financiado' : '',
       ...(financialAnalysis?.missingFields || [])
-      , ...scamRiskAnalysis.missingInformation, ...argentinaLegalAnalysis.factsNeeded
+      , ...(scamRiskAnalysis.applicable ? scamRiskAnalysis.missingInformation : []), ...argentinaLegalAnalysis.factsNeeded
     ].filter(Boolean),
     worstCase: academic ? 'Acusar erróneamente a un alumno sin evidencia concluyente.' : 'Tomar una decisión impulsiva con información incompleta.',
-    improved: academic ? 'Pedir al alumno una breve defensa oral, fuentes usadas, borradores y explicación del proceso.' : 'Explicar alcance, límites, requisitos, evidencia, costos, riesgos y condiciones verificables.',
+    improved: academic
+      ? 'Pedir al alumno una breve defensa oral, fuentes usadas, borradores y explicación del proceso.'
+      : decisionAnswer.kind === 'legal-document'
+        ? 'Explicar la regla jurídica general, los hechos y documentos necesarios, la jurisdicción, los plazos y los próximos pasos verificables.'
+        : 'Explicar alcance, límites, requisitos, evidencia, costos, riesgos y condiciones verificables.',
     evidenceFound: [
       ...evidence.signals,
       `Elementos verificables detectados: revisar nombres, fechas, cifras y fuentes dentro de ${inputText.phrase}.`,
@@ -762,7 +772,7 @@ export function buildLocalAnalysis(
       loanAnalysis ? 'Exigir contrato completo y costo financiero total.' : '',
       academic ? 'Pedir borradores, fuentes y defensa oral antes de concluir uso de IA.' : ''
     ].filter(Boolean),
-    improvementPlan: [...scamRiskAnalysis.checks, ...reasoning.recommendations, ...buildRecommendations(text, topic.key, inputKind), ...buildRiskItems(text, inputKind)].filter(Boolean).slice(0, 8),
+    improvementPlan: [...(scamRiskAnalysis.applicable ? scamRiskAnalysis.checks : []), ...reasoning.recommendations, ...buildRecommendations(text, topic.key, inputKind), ...buildRiskItems(text, inputKind)].filter(Boolean).slice(0, 8),
     topic: topic.key,
     topicLabel: topic.label,
     topicHint: topic.hint

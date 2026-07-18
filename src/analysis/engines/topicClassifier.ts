@@ -17,7 +17,7 @@ const techSignals = /ia|inteligencia artificial|algoritmo|software|tecnolog[ií]
 const commercialSignals = /promesa|garant[aí]a|oferta|publicidad|descuento|promo|producto|servicio|marketing|venta|sin esfuerzo|millonario|100%/i;
 const productSignals = /producto|servicio|garant[ií]a|comparativa|reseña|calidad|rendimiento/i;
 
-export function detectTopic(text: string, inputKind: string) {
+export function detectTopic(text: string, inputKind: string, selectedCategory?: string | null) {
   const all = text.toLowerCase();
   const input = describeInput(inputKind);
 
@@ -39,6 +39,44 @@ export function detectTopic(text: string, inputKind: string) {
         'Verificar si existe denuncia formal, declaración pública o cobertura periodística verificada.',
         'Considerar el daño reputacional ante afirmaciones no verificadas.',
       ]
+    };
+  }
+
+  // La categoría elegida por la persona es el contexto primario. El detector
+  // léxico sólo identifica el subtema dentro de esa categoría y no puede
+  // reemplazarla por otra debido a palabras ambiguas.
+  if (selectedCategory === 'argentina-legal-documents') {
+    return {
+      key: 'legal', label: 'Derecho argentino', hint: 'Revisá hechos, resolución, documentos, jurisdicción y norma aplicable.',
+      summary: `La consulta requiere identificar la consecuencia jurídica aplicable y los documentos o hechos necesarios para controlarla.`,
+      prudentConclusion: `La respuesta debe distinguir la regla general de lo que sólo puede confirmarse revisando el expediente, documento o acto correspondiente.`,
+      verdict: `Evaluación jurídica orientativa para ${input.noun}: corresponde verificar hechos, documentos, jurisdicción y normativa aplicable.`,
+      modules: ['Hechos relevantes', 'Norma aplicable', 'Documentación', 'Jurisdicción', 'Próximos pasos'],
+      recommendations: ['Reuní el documento o resolución pertinente.', 'Verificá jurisdicción, vigencia, notificación y plazos antes de actuar.'],
+    };
+  }
+  if (selectedCategory === 'finance-credit') {
+    return {
+      key: 'finance', label: 'Finanzas y créditos', hint: 'Revisá costos reales, tasas y condiciones.',
+      summary: `La consulta se analiza como una operación financiera o crediticia.`, prudentConclusion: `Conviene calcular el flujo completo y contrastar las condiciones contractuales.`,
+      verdict: `Evaluación financiera para ${input.noun}: revisá costo total, tasas, cargos y condiciones.`, modules: ['Costo total', 'CFT', 'Tasas', 'Cargos', 'Condiciones'],
+      recommendations: ['Pedí el costo total y las condiciones completas.', 'Verificá tasas, comisiones, seguros e impuestos.'],
+    };
+  }
+  if (selectedCategory === 'scam-risk') {
+    return {
+      key: 'product-service', label: 'Posible estafa', hint: 'Revisá identidad, promesas, pagos y evidencia independiente.',
+      summary: `La consulta se analiza para detectar señales observables de una posible estafa.`, prudentConclusion: `No corresponde afirmar fraude sin evidencia, pero sí identificar señales y verificaciones necesarias.`,
+      verdict: `Evaluación preventiva para ${input.noun}: verificá identidad, autorización, promesas y canales de pago.`, modules: ['Identidad', 'Promesas', 'Pagos', 'Trazabilidad', 'Verificación'],
+      recommendations: ['No pagues ni compartas credenciales hasta verificar la contraparte.', 'Contrastá identidad, dominio y autorización en fuentes independientes.'],
+    };
+  }
+  if (selectedCategory === 'investment-project') {
+    return {
+      key: 'finance', label: 'Inversiones y proyectos', hint: 'Revisá supuestos, flujo, escenarios y evidencia sectorial.',
+      summary: `La consulta se analiza como una inversión o proyecto productivo.`, prudentConclusion: `La viabilidad depende de supuestos verificables y escenarios comparables.`,
+      verdict: `Evaluación de inversión para ${input.noun}: contrastá supuestos, retornos, riesgos y escenarios.`, modules: ['Supuestos', 'Flujo', 'Escenarios', 'Riesgos', 'Fuentes sectoriales'],
+      recommendations: ['Construí escenarios adverso, base y favorable.', 'Verificá precios, demanda, costos y permisos con fuentes pertinentes.'],
     };
   }
 

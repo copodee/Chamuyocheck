@@ -3,6 +3,7 @@ import type { ScamRiskAnalysis } from '../../lib/scams/scamRiskAnalysis';
 import type { ArgentinaLegalAnalysis } from '../../lib/legal/argentinaLegalAnalysis';
 import type { ExternalVerificationSourceRecord } from '../types/externalVerification';
 import type { InvestmentProjectAnalysis } from '../../lib/investments/investmentProjectAnalysis';
+import { leasingKnowledge } from '../../lib/leasing/argentinaLeasingKnowledge';
 
 export type CustomerDecisionAnswer = {
   kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'supported-review';
@@ -237,14 +238,86 @@ function buildGeneralLegalAnswer(analysis: ArgentinaLegalAnalysis): CustomerDeci
   };
 }
 
+function buildLegalDebtEnforcementAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return {
+    kind: 'legal-document',
+    status: 'partial',
+    title: 'El embargo y los intereses pueden corresponder, pero deben surgir de una ejecución válida',
+    directAnswer: 'Puede estar bien, pero no se puede confirmar solamente con esos datos. Si los honorarios fueron regulados judicialmente y la regulación quedó firme, o si existe un convenio exigible, la falta de pago puede generar intereses y dar lugar a una ejecución judicial. El embargo de una cuenta bancaria debe provenir de una orden judicial y limitarse al crédito reclamado, sus intereses y costas. Para saber si en tu caso es correcto hay que revisar el expediente, la regulación o convenio, la notificación, la liquidación de capital e intereses y el monto efectivamente embargado.',
+    findings: [
+      'En la justicia nacional y federal, los honorarios regulados judicialmente deben pagarse dentro de los diez días de quedar firme la resolución regulatoria; su cobro tramita por ejecución de sentencia.',
+      'La mora puede generar intereses, pero la tasa y el período deben surgir de la regulación, la ley aplicable o la decisión judicial y deben poder controlarse.',
+      'Un embargo no prueba por sí mismo que toda la liquidación sea correcta ni impide cuestionar un exceso, un cálculo erróneo o fondos legalmente protegidos.',
+    ],
+    nextActions: [
+      'Pedir copia de la resolución que reguló los honorarios, la constancia de que quedó firme, la intimación de pago y la orden de embargo.',
+      'Solicitar una liquidación separada de capital, tasa aplicada, fecha inicial, intereses y costas, y compararla con el monto inmovilizado.',
+      'Verificar qué tribunal y jurisdicción intervienen, porque la Ley 27.423 rige para asuntos nacionales y federales y las provincias tienen normas propias.',
+      'Consultar de inmediato a otro profesional si el plazo para impugnar la liquidación o pedir reducción/sustitución del embargo sigue corriendo.',
+    ],
+    limitations: [
+      'Falta conocer la jurisdicción, el expediente, el origen de los honorarios, la firmeza de la regulación, las notificaciones y la liquidación practicada.',
+      ...analysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
+    ],
+  };
+}
+
+function buildLeasingAnswer(selectedCategory: string | undefined): CustomerDecisionAnswer {
+  const kind: CustomerDecisionAnswer['kind'] = selectedCategory === 'finance-credit'
+    ? 'financial-product-comparison'
+    : selectedCategory === 'investment-project'
+      ? 'investment-project'
+      : selectedCategory === 'scam-risk'
+        ? 'scam-prevention'
+        : 'legal-document';
+  const focus = selectedCategory === 'finance-credit'
+    ? 'Para compararlo con un préstamo hay que llevar ambos a un mismo flujo después de impuestos: anticipo, cánones, IVA, comisiones, seguros, mantenimiento, opción de compra, costo del crédito alternativo y valor residual.'
+    : selectedCategory === 'investment-project'
+      ? 'Para decidir una inversión hay que medir el costo de uso del activo, ahorro fiscal efectivo, productividad, mantenimiento, obsolescencia, opción de compra y valor residual frente a comprar con capital o deuda.'
+      : selectedCategory === 'scam-risk'
+        ? 'La existencia de un leasing no acredita que la oferta sea legítima: deben verificarse el dador, la titularidad del bien, el contrato, la inscripción, los pagos y las condiciones de recuperación y compra.'
+        : 'Jurídicamente deben revisarse el bien, canon, opción de compra, responsabilidades, inscripción, seguros, mantenimiento, mora, restitución y jurisdicción; la conveniencia económica e impositiva se informa por separado.';
+  const currentTaxRule = leasingKnowledge('tax')[0].statement;
+  const publicSectorRules = leasingKnowledge('public-sector').map((item) => item.statement);
+  return {
+    kind,
+    status: 'partial',
+    title: 'El leasing debe analizarse como contrato, financiación, inversión e impuesto, sin mezclar sus puntajes',
+    directAnswer: `El leasing no es automáticamente mejor ni peor que un préstamo. Combina el uso de un bien a cambio de cánones con una opción de compra y su conveniencia depende del contrato, del activo, del plazo y de la situación fiscal concreta. ${focus}`,
+    findings: [
+      'Marco contractual: Código Civil y Comercial de la Nación, artículos 1227 y siguientes. El artículo 1238 regula el uso y goce del bien; no fija plazos fiscales de amortización.',
+      `Marco tributario nacional vigente desde el 29/03/2022: ${currentTaxRule}`,
+      'Modalidades económicas a distinguir: leasing financiero, leasing operativo o asimilado a locación y lease-back. La denominación comercial no reemplaza el análisis de las condiciones legales y tributarias.',
+      'Una ventaja fiscal sólo existe si el tomador puede computarla conforme su actividad, afectación del bien, impuesto, jurisdicción y documentación; no debe sumarse como ahorro sin verificar su utilización efectiva.',
+      ...publicSectorRules,
+    ],
+    nextActions: [
+      'Comparar leasing, préstamo y compra al contado con el mismo activo, plazo y valor residual, usando flujos mensuales después de impuestos.',
+      'Separar canon financiero, servicios, IVA, seguros, mantenimiento, gastos registrales, comisiones y precio de opción.',
+      'Verificar quién es el dador, cómo se eligió el bien, quién asume vicios, pérdida, mantenimiento, seguro, impuestos y obsolescencia.',
+      'Confirmar con asesoramiento contable el encuadre en Ganancias, IVA e impuestos provinciales antes de atribuir una ventaja impositiva.',
+      'Si el tomador es público, verificar competencia para contratar, procedimiento de selección, autorización presupuestaria y de endeudamiento, capacidad de repago, garantía ofrecida y autorización o encuadre BCRA; no presumir que siempre debe ceder coparticipación.',
+      'Si el bien es importado, verificar antes de contratar el régimen aduanero y el texto ordenado vigente de Exterior y Cambios del BCRA para cada pago al exterior.',
+    ],
+    limitations: ['Faltan tipo y valor del bien, dador, plazo, cánones, opción, tasa o costo alternativo, destino, jurisdicción, impuestos aplicables y capacidad real de aprovechar deducciones o créditos fiscales.'],
+  };
+}
+
 export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): CustomerDecisionAnswer {
   const question = `${input.userInstruction || ''}\n${input.documentText}`;
   const legalCategorySelected = input.selectedCategory === 'argentina-legal-documents';
-  if (input.argentinaLegalAnalysis.applicable && /violaci[oó]n|violador(?:a|es)?|abuso\s+sexual|acceso\s+carnal/i.test(question)) {
+  const explicitQuestion = input.userInstruction?.trim() || input.documentText;
+  if (/\bleasing\b|lease[ -]?back|arrendamiento\s+financiero|opci[oó]n\s+de\s+compra/i.test(explicitQuestion)) {
+    return buildLeasingAnswer(input.selectedCategory);
+  }
+  if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.subtopic === 'sexual-offense') {
     return buildSexualOffenseAnswer(input.argentinaLegalAnalysis);
   }
-  if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.area === 'family' && /alimentos?|cuota\s+alimentaria|divorci/i.test(question)) {
+  if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.subtopic === 'family-support') {
     return buildChildSupportAnswer(input.argentinaLegalAnalysis);
+  }
+  if (legalCategorySelected && input.argentinaLegalAnalysis.subtopic === 'debt-enforcement') {
+    return buildLegalDebtEnforcementAnswer(input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected) {
     return buildGeneralLegalAnswer(input.argentinaLegalAnalysis);
