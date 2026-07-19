@@ -110,3 +110,14 @@ test('leasing separa la jurisdicción del tomador de la presentación fiscal del
   assert.match(findings, /Mendoza.*alícuota general de Sellos del 1%/is);
   assert.doesNotMatch(findings, /Neuquén.*14‰|Jujuy.*8%/is);
 });
+
+test('leasing muestra porcentajes y distingue obligación legal de traslado económico', () => {
+  const result = buildLocalAnalysis('Analizá los porcentajes de un leasing en Río Negro: sellos, Ingresos Brutos y opción de compra.', 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Río Negro — Sellos del contrato: 1%/i);
+  assert.match(findings, /Ingresos Brutos del dador \(actividad 649100\): 9%/i);
+  assert.match(findings, /puede recuperar total o parcialmente.*canon, maxi canon, tasa, comisiones u opción/is);
+  assert.match(findings, /salvo que la oferta o el contrato.*factura o reintegra aparte.*se presume incorporado/is);
+  assert.match(findings, /en caso contrario se trata como incluido.*evitar doble cómputo/is);
+  assert.match(findings, /No sumar mecánicamente Sellos, Ingresos Brutos, patente y opción de compra/i);
+});
