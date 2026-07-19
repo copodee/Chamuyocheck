@@ -121,3 +121,40 @@ test('leasing muestra porcentajes y distingue obligación legal de traslado econ
   assert.match(findings, /en caso contrario se trata como incluido.*evitar doble cómputo/is);
   assert.match(findings, /No sumar mecánicamente Sellos, Ingresos Brutos, patente y opción de compra/i);
 });
+
+test('leasing responde gastos y exenciones de la jurisdicción elegida', () => {
+  const result = buildLocalAnalysis('Quiero un leasing automotor en Córdoba. ¿Qué gastos voy a tener y de cuáles estoy exento?', 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Mapa de gastos y exenciones/i);
+  assert.match(findings, /Precio financiero: maxi canon o anticipo, cánones, tasa o margen/i);
+  assert.match(findings, /Córdoba — Sellos: 0%/i);
+  assert.match(findings, /Córdoba — Sellos: 0%.*Decreto 484\/2022/is);
+  assert.match(findings, /Beneficios o exenciones verificadas\/condicionadas.*destino económico/is);
+  assert.match(findings, /Registración de automotor.*DNRPA/is);
+  assert.match(findings, /Finalización:.*ejercicio de la opción.*transferencia de dominio/is);
+});
+
+test('leasing no inventa una exención cuando faltan jurisdicción y bien', () => {
+  const result = buildLocalAnalysis('¿Qué gastos y exenciones tiene un leasing?', 'Texto', '', null, '', '', 'leasing-specialist');
+  assert.match(result.decisionAnswer?.limitations.join(' ') || '', /faltan como mínimo la provincia.*tipo de bien.*tipo fiscal de tomador/is);
+});
+
+test('leasing explica ventajas exclusivas frente a otras financiaciones sin prometer ahorro', () => {
+  const result = buildLocalAnalysis('Compará un leasing de maquinaria con un préstamo para inversión.', 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Ventajas diferenciales frente a préstamo, prenda u otra financiación/i);
+  assert.match(findings, /propio bien permanece en dominio del dador.*reducir la necesidad.*garantías/is);
+  assert.match(findings, /IVA de los cánones puede distribuirse durante el contrato/is);
+  assert.match(findings, /perfil de deducción diferente.*No se promete ahorro/is);
+  assert.match(findings, /NIIF 16/i);
+});
+
+test('leasing distingue financiero operativo y lease-back al analizar la opción', () => {
+  const result = buildLocalAnalysis('Analizá un leasing operativo o financiero y la opción de compra.', 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Leasing contractual argentino.*debe existir una opción de compra/is);
+  assert.match(findings, /Leasing financiero:.*maxi canon\/cánones y opción/is);
+  assert.match(findings, /Leasing operativo:.*Si no hay una verdadera opción de compra.*locación/is);
+  assert.match(findings, /Lease-back:.*venta inicial.*eventual recompra/is);
+  assert.match(findings, /Control de la opción: informar valor o fórmula.*IVA.*Sellos/is);
+});
