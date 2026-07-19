@@ -10,11 +10,12 @@ test('includes every Argentine local stamp-tax jurisdiction without inventing ex
 
 test('keeps verified local leasing treatments distinct', () => {
   const verified = verifiedProvincialStampProfiles();
-  assert.equal(verified.length, 4);
+  assert.equal(verified.length, 5);
   assert.match(verified.find((item) => item.jurisdiction === 'Ciudad Autónoma de Buenos Aires')?.treatment || '', /0,50%/);
   assert.match(verified.find((item) => item.jurisdiction === 'Buenos Aires')?.treatment || '', /10,5‰/);
   assert.match(verified.find((item) => item.jurisdiction === 'Córdoba')?.treatment || '', /exime/);
   assert.match(verified.find((item) => item.jurisdiction === 'Entre Ríos')?.treatment || '', /pago a cuenta/);
+  assert.match(verified.find((item) => item.jurisdiction === 'Santa Fe')?.treatment || '', /25%/);
 });
 
 test('does not promise company benefits to consumers or monotributistas', () => {

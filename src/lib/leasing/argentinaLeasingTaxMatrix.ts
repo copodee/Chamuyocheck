@@ -56,10 +56,19 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     exemptions: ['No se verificó una exención general vigente por el solo hecho de ser leasing.'],
     sourceUrl: 'https://www.ater.gov.ar/ater2/archivos/ATER-C%C3%B3digo%20Fiscal-digital-2022.pdf', verifiedAt: '2026-07-18',
   },
+  {
+    jurisdiction: 'Santa Fe', fiscalYear: 2026, status: 'verified-current',
+    treatment: 'La Ley 14.426 mantiene el tratamiento de Ingresos Brutos para operaciones de entidades financieras que tengan por objeto constituir leasing. Para 2026 permite a los sujetos alcanzados deducir, con un tope del 25% de la base imponible atribuida a Santa Fe, ciertos ingresos financieros comprendidos en programas productivos o asistencia pública, incluidos los ingresos computables por leasing para municipios.',
+    exemptions: [
+      'El beneficio identificado corresponde a Ingresos Brutos del dador o entidad financiera, está sujeto a encuadre y reglamentación y no equivale a una exención general de Sellos ni a un beneficio automático del tomador.',
+      'La Ley Impositiva 2026 revisada no incorporó una exención general de Sellos para todo contrato de leasing; la alícuota del instrumento y la adquisición u opción deben verificarse en el nomenclador vigente según el bien y el acto.',
+    ],
+    sourceUrl: 'https://www.santafe.gov.ar/boletinoficial/verPdf.php?seccion=2025%2F2025-12-23ley14426.html', verifiedAt: '2026-07-18',
+  },
   ...[
     'Catamarca', 'Chaco', 'Chubut', 'Corrientes', 'Formosa', 'Jujuy',
     'La Pampa', 'La Rioja', 'Mendoza', 'Misiones', 'Neuquén', 'Río Negro', 'Salta', 'San Juan',
-    'San Luis', 'Santa Cruz', 'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
+    'San Luis', 'Santa Cruz', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
   ].map(pending),
 ];
 
