@@ -5,6 +5,7 @@ import { readLocalHistory, type HistoryItem } from '../src/lib/history/localHist
 import { TERMS_SECTIONS, TERMS_STORAGE_KEY, TERMS_VERSION } from '../src/lib/legal/terms';
 import { extractImageTextInBrowser } from '../src/lib/extractors/browserOcr';
 import { getSupabaseClient } from '../src/lib/supabase/client';
+import { calculateLeasingTransparencyScore } from '../src/lib/leasing/leasingTransparencyScore';
 import type { Session } from '@supabase/supabase-js';
 
 type Cat = { name: string; score: number; explanation: string };
@@ -511,7 +512,7 @@ function getScoreExplanationItems(analysis: Analysis, inputKind: string, text: s
   return items.slice(0, 8);
 }
 
-export default function Page() {
+export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean } = {}) {
   const [session, setSession] = useState<Session | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
@@ -547,7 +548,7 @@ export default function Page() {
   const [showTerms, setShowTerms] = useState(false);
   const [termsError, setTermsError] = useState('');
   const [instructionError, setInstructionError] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<AnalysisCategoryId | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<AnalysisCategoryId | null>(leasingPage ? 'leasing-specialist' : null);
   const [categoryError, setCategoryError] = useState('');
   const [leasingProvince, setLeasingProvince] = useState('');
   const [leasingContractProvince, setLeasingContractProvince] = useState('Ciudad Autónoma de Buenos Aires');
@@ -584,6 +585,14 @@ export default function Page() {
     });
     return () => listener.subscription.unsubscribe();
   }, []);
+  useEffect(() => {
+    if (!leasingPage || typeof window === 'undefined') return;
+    const prefill = sessionStorage.getItem('cc_leasing_prefill');
+    if (prefill) {
+      setText(prefill);
+      sessionStorage.removeItem('cc_leasing_prefill');
+    }
+  }, [leasingPage]);
   useEffect(() => {
     try {
       const acceptance = JSON.parse(localStorage.getItem(TERMS_STORAGE_KEY) || '{}');
@@ -731,6 +740,16 @@ export default function Page() {
     setAnalysis(null);
   }
 
+  function updateAnalysisText(value: string) {
+    if (!leasingPage && /\bleasing\b/i.test(value) && typeof window !== 'undefined') {
+      sessionStorage.setItem('cc_leasing_prefill', value);
+      window.location.assign('/leasing');
+      return;
+    }
+    setText(value);
+    setInstructionError('');
+  }
+
   async function analyze() {
     if (!session) {
       setAuthError('Registrate o iniciá sesión para realizar el análisis.');
@@ -831,6 +850,14 @@ export default function Page() {
   }
 
   const score = analysis?.score ?? 35;
+  const leasingScoreSource = [analysis?.extractedPreview || '', text, leasingAssetType, leasingAssetValue ? `Valor neto sin IVA ${leasingAssetValue}` : '', leasingFinancedPercent ? `Porcentaje financiado ${leasingFinancedPercent}` : '', leasingMonths ? `Plazo ${leasingMonths} meses` : '', leasingTna ? `TNA ${leasingTna}%` : '', leasingOptionMode === 'percent' ? `Opción de compra ${leasingOptionPercent}%` : `Opción de compra ${leasingOptionAmount}`, leasingStructuringFeePercent ? `Comisión de estructuración ${leasingStructuringFeePercent}%` : '', leasingProvince ? `Registración y jurisdicción ${leasingProvince}` : ''].filter(Boolean).join(' ');
+  const leasingScore = calculateLeasingTransparencyScore(leasingScoreSource);
+  const isLeasingAnalysis = analysis?.decisionAnswer?.kind === 'leasing-specialist';
+  const leasingScoreExplanationItems = [
+    `Información aportada: ${leasingScore.present.length ? leasingScore.present.join(', ') : 'no se identificaron datos financieros suficientes'}.`,
+    `Información faltante: ${leasingScore.missing.length ? leasingScore.missing.join(', ') : 'no se detectaron faltantes esenciales'}.`,
+    'LeasingScore mide transparencia y completitud de los datos aportados. No mide engaño, veracidad ni calidad jurídica del leasing.',
+  ];
   const getChamuyoColor = (s: number) => s > 80 ? '#8b0000' : s > 60 ? 'var(--red)' : s > 40 ? 'var(--yellow)' : 'var(--green)';
   const getChamuyoLabel = (s: number) => s > 80 ? 'Chamuyo extremo' : s > 60 ? 'Alto chamuyo' : s > 40 ? 'Requiere verificación' : s > 20 ? 'Bajo chamuyo' : 'Muy poco chamuyo';
   const getChamuyoAdvice = (s: number) => s > 80 ? { txt: 'Contenido muy dudoso, no recomendado', color: '#8b0000' } : s > 60 ? { txt: 'Hay se\u00f1ales de manipulaci\u00f3n', color: 'var(--red)' } : s > 40 ? { txt: 'Conviene verificar algunos puntos', color: 'var(--yellow)' } : s > 20 ? { txt: 'Bajo riesgo de manipulaci\u00f3n', color: 'var(--green)' } : { txt: 'Contenido s\u00f3lido y confiable', color: 'var(--green)' };
@@ -841,6 +868,10 @@ export default function Page() {
   const toggleScoreExplanation = () => setShowScoreExplanation((value) => !value);
   const executiveSummaryText = showFullSummary ? analysis?.summary : analysis?.verdict;
   const openHome = () => {
+    if (leasingPage && typeof window !== 'undefined') {
+      window.location.assign('/');
+      return;
+    }
     setActiveView('inicio');
     setMobileMenuOpen(false);
     setShowFullSummary(false);
@@ -863,7 +894,7 @@ export default function Page() {
     setTab('Resumen');
     setLoading(false);
     setSteps([]);
-    setSelectedCategory(null);
+    setSelectedCategory(leasingPage ? 'leasing-specialist' : null);
     setCategoryError('');
     setInstructionError('');
     if (typeof window !== 'undefined') {
@@ -908,6 +939,10 @@ export default function Page() {
     setShowScoreExplanation(false);
   };
   const openLeasingHub = () => {
+    if (!leasingPage && typeof window !== 'undefined') {
+      window.location.assign('/leasing');
+      return;
+    }
     setActiveView('leasing');
     setMobileMenuOpen(false);
     setShowFullSummary(false);
@@ -958,12 +993,12 @@ export default function Page() {
   const userName = String(session?.user.user_metadata?.full_name || session?.user.email || 'Usuario');
   const userInitial = userName.slice(0, 1).toUpperCase();
 
-  return <div className="appShell">
+  return <div className={`appShell ${leasingPage ? 'leasingAppShell' : ''}`}>
     {showTerms && <div className="termsBackdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowTerms(false); }}><section className="termsModal" role="dialog" aria-modal="true" aria-labelledby="terms-title"><div className="termsHeader"><div><h2 id="terms-title">Términos y Condiciones</h2><span>Versión {TERMS_VERSION}</span></div><button type="button" className="iconBtn" aria-label="Cerrar términos" onClick={() => setShowTerms(false)}>×</button></div><div className="termsBody"><p>Leé estos términos antes de usar ChamuyoCheck. La aceptación es obligatoria para realizar análisis.</p>{TERMS_SECTIONS.map((section) => <section key={section.title}><h3>{section.title}</h3><p>{section.body}</p></section>)}<p className="legalDisclaimerSubtle">Este texto establece condiciones operativas iniciales y debe ser revisado por asesoría jurídica argentina antes del lanzamiento comercial definitivo.</p></div><div className="termsActions"><button type="button" className="ghost" onClick={() => setShowTerms(false)}>Cerrar</button><button type="button" className="primary" onClick={acceptCurrentTerms}>Acepto los Términos y Condiciones</button></div></section></div>}
     <input ref={fileRef} type="file" accept=".pdf,image/*,.txt,.doc,.docx" hidden onChange={(e) => onFile(e.target.files?.[0])} />
     <aside className="sidebar">
-      <div className="brand"><div className="shield">✓</div><div><div className="logo">CHAMUYO<span>CHECK</span></div><div className="tag">Finanzas · Estafas · Derecho</div></div></div>
-      <button type="button" className="newBtn" onClick={startNewAnalysis}>＋ Nuevo análisis</button>
+      <div className="brand"><div className="shield">✓</div><div><div className="logo">{leasingPage ? <>LEASING<span>SCORE</span></> : <>CHAMUYO<span>CHECK</span></>}</div><div className="tag">{leasingPage ? 'Transparencia financiera del leasing' : 'Finanzas · Estafas · Derecho'}</div></div></div>
+      <button type="button" className="newBtn" onClick={startNewAnalysis}>＋ {leasingPage ? 'Nuevo leasing' : 'Nuevo análisis'}</button>
       <div className="nav">
         <button type="button" className={activeView === 'inicio' ? 'active' : ''} onClick={openHome}>⌂ Inicio</button>
         <button type="button" className={activeView === 'leasing' ? 'active' : ''} onClick={openLeasingHub}>🏗 Leasing</button>
@@ -983,12 +1018,12 @@ export default function Page() {
         <div className="mobileTopbarBrand">
           <div className="shield">✓</div>
           <div>
-            <div className="logo">CHAMUYO<span>CHECK</span></div>
-            <div className="tag">Finanzas · Estafas · Derecho</div>
+            <div className="logo">{leasingPage ? <>LEASING<span>SCORE</span></> : <>CHAMUYO<span>CHECK</span></>}</div>
+            <div className="tag">{leasingPage ? 'Transparencia financiera' : 'Finanzas · Estafas · Derecho'}</div>
           </div>
         </div>
         <div className="mobileTopbarActions">
-          <button type="button" className="newBtn" onClick={startNewAnalysis}>＋ Nuevo análisis</button>
+          <button type="button" className="newBtn" onClick={startNewAnalysis}>＋ {leasingPage ? 'Nuevo leasing' : 'Nuevo análisis'}</button>
           <button type="button" className="ghost mobileMenuBtn" onClick={() => setMobileMenuOpen((value) => !value)}>{mobileMenuOpen ? '✕' : '☰ Menú'}</button>
         </div>
       </div>
@@ -1029,21 +1064,12 @@ export default function Page() {
         </section>}
         <section className="heroGrid heroIntroGrid">
           <div className="panel heroIntroPanel">
-            <div className="eyebrow">ANÁLISIS ESPECIALIZADO</div>
-            <h1>Antes de pagar, endeudarte o firmar</h1>
-            <p className="heroSubtitle">Descubrí cuánto terminás pagando, qué información falta y qué riesgos deberías verificar.</p>
-            <button type="button" className="leasingModuleBadge" onClick={() => {
-              setSelectedCategory('leasing-specialist');
-              setCategoryError('');
-              setAnalysis(null);
-              setFile(null);
-              setUrl('');
-              setText('');
-              setActiveInput('Texto');
-              setTimeout(() => categoryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40);
-            }}>MÓDULO ESPECIAL LEASING</button>
-            <p className="heroBody">Subí una captura, una oferta, un enlace o un documento. ChamuyoCheck responde tu pregunta con cálculos reproducibles, señales observables y próximos pasos.</p>
-            <div className="heroCta">Preguntá: “¿Cuánto pago en total?”, “¿Me pueden estar estafando?” o “¿Qué obligación estoy aceptando?”.</div>
+            <div className="eyebrow">{leasingPage ? 'ESPECIALISTA EN LEASING' : 'ANÁLISIS ESPECIALIZADO'}</div>
+            <h1>{leasingPage ? 'Leasing transparente, comparable y bien explicado' : 'Antes de pagar, endeudarte o firmar'}</h1>
+            <p className="heroSubtitle">{leasingPage ? 'Medí la transparencia financiera de la propuesta, calculá el flujo y entendé sus ventajas contractuales, fiscales y registrales.' : 'Descubrí cuánto terminás pagando, qué información falta y qué riesgos deberías verificar.'}</p>
+            {!leasingPage && <button type="button" className="leasingModuleBadge" onClick={() => window.location.assign('/leasing')}>MÓDULO ESPECIAL LEASING</button>}
+            <p className="heroBody">{leasingPage ? 'El leasing es un instrumento regulado. Este espacio no lo califica como chamuyo: ordena la información, muestra lo informado, detecta lo que falta y permite comparar alternativas.' : 'Subí una captura, una oferta, un enlace o un documento. ChamuyoCheck responde tu pregunta con cálculos reproducibles, señales observables y próximos pasos.'}</p>
+            <div className="heroCta">{leasingPage ? 'Subí una cotización o completá el caso. LeasingScore evaluará si informa tasas, costo total, cánones, opción, gastos, impuestos y condiciones esenciales.' : 'Preguntá: “¿Cuánto pago en total?”, “¿Me pueden estar estafando?” o “¿Qué obligación estoy aceptando?”.'}</div>
             <div className="heroHighlights">
               <div><strong>{localDoc.label}</strong><span>{localDoc.focus}</span></div>
               <div><strong>Modo</strong><span>{getInputDisplay(detected)}</span></div>
@@ -1052,14 +1078,14 @@ export default function Page() {
           <div className="panel inputPanel" id="inicio-form">
             <div ref={categoryRef} tabIndex={-1} className="categoryPicker" aria-labelledby="category-picker-title">
               <div className="categoryMeta"><span className="categoryStep">PASO 1</span><span className="betaBadge">VERSIÓN BETA</span></div>
-              <h2 id="category-picker-title">Elegí la categoría</h2>
-              <p>La categoría define el tipo de análisis y las fuentes que corresponden.</p>
-              <div className="categoryGrid" role="radiogroup" aria-required="true">
-                {ANALYSIS_CATEGORIES.map((category) => <button key={category.id} type="button" role="radio" aria-checked={selectedCategory === category.id} className={`categoryOption ${category.id === 'leasing-specialist' ? 'leasingCategoryOption' : ''} ${selectedCategory === category.id ? 'selected' : ''}`} onClick={() => { setSelectedCategory(category.id); setCategoryError(''); setAnalysis(null); setFile(null); setUrl(''); setText(''); setActiveInput('Texto'); }}>
+              <h2 id="category-picker-title">{leasingPage ? 'Configurá tu análisis de leasing' : 'Elegí la categoría'}</h2>
+              <p>{leasingPage ? 'Indicá jurisdicciones y datos conocidos, o subí directamente una cotización.' : 'La categoría define el tipo de análisis y las fuentes que corresponden.'}</p>
+              {!leasingPage && <div className="categoryGrid" role="radiogroup" aria-required="true">
+                {ANALYSIS_CATEGORIES.map((category) => <button key={category.id} type="button" role="radio" aria-checked={selectedCategory === category.id} className={`categoryOption ${category.id === 'leasing-specialist' ? 'leasingCategoryOption' : ''} ${selectedCategory === category.id ? 'selected' : ''}`} onClick={() => { if (category.id === 'leasing-specialist') { window.location.assign('/leasing'); return; } setSelectedCategory(category.id); setCategoryError(''); setAnalysis(null); setFile(null); setUrl(''); setText(''); setActiveInput('Texto'); }}>
                   <span className="categoryOptionIcon" aria-hidden="true">{category.icon}</span>
                   <span><strong>{category.label}</strong><span>{category.description}</span></span>
                 </button>)}
-              </div>
+              </div>}
               {categoryError && <div className="termsError" role="alert">{categoryError}</div>}
               {selectedCategory === 'leasing-specialist' && <div className="leasingJurisdictionPicker">
                 <h3>Provincia del leasing</h3>
@@ -1110,7 +1136,7 @@ export default function Page() {
             </div>
             {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" disabled={!selectedCategory} value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}
             <label htmlFor="analysis-instruction"><b>{detected === 'Texto' && !file && !url ? 'Escribí tu consulta' : 'Indicá qué necesitás saber'}</b></label>
-            <textarea id="analysis-instruction" disabled={!selectedCategory} value={text} onChange={(e) => { setText(e.target.value); setInstructionError(''); }} placeholder={selectedCategory === 'leasing-specialist' ? 'Ejemplo: La tomadora es una empresa responsable inscripta y usará el vehículo en su actividad gravada. Analizá la cotización, sus costos y beneficios. El mantenimiento estará a cargo del tomador.' : selectedCategory ? (activeInput === 'YouTube' ? 'Ejemplo: analizá si la propuesta del curso es coherente y qué riesgos tiene.' : activeInput === 'Web' ? 'Ejemplo: calculá el costo total del préstamo y explicá sus condiciones.' : activeInput === 'Imagen' || file?.type.startsWith('image/') ? 'Ejemplo: calculá la TNA y el costo anual efectivo para la alternativa de 36 meses.' : 'Explicá con precisión qué necesitás saber sobre el contenido.') : 'Primero elegí una categoría.'} />
+            <textarea id="analysis-instruction" disabled={!selectedCategory} value={text} onChange={(e) => updateAnalysisText(e.target.value)} placeholder={selectedCategory === 'leasing-specialist' ? 'Ejemplo: La tomadora es una empresa responsable inscripta y usará el vehículo en su actividad gravada. Analizá la cotización, sus costos y beneficios. El mantenimiento estará a cargo del tomador.' : selectedCategory ? (activeInput === 'YouTube' ? 'Ejemplo: analizá si la propuesta del curso es coherente y qué riesgos tiene.' : activeInput === 'Web' ? 'Ejemplo: calculá el costo total del préstamo y explicá sus condiciones.' : activeInput === 'Imagen' || file?.type.startsWith('image/') ? 'Ejemplo: calculá la TNA y el costo anual efectivo para la alternativa de 36 meses.' : 'Explicá con precisión qué necesitás saber sobre el contenido.') : 'Primero elegí una categoría.'} />
             {instructionError && <div className="termsError" role="alert">{instructionError}</div>}
             <div className="termsConsent"><input id="terms-consent" type="checkbox" checked={termsAccepted} onChange={(e) => e.target.checked ? acceptCurrentTerms() : revokeTermsAcceptance()} /><label htmlFor="terms-consent">Leí y acepto los <button type="button" className="termsLink" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>Términos y Condiciones</button> (versión {TERMS_VERSION}).</label></div>
             {termsError && <div className="termsError" role="alert">{termsError}</div>}
@@ -1151,13 +1177,13 @@ export default function Page() {
           {analysis.decisionAnswer.limitations.length > 0 && <details><summary>Supuestos y datos que todavía deben verificarse</summary><ul>{analysis.decisionAnswer.limitations.map((item, index) => <li key={`decision-limit-${index}`}>{item}</li>)}</ul></details>}
         </div>}
         <div className="heroGrid">
-          <div className="panel scoreCard">
+          <div className={`panel scoreCard ${isLeasingAnalysis ? 'leasingScoreCard' : ''}`}>
             <div className="scoreWrap">
-              <div className="circleScore" style={{ ['--p' as any]: score, background: `conic-gradient(${getChamuyoColor(score)} calc(${score}*1%), #293241 0)` }}><div><span style={{ color: getChamuyoColor(score) }}>{score}</span><small>/100</small></div></div>
-              <div className="scoreText"><h2>ChamuyoScore™</h2><h3>{getChamuyoLabel(score)}</h3><p className="chamuyoDisclaimer">El ChamuyoScore mide el nivel de señales de manipulación, falta de evidencia o contenido dudoso. No representa un porcentaje de verdad.</p><p>{analysis.summary}</p><button type="button" className="ghost" onClick={toggleScoreExplanation} aria-expanded={showScoreExplanation}>{showScoreExplanation ? 'Ocultar explicación del puntaje' : 'Ver explicación del puntaje'}</button>{shouldShowScoreExplanationPanel && <div className="scoreExplanationPanel" role="region" aria-live="polite"><ul>{scoreExplanationItems.map((item, i) => <li key={i} style={{whiteSpace: item === '' ? 'normal' : 'pre-wrap', fontWeight: item.includes('FUNDAMENTO') || item.includes('CONCLUSIÓN') || item.includes('HECHOS') || item.includes('INTERPRETACIÓN') || item.includes('CRITERIOS') || item.includes('LIMITACIÓN') || item.includes('POR QUÉ') ? '600' : 'normal', color: item.includes('⚠️') ? '#e74c3c' : 'inherit'}}>{item}</li>)}</ul></div>}</div>
+              <div className="circleScore" style={{ ['--p' as any]: isLeasingAnalysis ? leasingScore.score : score, background: `conic-gradient(${isLeasingAnalysis ? leasingScore.color : getChamuyoColor(score)} calc(${isLeasingAnalysis ? leasingScore.score : score}*1%), #293241 0)` }}><div><span style={{ color: isLeasingAnalysis ? leasingScore.color : getChamuyoColor(score) }}>{isLeasingAnalysis ? leasingScore.score : score}</span><small>/100</small></div></div>
+              <div className="scoreText"><h2>{isLeasingAnalysis ? 'LeasingScore™' : 'ChamuyoScore™'}</h2><h3 style={isLeasingAnalysis ? { color: leasingScore.color } : undefined}>{isLeasingAnalysis ? leasingScore.label : getChamuyoLabel(score)}</h3><p className="chamuyoDisclaimer">{isLeasingAnalysis ? 'LeasingScore mide la transparencia financiera y la completitud de la información aportada. Un puntaje mayor significa que la propuesta informa mejor sus costos y condiciones.' : 'El ChamuyoScore mide el nivel de señales de manipulación, falta de evidencia o contenido dudoso. No representa un porcentaje de verdad.'}</p><p>{isLeasingAnalysis ? 'La puntuación considera identificación de partes y bien, valor neto e IVA, financiación, plazo, cánones, TNA, TEA, CFTEA, opción, comisiones, seguro, garantías, impuestos y registración.' : analysis.summary}</p><button type="button" className="ghost" onClick={toggleScoreExplanation} aria-expanded={showScoreExplanation}>{showScoreExplanation ? 'Ocultar explicación del puntaje' : 'Ver explicación del puntaje'}</button>{showScoreExplanation && <div className="scoreExplanationPanel" role="region" aria-live="polite"><ul>{(isLeasingAnalysis ? leasingScoreExplanationItems : scoreExplanationItems).map((item, i) => <li key={i}>{item}</li>)}</ul></div>}</div>
             </div>
           </div>
-          <div className="panel decisionCard"><div className="light" style={{ background: semaforo.color }}></div><div><h2>Semáforo de decisiones</h2><h3 style={{ color: semaforo.color }}>{semaforo.txt}</h3><p>{analysis.prudentConclusion}</p></div></div>
+          <div className="panel decisionCard"><div className="light" style={{ background: isLeasingAnalysis ? leasingScore.color : semaforo.color }}></div><div><h2>{isLeasingAnalysis ? 'Estado de la información' : 'Semáforo de decisiones'}</h2><h3 style={{ color: isLeasingAnalysis ? leasingScore.color : semaforo.color }}>{isLeasingAnalysis ? leasingScore.label : semaforo.txt}</h3><p>{isLeasingAnalysis ? `${leasingScore.missing.length} de ${leasingScore.present.length + leasingScore.missing.length} datos de transparencia todavía no aparecen informados.` : analysis.prudentConclusion}</p></div></div>
           <div className="panel legalResultPanel"><h2>Fundamento y alcance del resultado</h2><ul>{(analysis.resultJustification || []).map((item, i) => <li key={i}>{item}</li>)}</ul><p className="legalDisclaimerSubtle">{analysis.legalSafeguard}</p>{analysis.legalNotice && <details><summary>Limitaciones y usos no permitidos como única evidencia</summary><h3>Limitaciones</h3><ul>{analysis.legalNotice.limitations.map((item, i) => <li key={`limit-${i}`}>{item}</li>)}</ul><h3>No usar como única base para</h3><ul>{analysis.legalNotice.prohibitedSoleUses.map((item, i) => <li key={`use-${i}`}>{item}</li>)}</ul></details>}</div>
           {analysis.externalVerification?.externalVerificationRequired && <div className="panel legalResultPanel">
             <h2>Verificación externa</h2>
@@ -1249,7 +1275,7 @@ export default function Page() {
         {reportSections?.contextCard && <div className="section"><h2>{reportSections.contextCard.title}</h2><ul>{reportSections.contextCard.items.map((x, i) => <li key={i}>{x}</li>)}</ul></div>}
         <div className="section"><h2>Recomendaciones de verificación</h2><ul>{reportSections?.recommendations.slice(0, 6).map((x, i) => <li key={i}>{x}</li>)}</ul></div>
         <div className="section"><h2>Especialistas activados</h2><div className="moduleGrid">{analysis.modules.map(moduleCard)}</div></div>
-        <div className="section"><h2>Por qué obtuvo este puntaje</h2><ul>{(analysis.scoreExplanation || []).map((x, i) => <li key={i}>{x}</li>)}</ul></div>
+        <div className="section"><h2>{isLeasingAnalysis ? 'Cómo se calculó LeasingScore' : 'Por qué obtuvo este puntaje'}</h2><ul>{(isLeasingAnalysis ? leasingScoreExplanationItems : (analysis.scoreExplanation || [])).map((x, i) => <li key={i}>{x}</li>)}</ul></div>
         {analysis.extractedPreview && <div className="section"><h2>Datos extraídos</h2><p>{analysis.extractedPreview}</p></div>}</>}
       </section>}
       </> : <section className="panel viewPanel" style={{ padding: '28px', marginTop: '8px' }}>
@@ -1308,4 +1334,8 @@ export default function Page() {
     </main>
     <div className="legalFooter"><details><summary>🔒 Aviso legal</summary><p>{analysis?.legalSafeguard || 'ChamuyoCheck genera una evaluación automatizada y orientativa. No afirma veracidad, falsedad, autoría, plagio, uso de IA ni ilegalidad; no reemplaza asesoramiento profesional.'}</p></details><span>Resultado automatizado, orientativo y sujeto a revisión humana.</span></div>
   </div>;
+}
+
+export default function Page() {
+  return <ChamuyoCheckApp />;
 }

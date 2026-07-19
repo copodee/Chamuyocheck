@@ -31,6 +31,13 @@ body{
 }
 button,input,textarea{font:inherit}
 .appShell{min-height:100vh;min-width:0;max-width:100%;display:grid;grid-template-columns:290px minmax(0,1fr)}
+.leasingAppShell{--green:#f4ff00;--cyan:#d9ff38;--violet:#147d68;--violet2:#22b890;background:radial-gradient(circle at 18% 8%,rgba(244,255,0,.10),transparent 30%),radial-gradient(circle at 72% 2%,rgba(39,239,189,.13),transparent 28%),linear-gradient(180deg,#050b0d,#030708)}
+.leasingAppShell .sidebar{background:linear-gradient(180deg,rgba(5,19,20,.99),rgba(3,10,12,.99));border-right-color:rgba(244,255,0,.16)}
+.leasingAppShell .logo{color:#f4ff00}.leasingAppShell .logo span{color:#27efbd}
+.leasingAppShell .tag{color:#a8d9ca}
+.leasingAppShell .heroIntroPanel,.leasingAppShell .inputPanel{border-color:rgba(244,255,0,.17)}
+.leasingAppShell .leasingScoreCard{border-color:rgba(244,255,0,.34);box-shadow:0 24px 70px rgba(39,239,189,.08)}
+.leasingAppShell .chamuyoDisclaimer{background:rgba(244,255,0,.07);border-left-color:#f4ff00;color:#dfe9d4}
 .sidebar{position:sticky;top:0;height:100vh;background:linear-gradient(180deg,rgba(7,16,29,.98),rgba(4,8,15,.98));border-right:1px solid var(--border);padding:28px 20px;display:flex;flex-direction:column;gap:22px}
 .brand{display:flex;gap:12px;align-items:center}
 .shield{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--violet),#111827);display:grid;place-items:center;border:1px solid rgba(39,239,189,.35);font-size:24px}
