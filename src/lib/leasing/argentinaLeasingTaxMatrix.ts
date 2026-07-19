@@ -22,11 +22,19 @@ export const LEASING_TAXPAYER_PROFILES: Record<LeasingTaxpayerProfile, string> =
   consumer: 'Una persona humana que usa el bien para consumo personal normalmente soporta el IVA y los tributos locales como costo y no puede deducir el canon ni computar crédito fiscal por ese uso.',
 };
 
-const pending = (jurisdiction: string): ProvincialStampProfile => ({
+const researchedPending = (
+  jurisdiction: string,
+  treatment: string,
+  sourceUrl: string,
+  exemptions: string[] = [],
+): ProvincialStampProfile => ({
   jurisdiction,
+  fiscalYear: 2026,
   status: 'verification-required',
-  treatment: 'Debe verificarse el Código Fiscal y la Ley Impositiva vigentes, la jurisdicción instrumental o de efectos, la base, el tipo de bien, la opción de compra y las exenciones subjetivas u objetivas. No se presume exención.',
-  exemptions: [],
+  treatment,
+  exemptions,
+  sourceUrl,
+  verifiedAt: '2026-07-18',
 });
 
 // A jurisdiction is promoted to verified-current only after checking its current
@@ -142,11 +150,50 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     ],
     verifiedAt: '2026-07-18',
   },
-  ...[
-    'Catamarca', 'Chubut', 'Corrientes', 'Formosa',
-    'La Pampa', 'La Rioja', 'Misiones', 'Río Negro', 'San Juan',
-    'San Luis', 'Santa Cruz', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
-  ].map(pending),
+  {
+    jurisdiction: 'Río Negro', fiscalYear: 2026, status: 'verified-current',
+    stampRatePercent: 1,
+    grossIncomeRatePercent: 9,
+    treatment: 'La Ley Impositiva 5.837 incluye expresamente al leasing entre los contratos de locación y ejecución sucesiva alcanzados por Sellos al 10‰ (1%). La misma ley asigna a la actividad 649100, arrendamiento financiero/leasing, una alícuota de Ingresos Brutos del 9%.',
+    exemptions: [
+      'La opción de compra no debe confundirse con el contrato: la transferencia de automotores tributa, como regla, 20‰, con supuestos de 0‰ para determinados vehículos productivos y actividades bajo las condiciones del artículo 14.',
+      'La Ley I 2407 alcanza instrumentos otorgados fuera de Río Negro cuando se negocian, ejecutan o producen efectos allí; para bienes registrables también debe revisarse su lugar de radicación.',
+      'El 9% es Ingresos Brutos del dador alcanzado y no un recargo que deba sumarse automáticamente al canon del tomador.',
+    ],
+    sourceUrl: 'https://web.legisrn.gov.ar/legislativa/legislacion/documento?id=11108',
+    sourceUrls: ['https://web.legisrn.gov.ar/legislativa/legislacion/documento?id=11108', 'https://www.legisrn.gov.ar/L/L02407.html'],
+    verifiedAt: '2026-07-18',
+  },
+  {
+    jurisdiction: 'Tierra del Fuego', fiscalYear: 2026, status: 'verified-current',
+    stampRatePercent: 1,
+    stampRateCondition: 'Alícuota de contratos y operaciones en general; la opción y los actos registrales se analizan separadamente.',
+    treatment: 'AREF informa una alícuota de Sellos del 1% para contratos y operaciones en general. El Código Fiscal contiene una base específica para leasing y permite computar el impuesto abonado sobre los cánones al ejercerse la opción, bajo sus condiciones.',
+    exemptions: [
+      'Un instrumento celebrado fuera de la provincia puede quedar alcanzado si el bien está radicado allí, si el contrato produce efectos locales o si el bien se usa o aprovecha económicamente en Tierra del Fuego.',
+      'No se verificó una exención general por leasing; la transferencia, registración y opción deben liquidarse según el bien y el acto concreto.',
+    ],
+    sourceUrl: 'https://www.aref.gob.ar/impuesto-de-sellos-2/',
+    sourceUrls: ['https://www.aref.gob.ar/impuesto-de-sellos-2/', 'https://www.aref.gob.ar/wp-content/uploads/2022/10/DP-2408-22-Codigo-Fiscal-texto-ordenado.pdf'],
+    verifiedAt: '2026-07-18',
+  },
+  researchedPending(
+    'Catamarca',
+    'La guía oficial registral informa 1% para leasing automotor, pero debe revalidarse contra la Ley Impositiva 2026 antes de usarlo en una comparación contractual general.',
+    'https://www.dnrpa.gov.ar/include/publicaciones/rentas/sellos-catamarca.pdf',
+    ['La referencia disponible es registral y no autoriza a extender el 1% a inmuebles, aeronaves, embarcaciones ni a la opción de compra.'],
+  ),
+  researchedPending('Chubut', 'La base del leasing y el crédito del impuesto pagado sobre cánones están contemplados en la normativa provincial; falta confirmar la alícuota 2026 del contrato y de la opción en la ley tarifaria vigente.', 'https://www.dgrchubut.gov.ar/'),
+  researchedPending('Corrientes', 'La jurisdicción instrumental, los efectos locales y la tasa aplicable al leasing deben confirmarse en el Código Fiscal y la Ley Tarifaria 2026; no se asigna una tasa general por analogía.', 'https://www.atp.corrientes.gob.ar/'),
+  researchedPending('Formosa', 'La Ley Impositiva oficial vigente publica tasas de Sellos por clases de actos, pero no se verificó todavía una alícuota autónoma para leasing; contrato y opción deben clasificarse separadamente.', 'https://archivos.formosa.gob.ar/media/uploads/guia_tramites/normas/norma_1718366375.pdf'),
+  researchedPending('La Pampa', 'Debe completarse la lectura conjunta del Código Fiscal y la Ley Impositiva 2026 para determinar base, territorialidad y tasa del leasing, sin presumir que locación, financiación y opción tienen el mismo tratamiento.', 'https://dgr.lapampa.gob.ar/'),
+  researchedPending('La Rioja', 'La tasa del contrato de leasing y la de su opción permanecen pendientes de confirmación en la normativa tributaria 2026 publicada por la Dirección General de Ingresos Provinciales.', 'https://dgiplarioja.gob.ar/'),
+  researchedPending('Misiones', 'ATM identifica un trámite específico para contratos de leasing o sus prórrogas, pero la alícuota y la base 2026 deben confirmarse en la Ley XXII Nº 35 y su ley tarifaria antes de comparar.', 'https://www.dgr.misiones.gov.ar/preguntas-frecuentes/'),
+  researchedPending('San Juan', 'La normativa provincial distingue la primera etapa del leasing, los cánones, la opción y los bienes registrables; falta validar la alícuota anual 2026 antes de mostrar un porcentaje.', 'https://rentas.dgrsj.gob.ar/'),
+  researchedPending('San Luis', 'No se encontró todavía una publicación oficial 2026 que permita sostener una tasa específica de leasing; deben verificarse contrato, efectos, radicación y opción en forma separada.', 'https://dpip.sanluis.gov.ar/'),
+  researchedPending('Santa Cruz', 'ASIP confirma que Sellos alcanza instrumentos formalizados en Santa Cruz y también los otorgados fuera que produzcan efectos allí; la tasa específica del leasing debe obtenerse de la Ley Impositiva vigente.', 'https://www.asip.gob.ar/sellos-2/'),
+  researchedPending('Santiago del Estero', 'La liquidación requiere identificar el tratamiento específico del leasing en el Código Fiscal y la Ley Impositiva 2026; no se usa la tasa general hasta verificar base y opción.', 'https://www.dgrsantiago.gov.ar/'),
+  researchedPending('Tucumán', 'La Dirección General de Rentas publica el Código Tributario y la Ley Impositiva; queda pendiente confirmar el renglón 2026 aplicable al contrato de leasing y a la transferencia por opción.', 'https://www.rentastucuman.gob.ar/'),
 ];
 
 export function verifiedProvincialStampProfiles() {

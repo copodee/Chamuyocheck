@@ -5,12 +5,14 @@ import { LEASING_TAXPAYER_PROFILES, PROVINCIAL_LEASING_STAMP_MATRIX, verifiedPro
 test('includes every Argentine local stamp-tax jurisdiction without inventing exemptions', () => {
   assert.equal(PROVINCIAL_LEASING_STAMP_MATRIX.length, 24);
   assert.equal(new Set(PROVINCIAL_LEASING_STAMP_MATRIX.map((item) => item.jurisdiction)).size, 24);
-  assert.ok(PROVINCIAL_LEASING_STAMP_MATRIX.filter((item) => item.status === 'verification-required').every((item) => item.exemptions.length === 0));
+  assert.ok(PROVINCIAL_LEASING_STAMP_MATRIX
+    .filter((item) => item.status === 'verification-required')
+    .every((item) => item.stampRatePercent === undefined && item.grossIncomeRatePercent === undefined));
 });
 
 test('keeps verified local leasing treatments distinct', () => {
   const verified = verifiedProvincialStampProfiles();
-  assert.equal(verified.length, 10);
+  assert.equal(verified.length, 12);
   assert.match(verified.find((item) => item.jurisdiction === 'Ciudad Autónoma de Buenos Aires')?.treatment || '', /0,50%/);
   assert.match(verified.find((item) => item.jurisdiction === 'Buenos Aires')?.treatment || '', /10,5‰/);
   assert.match(verified.find((item) => item.jurisdiction === 'Córdoba')?.treatment || '', /exime/);
@@ -22,6 +24,10 @@ test('keeps verified local leasing treatments distinct', () => {
   assert.match(verified.find((item) => item.jurisdiction === 'Salta')?.treatment || '', /0‰.*8%/i);
   assert.match(verified.find((item) => item.jurisdiction === 'Chaco')?.treatment || '', /649100.*2,90%/i);
   assert.equal(verified.find((item) => item.jurisdiction === 'Chaco')?.stampRatePercent, undefined);
+  assert.match(verified.find((item) => item.jurisdiction === 'Río Negro')?.treatment || '', /10‰.*9%/i);
+  assert.equal(verified.find((item) => item.jurisdiction === 'Río Negro')?.stampRatePercent, 1);
+  assert.match(verified.find((item) => item.jurisdiction === 'Tierra del Fuego')?.treatment || '', /1%/);
+  assert.equal(verified.find((item) => item.jurisdiction === 'Tierra del Fuego')?.stampRatePercent, 1);
   const cabaRules = JSON.stringify(verified.find((item) => item.jurisdiction === 'Ciudad Autónoma de Buenos Aires'));
   assert.match(cabaRules, /Ley CABA 6\.926.*tomador.*guarda habitual.*uso o explotación/is);
   assert.doesNotMatch(cabaRules, /dador está domiciliado|dador se halle domiciliado/is);
