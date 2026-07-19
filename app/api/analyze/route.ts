@@ -954,6 +954,10 @@ export async function handleAnalyzeRequest(req: Request) {
     const termsAccepted = form.get('termsAccepted') === 'true';
     const termsVersion = String(form.get('termsVersion') || '');
     const selectedCategoryRaw = String(form.get('selectedCategory') || '').trim();
+    const leasingProvince = String(form.get('leasingProvince') || '').trim();
+    const leasingContractProvince = String(form.get('leasingContractProvince') || '').trim();
+    const leasingLessorProvince = String(form.get('leasingLessorProvince') || '').trim();
+    const leasingComparisonProvince = String(form.get('leasingComparisonProvince') || '').trim();
 
     if (!termsAccepted || termsVersion !== TERMS_VERSION) {
       return NextResponse.json({
@@ -968,6 +972,9 @@ export async function handleAnalyzeRequest(req: Request) {
       }, { status: 400 });
     }
     const selectedCategory: SupportedProductArea = selectedCategoryRaw;
+    if (selectedCategory === 'leasing-specialist' && !leasingProvince) {
+      return NextResponse.json({ error: 'Elegí la provincia principal del leasing antes de analizar.' }, { status: 400 });
+    }
 
     let fileName = '';
     let fileType = '';
@@ -1047,7 +1054,13 @@ export async function handleAnalyzeRequest(req: Request) {
     const documentText = hasExternalContent
       ? [extracted, webText].filter(Boolean).join('\n\n')
       : userText;
-    const userInstruction = hasExternalContent ? userText : '';
+    const leasingJurisdictionContext = selectedCategory === 'leasing-specialist'
+      ? `Jurisdicción de celebración e instrumentación del contrato: ${leasingContractProvince || 'no indicada'}. Provincia de uso, guarda y radicación del bien: ${leasingProvince}. Domicilio del dador: ${leasingLessorProvince || 'no indicado'}.${leasingComparisonProvince ? ` Escenario provincial alternativo para comparar contrato y radicación: ${leasingComparisonProvince}.` : ''} Determinar territorialidad y pago de Sellos considerando ambas jurisdicciones, los efectos del instrumento y las reglas que eviten doble imposición. Comparar únicamente porcentajes, bases y condiciones —sin calcular montos— de Sellos, Ingresos Brutos, inscripción inicial, patentamiento, patente anual y opción de compra. Clasificar el cambio como posible, condicionado a una conexión real o no justificable. En vehículos, considerar expresamente domicilio del dador, domicilio del tomador, guarda y uso. No se presume libre elección fiscal.`
+      : '';
+    const userInstruction = hasExternalContent ? [userText, leasingJurisdictionContext].filter(Boolean).join('\n') : '';
+    const contextualDocumentText = !hasExternalContent && leasingJurisdictionContext
+      ? `${documentText}\n${leasingJurisdictionContext}`
+      : documentText;
 
     if (userInstruction.length > MAX_USER_INSTRUCTION_LENGTH) {
       return NextResponse.json({ error: 'La instrucción supera el límite permitido.' }, { status: 413 });
@@ -1062,12 +1075,12 @@ export async function handleAnalyzeRequest(req: Request) {
       return NextResponse.json({ error: 'Ingresá texto, una URL o un documento si querés analizar contenido.' }, { status: 400 });
     }
 
-    const productScope = classifyProductScope(documentText, userInstruction, selectedCategory);
+    const productScope = classifyProductScope(contextualDocumentText, userInstruction, selectedCategory);
     if (!productScope.supported) {
       return NextResponse.json(buildOutOfScopeAnalysis(documentText, inputKind, productScope.reason));
     }
 
-    const fallback = buildLocalAnalysis(documentText, inputKind, fileName, extraction, userInstruction, url, selectedCategory);
+    const fallback = buildLocalAnalysis(contextualDocumentText, inputKind, fileName, extraction, userInstruction, url, selectedCategory);
 
     const openai = process.env.OPENAI_API_KEY && openAIAnalysisEnabled()
       ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20_000, maxRetries: 0 })

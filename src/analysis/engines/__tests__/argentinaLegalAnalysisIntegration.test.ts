@@ -100,3 +100,13 @@ test('la categoría leasing usa especialista y dimensiones propias', () => {
   assert.ok(result.categoryScores.some((item) => item.name === 'Registro y oponibilidad'));
   assert.equal(result.categoryScores.some((item) => item.name === 'Riesgo financiero'), false);
 });
+
+test('leasing separa la jurisdicción del tomador de la presentación fiscal del dador', () => {
+  const context = 'Compará impuestos de un leasing automotor. Jurisdicción del tomador y del contrato: Córdoba. Domicilio o lugar de presentación fiscal del dador: Ciudad Autónoma de Buenos Aires. Comparar la jurisdicción del tomador con: Mendoza.';
+  const result = buildLocalAnalysis(context, 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Ciudad Autónoma de Buenos Aires.*0,50%/is);
+  assert.match(findings, /Córdoba.*Decreto provincial 484\/2022/is);
+  assert.match(findings, /Mendoza.*alícuota general de Sellos del 1%/is);
+  assert.doesNotMatch(findings, /Neuquén.*14‰|Jujuy.*8%/is);
+});

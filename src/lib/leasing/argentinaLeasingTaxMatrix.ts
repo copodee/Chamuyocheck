@@ -7,7 +7,10 @@ export type ProvincialStampProfile = {
   status: ProvincialStampStatus;
   treatment: string;
   exemptions: string[];
+  stampRatePercent?: number;
+  stampRateCondition?: string;
   sourceUrl?: string;
+  sourceUrls?: string[];
   verifiedAt?: string;
 };
 
@@ -30,22 +33,34 @@ const pending = (jurisdiction: string): ProvincialStampProfile => ({
 export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
   {
     jurisdiction: 'Ciudad Autónoma de Buenos Aires', fiscalYear: 2026, status: 'verified-current',
+    stampRatePercent: 0.5,
     treatment: 'AGIP informa una alícuota de Sellos del 0,50% para contratos de leasing. El Valor Locativo de Referencia de alquileres comerciales no se aplica a leasing.',
-    exemptions: ['No se encontró una exención general por el solo hecho de ser leasing; deben revisarse las exenciones del acto, bien y sujeto concretos.'],
-    sourceUrl: 'https://imagenes.agip.gob.ar/impuestos/sellos', verifiedAt: '2026-07-18',
+    exemptions: [
+      'No se encontró una exención general por el solo hecho de ser leasing; deben revisarse las exenciones del acto, bien y sujeto concretos.',
+      'Código Fiscal CABA 2026, art. 319(a): un acto instrumentado en CABA no tributa Sellos allí cuando los bienes objeto de la transacción están radicados o situados fuera de CABA. Esto debe cruzarse con la territorialidad de la provincia donde el contrato produce efectos.',
+      'Para vehículos en leasing, el art. 422 considera radicación fiscal en CABA cuando el dador está domiciliado allí; si no lo está, atiende al domicilio del tomador, guarda habitual y uso o explotación. A la vez, el Digesto DNRPA permite radicar por guarda habitual acreditada con documentos extendidos a nombre del tomador. La propia DNRPA advierte que, si la guarda fija una jurisdicción impositiva distinta del domicilio del titular, puede existir doble imposición y el Registro no procesa el trámite de Patentes: debe resolverse ante los fiscos.',
+    ],
+    sourceUrl: 'https://imagenes.agip.gob.ar/impuestos/sellos',
+    sourceUrls: ['https://imagenes.agip.gob.ar/impuestos/sellos', 'https://imagenes.agip.gob.ar/filemanager/source/Decretos/2025/PE-DEC-AJG-AJG-116-25-ANX-1.pdf', 'https://www.dnrpa.gov.ar/concursos_publicos/Digesto12-06-2023/Titulo1.pdf'], verifiedAt: '2026-07-18',
   },
   {
     jurisdiction: 'Buenos Aires', fiscalYear: 2026, status: 'verified-current',
+    stampRatePercent: 1.05,
+    stampRateCondition: 'Alícuota especial para leasing registrado en entidades autorizadas; otros encuadres requieren determinar la tasa aplicable.',
     treatment: 'La base especial es el total de cánones. Si se ejerce la opción, la transferencia toma el mayor entre el valor total asignado (cánones más opción) y la valuación fiscal, con crédito por Sellos pagado sobre los cánones. La Ley Impositiva fija 10,5‰ para leasing registrado en entidades autorizadas; otros encuadres requieren determinar la alícuota aplicable.',
     exemptions: [
+      'ARBA informa que PBA alcanza los instrumentos celebrados en la Provincia y/o que causen efectos en ella. Un contrato firmado en CABA para un bien usado o radicado en PBA requiere liquidar la territorialidad bonaerense y no asumir que el pago en CABA lo sustituye.',
       'Tasa 0% para la venta de determinados vehículos nuevos destinados a leasing, sujeta a las categorías y condiciones de la Ley Impositiva 2026.',
       'Tasa 0% para el ejercicio de la opción de compra de inmuebles ubicados en un Agrupamiento Industrial reconocido, bajo sus condiciones.',
       'La antigua bonificación automotor del 20% por leasing no debe presentarse como beneficio vigente general en 2026.',
     ],
-    sourceUrl: 'https://www.arba.gov.ar/archivos/Publicaciones/leyimpositiva2026.pdf', verifiedAt: '2026-07-18',
+    sourceUrl: 'https://www.arba.gov.ar/archivos/Publicaciones/leyimpositiva2026.pdf',
+    sourceUrls: ['https://www.arba.gov.ar/archivos/Publicaciones/leyimpositiva2026.pdf', 'https://web.arba.gov.ar/preguntas-frecuentes/que-grava-el-impuesto-de-sellos'], verifiedAt: '2026-07-18',
   },
   {
     jurisdiction: 'Córdoba', fiscalYear: 2026, status: 'verified-current',
+    stampRatePercent: 0,
+    stampRateCondition: 'Sólo si el contrato y el destino económico cumplen el Decreto 484/2022.',
     treatment: 'El Decreto provincial 484/2022, que el portal oficial de Rentas identifica como vigente, exime del Impuesto de Sellos a los contratos de leasing comprendidos en las modalidades de los incisos a), b), c) y e) del artículo 1231 del Código Civil y Comercial, cuando el tomador destina el bien al desarrollo de sus actividades económicas.',
     exemptions: ['La exención exige modalidad contractual comprendida y destino económico del bien; no es una exención general para consumo personal ni para cualquier contrato denominado leasing.'],
     sourceUrl: 'https://cms.rentascordoba.gob.ar/wp-content/uploads/2022/05/decreto_n%C2%B0_484-2022_-_eximicion_impuesto_de_sellos._contratos_de_leasing.pdf', verifiedAt: '2026-07-18',
@@ -67,6 +82,7 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
   },
   {
     jurisdiction: 'Neuquén', fiscalYear: 2026, status: 'verified-current',
+    stampRatePercent: 1.4,
     treatment: 'La Ley Impositiva 3541 fija Sellos del 14‰ para contratos de leasing sobre el monto de los cánones durante su duración hasta ejercer la opción. Al ejercerse la compra se liquida la alícuota prevista para el tipo de bien transferido. La actividad 649100, arrendamiento financiero/leasing, tributa Ingresos Brutos al 9%.',
     exemptions: [
       'No se identificó una exención general de Sellos por leasing en la Ley Impositiva 2026.',
@@ -76,6 +92,8 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
   },
   {
     jurisdiction: 'Mendoza', fiscalYear: 2026, status: 'verified-current',
+    stampRatePercent: 1,
+    stampRateCondition: 'Alícuota general 2026; el acto o bien puede tener una tasa específica.',
     treatment: 'El Código Fiscal 2026 calcula Sellos del leasing sobre los cánones hasta ejercer la opción. Si se transfiere un inmueble o bien mueble registrable, la base es el mayor entre el valor total adjudicado —cánones más residual— y el valor de referencia, computando como pago a cuenta el impuesto abonado durante el contrato. La Ley 9680 fija para 2026 una alícuota general de Sellos del 1%, con tasas específicas según el acto o bien.',
     exemptions: [
       'La Ley 9680 establece una reducción plurianual de la alícuota general: 1% en 2026, 0,75% en 2027, 0,50% en 2028, 0,25% en 2029 y 0% en 2030; el cronograma puede prorrogarse si se verifica la situación recesiva definida por la ley.',
@@ -86,6 +104,7 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
   },
   {
     jurisdiction: 'Jujuy', fiscalYear: 2026, status: 'verified-current',
+    stampRatePercent: 1,
     treatment: 'La Ley Impositiva 6492 fija una alícuota específica de Sellos del 1% para los contratos de leasing. La actividad 649100, arrendamiento financiero/leasing, tributa Ingresos Brutos al 8%.',
     exemptions: [
       'No se identificó en la Ley Impositiva 2026 una exención general de Sellos para leasing.',

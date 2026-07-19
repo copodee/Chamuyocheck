@@ -164,6 +164,13 @@ const ANALYSIS_CATEGORIES: Array<{
   { id: 'leasing-specialist', icon: '🏗️', label: 'Leasing', description: 'Contrato, cánones, impuestos, registros, importación, sector público y comparación internacional.' },
 ];
 
+const ARGENTINA_JURISDICTIONS = [
+  'Ciudad Autónoma de Buenos Aires', 'Buenos Aires', 'Catamarca', 'Chaco', 'Chubut', 'Córdoba',
+  'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy', 'La Pampa', 'La Rioja', 'Mendoza', 'Misiones',
+  'Neuquén', 'Río Negro', 'Salta', 'San Juan', 'San Luis', 'Santa Cruz', 'Santa Fe',
+  'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
+];
+
 function Bar({ score }: { score: number }) {
   return <div className="bar"><div className="fill" style={{ ['--w' as any]: `${Math.max(0, Math.min(100, score || 0))}%` }} /></div>;
 }
@@ -531,6 +538,11 @@ export default function Page() {
   const [instructionError, setInstructionError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<AnalysisCategoryId | null>(null);
   const [categoryError, setCategoryError] = useState('');
+  const [leasingProvince, setLeasingProvince] = useState('');
+  const [leasingContractProvince, setLeasingContractProvince] = useState('Ciudad Autónoma de Buenos Aires');
+  const [leasingLessorProvince, setLeasingLessorProvince] = useState('Ciudad Autónoma de Buenos Aires');
+  const [leasingComparisonProvince, setLeasingComparisonProvince] = useState('');
+  const [leasingProvinceError, setLeasingProvinceError] = useState('');
   const fileRef = useRef<HTMLInputElement | null>(null);
   const categoryRef = useRef<HTMLDivElement | null>(null);
 
@@ -698,6 +710,10 @@ export default function Page() {
       document.querySelector<HTMLTextAreaElement>('#analysis-instruction')?.focus();
       return;
     }
+    if (selectedCategory === 'leasing-specialist' && !leasingProvince) {
+      setLeasingProvinceError('Elegí la provincia principal del leasing antes de analizar.');
+      return;
+    }
     setCategoryError('');
     setInstructionError('');
     if (!termsAccepted) {
@@ -719,6 +735,12 @@ export default function Page() {
       form.append('url', url);
       form.append('inputType', detected);
       form.append('selectedCategory', selectedCategory);
+      if (selectedCategory === 'leasing-specialist') {
+        form.append('leasingProvince', leasingProvince);
+        form.append('leasingContractProvince', leasingContractProvince);
+        form.append('leasingLessorProvince', leasingLessorProvince);
+        if (leasingComparisonProvince) form.append('leasingComparisonProvince', leasingComparisonProvince);
+      }
       form.append('termsAccepted', 'true');
       form.append('termsVersion', TERMS_VERSION);
       if (file?.type.startsWith('image/')) {
@@ -930,6 +952,28 @@ export default function Page() {
                 </button>)}
               </div>
               {categoryError && <div className="termsError" role="alert">{categoryError}</div>}
+              {selectedCategory === 'leasing-specialist' && <div className="leasingJurisdictionPicker">
+                <h3>Provincia del leasing</h3>
+                <p>Elegí por separado dónde se celebra el contrato y dónde se usará y registrará el bien. Ambas jurisdicciones pueden tener consecuencias tributarias.</p>
+                <div className="leasingProvinceGrid">
+                  <label>Uso, guarda y radicación del bien<select value={leasingProvince} onChange={(event) => { setLeasingProvince(event.target.value); setLeasingProvinceError(''); if (event.target.value === leasingComparisonProvince) setLeasingComparisonProvince(''); }}>
+                    <option value="">Elegí una provincia</option>
+                    {ARGENTINA_JURISDICTIONS.map((province) => <option key={province} value={province}>{province}</option>)}
+                  </select></label>
+                  <label>Celebración e instrumentación del contrato<select value={leasingContractProvince} onChange={(event) => setLeasingContractProvince(event.target.value)}>
+                    {ARGENTINA_JURISDICTIONS.map((province) => <option key={province} value={province}>{province}</option>)}
+                  </select></label>
+                  <label>Domicilio del dador<select value={leasingLessorProvince} onChange={(event) => setLeasingLessorProvince(event.target.value)}>
+                    {ARGENTINA_JURISDICTIONS.map((province) => <option key={province} value={province}>{province}</option>)}
+                  </select></label>
+                  <label>Escenario alternativo (opcional)<select value={leasingComparisonProvince} onChange={(event) => setLeasingComparisonProvince(event.target.value)}>
+                    <option value="">Sin comparación</option>
+                    {ARGENTINA_JURISDICTIONS.filter((province) => province !== leasingProvince).map((province) => <option key={province} value={province}>{province}</option>)}
+                  </select></label>
+                </div>
+                <small>El comparativo mostrará porcentajes, bases y condiciones —sin montos— y verificará si la alternativa es jurídicamente posible según domicilio, guarda habitual, lugar de uso y registro competente.</small>
+                {leasingProvinceError && <div className="termsError" role="alert">{leasingProvinceError}</div>}
+              </div>}
             </div>
             <div className={`analysisInputStage ${selectedCategory ? '' : 'locked'}`} aria-disabled={!selectedCategory}>
             <div className="analysisStepTitle"><span>PASO 2</span> Cargá el contenido y escribí tu pregunta</div>
@@ -945,7 +989,7 @@ export default function Page() {
             {instructionError && <div className="termsError" role="alert">{instructionError}</div>}
             <div className="termsConsent"><input id="terms-consent" type="checkbox" checked={termsAccepted} onChange={(e) => e.target.checked ? acceptCurrentTerms() : revokeTermsAcceptance()} /><label htmlFor="terms-consent">Leí y acepto los <button type="button" className="termsLink" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>Términos y Condiciones</button> (versión {TERMS_VERSION}).</label></div>
             {termsError && <div className="termsError" role="alert">{termsError}</div>}
-            <div className="ctaRow"><button type="button" className="primary" onClick={analyze} disabled={loading || sessionLoading || !selectedCategory || !text.trim()}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">{session ? `Entrada: ${getInputLabel(detected, Boolean(file))}` : 'Registrate para analizar'}</span></div>
+            <div className="ctaRow"><button type="button" className="primary" onClick={analyze} disabled={loading || sessionLoading || !selectedCategory || !text.trim() || (selectedCategory === 'leasing-specialist' && !leasingProvince)}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">{session ? `Entrada: ${getInputLabel(detected, Boolean(file))}` : 'Registrate para analizar'}</span></div>
             {session && <div className="betaAccessNote">Beta completa activa: sin límites ni cobros.</div>}
             {loading && <div className="loading">{steps.map((s, i) => <p key={i}>{s}</p>)}</div>}
             </div>

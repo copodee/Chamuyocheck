@@ -285,12 +285,23 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
   const publicSectorRules = leasingKnowledge('public-sector').map((item) => item.statement);
   const internationalFindings = buildInternationalLeasingFindings(question);
   const asksTax = /imposit|tribut|ganancias|iva|sellos|arba|agip|monotribut|persona\s+(?:jur[ií]dica|humana)|exenci/i.test(question);
-  const taxFindings = asksTax ? [
+  const normalizedQuestion = question.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const profilesToReport = verifiedProvincialStampProfiles().filter((item) =>
+    item.jurisdiction === 'Buenos Aires'
+      ? normalizedQuestion.replaceAll('ciudad autonoma de buenos aires', '').includes('buenos aires')
+      : normalizedQuestion.includes(item.jurisdiction.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase())
+  );
+  const comparableStampRates = profilesToReport.filter((item) => item.stampRatePercent !== undefined);
+  const stampComparison = comparableStampRates.length > 1
+    ? `Comparación preliminar de Sellos del contrato: ${comparableStampRates.map((item) => `${item.jurisdiction} ${item.stampRatePercent}%${item.stampRateCondition ? ` (${item.stampRateCondition})` : ''}`).join('; ')}. La menor tasa nominal no define por sí sola el escenario más barato: faltan inscripción, patente anual, opción de compra y verificar que la jurisdicción alternativa sea legalmente utilizable.`
+    : '';
+  const taxFindings = (asksTax || /impuest/i.test(question)) ? [
     `Persona jurídica: ${LEASING_TAXPAYER_PROFILES.company}`,
     `Persona humana en régimen general: ${LEASING_TAXPAYER_PROFILES['human-general-regime']}`,
     `Monotributista: ${LEASING_TAXPAYER_PROFILES.monotributista}`,
     `Uso personal: ${LEASING_TAXPAYER_PROFILES.consumer}`,
-    ...verifiedProvincialStampProfiles().map((item) => `${item.jurisdiction} (${item.fiscalYear}): ${item.treatment} ${item.exemptions.join(' ')}`),
+    ...profilesToReport.map((item) => `${item.jurisdiction} (${item.fiscalYear || 'norma vigente verificada'}): ${item.treatment} ${item.exemptions.join(' ')}`),
+    stampComparison,
     'Sellos es provincial: no existe una única alícuota argentina. Para las demás jurisdicciones debe verificarse la ley anual vigente antes de informar tasa o exención; el sistema no presume que el leasing esté exento.',
   ] : [];
   return {
