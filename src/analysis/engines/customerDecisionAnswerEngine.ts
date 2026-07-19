@@ -315,12 +315,13 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     ? calculateFinancialLeasing({ assetValue, financedPercent, months, annualNominalRatePercent: tna, optionPercent, guaranteeCanons, structuringFeePercent })
     : null;
   const amount = (value: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(value);
+  const decimal = (value: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 4 }).format(value);
   const financialCaseFindings = financeResult ? [
     'Caso práctico: leasing financiero calculado con sistema francés (canon periódico constante antes de impuestos y servicios), descontando del capital el valor presente de la opción.',
     `Valor neto sin IVA financiado: ${amount(financeResult.financedAmount)} (${financedPercent}% del bien). Aporte inicial neto no financiado: ${amount(financeResult.initialContribution)}. El IVA se analiza por separado y no está duplicado en este capital.`,
     `Canon financiero mensual estimado: ${amount(financeResult.monthlyCanon)} durante ${months} meses. Opción pactada usada en el cálculo: ${amount(financeResult.optionAmount)}${optionAmountField !== null ? ' como importe fijo' : ` (${optionPercentField}% del bien)`}.`,
     `Cánones de garantía al inicio: ${guaranteeCanons}; depósito estimado: ${amount(financeResult.guaranteeDeposit)}. Se aplica contra las últimas cuotas y no se cuenta otra vez como cobro; la facturación y los impuestos se reconocen al momento contractual aplicable.`,
-    `Gasto de estructuración: ${structuringFeePercent}% del valor financiado, equivalente a ${amount(financeResult.structuringFee)}. Debe confirmarse si se paga aparte, se financia o lleva IVA.`,
+    `Gasto de estructuración: ${decimal(structuringFeePercent)}% del valor financiado, equivalente a ${amount(financeResult.structuringFee)}. Debe confirmarse si se paga aparte, se financia o lleva IVA.`,
     financeResult.lessorEffectiveAnnualIrrPercent === null ? 'No pudo determinarse una TIR única del dador con este flujo.' : `TIR estimada del dador incorporando garantía y gasto inicial: ${financeResult.lessorMonthlyIrrPercent?.toFixed(3)}% mensual; ${(financeResult.lessorEffectiveAnnualIrrPercent).toFixed(3)}% efectiva anual. No incluye IVA ni impuestos no cuantificados.`,
   ] : [
     'Para calcular el caso práctico faltan uno o más datos: valor del bien, porcentaje financiado, plazo, TNA, opción, cánones de garantía o gasto de estructuración. El sistema usa leasing financiero y sistema francés sólo cuando esos campos están completos.',

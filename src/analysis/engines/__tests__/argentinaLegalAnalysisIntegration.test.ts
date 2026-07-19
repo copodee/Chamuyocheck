@@ -189,3 +189,10 @@ test('leasing acepta una opción de compra pactada como importe fijo', () => {
   const findings = result.decisionAnswer?.findings.join(' ') || '';
   assert.match(findings, /Opción pactada usada en el cálculo: 7\.000\.000 como importe fijo/is);
 });
+
+test('leasing acepta gasto de estructuración decimal escrito con coma', () => {
+  const prompt = 'Caso práctico: leasing financiero con sistema francés. Valor del bien sin IVA: 100000000. Porcentaje financiado: 80%. Plazo: 36 meses. TNA: 42%. Opción de compra porcentual: 5%. Opción de compra importe fijo: no aplica. Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas: 0. Gasto de estructuración: 4,5% del valor financiado.';
+  const result = buildLocalAnalysis(prompt, 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Gasto de estructuración: 4,5%.*3\.600\.000/is);
+});
