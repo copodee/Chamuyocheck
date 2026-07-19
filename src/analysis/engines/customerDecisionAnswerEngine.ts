@@ -295,6 +295,10 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
   const stampComparison = comparableStampRates.length > 1
     ? `Comparación preliminar de Sellos del contrato: ${comparableStampRates.map((item) => `${item.jurisdiction} ${item.stampRatePercent}%${item.stampRateCondition ? ` (${item.stampRateCondition})` : ''}`).join('; ')}. La menor tasa nominal no define por sí sola el escenario más barato: faltan inscripción, patente anual, opción de compra y verificar que la jurisdicción alternativa sea legalmente utilizable.`
     : '';
+  const comparableGrossIncomeRates = profilesToReport.filter((item) => item.grossIncomeRatePercent !== undefined);
+  const grossIncomeComparison = comparableGrossIncomeRates.length
+    ? `Ingresos Brutos de la actividad del dador: ${comparableGrossIncomeRates.map((item) => `${item.jurisdiction} ${item.grossIncomeRatePercent}%`).join('; ')}. Esta alícuota no se suma automáticamente como impuesto directo del tomador: debe analizarse su incidencia contractual y la base del dador.`
+    : '';
   const taxFindings = (asksTax || /impuest/i.test(question)) ? [
     `Persona jurídica: ${LEASING_TAXPAYER_PROFILES.company}`,
     `Persona humana en régimen general: ${LEASING_TAXPAYER_PROFILES['human-general-regime']}`,
@@ -302,6 +306,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     `Uso personal: ${LEASING_TAXPAYER_PROFILES.consumer}`,
     ...profilesToReport.map((item) => `${item.jurisdiction} (${item.fiscalYear || 'norma vigente verificada'}): ${item.treatment} ${item.exemptions.join(' ')}`),
     stampComparison,
+    grossIncomeComparison,
     'Sellos es provincial: no existe una única alícuota argentina. Para las demás jurisdicciones debe verificarse la ley anual vigente antes de informar tasa o exención; el sistema no presume que el leasing esté exento.',
   ] : [];
   return {

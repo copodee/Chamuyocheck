@@ -127,8 +127,23 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     sourceUrl: 'https://boletinoficialsalta.gob.ar/Texto_Actualizado.php?cXdlcnR5dGFibGE9THw2NjExJmNhYmU9PGg2PiBQdWJsaWNhZG8gZW4gZWwgQm9sZXTDg8KtbiBPZmljaWFsIE7DgsKwIDAsIGVsIGTDg8KtYSAgZGUgIGRlIDwvaDY+PEJSPnF3ZXJ0eQ=%3D',
     verifiedAt: '2026-07-18',
   },
+  {
+    jurisdiction: 'Chaco', fiscalYear: 2026, status: 'verified-current',
+    grossIncomeRatePercent: 2.9,
+    treatment: 'El Nomenclador NAECh 2026 de la Administración Tributaria Provincial asigna al código 649100 “Arrendamiento financiero, leasing” una alícuota de Ingresos Brutos del 2,90%. La alícuota de Sellos del contrato no se completa por analogía y debe determinarse con la Ley Tarifaria 299-F vigente y el instrumento concreto.',
+    exemptions: [
+      'El 2,90% corresponde a la actividad del dador alcanzado por Ingresos Brutos; no debe presentarse como un porcentaje adicional que el tomador paga directamente por el contrato.',
+      'No se verificó todavía una exención general de Sellos para leasing ni una tasa específica vigente; el comparador debe mostrar “Sellos pendiente de verificación” y no asignar 0%.',
+    ],
+    sourceUrl: 'https://atp.chaco.gob.ar/documentos/legislativos/nomenclador-naech-res-2026-2-20-1-desde-01-01-2026.pdf',
+    sourceUrls: [
+      'https://atp.chaco.gob.ar/documentos/legislativos/nomenclador-naech-res-2026-2-20-1-desde-01-01-2026.pdf',
+      'https://atp.chaco.gob.ar/legislacion-tributaria',
+    ],
+    verifiedAt: '2026-07-18',
+  },
   ...[
-    'Catamarca', 'Chaco', 'Chubut', 'Corrientes', 'Formosa',
+    'Catamarca', 'Chubut', 'Corrientes', 'Formosa',
     'La Pampa', 'La Rioja', 'Misiones', 'Río Negro', 'San Juan',
     'San Luis', 'Santa Cruz', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
   ].map(pending),
