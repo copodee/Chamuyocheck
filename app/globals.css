@@ -62,7 +62,10 @@ button,input,textarea{font:inherit}
 .eyebrow{display:inline-flex;width:max-content;border:1px solid rgba(39,239,189,.28);background:rgba(39,239,189,.10);color:#93f7d4;border-radius:999px;padding:7px 12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;font-size:11px}
 .heroIntroPanel h1{margin:0;font-size:clamp(28px,3vw,42px);line-height:1.05}
 .heroSubtitle{margin:0;color:#84f2c8;font-size:18px;font-weight:700}
-.leasingModuleBadge{align-self:flex-start;margin-top:-2px;border:1px solid rgba(255,196,72,.55);background:rgba(255,174,0,.11);color:#ffd166;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:950;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 0 22px rgba(255,174,0,.08)}
+.leasingModuleBadge{align-self:flex-start;margin:-2px 0 0;padding:0;border:0;background:none;color:#f4ff00;font:inherit;font-size:18px;line-height:1.25;font-weight:900;letter-spacing:0;text-align:left;text-transform:none;cursor:pointer;text-shadow:0 0 10px rgba(244,255,0,.38);transition:color .18s ease,text-shadow .18s ease,transform .18s ease}
+.leasingModuleBadge:hover,.leasingModuleBadge:focus-visible{color:#fbff52;text-shadow:0 0 14px rgba(244,255,0,.62)}
+.leasingModuleBadge:active{transform:translateY(1px)}
+.leasingModuleBadge:focus-visible{outline:2px solid #f4ff00;outline-offset:5px;border-radius:3px}
 .heroBody{margin:0;color:#d9d0ef;line-height:1.65;font-size:15px;max-width:640px}
 .heroCta{margin-top:4px;border:1px solid rgba(124,58,237,.25);background:rgba(124,58,237,.14);padding:14px 16px;border-radius:14px;color:#f0e8ff;font-weight:700}
 .heroHighlights{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
@@ -81,6 +84,11 @@ button,input,textarea{font:inherit}
 .categoryOption{min-width:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;text-align:left;padding:14px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.035);color:var(--text);cursor:pointer}
 .categoryOption:hover{border-color:rgba(39,239,189,.45)}.categoryOption.selected{border-color:var(--green);background:rgba(39,239,189,.09);box-shadow:0 0 0 2px rgba(39,239,189,.10)}
 .categoryOptionIcon{font-size:22px;line-height:1}.categoryOption strong,.categoryOption>span:last-child>span{display:block}.categoryOption>span:last-child>span{margin-top:4px;color:var(--muted);font-size:13px;line-height:1.4;overflow-wrap:anywhere}
+.leasingCategoryOption{grid-column:1/-1;border-color:rgba(244,255,0,.35);background:linear-gradient(90deg,rgba(244,255,0,.075),rgba(39,239,189,.055));padding:18px}
+.leasingCategoryOption strong{color:#f4ff00;font-size:18px}
+.leasingCategoryOption>span:last-child>span{text-align:justify;font-size:14px;line-height:1.55;max-width:none}
+.leasingCategoryOption:hover{border-color:rgba(244,255,0,.72);box-shadow:0 0 24px rgba(244,255,0,.08)}
+.leasingCategoryOption.selected{border-color:#f4ff00;background:linear-gradient(90deg,rgba(244,255,0,.12),rgba(39,239,189,.09));box-shadow:0 0 0 2px rgba(244,255,0,.08)}
 .analysisInputStage{min-width:0;transition:opacity .2s ease}.analysisInputStage.locked{opacity:.45}.analysisInputStage.locked .drop{cursor:not-allowed}
 .leasingJurisdictionPicker{margin-top:18px;padding:16px;border:1px solid rgba(39,239,189,.28);border-radius:14px;background:rgba(39,239,189,.055)}
 .leasingJurisdictionPicker h3{margin:0 0 6px}.leasingJurisdictionPicker p{margin-bottom:12px}.leasingJurisdictionPicker small{display:block;margin-top:10px;color:var(--muted);line-height:1.45}

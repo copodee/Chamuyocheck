@@ -166,7 +166,7 @@ const ANALYSIS_CATEGORIES: Array<{
   { id: 'investment-project', icon: '📈', label: 'Inversiones', description: 'Inmuebles, agro, industria, energía, minería y proyectos.' },
   { id: 'scam-risk', icon: '🛡️', label: 'Posibles estafas', description: 'Sitios, ofertas, autotrading, promesas y pedidos de dinero.' },
   { id: 'argentina-legal-documents', icon: '⚖️', label: 'Derecho argentino', description: 'Contratos, documentos, delitos, penas, familia y seguros.' },
-  { id: 'leasing-specialist', icon: '🏗️', label: 'Leasing', description: 'Contrato, cánones, impuestos, registros, importación, sector público y comparación internacional.' },
+  { id: 'leasing-specialist', icon: '🏗️', label: 'Especialista en Leasing', description: 'Análisis integral de contratos, cánones, costos financieros, beneficios impositivos, registros, lease-back, importación, sector público y comparación internacional.' },
 ];
 
 const ARGENTINA_JURISDICTIONS = [
@@ -1032,7 +1032,16 @@ export default function Page() {
             <div className="eyebrow">ANÁLISIS ESPECIALIZADO</div>
             <h1>Antes de pagar, endeudarte o firmar</h1>
             <p className="heroSubtitle">Descubrí cuánto terminás pagando, qué información falta y qué riesgos deberías verificar.</p>
-            <div className="leasingModuleBadge">MÓDULO ESPECIAL LEASING</div>
+            <button type="button" className="leasingModuleBadge" onClick={() => {
+              setSelectedCategory('leasing-specialist');
+              setCategoryError('');
+              setAnalysis(null);
+              setFile(null);
+              setUrl('');
+              setText('');
+              setActiveInput('Texto');
+              setTimeout(() => categoryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40);
+            }}>MÓDULO ESPECIAL LEASING</button>
             <p className="heroBody">Subí una captura, una oferta, un enlace o un documento. ChamuyoCheck responde tu pregunta con cálculos reproducibles, señales observables y próximos pasos.</p>
             <div className="heroCta">Preguntá: “¿Cuánto pago en total?”, “¿Me pueden estar estafando?” o “¿Qué obligación estoy aceptando?”.</div>
             <div className="heroHighlights">
@@ -1046,7 +1055,7 @@ export default function Page() {
               <h2 id="category-picker-title">Elegí la categoría</h2>
               <p>La categoría define el tipo de análisis y las fuentes que corresponden.</p>
               <div className="categoryGrid" role="radiogroup" aria-required="true">
-                {ANALYSIS_CATEGORIES.map((category) => <button key={category.id} type="button" role="radio" aria-checked={selectedCategory === category.id} className={`categoryOption ${selectedCategory === category.id ? 'selected' : ''}`} onClick={() => { setSelectedCategory(category.id); setCategoryError(''); setAnalysis(null); setFile(null); setUrl(''); setText(''); setActiveInput('Texto'); }}>
+                {ANALYSIS_CATEGORIES.map((category) => <button key={category.id} type="button" role="radio" aria-checked={selectedCategory === category.id} className={`categoryOption ${category.id === 'leasing-specialist' ? 'leasingCategoryOption' : ''} ${selectedCategory === category.id ? 'selected' : ''}`} onClick={() => { setSelectedCategory(category.id); setCategoryError(''); setAnalysis(null); setFile(null); setUrl(''); setText(''); setActiveInput('Texto'); }}>
                   <span className="categoryOptionIcon" aria-hidden="true">{category.icon}</span>
                   <span><strong>{category.label}</strong><span>{category.description}</span></span>
                 </button>)}
