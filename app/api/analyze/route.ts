@@ -956,6 +956,14 @@ export async function handleAnalyzeRequest(req: Request) {
     const selectedCategoryRaw = String(form.get('selectedCategory') || '').trim();
     const leasingProvince = String(form.get('leasingProvince') || '').trim();
     const leasingContractProvince = String(form.get('leasingContractProvince') || '').trim();
+    const leasingAssetType = String(form.get('leasingAssetType') || '').trim();
+    const leasingAssetValue = String(form.get('leasingAssetValue') || '').trim();
+    const leasingFinancedPercent = String(form.get('leasingFinancedPercent') || '').trim();
+    const leasingMonths = String(form.get('leasingMonths') || '').trim();
+    const leasingTna = String(form.get('leasingTna') || '').trim();
+    const leasingOptionPercent = String(form.get('leasingOptionPercent') || '').trim();
+    const leasingGuaranteeCanons = String(form.get('leasingGuaranteeCanons') || '').trim();
+    const leasingStructuringFeePercent = String(form.get('leasingStructuringFeePercent') || '').trim();
     const leasingLessorProvince = String(form.get('leasingLessorProvince') || '').trim();
     const leasingComparisonProvince = String(form.get('leasingComparisonProvince') || '').trim();
 
@@ -1055,7 +1063,7 @@ export async function handleAnalyzeRequest(req: Request) {
       ? [extracted, webText].filter(Boolean).join('\n\n')
       : userText;
     const leasingJurisdictionContext = selectedCategory === 'leasing-specialist'
-      ? `Jurisdicción de celebración e instrumentación del contrato: ${leasingContractProvince || 'no indicada'}. Provincia de uso, guarda y radicación del bien: ${leasingProvince}. Domicilio del dador: ${leasingLessorProvince || 'no indicado'}.${leasingComparisonProvince ? ` Escenario provincial alternativo para comparar contrato y radicación: ${leasingComparisonProvince}.` : ''} Determinar territorialidad y pago de Sellos considerando ambas jurisdicciones, los efectos del instrumento y las reglas que eviten doble imposición. Comparar únicamente porcentajes, bases y condiciones —sin calcular montos— de Sellos, Ingresos Brutos, inscripción inicial, patentamiento, patente anual y opción de compra. Clasificar el cambio como posible, condicionado a una conexión real o no justificable. Para Patentes CABA 2026 aplicar la Ley 6.926: domicilio del tomador, guarda habitual o uso/explotación; no usar el domicilio del dador. No se presume libre elección fiscal.`
+      ? `Jurisdicción de celebración e instrumentación del contrato: ${leasingContractProvince || 'no indicada'}. Provincia de uso, guarda y radicación del bien: ${leasingProvince}. Domicilio del dador: ${leasingLessorProvince || 'no indicado'}.${leasingComparisonProvince ? ` Escenario provincial alternativo para comparar contrato y radicación: ${leasingComparisonProvince}.` : ''} Caso práctico: leasing financiero con sistema francés. Tipo de bien: ${leasingAssetType || 'no indicado'}. Valor del bien: ${leasingAssetValue || 'no indicado'}. Porcentaje financiado: ${leasingFinancedPercent || 'no indicado'}%. Plazo: ${leasingMonths || 'no indicado'} meses. TNA: ${leasingTna || 'no indicada'}%. Opción de compra: ${leasingOptionPercent || 'no indicada'}% del valor del bien. Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas: ${leasingGuaranteeCanons || '0'}. Gasto de estructuración: ${leasingStructuringFeePercent || 'no indicado'}% del valor financiado. Determinar territorialidad y pago de Sellos considerando ambas jurisdicciones, los efectos del instrumento y las reglas que eviten doble imposición. Comparar únicamente porcentajes, bases y condiciones —sin calcular montos— de Sellos, Ingresos Brutos, inscripción inicial, patentamiento, patente anual y opción de compra. Para el flujo financiero sí calcular monto financiado, aporte inicial, canon francés, opción, garantía, gasto y TIR del dador cuando existan datos suficientes. La garantía se recibe al inicio y se imputa contra las últimas cuotas: no duplicar esos cobros; impuestos y facturación se reconocen cuando corresponda según contrato y norma. Clasificar el cambio provincial como posible, condicionado a una conexión real o no justificable. Para Patentes CABA 2026 aplicar la Ley 6.926: domicilio del tomador, guarda habitual o uso/explotación; no usar el domicilio del dador. No se presume libre elección fiscal.`
       : '';
     const userInstruction = hasExternalContent ? [userText, leasingJurisdictionContext].filter(Boolean).join('\n') : '';
     const contextualDocumentText = !hasExternalContent && leasingJurisdictionContext
