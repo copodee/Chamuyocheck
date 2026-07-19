@@ -9,6 +9,7 @@ export type ProvincialStampProfile = {
   exemptions: string[];
   stampRatePercent?: number;
   stampRateCondition?: string;
+  grossIncomeRatePercent?: number;
   sourceUrl?: string;
   sourceUrls?: string[];
   verifiedAt?: string;
@@ -38,10 +39,10 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     exemptions: [
       'No se encontró una exención general por el solo hecho de ser leasing; deben revisarse las exenciones del acto, bien y sujeto concretos.',
       'Código Fiscal CABA 2026, art. 319(a): un acto instrumentado en CABA no tributa Sellos allí cuando los bienes objeto de la transacción están radicados o situados fuera de CABA. Esto debe cruzarse con la territorialidad de la provincia donde el contrato produce efectos.',
-      'Para vehículos en leasing, el art. 422 considera radicación fiscal en CABA cuando el dador está domiciliado allí; si no lo está, atiende al domicilio del tomador, guarda habitual y uso o explotación. A la vez, el Digesto DNRPA permite radicar por guarda habitual acreditada con documentos extendidos a nombre del tomador. La propia DNRPA advierte que, si la guarda fija una jurisdicción impositiva distinta del domicilio del titular, puede existir doble imposición y el Registro no procesa el trámite de Patentes: debe resolverse ante los fiscos.',
+      'Ley CABA 6.926, art. 1 inciso 37: desde 2026 el art. 422 considera radicado fiscalmente en CABA al vehículo en leasing cuando el tomador está domiciliado allí o cuando el vehículo tiene guarda habitual, uso o explotación en CABA. El domicilio del dador fue eliminado de esta regla. El Digesto DNRPA permite acreditar la guarda con documentos extendidos a nombre del tomador.',
     ],
     sourceUrl: 'https://imagenes.agip.gob.ar/impuestos/sellos',
-    sourceUrls: ['https://imagenes.agip.gob.ar/impuestos/sellos', 'https://imagenes.agip.gob.ar/filemanager/source/Decretos/2025/PE-DEC-AJG-AJG-116-25-ANX-1.pdf', 'https://www.dnrpa.gov.ar/concursos_publicos/Digesto12-06-2023/Titulo1.pdf'], verifiedAt: '2026-07-18',
+    sourceUrls: ['https://imagenes.agip.gob.ar/impuestos/sellos', 'https://documentosboletinoficial.buenosaires.gob.ar/publico/ck_PL-LEY-LCABA-LCBA-6926-25-7269.pdf', 'https://www.dnrpa.gov.ar/concursos_publicos/Digesto12-06-2023/Titulo1.pdf'], verifiedAt: '2026-07-18',
   },
   {
     jurisdiction: 'Buenos Aires', fiscalYear: 2026, status: 'verified-current',
@@ -112,9 +113,23 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     ],
     sourceUrl: 'https://boletinoficial.jujuy.gob.ar/?p=324226', verifiedAt: '2026-07-18',
   },
+  {
+    jurisdiction: 'Salta', fiscalYear: 2026, status: 'verified-current',
+    stampRatePercent: 0,
+    stampRateCondition: 'Tope general vigente desde 2022; no comprende transferencias de inmuebles, automotores ni actividades hidrocarburíferas.',
+    grossIncomeRatePercent: 8,
+    treatment: 'La Ley Impositiva 6.611, texto oficial actualizado por la Ley 8.496/2025, mantiene en su artículo 25 bis un tope de Sellos del 0‰ desde 2022 para los actos, contratos e instrumentos generales, con excepción de transferencias de inmuebles y automotores y de actividades hidrocarburíferas. La intermediación y los servicios financieros tributan Actividades Económicas al 80‰ (8%).',
+    exemptions: [
+      'El contrato de leasing debe separarse del ejercicio de la opción: la transferencia de un automotor o inmueble no queda comprendida en el tope general del 0‰ y conserva la tasa específica del acto.',
+      'La tasa del 8% corresponde a la actividad financiera del dador alcanzado; no es un impuesto provincial adicional del 8% que el tomador deba sumar automáticamente al canon.',
+      'La alternativa provincial sólo es válida si el contrato y el bien tienen una conexión real con Salta; la alícuota 0% no habilita una instrumentación o radicación aparente.',
+    ],
+    sourceUrl: 'https://boletinoficialsalta.gob.ar/Texto_Actualizado.php?cXdlcnR5dGFibGE9THw2NjExJmNhYmU9PGg2PiBQdWJsaWNhZG8gZW4gZWwgQm9sZXTDg8KtbiBPZmljaWFsIE7DgsKwIDAsIGVsIGTDg8KtYSAgZGUgIGRlIDwvaDY+PEJSPnF3ZXJ0eQ=%3D',
+    verifiedAt: '2026-07-18',
+  },
   ...[
     'Catamarca', 'Chaco', 'Chubut', 'Corrientes', 'Formosa',
-    'La Pampa', 'La Rioja', 'Misiones', 'Río Negro', 'Salta', 'San Juan',
+    'La Pampa', 'La Rioja', 'Misiones', 'Río Negro', 'San Juan',
     'San Luis', 'Santa Cruz', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
   ].map(pending),
 ];

@@ -10,7 +10,7 @@ test('includes every Argentine local stamp-tax jurisdiction without inventing ex
 
 test('keeps verified local leasing treatments distinct', () => {
   const verified = verifiedProvincialStampProfiles();
-  assert.equal(verified.length, 8);
+  assert.equal(verified.length, 9);
   assert.match(verified.find((item) => item.jurisdiction === 'Ciudad Autónoma de Buenos Aires')?.treatment || '', /0,50%/);
   assert.match(verified.find((item) => item.jurisdiction === 'Buenos Aires')?.treatment || '', /10,5‰/);
   assert.match(verified.find((item) => item.jurisdiction === 'Córdoba')?.treatment || '', /exime/);
@@ -19,6 +19,10 @@ test('keeps verified local leasing treatments distinct', () => {
   assert.match(verified.find((item) => item.jurisdiction === 'Neuquén')?.treatment || '', /14‰/);
   assert.match(verified.find((item) => item.jurisdiction === 'Mendoza')?.treatment || '', /1%/);
   assert.match(verified.find((item) => item.jurisdiction === 'Jujuy')?.treatment || '', /8%/);
+  assert.match(verified.find((item) => item.jurisdiction === 'Salta')?.treatment || '', /0‰.*8%/i);
+  const cabaRules = JSON.stringify(verified.find((item) => item.jurisdiction === 'Ciudad Autónoma de Buenos Aires'));
+  assert.match(cabaRules, /Ley CABA 6\.926.*tomador.*guarda habitual.*uso o explotación/is);
+  assert.doesNotMatch(cabaRules, /dador está domiciliado|dador se halle domiciliado/is);
 });
 
 test('does not promise company benefits to consumers or monotributistas', () => {
