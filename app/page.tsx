@@ -1025,6 +1025,7 @@ export default function Page() {
             <div className="eyebrow">ANÁLISIS ESPECIALIZADO</div>
             <h1>Antes de pagar, endeudarte o firmar</h1>
             <p className="heroSubtitle">Descubrí cuánto terminás pagando, qué información falta y qué riesgos deberías verificar.</p>
+            <div className="leasingModuleBadge">MÓDULO ESPECIAL LEASING</div>
             <p className="heroBody">Subí una captura, una oferta, un enlace o un documento. ChamuyoCheck responde tu pregunta con cálculos reproducibles, señales observables y próximos pasos.</p>
             <div className="heroCta">Preguntá: “¿Cuánto pago en total?”, “¿Me pueden estar estafando?” o “¿Qué obligación estoy aceptando?”.</div>
             <div className="heroHighlights">
