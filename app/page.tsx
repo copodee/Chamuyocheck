@@ -1126,8 +1126,11 @@ export default function Page() {
           <h2>{analysis.decisionAnswer.title}</h2>
           <button type="button" className="ghost" onClick={saveFavorite}>☆ Guardar en favoritos</button>
           <p className="decisionDirectAnswer">{analysis.decisionAnswer.directAnswer}</p>
+          {analysis.decisionAnswer.sections?.length
+            ? <div className="leasingResultSections">{analysis.decisionAnswer.sections.map((section) => <section className="leasingResultSection" key={section.title}><h3>{section.title}</h3><ul>{section.items.map((item, index) => <li key={`${section.title}-${index}`}>{item}</li>)}</ul></section>)}</div>
+            : analysis.decisionAnswer.findings.length > 0 && <><h3>Datos y hallazgos</h3><ul>{analysis.decisionAnswer.findings.map((item, index) => <li key={`decision-finding-${index}`}>{item}</li>)}</ul></>}
           {analysis.decisionAnswer.comparisonTable && <section className="leasingComparisonSection">
-            <h3>Comparación provincial</h3>
+            <h3>Comparación provincial resumida</h3>
             <div className="leasingComparisonTableWrap">
               <table className="leasingComparisonTable">
                 <thead><tr><th>Concepto</th>{analysis.decisionAnswer.comparisonTable.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
@@ -1135,9 +1138,6 @@ export default function Page() {
               </table>
             </div>
           </section>}
-          {analysis.decisionAnswer.sections?.length
-            ? <div className="leasingResultSections">{analysis.decisionAnswer.sections.map((section) => <section className="leasingResultSection" key={section.title}><h3>{section.title}</h3><ul>{section.items.map((item, index) => <li key={`${section.title}-${index}`}>{item}</li>)}</ul></section>)}</div>
-            : analysis.decisionAnswer.findings.length > 0 && <><h3>Datos y hallazgos</h3><ul>{analysis.decisionAnswer.findings.map((item, index) => <li key={`decision-finding-${index}`}>{item}</li>)}</ul></>}
           {analysis.decisionAnswer.nextActions.length > 0 && <><h3>Qué conviene hacer ahora</h3><ul>{analysis.decisionAnswer.nextActions.map((item, index) => <li key={`decision-action-${index}`}>{item}</li>)}</ul></>}
           {analysis.decisionAnswer.limitations.length > 0 && <details><summary>Supuestos y datos que todavía deben verificarse</summary><ul>{analysis.decisionAnswer.limitations.map((item, index) => <li key={`decision-limit-${index}`}>{item}</li>)}</ul></details>}
         </div>}
@@ -1261,6 +1261,7 @@ export default function Page() {
           </div>
           <div className="cards" style={{ marginTop: '14px' }}>
             <div className="card"><h3>Leasing operativo vs. financiero</h3><p>Diferencias en propiedad, riesgos, servicios, cánones, valor residual y opción de compra.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Explicame y compará leasing operativo y leasing financiero en Argentina. Indicá cómo cambian los cánones, servicios, riesgos, valor residual, devolución y opción de compra; aclarame cuándo una operación puede ser locación y no leasing financiero.')}>Abrir guía comparativa</button></div>
+            <div className="card"><h3>Lease-back</h3><p>Liquidez sobre un bien propio: tasación, aforo, desembolso, plazo, venta inicial, cánones, recompra e impuestos.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Quiero analizar un lease-back en Argentina. Pedime tipo y antigüedad del bien, titular, valor contable e impositivo, tasación de mercado, porcentaje de aforo ofrecido, deudas o prendas, desembolso neto, plazo, cánones, opción de recompra, provincia del contrato y provincia de uso o registro. Explicá la venta inicial, la liquidez obtenida, todos los costos y el tratamiento del artículo 26 del Decreto 1038/2000; no supongas que tiene los mismos beneficios fiscales que un leasing de adquisición.')}>Preparar lease-back</button></div>
             <div className="card"><h3>Plazos mínimos y beneficios fiscales</h3><p>Decreto 1038/2000 actualizado por el Decreto 152/2022: duración, vida útil y opción.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Explicame los plazos mínimos fiscales del leasing según el Decreto 1038/2000 actualizado por el Decreto 152/2022. Diferenciá bienes muebles e inmuebles, vida útil, precio de opción y requisitos para el tratamiento impositivo. No confundas estos plazos con el artículo 1238 del Código Civil y Comercial.')}>Consultar plazos</button></div>
             <div className="card"><h3>Cómo funciona el leasing</h3><p>Guía educativa: partes, bien, maxi canon, cánones, opción, registro, incumplimiento y finalización.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Enseñame cómo funciona un leasing en Argentina desde el inicio hasta la opción o devolución. Explicá dador, tomador, proveedor, elección del bien, maxi canon, cánones, IVA, seguros, mantenimiento, registro, mora, recupero, opción de compra y transferencia.')}>Abrir guía educativa</button></div>
             <div className="card"><h3>Gastos, beneficios y exenciones</h3><p>Calculá qué paga el tomador y qué conceptos pueden estar exentos según bien, sujeto y provincia.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Quiero saber todos los gastos, beneficios impositivos y exenciones de un leasing. Pedime tipo de bien, tipo fiscal de tomador, provincia del contrato, provincia de uso o registro, maxi canon, cánones, plazo y opción antes de afirmar una exención.')}>Preparar consulta</button></div>

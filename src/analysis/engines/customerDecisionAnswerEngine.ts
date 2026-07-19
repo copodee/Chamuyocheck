@@ -292,6 +292,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
   const publicSectorRules = leasingKnowledge('public-sector').map((item) => item.statement);
   const internationalFindings = buildInternationalLeasingFindings(question);
   const normalizedQuestion = question.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const isLeaseBack = /lease[ -]?back|retro(?:leasing|arrendamiento)|venta\s+(?:y|con)\s+(?:posterior\s+)?leasing/i.test(question);
   const numericField = (label: string) => {
     const match = question.match(new RegExp(`${label}:\\s*([\\d.,]+)`, 'i'));
     if (!match) return null;
@@ -419,6 +420,15 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     'Lease-back: el futuro tomador vende su activo al dador y lo recibe en leasing. Deben agregarse los impuestos y gastos de la venta inicial, analizar sustancia económica y luego los cánones y la eventual recompra; no equivale a un préstamo garantizado sólo por cambiarle el nombre.',
     'Control de la opción: informar valor o fórmula, fecha habilitada, IVA, Sellos o impuesto de transferencia, arancel registral, deuda previa, condición del bien y crédito por Sellos pagado sobre cánones cuando la provincia lo admita.',
   ];
+  const leaseBackRules = isLeaseBack ? [
+    'Estructura: el propietario vende un activo propio al dador y, dentro de la misma operación o vinculada a ella, lo recibe en leasing para continuar usándolo. Convierte un activo inmovilizado en liquidez sin interrumpir su explotación, pero incorpora una venta inicial real, cánones y una eventual recompra.',
+    'Aforo: no existe un porcentaje legal único. El dador parte del menor entre valor de mercado, valor de realización y tasación aceptada, y aplica su política de riesgo según liquidez, antigüedad, estado, vida útil, obsolescencia, registro y facilidad de recupero. Debe informarse por separado valor tasado, porcentaje aforado y desembolso neto.',
+    'Desembolso neto: del precio aforado pueden descontarse cancelaciones de prendas o deudas, comisión, Sellos, gastos registrales, seguros, impuestos y reservas. Por eso el porcentaje sobre la tasación no equivale al efectivo que recibe el tomador.',
+    'Plazo comercial: debe ser compatible con la vida útil remanente y la capacidad de repago. No hay un plazo contractual universal; el simulador debe pedir antigüedad del bien, vida útil, plazo propuesto, cantidad de cánones, opción y garantías.',
+    'Tratamiento fiscal nacional: el artículo 26 del Decreto 1038/2000 trata el lease-back como operación financiera. En Ganancias del tomador no se deduce automáticamente el canon completo: para bienes afectados a ganancias gravadas, la deducción se determina sobre la diferencia entre cánones más opción y el valor de transferencia al dador, distribuida según vencimientos.',
+    'Beneficios fiscales: no deben trasladarse sin más los beneficios publicitados para un leasing de adquisición. Hay que analizar la venta inicial del activo, su resultado impositivo, IVA según bien y sujeto, Sellos, tasas de transferencia/registro y el tratamiento financiero posterior. Puede existir una ventaja de liquidez, pero no una exención fiscal automática.',
+    'Control anti-sobrevaloración: comparar tasación independiente, valor contable e impositivo, precio de venta, aforo y valor residual. Una valuación alta aumenta liquidez inicial pero también el flujo a devolver y puede generar contingencias fiscales o crediticias.',
+  ] : [];
   const comparableStampRates = profilesToReport.filter((item) => item.stampRatePercent !== undefined);
   const percentageIncidence = profilesToReport.flatMap((item) => {
     const lines: string[] = [];
@@ -437,6 +447,12 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
   const grossIncomeComparison = comparableGrossIncomeRates.length
     ? `Ingresos Brutos de la actividad del dador: ${comparableGrossIncomeRates.map((item) => `${item.jurisdiction} ${item.grossIncomeRatePercent}%`).join('; ')}. Es razonable analizar su traslado económico al tomador, pero la alícuota no se suma automáticamente como impuesto directo: debe revisarse la base imponible del dador y cómo fue incorporada al precio.`
     : '';
+  const shortCell = (value: string, fallback: string) => {
+    const compact = value.replace(/\s+/g, ' ').trim();
+    if (!compact) return fallback;
+    const firstSentence = compact.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() || compact;
+    return firstSentence.length > 150 ? `${firstSentence.slice(0, 147).trimEnd()}…` : firstSentence;
+  };
   const provincialComparisonTable = profilesToReport.length > 1 ? {
     columns: profilesToReport.map((item) => item.jurisdiction),
     rows: [
@@ -455,7 +471,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       {
         label: 'Beneficios o exenciones',
         values: profilesToReport.map((item) => item.exemptions.length
-          ? item.exemptions.join(' ')
+          ? shortCell(item.exemptions.join(' '), 'Sin beneficio confirmado')
           : 'No se confirmó una exención automática para el caso'),
       },
       {
@@ -480,11 +496,16 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     'Regla de comparación: mostrar todos los porcentajes, su base, momento y obligado legal. No sumar mecánicamente Sellos, Ingresos Brutos, patente y opción de compra porque pueden recaer sobre bases distintas, corresponder a sujetos diferentes o devengarse en etapas separadas. Un impuesto propio del dador sólo se agrega como cargo separado al flujo del tomador cuando la propuesta o el contrato así lo manifiestan; en caso contrario se trata como incluido en el precio financiero para evitar doble cómputo.',
     'Sellos es provincial: no existe una única alícuota argentina. Para las demás jurisdicciones debe verificarse la ley anual vigente antes de informar tasa o exención; el sistema no presume que el leasing esté exento.',
   ];
+  const financialHeadline = quoteData
+    ? `La cotización fue leída directamente: ${quoteData.assetValueNet !== undefined ? `valor neto ${amount(quoteData.assetValueNet)}` : 'valor pendiente'}${quoteData.regularCanonCount !== undefined && quoteData.regularCanonAmount !== undefined ? `, ${quoteData.regularCanonCount} cánones de ${amount(quoteData.regularCanonAmount)}` : ''}${quoteData.optionAmount !== undefined ? ` y opción de ${amount(quoteData.optionAmount)}` : ''}. Los importes del archivo no se reemplazan por una simulación del formulario.`
+    : financeResult
+      ? `Resultado del caso: se financian ${amount(financeResult.financedAmount)} netos de IVA y el canon financiero estimado es ${amount(financeResult.monthlyCanon)} durante ${months} meses, con una opción de ${amount(financeResult.optionAmount)}.`
+      : 'Todavía faltan datos para calcular el flujo financiero completo. La comparación debe llevar leasing y préstamo al mismo flujo después de impuestos.';
   return {
     kind,
     status: 'partial',
-    title: 'El leasing debe analizarse como contrato, financiación, inversión e impuesto, sin mezclar sus puntajes',
-    directAnswer: `El leasing no es automáticamente mejor ni peor que un préstamo. Combina el uso de un bien a cambio de cánones con una opción de compra y su conveniencia depende del contrato, del activo, del plazo y de la situación fiscal concreta. ${focus}`,
+    title: 'Resultado financiero del leasing',
+    directAnswer: financialHeadline,
     findings: [
       'Marco contractual: Código Civil y Comercial de la Nación, artículos 1227 y siguientes. El artículo 1238 regula el uso y goce del bien; no fija plazos fiscales de amortización.',
       `Marco tributario nacional vigente desde el 29/03/2022: ${currentTaxRule}`,
@@ -502,6 +523,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     ],
     sections: [
       { title: 'Resultado financiero', items: financialCaseFindings },
+      ...(leaseBackRules.length ? [{ title: 'Lease-back: aforo, plazo y efecto fiscal', items: leaseBackRules }] : []),
       { title: 'Modalidad y opción de compra', items: leasingTypeAndOptionRules },
       { title: 'Ventajas frente a préstamo y prenda', items: [...distinctiveAdvantages, ...humanPersonComparison] },
       { title: 'Ventajas impositivas y tratamiento del tomador', items: [
@@ -514,6 +536,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       { title: 'Costos, registración y tributos', items: [...expenseMap, ...percentageIncidence, stampComparison, grossIncomeComparison].filter(Boolean) },
       ...(publicSectorRules.length ? [{ title: 'Sector público', items: publicSectorRules }] : []),
       ...(internationalFindings.length ? [{ title: 'Comparación internacional', items: internationalFindings }] : []),
+      { title: 'Cómo debe interpretarse el leasing', items: [`El leasing debe analizarse como contrato, financiación, inversión e impuesto, sin mezclar sus resultados. No es automáticamente mejor ni peor que un préstamo: la conveniencia depende del contrato, activo, plazo y situación fiscal. ${focus}`] },
     ],
     comparisonTable: provincialComparisonTable,
     nextActions: [

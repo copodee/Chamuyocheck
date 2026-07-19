@@ -31,24 +31,25 @@ function amountAfter(text: string, label: RegExp): number | undefined {
 
 export function extractLeasingQuoteData(rawText: string): LeasingQuoteData | null {
   const text = rawText.replace(/\u00a0/g, ' ');
-  const assetValueNet = amountAfter(text, /Valor del bien[^\n\r]{0,40}\(sin IVA\)/i);
-  const regularCanons = text.match(/C[aá]nones a pagar[^\n\r]{0,40}?(\d+)\s*(?:c[aá]nones?)?[^\n\r$]{0,80}\$\s*([\d.]+(?:,\d+)?)/i);
-  const guarantee = text.match(/C[aá]nones en garant[ií]a[^\n\r]{0,50}?(\d+)\s*(?:c[aá]nones?)?[^\n\r$]{0,80}\$\s*([\d.]+(?:,\d+)?)/i);
+  const searchable = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const assetValueNet = amountAfter(searchable, /Valor del bien[^\n\r]{0,60}\(sin IVA\)/i);
+  const regularCanons = searchable.match(/C.nones a pagar[^\n\r]{0,40}?(\d+)\s*(?:c.nones?)?[^\n\r$]{0,80}\$\s*([\d.]+(?:,\d+)?)/i);
+  const guarantee = searchable.match(/C.nones en garant.a[^\n\r]{0,50}?(\d+)\s*(?:c.nones?)?[^\n\r$]{0,80}\$\s*([\d.]+(?:,\d+)?)/i);
   const description = text.match(/Bien a dar en leasing\s*:\s*([^\n\r]+)/i)?.[1]?.trim();
   const insuranceText = text.match(/Seguro del bien\s*:\s*([^\n\r]+)/i)?.[1]?.trim();
   const result: LeasingQuoteData = {
     assetDescription: description,
     assetValueNet,
-    vatAmount: amountAfter(text, /IVA del bien/i),
-    assetValueVatIncluded: amountAfter(text, /Valor del bien[^\n\r]{0,40}\(IVA incluido\)/i),
-    months: parseArgentineNumber(text.match(/Plazo del leasing\s*:\s*(\d+)\s*mes/i)?.[1]),
+    vatAmount: amountAfter(searchable, /IVA del bien/i),
+    assetValueVatIncluded: amountAfter(searchable, /Valor del bien[^\n\r]{0,60}\(IVA incluido\)/i),
+    months: parseArgentineNumber(searchable.match(/Plazo del leasing\s*:\s*(\d+)\s*mes/i)?.[1]),
     regularCanonCount: parseArgentineNumber(regularCanons?.[1]),
     regularCanonAmount: parseArgentineNumber(regularCanons?.[2]),
-    optionAmount: amountAfter(text, /Opci[oó]n de compra/i),
-    maxiCanonAmount: amountAfter(text, /Maxicanon\s*\/\s*Adelanto/i),
+    optionAmount: amountAfter(searchable, /Opci.n de compra/i),
+    maxiCanonAmount: amountAfter(searchable, /Maxicanon\s*\/\s*Adelanto/i),
     guaranteeCanons: parseArgentineNumber(guarantee?.[1]),
     guaranteeAmount: parseArgentineNumber(guarantee?.[2]),
-    structuringFeePercent: parseArgentineNumber(text.match(/Comisi[oó]n de estructuraci[oó]n\s*:\s*([\d.,]+)\s*%/i)?.[1]),
+    structuringFeePercent: parseArgentineNumber(searchable.match(/Comisi.n de estructuraci.n\s*:\s*([\d.,]+)\s*%/i)?.[1]),
     insuranceText,
   };
   const meaningfulValues = Object.values(result).filter((value) => value !== undefined && value !== '').length;

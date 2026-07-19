@@ -171,6 +171,23 @@ test('leasing distingue financiero operativo y lease-back al analizar la opción
   assert.match(findings, /Control de la opción: informar valor o fórmula.*IVA.*Sellos/is);
 });
 
+test('lease-back separa aforo liquidez plazos y tratamiento fiscal especial', () => {
+  const result = buildLocalAnalysis('Quiero hacer un lease-back de una máquina propia. Explicame aforo, plazo y beneficios fiscales.', 'Texto', '', null, '', '', 'leasing-specialist');
+  const section = result.decisionAnswer?.sections?.find((item) => item.title.startsWith('Lease-back'));
+  const text = section?.items.join(' ') || '';
+  assert.match(text, /no existe un porcentaje legal único.*valor de mercado.*tasación/is);
+  assert.match(text, /desembolso neto.*comisión.*gastos registrales/is);
+  assert.match(text, /artículo 26 del Decreto 1038\/2000.*operación financiera/is);
+  assert.match(text, /no una exención fiscal automática/is);
+});
+
+test('uso personal expone la ventaja condicionada de Bienes Personales', () => {
+  const result = buildLocalAnalysis('Analizá un leasing automotor para uso personal de una persona humana.', 'Texto', '', null, '', '', 'leasing-specialist');
+  const taxSection = result.decisionAnswer?.sections?.find((item) => item.title === 'Ventajas impositivas y tratamiento del tomador');
+  assert.match(taxSection?.items.join(' ') || '', /titularidad continúe en el dador.*no integra el patrimonio del tomador en Bienes Personales/is);
+  assert.match(taxSection?.items.join(' ') || '', /ejerce la opción.*transfiere el dominio/is);
+});
+
 test('leasing calcula sistema francés garantía inicial gasto y TIR del dador', () => {
   const prompt = 'Caso práctico: leasing financiero con sistema francés. Tipo de bien: Maquinaria o equipo. Valor del bien sin IVA: 100000000. Porcentaje financiado: 80%. Plazo: 36 meses. TNA: 42%. Opción de compra porcentual: 5%. Opción de compra importe fijo: no aplica. Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas: 3. Gasto de estructuración: 3% del valor financiado.';
   const result = buildLocalAnalysis(prompt, 'Texto', '', null, '', '', 'leasing-specialist');
