@@ -158,3 +158,14 @@ test('leasing distingue financiero operativo y lease-back al analizar la opción
   assert.match(findings, /Lease-back:.*venta inicial.*eventual recompra/is);
   assert.match(findings, /Control de la opción: informar valor o fórmula.*IVA.*Sellos/is);
 });
+
+test('leasing calcula sistema francés garantía inicial gasto y TIR del dador', () => {
+  const prompt = 'Caso práctico: leasing financiero con sistema francés. Tipo de bien: Maquinaria o equipo. Valor del bien: 100000000. Porcentaje financiado: 80%. Plazo: 36 meses. TNA: 42%. Opción de compra: 5% del valor del bien. Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas: 3. Gasto de estructuración: 3% del valor financiado.';
+  const result = buildLocalAnalysis(prompt, 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /sistema francés.*canon periódico constante/is);
+  assert.match(findings, /Valor financiado: 80\.000\.000.*80%/is);
+  assert.match(findings, /Cánones de garantía al inicio: 3.*no se cuenta otra vez/is);
+  assert.match(findings, /Gasto de estructuración: 3%.*2\.400\.000/is);
+  assert.match(findings, /TIR estimada del dador.*mensual.*efectiva anual/is);
+});

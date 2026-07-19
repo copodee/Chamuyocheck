@@ -549,6 +549,14 @@ export default function Page() {
   const [leasingLessorProvince, setLeasingLessorProvince] = useState('Ciudad Autónoma de Buenos Aires');
   const [leasingComparisonProvince, setLeasingComparisonProvince] = useState('');
   const [leasingProvinceError, setLeasingProvinceError] = useState('');
+  const [leasingAssetType, setLeasingAssetType] = useState('Maquinaria o equipo');
+  const [leasingAssetValue, setLeasingAssetValue] = useState('');
+  const [leasingFinancedPercent, setLeasingFinancedPercent] = useState('100');
+  const [leasingMonths, setLeasingMonths] = useState('36');
+  const [leasingTna, setLeasingTna] = useState('');
+  const [leasingOptionPercent, setLeasingOptionPercent] = useState('5');
+  const [leasingGuaranteeCanons, setLeasingGuaranteeCanons] = useState('0');
+  const [leasingStructuringFeePercent, setLeasingStructuringFeePercent] = useState('3');
   const fileRef = useRef<HTMLInputElement | null>(null);
   const categoryRef = useRef<HTMLDivElement | null>(null);
 
@@ -748,6 +756,14 @@ export default function Page() {
         form.append('leasingContractProvince', leasingContractProvince);
         form.append('leasingLessorProvince', leasingLessorProvince);
         if (leasingComparisonProvince) form.append('leasingComparisonProvince', leasingComparisonProvince);
+        form.append('leasingAssetType', leasingAssetType);
+        form.append('leasingAssetValue', leasingAssetValue);
+        form.append('leasingFinancedPercent', leasingFinancedPercent);
+        form.append('leasingMonths', leasingMonths);
+        form.append('leasingTna', leasingTna);
+        form.append('leasingOptionPercent', leasingOptionPercent);
+        form.append('leasingGuaranteeCanons', leasingGuaranteeCanons);
+        form.append('leasingStructuringFeePercent', leasingStructuringFeePercent);
       }
       form.append('termsAccepted', 'true');
       form.append('termsVersion', TERMS_VERSION);
@@ -1021,13 +1037,26 @@ export default function Page() {
                   <label>Domicilio del dador<select value={leasingLessorProvince} onChange={(event) => setLeasingLessorProvince(event.target.value)}>
                     {ARGENTINA_JURISDICTIONS.map((province) => <option key={province} value={province}>{province}</option>)}
                   </select></label>
-                  <label>Escenario alternativo (opcional)<select value={leasingComparisonProvince} onChange={(event) => setLeasingComparisonProvince(event.target.value)}>
-                    <option value="">Sin comparación</option>
+                  <label>¿Si el uso fuera en otra provincia, qué diferencia habría? (opcional)<select value={leasingComparisonProvince} onChange={(event) => setLeasingComparisonProvince(event.target.value)}>
+                    <option value="">No comparar otra provincia</option>
                     {ARGENTINA_JURISDICTIONS.filter((province) => province !== leasingProvince).map((province) => <option key={province} value={province}>{province}</option>)}
                   </select></label>
                 </div>
-                <small>El comparativo mostrará porcentajes, bases y condiciones —sin montos— y verificará si la alternativa es jurídicamente posible según domicilio, guarda habitual, lugar de uso y registro competente.</small>
+                <small>Si elegís otra provincia, el comparativo mostrará porcentajes, bases y condiciones —sin montos— y verificará si ese uso o radicación sería jurídicamente posible según domicilio, guarda habitual, lugar de explotación y registro competente. No supone que pueda elegirse una provincia sin conexión real.</small>
                 {leasingProvinceError && <div className="termsError" role="alert">{leasingProvinceError}</div>}
+                <h3 style={{ marginTop: '20px' }}>Datos del caso práctico</h3>
+                <p>Completá lo que conozcas. ChamuyoCheck analizará por defecto un <b>leasing financiero con cánones calculados por sistema francés</b>. Después, en el cuadro de texto, escribí para qué usarás el bien y cualquier condición especial de la oferta.</p>
+                <div className="leasingProvinceGrid">
+                  <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => setLeasingAssetType(event.target.value)}><option>Maquinaria o equipo</option><option>Automotor</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
+                  <label>Valor del bien<input inputMode="decimal" value={leasingAssetValue} onChange={(event) => setLeasingAssetValue(event.target.value)} placeholder="Ej.: 100000000" /></label>
+                  <label>Porcentaje a financiar<input type="number" min="1" max="100" value={leasingFinancedPercent} onChange={(event) => setLeasingFinancedPercent(event.target.value)} /><small>100% financia todo; 80% implica 20% de aporte inicial.</small></label>
+                  <label>Plazo en meses<input type="number" min="1" max="240" value={leasingMonths} onChange={(event) => setLeasingMonths(event.target.value)} /></label>
+                  <label>TNA estimada (opcional)<input type="number" min="0" step="0.01" value={leasingTna} onChange={(event) => setLeasingTna(event.target.value)} placeholder="Ej.: 42" /></label>
+                  <label>Opción de compra (% del bien)<input type="number" min="0" step="0.01" value={leasingOptionPercent} onChange={(event) => setLeasingOptionPercent(event.target.value)} /></label>
+                  <label>Cánones de garantía al inicio<input type="number" min="0" max="24" value={leasingGuaranteeCanons} onChange={(event) => setLeasingGuaranteeCanons(event.target.value)} /><small>Se reciben como garantía y se aplican a las últimas cuotas; se facturan e imputan al aplicarse.</small></label>
+                  <label>Gasto de estructuración (% financiado)<input type="number" min="0" max="20" step="0.01" value={leasingStructuringFeePercent} onChange={(event) => setLeasingStructuringFeePercent(event.target.value)} /><small>En el mercado suele cotizarse aproximadamente entre 2% y 5%; confirmá la oferta real.</small></label>
+                </div>
+                <div className="betaAccessNote"><b>¿Qué escribir después?</b> Indicá el uso del bien, si el tomador es empresa, autónomo, monotributista o consumidor, si los importes incluyen IVA, quién paga seguro y mantenimiento, y si existe una cotización concreta para comparar.</div>
               </div>}
             </div>
             <div className={`analysisInputStage ${selectedCategory ? '' : 'locked'}`} aria-disabled={!selectedCategory}>
@@ -1040,7 +1069,7 @@ export default function Page() {
             </div>
             {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" disabled={!selectedCategory} value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}
             <label htmlFor="analysis-instruction"><b>{detected === 'Texto' && !file && !url ? 'Escribí tu consulta' : 'Indicá qué necesitás saber'}</b></label>
-            <textarea id="analysis-instruction" disabled={!selectedCategory} value={text} onChange={(e) => { setText(e.target.value); setInstructionError(''); }} placeholder={selectedCategory ? (activeInput === 'YouTube' ? 'Ejemplo: analizá si la propuesta del curso es coherente y qué riesgos tiene.' : activeInput === 'Web' ? 'Ejemplo: calculá el costo total del préstamo y explicá sus condiciones.' : activeInput === 'Imagen' || file?.type.startsWith('image/') ? 'Ejemplo: calculá la TNA y el costo anual efectivo para la alternativa de 36 meses.' : 'Explicá con precisión qué necesitás saber sobre el contenido.') : 'Primero elegí una categoría.'} />
+            <textarea id="analysis-instruction" disabled={!selectedCategory} value={text} onChange={(e) => { setText(e.target.value); setInstructionError(''); }} placeholder={selectedCategory === 'leasing-specialist' ? 'Ejemplo: La tomadora es una empresa responsable inscripta y usará la máquina en su actividad gravada. Compará gastos, beneficios impositivos, canon, opción y costo efectivo. El seguro y mantenimiento estarán a cargo del tomador.' : selectedCategory ? (activeInput === 'YouTube' ? 'Ejemplo: analizá si la propuesta del curso es coherente y qué riesgos tiene.' : activeInput === 'Web' ? 'Ejemplo: calculá el costo total del préstamo y explicá sus condiciones.' : activeInput === 'Imagen' || file?.type.startsWith('image/') ? 'Ejemplo: calculá la TNA y el costo anual efectivo para la alternativa de 36 meses.' : 'Explicá con precisión qué necesitás saber sobre el contenido.') : 'Primero elegí una categoría.'} />
             {instructionError && <div className="termsError" role="alert">{instructionError}</div>}
             <div className="termsConsent"><input id="terms-consent" type="checkbox" checked={termsAccepted} onChange={(e) => e.target.checked ? acceptCurrentTerms() : revokeTermsAcceptance()} /><label htmlFor="terms-consent">Leí y acepto los <button type="button" className="termsLink" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>Términos y Condiciones</button> (versión {TERMS_VERSION}).</label></div>
             {termsError && <div className="termsError" role="alert">{termsError}</div>}

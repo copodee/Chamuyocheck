@@ -6,6 +6,7 @@ import type { InvestmentProjectAnalysis } from '../../lib/investments/investment
 import { leasingKnowledge } from '../../lib/leasing/argentinaLeasingKnowledge';
 import { buildInternationalLeasingFindings } from '../../lib/leasing/internationalLeasingComparison';
 import { LEASING_TAXPAYER_PROFILES, PROVINCIAL_LEASING_STAMP_MATRIX } from '../../lib/leasing/argentinaLeasingTaxMatrix';
+import { calculateFinancialLeasing } from '../../lib/leasing/leasingFinanceMath';
 
 export type CustomerDecisionAnswer = {
   kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'leasing-specialist' | 'supported-review';
@@ -285,6 +286,34 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
   const publicSectorRules = leasingKnowledge('public-sector').map((item) => item.statement);
   const internationalFindings = buildInternationalLeasingFindings(question);
   const normalizedQuestion = question.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const numericField = (label: string) => {
+    const match = question.match(new RegExp(`${label}:\\s*([\\d.,]+)`, 'i'));
+    if (!match) return null;
+    const normalized = match[1].replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.');
+    const value = Number(normalized);
+    return Number.isFinite(value) ? value : null;
+  };
+  const assetValue = numericField('Valor del bien');
+  const financedPercent = numericField('Porcentaje financiado');
+  const months = numericField('Plazo');
+  const tna = numericField('TNA');
+  const optionPercent = numericField('Opción de compra');
+  const guaranteeCanons = numericField('Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas');
+  const structuringFeePercent = numericField('Gasto de estructuración');
+  const financeResult = assetValue && financedPercent && months && tna !== null && optionPercent !== null && guaranteeCanons !== null && structuringFeePercent !== null
+    ? calculateFinancialLeasing({ assetValue, financedPercent, months, annualNominalRatePercent: tna, optionPercent, guaranteeCanons, structuringFeePercent })
+    : null;
+  const amount = (value: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(value);
+  const financialCaseFindings = financeResult ? [
+    'Caso práctico: leasing financiero calculado con sistema francés (canon periódico constante antes de impuestos y servicios), descontando del capital el valor presente de la opción.',
+    `Valor financiado: ${amount(financeResult.financedAmount)} (${financedPercent}% del bien). Aporte inicial no financiado: ${amount(financeResult.initialContribution)}.`,
+    `Canon financiero mensual estimado: ${amount(financeResult.monthlyCanon)} durante ${months} meses. Opción estimada: ${amount(financeResult.optionAmount)}.`,
+    `Cánones de garantía al inicio: ${guaranteeCanons}; depósito estimado: ${amount(financeResult.guaranteeDeposit)}. Se aplica contra las últimas cuotas y no se cuenta otra vez como cobro; la facturación y los impuestos se reconocen al momento contractual aplicable.`,
+    `Gasto de estructuración: ${structuringFeePercent}% del valor financiado, equivalente a ${amount(financeResult.structuringFee)}. Debe confirmarse si se paga aparte, se financia o lleva IVA.`,
+    financeResult.lessorEffectiveAnnualIrrPercent === null ? 'No pudo determinarse una TIR única del dador con este flujo.' : `TIR estimada del dador incorporando garantía y gasto inicial: ${financeResult.lessorMonthlyIrrPercent?.toFixed(3)}% mensual; ${(financeResult.lessorEffectiveAnnualIrrPercent).toFixed(3)}% efectiva anual. No incluye IVA ni impuestos no cuantificados.`,
+  ] : [
+    'Para calcular el caso práctico faltan uno o más datos: valor del bien, porcentaje financiado, plazo, TNA, opción, cánones de garantía o gasto de estructuración. El sistema usa leasing financiero y sistema francés sólo cuando esos campos están completos.',
+  ];
   const profilesToReport = PROVINCIAL_LEASING_STAMP_MATRIX.filter((item) =>
     item.jurisdiction === 'Buenos Aires'
       ? normalizedQuestion.replaceAll('ciudad autonoma de buenos aires', '').includes('buenos aires')
@@ -404,6 +433,8 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       'Modalidades económicas a distinguir: leasing financiero, leasing operativo o asimilado a locación y lease-back. La denominación comercial no reemplaza el análisis de las condiciones legales y tributarias.',
       'Tipo de leasing y efecto sobre la opción de compra:',
       ...leasingTypeAndOptionRules,
+      'Cálculo del caso práctico:',
+      ...financialCaseFindings,
       'Ventajas diferenciales frente a préstamo, prenda u otra financiación de inversión:',
       ...distinctiveAdvantages,
       'Una ventaja fiscal sólo existe si el tomador puede computarla conforme su actividad, afectación del bien, impuesto, jurisdicción y documentación; no debe sumarse como ahorro sin verificar su utilización efectiva.',
