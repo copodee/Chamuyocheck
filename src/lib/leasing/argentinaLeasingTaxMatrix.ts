@@ -65,9 +65,28 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     ],
     sourceUrl: 'https://www.santafe.gov.ar/boletinoficial/verPdf.php?seccion=2025%2F2025-12-23ley14426.html', verifiedAt: '2026-07-18',
   },
+  {
+    jurisdiction: 'Neuquén', fiscalYear: 2026, status: 'verified-current',
+    treatment: 'La Ley Impositiva 3541 fija Sellos del 14‰ para contratos de leasing sobre el monto de los cánones durante su duración hasta ejercer la opción. Al ejercerse la compra se liquida la alícuota prevista para el tipo de bien transferido. La actividad 649100, arrendamiento financiero/leasing, tributa Ingresos Brutos al 9%.',
+    exemptions: [
+      'No se identificó una exención general de Sellos por leasing en la Ley Impositiva 2026.',
+      'En inmuebles, la inscripción que implique transmisión, modificación o constitución de derechos —incluido leasing— tiene además una tasa registral del 6‰ sobre la valuación fiscal o el contrato, el mayor, con mínimo legal; esta tasa no es Impuesto de Sellos.',
+    ],
+    sourceUrl: 'https://www.legislaturaneuquen.gob.ar/svrfiles/Neuleg/normaslegales/pdf/LEY3541FD.pdf', verifiedAt: '2026-07-18',
+  },
+  {
+    jurisdiction: 'Mendoza', fiscalYear: 2026, status: 'verified-current',
+    treatment: 'El Código Fiscal 2026 calcula Sellos del leasing sobre los cánones hasta ejercer la opción. Si se transfiere un inmueble o bien mueble registrable, la base es el mayor entre el valor total adjudicado —cánones más residual— y el valor de referencia, computando como pago a cuenta el impuesto abonado durante el contrato. La Ley 9680 fija para 2026 una alícuota general de Sellos del 1%, con tasas específicas según el acto o bien.',
+    exemptions: [
+      'La Ley 9680 establece una reducción plurianual de la alícuota general: 1% en 2026, 0,75% en 2027, 0,50% en 2028, 0,25% en 2029 y 0% en 2030; el cronograma puede prorrogarse si se verifica la situación recesiva definida por la ley.',
+      'Para 2026 existen tasas específicas que pueden incidir al inscribir o ejercer la opción: 2% para actos sobre inmuebles, 1,5% para inscripción de vehículos 0 km y 0,25% para inscripción inicial o transferencia onerosa de maquinaria agrícola, vial e industrial. Debe elegirse la tasa del acto concreto, no sumar todas.',
+      'En leasing automotor el contribuyente del Impuesto Automotor es el dador, aunque la radicación provincial puede determinarse por domicilio del tomador, guarda o explotación en Mendoza.',
+    ],
+    sourceUrl: 'https://atm.mendoza.gov.ar/wp-content/uploads/2025/12/Ley-Impositiva-2026.pdf', verifiedAt: '2026-07-18',
+  },
   ...[
     'Catamarca', 'Chaco', 'Chubut', 'Corrientes', 'Formosa', 'Jujuy',
-    'La Pampa', 'La Rioja', 'Mendoza', 'Misiones', 'Neuquén', 'Río Negro', 'Salta', 'San Juan',
+    'La Pampa', 'La Rioja', 'Misiones', 'Río Negro', 'Salta', 'San Juan',
     'San Luis', 'Santa Cruz', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
   ].map(pending),
 ];
