@@ -84,8 +84,17 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     ],
     sourceUrl: 'https://atm.mendoza.gov.ar/wp-content/uploads/2025/12/Ley-Impositiva-2026.pdf', verifiedAt: '2026-07-18',
   },
+  {
+    jurisdiction: 'Jujuy', fiscalYear: 2026, status: 'verified-current',
+    treatment: 'La Ley Impositiva 6492 fija una alícuota específica de Sellos del 1% para los contratos de leasing. La actividad 649100, arrendamiento financiero/leasing, tributa Ingresos Brutos al 8%.',
+    exemptions: [
+      'No se identificó en la Ley Impositiva 2026 una exención general de Sellos para leasing.',
+      'La constitución o transferencia de derechos sobre inmuebles y otros bienes puede tener una alícuota propia; debe distinguirse el contrato inicial del ejercicio e inscripción de la opción de compra.',
+    ],
+    sourceUrl: 'https://boletinoficial.jujuy.gob.ar/?p=324226', verifiedAt: '2026-07-18',
+  },
   ...[
-    'Catamarca', 'Chaco', 'Chubut', 'Corrientes', 'Formosa', 'Jujuy',
+    'Catamarca', 'Chaco', 'Chubut', 'Corrientes', 'Formosa',
     'La Pampa', 'La Rioja', 'Misiones', 'Río Negro', 'Salta', 'San Juan',
     'San Luis', 'Santa Cruz', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
   ].map(pending),
