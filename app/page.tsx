@@ -5,7 +5,7 @@ import { readLocalHistory, type HistoryItem } from '../src/lib/history/localHist
 import { TERMS_SECTIONS, TERMS_STORAGE_KEY, TERMS_VERSION } from '../src/lib/legal/terms';
 import { extractImageTextInBrowser } from '../src/lib/extractors/browserOcr';
 import { getSupabaseClient } from '../src/lib/supabase/client';
-import { calculateLeasingTransparencyScore } from '../src/lib/leasing/leasingTransparencyScore';
+import { buildLeasingTransparencyEvidence, calculateLeasingTransparencyScore } from '../src/lib/leasing/leasingTransparencyScore';
 import type { Session } from '@supabase/supabase-js';
 
 type Cat = { name: string; score: number; explanation: string };
@@ -567,6 +567,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [leasingOptionAmount, setLeasingOptionAmount] = useState('');
   const [leasingGuaranteeCanons, setLeasingGuaranteeCanons] = useState('0');
   const [leasingStructuringFeePercent, setLeasingStructuringFeePercent] = useState('3');
+  const [leasingConfirmedFields, setLeasingConfirmedFields] = useState<Set<string>>(() => new Set());
   const [preparedFormRequest, setPreparedFormRequest] = useState(0);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const categoryRef = useRef<HTMLDivElement | null>(null);
@@ -756,6 +757,14 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     window.setTimeout(() => fileRef.current?.click(), 250);
   }
 
+  function confirmLeasingField(field: string) {
+    setLeasingConfirmedFields((current) => {
+      const next = new Set(current);
+      next.add(field);
+      return next;
+    });
+  }
+
   function updateAnalysisText(value: string) {
     if (!leasingPage && /\bleasing\b/i.test(value) && typeof window !== 'undefined') {
       sessionStorage.setItem('cc_leasing_prefill', value);
@@ -883,7 +892,21 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   }, [leasingPage, pendingLeasingAutoRun, sessionLoading, termsReady, session, termsAccepted, text]);
 
   const score = analysis?.score ?? 35;
-  const leasingScoreSource = [analysis?.extractedPreview || '', text, leasingAssetType, leasingAssetValue ? `Valor neto sin IVA ${leasingAssetValue}` : '', leasingFinancedPercent ? `Porcentaje financiado ${leasingFinancedPercent}` : '', leasingMonths ? `Plazo ${leasingMonths} meses` : '', leasingTna ? `TNA ${leasingTna}%` : '', leasingOptionMode === 'percent' ? `Opción de compra ${leasingOptionPercent}%` : `Opción de compra ${leasingOptionAmount}`, leasingStructuringFeePercent ? `Comisión de estructuración ${leasingStructuringFeePercent}%` : '', leasingProvince ? `Registración y jurisdicción ${leasingProvince}` : ''].filter(Boolean).join(' ');
+  const leasingScoreSource = buildLeasingTransparencyEvidence({
+    documentText: analysis?.extractedPreview || '',
+    userText: text,
+    manualFields: file ? {} : {
+      assetType: leasingConfirmedFields.has('assetType') ? leasingAssetType : '',
+      assetValue: leasingAssetValue,
+      financedPercent: leasingConfirmedFields.has('financedPercent') ? `${leasingFinancedPercent}%` : '',
+      months: leasingConfirmedFields.has('months') ? `${leasingMonths} meses` : '',
+      tna: leasingTna ? `${leasingTna}%` : '',
+      option: leasingConfirmedFields.has('option') ? (leasingOptionMode === 'percent' ? `${leasingOptionPercent}%` : leasingOptionAmount) : '',
+      structuringFee: leasingConfirmedFields.has('structuringFee') ? `${leasingStructuringFeePercent}%` : '',
+      guaranteeCanons: leasingConfirmedFields.has('guaranteeCanons') ? leasingGuaranteeCanons : '',
+      jurisdiction: leasingProvince,
+    },
+  });
   const leasingScore = calculateLeasingTransparencyScore(leasingScoreSource);
   const isLeasingAnalysis = analysis?.decisionAnswer?.kind === 'leasing-specialist';
   const leasingScoreExplanationItems = [
@@ -928,6 +951,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setLoading(false);
     setSteps([]);
     setSelectedCategory(leasingPage ? 'leasing-specialist' : null);
+    setLeasingConfirmedFields(new Set());
     setCategoryError('');
     setInstructionError('');
     if (typeof window !== 'undefined') {
@@ -1161,17 +1185,17 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                 <h3>Datos del caso práctico</h3>
                 <p>Completá lo que conozcas. LeasingScore analizará por defecto un leasing financiero; cuando deba simular un caso usará cánones calculados por sistema francés.</p>
                 <div className="leasingProvinceGrid">
-                  <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => setLeasingAssetType(event.target.value)}><option>Maquinaria o equipo</option><option>Automotor</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
+                  <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => { setLeasingAssetType(event.target.value); confirmLeasingField('assetType'); }}><option>Maquinaria o equipo</option><option>Automotor</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
                   <label>Valor del bien sin IVA<input inputMode="decimal" value={leasingAssetValue} onChange={(event) => setLeasingAssetValue(event.target.value)} placeholder="Ej.: 100000000" /><small>Ingresá el precio neto. El IVA se calcula y analiza por separado.</small></label>
-                  <label>Porcentaje a financiar<input type="number" min="1" max="100" value={leasingFinancedPercent} onChange={(event) => setLeasingFinancedPercent(event.target.value)} /><small>100% financia todo; 80% implica 20% de aporte inicial.</small></label>
-                  <label>Plazo en meses<input type="number" min="1" max="240" value={leasingMonths} onChange={(event) => setLeasingMonths(event.target.value)} /></label>
+                  <label>Porcentaje a financiar<input type="number" min="1" max="100" value={leasingFinancedPercent} onChange={(event) => { setLeasingFinancedPercent(event.target.value); confirmLeasingField('financedPercent'); }} /><small>100% financia todo; 80% implica 20% de aporte inicial.</small></label>
+                  <label>Plazo en meses<input type="number" min="1" max="240" value={leasingMonths} onChange={(event) => { setLeasingMonths(event.target.value); confirmLeasingField('months'); }} /></label>
                   <label>TNA estimada (opcional)<input type="number" min="0" step="0.01" value={leasingTna} onChange={(event) => setLeasingTna(event.target.value)} placeholder="Ej.: 42" /></label>
-                  <label>Cómo está pactada la opción<select value={leasingOptionMode} onChange={(event) => setLeasingOptionMode(event.target.value as 'percent' | 'amount')}><option value="percent">Porcentaje del valor del bien</option><option value="amount">Importe fijo</option></select></label>
+                  <label>Cómo está pactada la opción<select value={leasingOptionMode} onChange={(event) => { setLeasingOptionMode(event.target.value as 'percent' | 'amount'); confirmLeasingField('option'); }}><option value="percent">Porcentaje del valor del bien</option><option value="amount">Importe fijo</option></select></label>
                   {leasingOptionMode === 'percent'
-                    ? <label>Opción de compra (% del bien)<input type="number" min="0" step="0.01" value={leasingOptionPercent} onChange={(event) => setLeasingOptionPercent(event.target.value)} placeholder="Ej.: 5" /></label>
-                    : <label>Valor pactado de la opción<input inputMode="decimal" value={leasingOptionAmount} onChange={(event) => setLeasingOptionAmount(event.target.value)} placeholder="Ej.: 5000000" /></label>}
-                  <label>Cánones de garantía al inicio<input type="number" min="0" max="24" value={leasingGuaranteeCanons} onChange={(event) => setLeasingGuaranteeCanons(event.target.value)} /><small>Se reciben como garantía y se aplican a las últimas cuotas; se facturan e imputan al aplicarse.</small></label>
-                  <label>Gasto de estructuración (% financiado)<input type="text" inputMode="decimal" value={leasingStructuringFeePercent} onChange={(event) => setLeasingStructuringFeePercent(event.target.value.replace(/[^\d.,]/g, ''))} placeholder="Ej.: 4,5" /><small>Acepta decimales con coma o punto. En el mercado suele cotizarse aproximadamente entre 2% y 5%; confirmá la oferta real.</small></label>
+                    ? <label>Opción de compra (% del bien)<input type="number" min="0" step="0.01" value={leasingOptionPercent} onChange={(event) => { setLeasingOptionPercent(event.target.value); confirmLeasingField('option'); }} placeholder="Ej.: 5" /></label>
+                    : <label>Valor pactado de la opción<input inputMode="decimal" value={leasingOptionAmount} onChange={(event) => { setLeasingOptionAmount(event.target.value); confirmLeasingField('option'); }} placeholder="Ej.: 5000000" /></label>}
+                  <label>Cánones de garantía al inicio<input type="number" min="0" max="24" value={leasingGuaranteeCanons} onChange={(event) => { setLeasingGuaranteeCanons(event.target.value); confirmLeasingField('guaranteeCanons'); }} /><small>Se reciben como garantía y se aplican a las últimas cuotas; se facturan e imputan al aplicarse.</small></label>
+                  <label>Gasto de estructuración (% financiado)<input type="text" inputMode="decimal" value={leasingStructuringFeePercent} onChange={(event) => { setLeasingStructuringFeePercent(event.target.value.replace(/[^\d.,]/g, '')); confirmLeasingField('structuringFee'); }} placeholder="Ej.: 4,5" /><small>Acepta decimales con coma o punto. En el mercado suele cotizarse aproximadamente entre 2% y 5%; confirmá la oferta real.</small></label>
                 </div>
                 <button type="button" className="betaAccessNote leasingQuoteLink" onClick={openLeasingQuoteUpload}><b>¿Tenés una cotización?</b> Tocá acá para subirla como PDF o imagen y evitar cargar estos datos a mano.</button>
                 </>}

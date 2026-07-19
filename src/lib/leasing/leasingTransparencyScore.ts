@@ -6,6 +6,12 @@ export type LeasingTransparencyScore = {
   missing: string[];
 };
 
+export type LeasingTransparencyEvidence = {
+  documentText?: string;
+  userText?: string;
+  manualFields?: Partial<Record<'assetType' | 'assetValue' | 'financedPercent' | 'months' | 'tna' | 'option' | 'structuringFee' | 'guaranteeCanons' | 'jurisdiction', string>>;
+};
+
 const dimensions: Array<{ label: string; weight: number; pattern: RegExp }> = [
   { label: 'Identificación del dador y del tomador', weight: 6, pattern: /(?:dador|finanlease|inverlease|banco).*(?:tomador|cliente)|(?:tomador|cliente).*(?:dador|banco)/i },
   { label: 'Bien y proveedor identificados', weight: 6, pattern: /(?:bien|veh[ií]culo|maquinaria|equipo|inmueble|aeronave|embarcaci[oó]n).*(?:proveedor|marca|modelo|leasing)/i },
@@ -32,4 +38,22 @@ export function calculateLeasingTransparencyScore(text: string): LeasingTranspar
   const label = score >= 85 ? 'Transparencia muy alta' : score >= 70 ? 'Transparencia alta' : score >= 50 ? 'Información parcial' : score >= 30 ? 'Faltan datos importantes' : 'Información insuficiente';
   const color = score >= 85 ? '#22e58b' : score >= 70 ? '#8bf53f' : score >= 50 ? '#f4ff00' : score >= 30 ? '#ffb020' : '#ff6b6b';
   return { score, label, color, present: present.map((item) => item.label), missing: missing.map((item) => item.label) };
+}
+
+export function buildLeasingTransparencyEvidence({ documentText = '', userText = '', manualFields = {} }: LeasingTransparencyEvidence): string {
+  const fieldLabels: Record<keyof NonNullable<LeasingTransparencyEvidence['manualFields']>, string> = {
+    assetType: 'Bien objeto del leasing',
+    assetValue: 'Valor neto sin IVA e IVA a discriminar',
+    financedPercent: 'Porcentaje financiado',
+    months: 'Plazo en meses',
+    tna: 'TNA informada',
+    option: 'Opción de compra',
+    structuringFee: 'Comisión de estructuración',
+    guaranteeCanons: 'Cánones en garantía que se aplican al final',
+    jurisdiction: 'Registración y jurisdicción',
+  };
+  const suppliedFields = Object.entries(manualFields)
+    .filter(([, value]) => String(value || '').trim())
+    .map(([key, value]) => `${fieldLabels[key as keyof typeof fieldLabels]} ${value}`);
+  return [documentText, userText, ...suppliedFields].filter((value) => value.trim()).join(' ');
 }
