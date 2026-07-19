@@ -111,6 +111,18 @@ test('leasing separa la jurisdicción del tomador de la presentación fiscal del
   assert.doesNotMatch(findings, /Neuquén.*14‰|Jujuy.*8%/is);
 });
 
+test('leasing entrega provincias en columnas y separa resultados por tema', () => {
+  const result = buildLocalAnalysis('Compará un leasing entre Ciudad Autónoma de Buenos Aires y Mendoza para una persona humana.', 'Texto', '', null, '', '', 'leasing-specialist');
+  assert.deepEqual(result.decisionAnswer?.comparisonTable?.columns, ['Ciudad Autónoma de Buenos Aires', 'Mendoza']);
+  assert.ok(result.decisionAnswer?.comparisonTable?.rows.some((row) => row.label === 'Sellos del contrato'));
+  assert.ok(result.decisionAnswer?.sections?.some((section) => section.title === 'Resultado financiero'));
+  assert.ok(result.decisionAnswer?.sections?.some((section) => section.title === 'Ventajas frente a préstamo y prenda'));
+  const sections = result.decisionAnswer?.sections?.flatMap((section) => section.items).join(' ') || '';
+  assert.match(sections, /no integra el patrimonio del tomador a declarar en Bienes Personales/i);
+  assert.match(sections, /puede cubrir hasta el 100%.*no existe una prohibición legal universal/is);
+  assert.match(sections, /Costos de la prenda a comparar:.*interés y CFT.*inscripción/is);
+});
+
 test('leasing muestra porcentajes y distingue obligación legal de traslado económico', () => {
   const result = buildLocalAnalysis('Analizá los porcentajes de un leasing en Río Negro: sellos, Ingresos Brutos y opción de compra.', 'Texto', '', null, '', '', 'leasing-specialist');
   const findings = result.decisionAnswer?.findings.join(' ') || '';
@@ -160,12 +172,20 @@ test('leasing distingue financiero operativo y lease-back al analizar la opción
 });
 
 test('leasing calcula sistema francés garantía inicial gasto y TIR del dador', () => {
-  const prompt = 'Caso práctico: leasing financiero con sistema francés. Tipo de bien: Maquinaria o equipo. Valor del bien: 100000000. Porcentaje financiado: 80%. Plazo: 36 meses. TNA: 42%. Opción de compra: 5% del valor del bien. Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas: 3. Gasto de estructuración: 3% del valor financiado.';
+  const prompt = 'Caso práctico: leasing financiero con sistema francés. Tipo de bien: Maquinaria o equipo. Valor del bien sin IVA: 100000000. Porcentaje financiado: 80%. Plazo: 36 meses. TNA: 42%. Opción de compra porcentual: 5%. Opción de compra importe fijo: no aplica. Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas: 3. Gasto de estructuración: 3% del valor financiado.';
   const result = buildLocalAnalysis(prompt, 'Texto', '', null, '', '', 'leasing-specialist');
   const findings = result.decisionAnswer?.findings.join(' ') || '';
   assert.match(findings, /sistema francés.*canon periódico constante/is);
-  assert.match(findings, /Valor financiado: 80\.000\.000.*80%/is);
+  assert.match(findings, /Valor neto sin IVA financiado: 80\.000\.000.*80%/is);
+  assert.match(findings, /IVA se analiza por separado/is);
   assert.match(findings, /Cánones de garantía al inicio: 3.*no se cuenta otra vez/is);
   assert.match(findings, /Gasto de estructuración: 3%.*2\.400\.000/is);
   assert.match(findings, /TIR estimada del dador.*mensual.*efectiva anual/is);
+});
+
+test('leasing acepta una opción de compra pactada como importe fijo', () => {
+  const prompt = 'Caso práctico: leasing financiero con sistema francés. Valor del bien sin IVA: 100000000. Porcentaje financiado: 80%. Plazo: 36 meses. TNA: 42%. Opción de compra porcentual: no aplica. Opción de compra importe fijo: 7000000. Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas: 0. Gasto de estructuración: 2% del valor financiado.';
+  const result = buildLocalAnalysis(prompt, 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Opción pactada usada en el cálculo: 7\.000\.000 como importe fijo/is);
 });

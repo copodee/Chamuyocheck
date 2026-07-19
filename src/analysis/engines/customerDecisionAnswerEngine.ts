@@ -14,6 +14,11 @@ export type CustomerDecisionAnswer = {
   title: string;
   directAnswer: string;
   findings: string[];
+  sections?: Array<{ title: string; items: string[] }>;
+  comparisonTable?: {
+    columns: string[];
+    rows: Array<{ label: string; values: string[] }>;
+  };
   nextActions: string[];
   limitations: string[];
 };
@@ -293,11 +298,17 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     const value = Number(normalized);
     return Number.isFinite(value) ? value : null;
   };
-  const assetValue = numericField('Valor del bien');
+  const assetValue = numericField('Valor del bien sin IVA') ?? numericField('Valor del bien');
   const financedPercent = numericField('Porcentaje financiado');
   const months = numericField('Plazo');
   const tna = numericField('TNA');
-  const optionPercent = numericField('Opción de compra');
+  const optionPercentField = numericField('Opción de compra porcentual');
+  const optionAmountField = numericField('Opción de compra importe fijo');
+  const optionPercent = optionPercentField !== null
+    ? optionPercentField
+    : assetValue && optionAmountField !== null
+      ? optionAmountField / assetValue * 100
+      : null;
   const guaranteeCanons = numericField('Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas');
   const structuringFeePercent = numericField('Gasto de estructuración');
   const financeResult = assetValue && financedPercent && months && tna !== null && optionPercent !== null && guaranteeCanons !== null && structuringFeePercent !== null
@@ -306,8 +317,8 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
   const amount = (value: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(value);
   const financialCaseFindings = financeResult ? [
     'Caso práctico: leasing financiero calculado con sistema francés (canon periódico constante antes de impuestos y servicios), descontando del capital el valor presente de la opción.',
-    `Valor financiado: ${amount(financeResult.financedAmount)} (${financedPercent}% del bien). Aporte inicial no financiado: ${amount(financeResult.initialContribution)}.`,
-    `Canon financiero mensual estimado: ${amount(financeResult.monthlyCanon)} durante ${months} meses. Opción estimada: ${amount(financeResult.optionAmount)}.`,
+    `Valor neto sin IVA financiado: ${amount(financeResult.financedAmount)} (${financedPercent}% del bien). Aporte inicial neto no financiado: ${amount(financeResult.initialContribution)}. El IVA se analiza por separado y no está duplicado en este capital.`,
+    `Canon financiero mensual estimado: ${amount(financeResult.monthlyCanon)} durante ${months} meses. Opción pactada usada en el cálculo: ${amount(financeResult.optionAmount)}${optionAmountField !== null ? ' como importe fijo' : ` (${optionPercentField}% del bien)`}.`,
     `Cánones de garantía al inicio: ${guaranteeCanons}; depósito estimado: ${amount(financeResult.guaranteeDeposit)}. Se aplica contra las últimas cuotas y no se cuenta otra vez como cobro; la facturación y los impuestos se reconocen al momento contractual aplicable.`,
     `Gasto de estructuración: ${structuringFeePercent}% del valor financiado, equivalente a ${amount(financeResult.structuringFee)}. Debe confirmarse si se paga aparte, se financia o lleva IVA.`,
     financeResult.lessorEffectiveAnnualIrrPercent === null ? 'No pudo determinarse una TIR única del dador con este flujo.' : `TIR estimada del dador incorporando garantía y gasto inicial: ${financeResult.lessorMonthlyIrrPercent?.toFixed(3)}% mensual; ${(financeResult.lessorEffectiveAnnualIrrPercent).toFixed(3)}% efectiva anual. No incluye IVA ni impuestos no cuantificados.`,
@@ -381,6 +392,12 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     'La opción permite decidir al final si adquirir el activo; puede ser valiosa frente a obsolescencia, pero pierde fuerza cuando la opción es económicamente obligatoria o el costo de salida es alto.',
     'No debe venderse como ventaja la antigua idea de que todo leasing queda fuera del balance: la exposición contable depende de las normas aplicables, incluida NIIF 16 cuando corresponda.',
   ];
+  const humanPersonComparison = [
+    'Persona humana: mientras no se ejerza la opción y se transmita el dominio, el bien pertenece al dador; por eso el bien subyacente no integra el patrimonio del tomador a declarar en Bienes Personales. Al ejercer la opción debe analizarse su incorporación desde la transmisión y la situación fiscal concreta.',
+    'Financiación: una oferta de leasing puede cubrir hasta el 100% del valor neto del bien, sujeto a evaluación crediticia y condiciones del dador. Un préstamo prendario normalmente exige integración inicial o financia un porcentaje menor, aunque no existe una prohibición legal universal que impida financiar el 100%.',
+    'Costos de la prenda a comparar: anticipo no financiado, interés y CFT, comisión de otorgamiento, IVA sobre prestaciones gravadas, Sellos según jurisdicción, inscripción y posteriores modificaciones de la prenda, seguro, informes, certificaciones, gestoría y cancelación. También debe computarse que el comprador adquiere y registra el dominio desde el inicio.',
+    'Ventaja patrimonial potencial del leasing para uso personal: permite usar el bien sin adquirir inicialmente el dominio y difiere la decisión de compra. No genera por sí solo crédito fiscal de IVA ni deducción de Ganancias para consumo personal, y el contrato puede trasladar al tomador seguro, patente, mantenimiento, impuestos y tasas.',
+  ];
   const leasingTypeAndOptionRules = [
     'Leasing contractual argentino (CCyC): para quedar bajo los artículos 1227 y siguientes debe existir una opción de compra a favor del tomador. El precio debe estar fijado en el contrato o ser determinable por procedimientos o pautas pactadas; también deben revisarse el momento habilitado para ejercerla y sus efectos.',
     'Leasing financiero: el dador financia sustancialmente la adquisición y recupera capital, costo financiero y margen mediante maxi canon/cánones y opción. Una opción residual baja puede hacer probable la compra, pero no debe suponerse sin leer el flujo; se compara el costo total incluyendo opción y transferencia.',
@@ -406,6 +423,33 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
   const grossIncomeComparison = comparableGrossIncomeRates.length
     ? `Ingresos Brutos de la actividad del dador: ${comparableGrossIncomeRates.map((item) => `${item.jurisdiction} ${item.grossIncomeRatePercent}%`).join('; ')}. Es razonable analizar su traslado económico al tomador, pero la alícuota no se suma automáticamente como impuesto directo: debe revisarse la base imponible del dador y cómo fue incorporada al precio.`
     : '';
+  const provincialComparisonTable = profilesToReport.length > 1 ? {
+    columns: profilesToReport.map((item) => item.jurisdiction),
+    rows: [
+      {
+        label: 'Sellos del contrato',
+        values: profilesToReport.map((item) => item.stampRatePercent === undefined
+          ? 'Alícuota pendiente de verificación'
+          : `${item.stampRatePercent}%${item.stampRateCondition ? ` — ${item.stampRateCondition}` : ''}`),
+      },
+      {
+        label: 'Ingresos Brutos del dador',
+        values: profilesToReport.map((item) => item.grossIncomeRatePercent === undefined
+          ? 'Incidencia no cuantificada'
+          : `${item.grossIncomeRatePercent}% para actividad 649100; no sumar otra vez si ya integra tasa o canon`),
+      },
+      {
+        label: 'Beneficios o exenciones',
+        values: profilesToReport.map((item) => item.exemptions.length
+          ? item.exemptions.join(' ')
+          : 'No se confirmó una exención automática para el caso'),
+      },
+      {
+        label: 'Base, territorialidad y condiciones',
+        values: profilesToReport.map((item) => item.treatment),
+      },
+    ],
+  } : undefined;
   const taxFindings = [
     `Persona jurídica: ${LEASING_TAXPAYER_PROFILES.company}`,
     `Persona humana en régimen general: ${LEASING_TAXPAYER_PROFILES['human-general-regime']}`,
@@ -442,6 +486,22 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       ...publicSectorRules,
       ...internationalFindings,
     ],
+    sections: [
+      { title: 'Resultado financiero', items: financialCaseFindings },
+      { title: 'Modalidad y opción de compra', items: leasingTypeAndOptionRules },
+      { title: 'Ventajas frente a préstamo y prenda', items: [...distinctiveAdvantages, ...humanPersonComparison] },
+      { title: 'Ventajas impositivas y tratamiento del tomador', items: [
+        `Persona jurídica: ${LEASING_TAXPAYER_PROFILES.company}`,
+        `Persona humana en actividad: ${LEASING_TAXPAYER_PROFILES['human-general-regime']}`,
+        `Monotributista: ${LEASING_TAXPAYER_PROFILES.monotributista}`,
+        `Uso personal: ${LEASING_TAXPAYER_PROFILES.consumer}`,
+        ...assetTaxBenefits,
+      ] },
+      { title: 'Costos, registración y tributos', items: [...expenseMap, ...percentageIncidence, stampComparison, grossIncomeComparison].filter(Boolean) },
+      ...(publicSectorRules.length ? [{ title: 'Sector público', items: publicSectorRules }] : []),
+      ...(internationalFindings.length ? [{ title: 'Comparación internacional', items: internationalFindings }] : []),
+    ],
+    comparisonTable: provincialComparisonTable,
     nextActions: [
       'Comparar leasing, préstamo y compra al contado con el mismo activo, plazo y valor residual, usando flujos mensuales después de impuestos.',
       'Separar canon financiero, servicios, IVA, seguros, mantenimiento, gastos registrales, comisiones y precio de opción.',

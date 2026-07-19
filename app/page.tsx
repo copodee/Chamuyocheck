@@ -142,6 +142,11 @@ type Analysis = {
     title: string;
     directAnswer: string;
     findings: string[];
+    sections?: Array<{ title: string; items: string[] }>;
+    comparisonTable?: {
+      columns: string[];
+      rows: Array<{ label: string; values: string[] }>;
+    };
     nextActions: string[];
     limitations: string[];
   };
@@ -555,8 +560,11 @@ export default function Page() {
   const [leasingMonths, setLeasingMonths] = useState('36');
   const [leasingTna, setLeasingTna] = useState('');
   const [leasingOptionPercent, setLeasingOptionPercent] = useState('5');
+  const [leasingOptionMode, setLeasingOptionMode] = useState<'percent' | 'amount'>('percent');
+  const [leasingOptionAmount, setLeasingOptionAmount] = useState('');
   const [leasingGuaranteeCanons, setLeasingGuaranteeCanons] = useState('0');
   const [leasingStructuringFeePercent, setLeasingStructuringFeePercent] = useState('3');
+  const [preparedFormRequest, setPreparedFormRequest] = useState(0);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const categoryRef = useRef<HTMLDivElement | null>(null);
 
@@ -597,6 +605,15 @@ export default function Page() {
     const detailedPreference = localStorage.getItem('cc_detailed_results');
     if (detailedPreference !== null) setShowDetailedResults(detailedPreference === 'true');
   }, []);
+  useEffect(() => {
+    if (!preparedFormRequest || activeView !== 'inicio') return;
+    const timer = window.setTimeout(() => {
+      const form = document.getElementById('inicio-form');
+      form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      form?.querySelector<HTMLElement>('#analysis-instruction')?.focus({ preventScroll: true });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [activeView, preparedFormRequest]);
 
   async function submitEmailAuth(event: React.FormEvent) {
     event.preventDefault();
@@ -762,6 +779,8 @@ export default function Page() {
         form.append('leasingMonths', leasingMonths);
         form.append('leasingTna', leasingTna);
         form.append('leasingOptionPercent', leasingOptionPercent);
+        form.append('leasingOptionMode', leasingOptionMode);
+        form.append('leasingOptionAmount', leasingOptionAmount);
         form.append('leasingGuaranteeCanons', leasingGuaranteeCanons);
         form.append('leasingStructuringFeePercent', leasingStructuringFeePercent);
       }
@@ -901,11 +920,13 @@ export default function Page() {
     localStorage.setItem('cc_favorites', JSON.stringify(next));
   };
   const useTemplate = (category: AnalysisCategoryId, prompt: string) => {
+    setAnalysis(null);
     setSelectedCategory(category);
     setText(prompt);
     setActiveInput('Texto');
     setActiveView('inicio');
-    setTimeout(() => document.getElementById('inicio-form')?.scrollIntoView({ behavior: 'smooth' }), 50);
+    setMobileMenuOpen(false);
+    setPreparedFormRequest((request) => request + 1);
   };
   const compareLeasingProvinces = () => {
     setLeasingContractProvince(leasingHubProvinceA);
@@ -1048,11 +1069,14 @@ export default function Page() {
                 <p>Completá lo que conozcas. ChamuyoCheck analizará por defecto un <b>leasing financiero con cánones calculados por sistema francés</b>. Después, en el cuadro de texto, escribí para qué usarás el bien y cualquier condición especial de la oferta.</p>
                 <div className="leasingProvinceGrid">
                   <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => setLeasingAssetType(event.target.value)}><option>Maquinaria o equipo</option><option>Automotor</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
-                  <label>Valor del bien<input inputMode="decimal" value={leasingAssetValue} onChange={(event) => setLeasingAssetValue(event.target.value)} placeholder="Ej.: 100000000" /></label>
+                  <label>Valor del bien sin IVA<input inputMode="decimal" value={leasingAssetValue} onChange={(event) => setLeasingAssetValue(event.target.value)} placeholder="Ej.: 100000000" /><small>Ingresá el precio neto. El IVA se calcula y analiza por separado.</small></label>
                   <label>Porcentaje a financiar<input type="number" min="1" max="100" value={leasingFinancedPercent} onChange={(event) => setLeasingFinancedPercent(event.target.value)} /><small>100% financia todo; 80% implica 20% de aporte inicial.</small></label>
                   <label>Plazo en meses<input type="number" min="1" max="240" value={leasingMonths} onChange={(event) => setLeasingMonths(event.target.value)} /></label>
                   <label>TNA estimada (opcional)<input type="number" min="0" step="0.01" value={leasingTna} onChange={(event) => setLeasingTna(event.target.value)} placeholder="Ej.: 42" /></label>
-                  <label>Opción de compra (% del bien)<input type="number" min="0" step="0.01" value={leasingOptionPercent} onChange={(event) => setLeasingOptionPercent(event.target.value)} /></label>
+                  <label>Cómo está pactada la opción<select value={leasingOptionMode} onChange={(event) => setLeasingOptionMode(event.target.value as 'percent' | 'amount')}><option value="percent">Porcentaje del valor del bien</option><option value="amount">Importe fijo</option></select></label>
+                  {leasingOptionMode === 'percent'
+                    ? <label>Opción de compra (% del bien)<input type="number" min="0" step="0.01" value={leasingOptionPercent} onChange={(event) => setLeasingOptionPercent(event.target.value)} placeholder="Ej.: 5" /></label>
+                    : <label>Valor pactado de la opción<input inputMode="decimal" value={leasingOptionAmount} onChange={(event) => setLeasingOptionAmount(event.target.value)} placeholder="Ej.: 5000000" /></label>}
                   <label>Cánones de garantía al inicio<input type="number" min="0" max="24" value={leasingGuaranteeCanons} onChange={(event) => setLeasingGuaranteeCanons(event.target.value)} /><small>Se reciben como garantía y se aplican a las últimas cuotas; se facturan e imputan al aplicarse.</small></label>
                   <label>Gasto de estructuración (% financiado)<input type="number" min="0" max="20" step="0.01" value={leasingStructuringFeePercent} onChange={(event) => setLeasingStructuringFeePercent(event.target.value)} /><small>En el mercado suele cotizarse aproximadamente entre 2% y 5%; confirmá la oferta real.</small></label>
                 </div>
@@ -1094,7 +1118,18 @@ export default function Page() {
           <h2>{analysis.decisionAnswer.title}</h2>
           <button type="button" className="ghost" onClick={saveFavorite}>☆ Guardar en favoritos</button>
           <p className="decisionDirectAnswer">{analysis.decisionAnswer.directAnswer}</p>
-          {analysis.decisionAnswer.findings.length > 0 && <><h3>Datos y hallazgos</h3><ul>{analysis.decisionAnswer.findings.map((item, index) => <li key={`decision-finding-${index}`}>{item}</li>)}</ul></>}
+          {analysis.decisionAnswer.comparisonTable && <section className="leasingComparisonSection">
+            <h3>Comparación provincial</h3>
+            <div className="leasingComparisonTableWrap">
+              <table className="leasingComparisonTable">
+                <thead><tr><th>Concepto</th>{analysis.decisionAnswer.comparisonTable.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
+                <tbody>{analysis.decisionAnswer.comparisonTable.rows.map((row) => <tr key={row.label}><th>{row.label}</th>{row.values.map((value, index) => <td key={`${row.label}-${index}`}>{value}</td>)}</tr>)}</tbody>
+              </table>
+            </div>
+          </section>}
+          {analysis.decisionAnswer.sections?.length
+            ? <div className="leasingResultSections">{analysis.decisionAnswer.sections.map((section) => <section className="leasingResultSection" key={section.title}><h3>{section.title}</h3><ul>{section.items.map((item, index) => <li key={`${section.title}-${index}`}>{item}</li>)}</ul></section>)}</div>
+            : analysis.decisionAnswer.findings.length > 0 && <><h3>Datos y hallazgos</h3><ul>{analysis.decisionAnswer.findings.map((item, index) => <li key={`decision-finding-${index}`}>{item}</li>)}</ul></>}
           {analysis.decisionAnswer.nextActions.length > 0 && <><h3>Qué conviene hacer ahora</h3><ul>{analysis.decisionAnswer.nextActions.map((item, index) => <li key={`decision-action-${index}`}>{item}</li>)}</ul></>}
           {analysis.decisionAnswer.limitations.length > 0 && <details><summary>Supuestos y datos que todavía deben verificarse</summary><ul>{analysis.decisionAnswer.limitations.map((item, index) => <li key={`decision-limit-${index}`}>{item}</li>)}</ul></details>}
         </div>}
@@ -1214,7 +1249,7 @@ export default function Page() {
               <label className="card"><b>Provincia B</b><select value={leasingHubProvinceB} onChange={(event) => setLeasingHubProvinceB(event.target.value)}>{ARGENTINA_JURISDICTIONS.map((province) => <option key={`hub-b-${province}`} value={province}>{province}</option>)}</select></label>
             </div>
             {leasingHubProvinceA === leasingHubProvinceB && <p className="termsError">Elegí dos provincias diferentes.</p>}
-            <button type="button" className="primary" disabled={leasingHubProvinceA === leasingHubProvinceB} onClick={compareLeasingProvinces}>Preparar comparación provincial</button>
+            <button type="button" className="primary" disabled={leasingHubProvinceA === leasingHubProvinceB} onClick={compareLeasingProvinces}>Continuar con la comparación provincial</button>
           </div>
           <div className="cards" style={{ marginTop: '14px' }}>
             <div className="card"><h3>Leasing operativo vs. financiero</h3><p>Diferencias en propiedad, riesgos, servicios, cánones, valor residual y opción de compra.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Explicame y compará leasing operativo y leasing financiero en Argentina. Indicá cómo cambian los cánones, servicios, riesgos, valor residual, devolución y opción de compra; aclarame cuándo una operación puede ser locación y no leasing financiero.')}>Abrir guía comparativa</button></div>
