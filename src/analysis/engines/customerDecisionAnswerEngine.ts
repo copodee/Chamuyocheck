@@ -7,6 +7,7 @@ import { leasingKnowledge } from '../../lib/leasing/argentinaLeasingKnowledge';
 import { buildInternationalLeasingFindings } from '../../lib/leasing/internationalLeasingComparison';
 import { LEASING_TAXPAYER_PROFILES, PROVINCIAL_LEASING_STAMP_MATRIX } from '../../lib/leasing/argentinaLeasingTaxMatrix';
 import { calculateFinancialLeasing } from '../../lib/leasing/leasingFinanceMath';
+import { extractLeasingQuoteData } from '../../lib/leasing/leasingQuoteExtraction';
 
 export type CustomerDecisionAnswer = {
   kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'leasing-specialist' | 'supported-review';
@@ -311,12 +312,24 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       : null;
   const guaranteeCanons = numericField('Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas');
   const structuringFeePercent = numericField('Gasto de estructuración');
+  const quoteData = extractLeasingQuoteData(question);
   const financeResult = assetValue && financedPercent && months && tna !== null && optionPercent !== null && guaranteeCanons !== null && structuringFeePercent !== null
     ? calculateFinancialLeasing({ assetValue, financedPercent, months, annualNominalRatePercent: tna, optionPercent, guaranteeCanons, structuringFeePercent })
     : null;
   const amount = (value: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(value);
   const decimal = (value: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 4 }).format(value);
-  const financialCaseFindings = financeResult ? [
+  const quoteFindings = quoteData ? [
+    `Cotización detectada${quoteData.assetDescription ? ` para ${quoteData.assetDescription}` : ''}: los datos económicos se tomaron del archivo y prevalecen sobre los valores iniciales del formulario.`,
+    quoteData.assetValueNet !== undefined ? `Valor del bien sin IVA: ${amount(quoteData.assetValueNet)}.${quoteData.vatAmount !== undefined ? ` IVA informado por separado: ${amount(quoteData.vatAmount)}.` : ''}${quoteData.assetValueVatIncluded !== undefined ? ` Total con IVA: ${amount(quoteData.assetValueVatIncluded)}.` : ''}` : '',
+    quoteData.regularCanonCount !== undefined && quoteData.regularCanonAmount !== undefined ? `Flujo cotizado: ${quoteData.regularCanonCount} cánones de ${amount(quoteData.regularCanonAmount)}${quoteData.months ? ` dentro de un plazo contractual de ${quoteData.months} meses` : ''}.` : '',
+    quoteData.optionAmount !== undefined ? `Opción de compra cotizada: ${amount(quoteData.optionAmount)} al final del contrato.` : '',
+    quoteData.maxiCanonAmount !== undefined ? `Maxi canon o adelanto informado: ${amount(quoteData.maxiCanonAmount)}.` : '',
+    quoteData.guaranteeCanons !== undefined ? `Cánones de garantía: ${quoteData.guaranteeCanons}${quoteData.guaranteeAmount !== undefined ? `, por un depósito total informado de ${amount(quoteData.guaranteeAmount)}` : ''}. Si se aplican a los últimos cánones, no deben contarse dos veces en el flujo.` : '',
+    quoteData.structuringFeePercent !== undefined ? `Comisión de estructuración: ${decimal(quoteData.structuringFeePercent)}% más los impuestos que correspondan. Debe confirmarse la base exacta antes de convertirla en un monto.` : '',
+    `Seguro: se modela por defecto como contratado y pagado por el dador, que lo refactura mensualmente al tomador como concepto separado del canon financiero.${quoteData.insuranceText ? ` La cotización indica: “${quoteData.insuranceText}”.` : ''} Si el contrato establece otra mecánica, prevalece el contrato.`,
+    'La cotización permite omitir el formulario económico. Sólo deben completarse los datos que el archivo no informe, especialmente perfil fiscal del tomador, uso del bien, jurisdicciones y condiciones especiales.',
+  ].filter(Boolean) : [];
+  const financialCaseFindings = quoteData ? quoteFindings : financeResult ? [
     'Caso práctico: leasing financiero calculado con sistema francés (canon periódico constante antes de impuestos y servicios), descontando del capital el valor presente de la opción.',
     `Valor neto sin IVA financiado: ${amount(financeResult.financedAmount)} (${financedPercent}% del bien). Aporte inicial neto no financiado: ${amount(financeResult.initialContribution)}. El IVA se analiza por separado y no está duplicado en este capital.`,
     `Canon financiero mensual estimado: ${amount(financeResult.monthlyCanon)} durante ${months} meses. Opción pactada usada en el cálculo: ${amount(financeResult.optionAmount)}${optionAmountField !== null ? ' como importe fijo' : ` (${optionPercentField}% del bien)`}.`,

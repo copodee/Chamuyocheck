@@ -694,6 +694,10 @@ export default function Page() {
     setFile(f);
     setAnalysis(null);
     setActiveInput(f.type.startsWith('image/') ? 'Imagen' : 'PDF');
+    if (selectedCategory === 'leasing-specialist' && !text.trim()) {
+      setText('Analizá esta cotización de leasing. Extraé automáticamente valor neto e IVA, plazo, cánones, opción de compra, maxi canon, cánones de garantía, comisión, seguro y gastos. Calculá el costo y señalá solamente los datos que falten.');
+      setInstructionError('');
+    }
   }
 
   function onDrop(e: React.DragEvent) {
@@ -773,16 +777,19 @@ export default function Page() {
         form.append('leasingContractProvince', leasingContractProvince);
         form.append('leasingLessorProvince', leasingLessorProvince);
         if (leasingComparisonProvince) form.append('leasingComparisonProvince', leasingComparisonProvince);
-        form.append('leasingAssetType', leasingAssetType);
-        form.append('leasingAssetValue', leasingAssetValue);
-        form.append('leasingFinancedPercent', leasingFinancedPercent);
-        form.append('leasingMonths', leasingMonths);
-        form.append('leasingTna', leasingTna);
-        form.append('leasingOptionPercent', leasingOptionPercent);
-        form.append('leasingOptionMode', leasingOptionMode);
-        form.append('leasingOptionAmount', leasingOptionAmount);
-        form.append('leasingGuaranteeCanons', leasingGuaranteeCanons);
-        form.append('leasingStructuringFeePercent', leasingStructuringFeePercent);
+        form.append('leasingQuoteUploaded', file ? 'true' : 'false');
+        if (!file) {
+          form.append('leasingAssetType', leasingAssetType);
+          form.append('leasingAssetValue', leasingAssetValue);
+          form.append('leasingFinancedPercent', leasingFinancedPercent);
+          form.append('leasingMonths', leasingMonths);
+          form.append('leasingTna', leasingTna);
+          form.append('leasingOptionPercent', leasingOptionPercent);
+          form.append('leasingOptionMode', leasingOptionMode);
+          form.append('leasingOptionAmount', leasingOptionAmount);
+          form.append('leasingGuaranteeCanons', leasingGuaranteeCanons);
+          form.append('leasingStructuringFeePercent', leasingStructuringFeePercent);
+        }
       }
       form.append('termsAccepted', 'true');
       form.append('termsVersion', TERMS_VERSION);
@@ -1067,7 +1074,7 @@ export default function Page() {
                 <small>Si elegís otra provincia, el comparativo mostrará porcentajes, bases y condiciones —sin montos— y verificará si ese uso o radicación sería jurídicamente posible según domicilio, guarda habitual, lugar de explotación y registro competente. No supone que pueda elegirse una provincia sin conexión real.</small>
                 {leasingProvinceError && <div className="termsError" role="alert">{leasingProvinceError}</div>}
                 <h3 style={{ marginTop: '20px' }}>Datos del caso práctico</h3>
-                <p>Completá lo que conozcas. ChamuyoCheck analizará por defecto un <b>leasing financiero con cánones calculados por sistema francés</b>. Después, en el cuadro de texto, escribí para qué usarás el bien y cualquier condición especial de la oferta.</p>
+                <p>Completá lo que conozcas o <b>subí una cotización en PDF o imagen para evitar cargar estos datos a mano</b>. ChamuyoCheck leerá el documento y analizará por defecto un leasing financiero; cuando deba simular un caso usará cánones calculados por sistema francés.</p>
                 <div className="leasingProvinceGrid">
                   <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => setLeasingAssetType(event.target.value)}><option>Maquinaria o equipo</option><option>Automotor</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
                   <label>Valor del bien sin IVA<input inputMode="decimal" value={leasingAssetValue} onChange={(event) => setLeasingAssetValue(event.target.value)} placeholder="Ej.: 100000000" /><small>Ingresá el precio neto. El IVA se calcula y analiza por separado.</small></label>
@@ -1081,7 +1088,7 @@ export default function Page() {
                   <label>Cánones de garantía al inicio<input type="number" min="0" max="24" value={leasingGuaranteeCanons} onChange={(event) => setLeasingGuaranteeCanons(event.target.value)} /><small>Se reciben como garantía y se aplican a las últimas cuotas; se facturan e imputan al aplicarse.</small></label>
                   <label>Gasto de estructuración (% financiado)<input type="text" inputMode="decimal" value={leasingStructuringFeePercent} onChange={(event) => setLeasingStructuringFeePercent(event.target.value.replace(/[^\d.,]/g, ''))} placeholder="Ej.: 4,5" /><small>Acepta decimales con coma o punto. En el mercado suele cotizarse aproximadamente entre 2% y 5%; confirmá la oferta real.</small></label>
                 </div>
-                <div className="betaAccessNote"><b>¿Qué escribir después?</b> Indicá el uso del bien, si el tomador es empresa, autónomo, monotributista o consumidor, si los importes incluyen IVA, quién paga seguro y mantenimiento, y si existe una cotización concreta para comparar.</div>
+                <div className="betaAccessNote"><b>¿Tenés una cotización?</b> Subila como PDF o imagen: se extraerán valor sin IVA, IVA, plazo, cánones, opción, garantías, comisiones y gastos. No hace falta repetirlos en el formulario. Escribí solamente el uso del bien, el perfil del tomador (empresa, autónomo, monotributista o consumidor), quién paga el mantenimiento y cualquier condición especial. Por defecto, el seguro se considera contratado y pagado por el dador y refacturado mensualmente al tomador, salvo que el documento establezca otra mecánica.</div>
               </div>}
             </div>
             <div className={`analysisInputStage ${selectedCategory ? '' : 'locked'}`} aria-disabled={!selectedCategory}>
@@ -1094,7 +1101,7 @@ export default function Page() {
             </div>
             {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" disabled={!selectedCategory} value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}
             <label htmlFor="analysis-instruction"><b>{detected === 'Texto' && !file && !url ? 'Escribí tu consulta' : 'Indicá qué necesitás saber'}</b></label>
-            <textarea id="analysis-instruction" disabled={!selectedCategory} value={text} onChange={(e) => { setText(e.target.value); setInstructionError(''); }} placeholder={selectedCategory === 'leasing-specialist' ? 'Ejemplo: La tomadora es una empresa responsable inscripta y usará la máquina en su actividad gravada. Compará gastos, beneficios impositivos, canon, opción y costo efectivo. El seguro y mantenimiento estarán a cargo del tomador.' : selectedCategory ? (activeInput === 'YouTube' ? 'Ejemplo: analizá si la propuesta del curso es coherente y qué riesgos tiene.' : activeInput === 'Web' ? 'Ejemplo: calculá el costo total del préstamo y explicá sus condiciones.' : activeInput === 'Imagen' || file?.type.startsWith('image/') ? 'Ejemplo: calculá la TNA y el costo anual efectivo para la alternativa de 36 meses.' : 'Explicá con precisión qué necesitás saber sobre el contenido.') : 'Primero elegí una categoría.'} />
+            <textarea id="analysis-instruction" disabled={!selectedCategory} value={text} onChange={(e) => { setText(e.target.value); setInstructionError(''); }} placeholder={selectedCategory === 'leasing-specialist' ? 'Ejemplo: La tomadora es una empresa responsable inscripta y usará el vehículo en su actividad gravada. Analizá la cotización, sus costos y beneficios. El mantenimiento estará a cargo del tomador.' : selectedCategory ? (activeInput === 'YouTube' ? 'Ejemplo: analizá si la propuesta del curso es coherente y qué riesgos tiene.' : activeInput === 'Web' ? 'Ejemplo: calculá el costo total del préstamo y explicá sus condiciones.' : activeInput === 'Imagen' || file?.type.startsWith('image/') ? 'Ejemplo: calculá la TNA y el costo anual efectivo para la alternativa de 36 meses.' : 'Explicá con precisión qué necesitás saber sobre el contenido.') : 'Primero elegí una categoría.'} />
             {instructionError && <div className="termsError" role="alert">{instructionError}</div>}
             <div className="termsConsent"><input id="terms-consent" type="checkbox" checked={termsAccepted} onChange={(e) => e.target.checked ? acceptCurrentTerms() : revokeTermsAcceptance()} /><label htmlFor="terms-consent">Leí y acepto los <button type="button" className="termsLink" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>Términos y Condiciones</button> (versión {TERMS_VERSION}).</label></div>
             {termsError && <div className="termsError" role="alert">{termsError}</div>}
