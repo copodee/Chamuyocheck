@@ -570,6 +570,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [preparedFormRequest, setPreparedFormRequest] = useState(0);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const categoryRef = useRef<HTMLDivElement | null>(null);
+  const leasingUploadRef = useRef<HTMLDivElement | null>(null);
   const leasingAutoRunStartedRef = useRef(false);
 
   useEffect(() => {
@@ -747,6 +748,12 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       }
     }
     setAnalysis(null);
+  }
+
+  function openLeasingQuoteUpload() {
+    setActiveInput('PDF');
+    leasingUploadRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    window.setTimeout(() => fileRef.current?.click(), 250);
   }
 
   function updateAnalysisText(value: string) {
@@ -1095,7 +1102,9 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             <p className="heroSubtitle">{leasingPage ? 'Medí la transparencia financiera de la propuesta, calculá el flujo y entendé sus ventajas contractuales, fiscales y registrales.' : 'Descubrí cuánto terminás pagando, qué información falta y qué riesgos deberías verificar.'}</p>
             {!leasingPage && <button type="button" className="leasingModuleBadge" onClick={() => window.location.assign('/leasing')}>MÓDULO ESPECIAL LEASING</button>}
             <p className="heroBody">{leasingPage ? 'El leasing es un instrumento regulado. Este espacio no lo califica como chamuyo: ordena la información, muestra lo informado, detecta lo que falta y permite comparar alternativas.' : 'Subí una captura, una oferta, un enlace o un documento. ChamuyoCheck responde tu pregunta con cálculos reproducibles, señales observables y próximos pasos.'}</p>
-            <div className="heroCta">{leasingPage ? 'Subí una cotización o completá el caso. LeasingScore evaluará si informa tasas, costo total, cánones, opción, gastos, impuestos y condiciones esenciales.' : 'Preguntá: “¿Cuánto pago en total?”, “¿Me pueden estar estafando?” o “¿Qué obligación estoy aceptando?”.'}</div>
+            {leasingPage
+              ? <button type="button" className="heroCta leasingUploadCta" onClick={openLeasingQuoteUpload}>Subí una cotización o completá el caso. LeasingScore evaluará si informa tasas, costo total, cánones, opción, gastos, impuestos y condiciones esenciales.</button>
+              : <div className="heroCta">Preguntá: “¿Cuánto pago en total?”, “¿Me pueden estar estafando?” o “¿Qué obligación estoy aceptando?”.</div>}
             <div className="heroHighlights">
               <div><strong>{localDoc.label}</strong><span>{localDoc.focus}</span></div>
               <div><strong>Modo</strong><span>{getInputDisplay(detected)}</span></div>
@@ -1113,7 +1122,20 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                 </button>)}
               </div>}
               {categoryError && <div className="termsError" role="alert">{categoryError}</div>}
+              {leasingPage && <div ref={leasingUploadRef} className="leasingUploadStage">
+                <div className="analysisStepTitle"><span>PASO 2</span> Cargá la cotización o el contenido</div>
+                <p>Podés subir un PDF, una imagen o una captura. Si cargás una cotización, LeasingScore extraerá sus datos y reemplazará el formulario manual.</p>
+                <div className="tabs">{(['Texto', 'PDF', 'Imagen', 'Web'] as InputMode[]).map((x) => <button key={x} type="button" className={`tab ${detected === x || (detected === 'Archivo' && x === 'PDF') ? 'active' : ''}`} onClick={() => chooseInputMode(x)}>{x}</button>)}</div>
+                <div className={`drop ${drag ? 'drag' : ''}`} onClick={() => { if (activeInput === 'PDF' || activeInput === 'Imagen') fileRef.current?.click(); }} onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}>
+                  <h3>{file ? 'Cotización cargada' : 'Tocá para cargar o arrastrá el archivo'}</h3>
+                  <p>PDF · imágenes · capturas de cotizaciones de leasing.</p>
+                  {file && <span className="filePill">{file.name} · {fmt(file.size)}</span>}
+                </div>
+                {(activeInput === 'Web') && <input className="urlInput" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Pegá la URL de la cotización o propuesta" />}
+                {file && <button type="button" className="ghost" onClick={() => { setFile(null); setActiveInput('Texto'); setAnalysis(null); }}>Quitar cotización y completar los datos manualmente</button>}
+              </div>}
               {selectedCategory === 'leasing-specialist' && <div className="leasingJurisdictionPicker">
+                <div className="analysisStepTitle"><span>PASO 3</span> Elegí las jurisdicciones</div>
                 <h3>Provincia del leasing</h3>
                 <p>Elegí por separado dónde se celebra el contrato y dónde se usará y registrará el bien. Ambas jurisdicciones pueden tener consecuencias tributarias.</p>
                 <div className="leasingProvinceGrid">
@@ -1134,8 +1156,10 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                 </div>
                 <small>Si elegís otra provincia, el comparativo mostrará porcentajes, bases y condiciones —sin montos— y verificará si ese uso o radicación sería jurídicamente posible según domicilio, guarda habitual, lugar de explotación y registro competente. No supone que pueda elegirse una provincia sin conexión real.</small>
                 {leasingProvinceError && <div className="termsError" role="alert">{leasingProvinceError}</div>}
-                <h3 style={{ marginTop: '20px' }}>Datos del caso práctico</h3>
-                <p>Completá lo que conozcas o <b>subí una cotización en PDF o imagen para evitar cargar estos datos a mano</b>. ChamuyoCheck leerá el documento y analizará por defecto un leasing financiero; cuando deba simular un caso usará cánones calculados por sistema francés.</p>
+                {file ? <div className="leasingManualReplaced" role="status"><b>Formulario manual reemplazado por la cotización.</b><span>Se utilizarán los datos extraídos del archivo. Solamente completá abajo el uso del bien, el perfil del tomador y cualquier condición que no figure en el documento.</span></div> : <>
+                <div className="analysisStepTitle leasingManualStep"><span>PASO 4</span> Completá los datos conocidos</div>
+                <h3>Datos del caso práctico</h3>
+                <p>Completá lo que conozcas. LeasingScore analizará por defecto un leasing financiero; cuando deba simular un caso usará cánones calculados por sistema francés.</p>
                 <div className="leasingProvinceGrid">
                   <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => setLeasingAssetType(event.target.value)}><option>Maquinaria o equipo</option><option>Automotor</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
                   <label>Valor del bien sin IVA<input inputMode="decimal" value={leasingAssetValue} onChange={(event) => setLeasingAssetValue(event.target.value)} placeholder="Ej.: 100000000" /><small>Ingresá el precio neto. El IVA se calcula y analiza por separado.</small></label>
@@ -1149,10 +1173,12 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                   <label>Cánones de garantía al inicio<input type="number" min="0" max="24" value={leasingGuaranteeCanons} onChange={(event) => setLeasingGuaranteeCanons(event.target.value)} /><small>Se reciben como garantía y se aplican a las últimas cuotas; se facturan e imputan al aplicarse.</small></label>
                   <label>Gasto de estructuración (% financiado)<input type="text" inputMode="decimal" value={leasingStructuringFeePercent} onChange={(event) => setLeasingStructuringFeePercent(event.target.value.replace(/[^\d.,]/g, ''))} placeholder="Ej.: 4,5" /><small>Acepta decimales con coma o punto. En el mercado suele cotizarse aproximadamente entre 2% y 5%; confirmá la oferta real.</small></label>
                 </div>
-                <div className="betaAccessNote"><b>¿Tenés una cotización?</b> Subila como PDF o imagen: se extraerán valor sin IVA, IVA, plazo, cánones, opción, garantías, comisiones y gastos. No hace falta repetirlos en el formulario. Escribí solamente el uso del bien, el perfil del tomador (empresa, autónomo, monotributista o consumidor), quién paga el mantenimiento y cualquier condición especial. Por defecto, el seguro se considera contratado y pagado por el dador y refacturado mensualmente al tomador, salvo que el documento establezca otra mecánica.</div>
+                <button type="button" className="betaAccessNote leasingQuoteLink" onClick={openLeasingQuoteUpload}><b>¿Tenés una cotización?</b> Tocá acá para subirla como PDF o imagen y evitar cargar estos datos a mano.</button>
+                </>}
               </div>}
             </div>
             <div className={`analysisInputStage ${selectedCategory ? '' : 'locked'}`} aria-disabled={!selectedCategory}>
+            {!leasingPage && <>
             <div className="analysisStepTitle"><span>PASO 2</span> Cargá el contenido y escribí tu pregunta</div>
             <div className="tabs">{(['Texto', 'PDF', 'Imagen', 'Web', 'YouTube'] as InputMode[]).map((x) => <button key={x} type="button" disabled={!selectedCategory} className={`tab ${detected === x || (detected === 'Archivo' && x === 'PDF') ? 'active' : ''}`} onClick={() => chooseInputMode(x)}>{x}</button>)}</div>
             <div className={`drop ${drag ? 'drag' : ''}`} onClick={() => { if (!selectedCategory) { setCategoryError('Elegí una categoría antes de cargar contenido.'); categoryRef.current?.focus(); return; } if (activeInput === 'PDF' || activeInput === 'Imagen') fileRef.current?.click(); }} onDragOver={(e) => { e.preventDefault(); if (selectedCategory) setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}>
@@ -1161,6 +1187,8 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
               {file && <span className="filePill">{file.name} · {fmt(file.size)}</span>}
             </div>
             {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" disabled={!selectedCategory} value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}
+            </>}
+            {leasingPage && <div className="analysisStepTitle"><span>PASO 5</span> Indicá qué necesitás analizar</div>}
             <label htmlFor="analysis-instruction"><b>{detected === 'Texto' && !file && !url ? 'Escribí tu consulta' : 'Indicá qué necesitás saber'}</b></label>
             <textarea id="analysis-instruction" disabled={!selectedCategory} value={text} onChange={(e) => updateAnalysisText(e.target.value)} placeholder={selectedCategory === 'leasing-specialist' ? 'Ejemplo: La tomadora es una empresa responsable inscripta y usará el vehículo en su actividad gravada. Analizá la cotización, sus costos y beneficios. El mantenimiento estará a cargo del tomador.' : selectedCategory ? (activeInput === 'YouTube' ? 'Ejemplo: analizá si la propuesta del curso es coherente y qué riesgos tiene.' : activeInput === 'Web' ? 'Ejemplo: calculá el costo total del préstamo y explicá sus condiciones.' : activeInput === 'Imagen' || file?.type.startsWith('image/') ? 'Ejemplo: calculá la TNA y el costo anual efectivo para la alternativa de 36 meses.' : 'Explicá con precisión qué necesitás saber sobre el contenido.') : 'Primero elegí una categoría.'} />
             {instructionError && <div className="termsError" role="alert">{instructionError}</div>}
