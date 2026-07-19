@@ -545,6 +545,8 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [leasingHubProvinceA, setLeasingHubProvinceA] = useState('Ciudad Autónoma de Buenos Aires');
   const [leasingHubProvinceB, setLeasingHubProvinceB] = useState('Buenos Aires');
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsReady, setTermsReady] = useState(false);
+  const [pendingLeasingAutoRun, setPendingLeasingAutoRun] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [termsError, setTermsError] = useState('');
   const [instructionError, setInstructionError] = useState('');
@@ -568,6 +570,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [preparedFormRequest, setPreparedFormRequest] = useState(0);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const categoryRef = useRef<HTMLDivElement | null>(null);
+  const leasingAutoRunStartedRef = useRef(false);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -592,6 +595,10 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       setText(prefill);
       sessionStorage.removeItem('cc_leasing_prefill');
     }
+    if (sessionStorage.getItem('cc_leasing_autorun') === 'true') {
+      setPendingLeasingAutoRun(true);
+      sessionStorage.removeItem('cc_leasing_autorun');
+    }
   }, [leasingPage]);
   useEffect(() => {
     try {
@@ -599,6 +606,8 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       setTermsAccepted(acceptance.version === TERMS_VERSION && Boolean(acceptance.acceptedAt));
     } catch {
       setTermsAccepted(false);
+    } finally {
+      setTermsReady(true);
     }
   }, []);
   useEffect(() => {
@@ -665,7 +674,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setAuthLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: window.location.href },
     });
     if (error) {
       setAuthLoading(false);
@@ -743,6 +752,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   function updateAnalysisText(value: string) {
     if (!leasingPage && /\bleasing\b/i.test(value) && typeof window !== 'undefined') {
       sessionStorage.setItem('cc_leasing_prefill', value);
+      sessionStorage.setItem('cc_leasing_autorun', 'true');
       window.location.assign('/leasing');
       return;
     }
@@ -750,7 +760,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setInstructionError('');
   }
 
-  async function analyze() {
+  async function analyze({ allowMissingLeasingProvince = false }: { allowMissingLeasingProvince?: boolean } = {}) {
     if (!session) {
       setAuthError('Registrate o iniciá sesión para realizar el análisis.');
       document.getElementById('registro')?.scrollIntoView({ behavior: 'smooth' });
@@ -766,7 +776,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       document.querySelector<HTMLTextAreaElement>('#analysis-instruction')?.focus();
       return;
     }
-    if (selectedCategory === 'leasing-specialist' && !leasingProvince) {
+    if (selectedCategory === 'leasing-specialist' && !leasingProvince && !allowMissingLeasingProvince) {
       setLeasingProvinceError('Elegí la provincia principal del leasing antes de analizar.');
       return;
     }
@@ -848,6 +858,22 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!leasingPage || !pendingLeasingAutoRun || sessionLoading || !termsReady || leasingAutoRunStartedRef.current || !text.trim()) return;
+    if (!session) {
+      setAuthError('Ingresá para ejecutar automáticamente la consulta que escribiste. No tendrás que volver a cargarla.');
+      return;
+    }
+    if (!termsAccepted) {
+      setTermsError('Aceptá los Términos y Condiciones para ejecutar automáticamente la consulta conservada.');
+      setShowTerms(true);
+      return;
+    }
+    leasingAutoRunStartedRef.current = true;
+    setPendingLeasingAutoRun(false);
+    void analyze({ allowMissingLeasingProvince: true });
+  }, [leasingPage, pendingLeasingAutoRun, sessionLoading, termsReady, session, termsAccepted, text]);
 
   const score = analysis?.score ?? 35;
   const leasingScoreSource = [analysis?.extractedPreview || '', text, leasingAssetType, leasingAssetValue ? `Valor neto sin IVA ${leasingAssetValue}` : '', leasingFinancedPercent ? `Porcentaje financiado ${leasingFinancedPercent}` : '', leasingMonths ? `Plazo ${leasingMonths} meses` : '', leasingTna ? `TNA ${leasingTna}%` : '', leasingOptionMode === 'percent' ? `Opción de compra ${leasingOptionPercent}%` : `Opción de compra ${leasingOptionAmount}`, leasingStructuringFeePercent ? `Comisión de estructuración ${leasingStructuringFeePercent}%` : '', leasingProvince ? `Registración y jurisdicción ${leasingProvince}` : ''].filter(Boolean).join(' ');
@@ -1140,7 +1166,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             {instructionError && <div className="termsError" role="alert">{instructionError}</div>}
             <div className="termsConsent"><input id="terms-consent" type="checkbox" checked={termsAccepted} onChange={(e) => e.target.checked ? acceptCurrentTerms() : revokeTermsAcceptance()} /><label htmlFor="terms-consent">Leí y acepto los <button type="button" className="termsLink" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>Términos y Condiciones</button> (versión {TERMS_VERSION}).</label></div>
             {termsError && <div className="termsError" role="alert">{termsError}</div>}
-            <div className="ctaRow"><button type="button" className="primary" onClick={analyze} disabled={loading || sessionLoading || !selectedCategory || !text.trim() || (selectedCategory === 'leasing-specialist' && !leasingProvince)}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">{session ? `Entrada: ${getInputLabel(detected, Boolean(file))}` : 'Registrate para analizar'}</span></div>
+            <div className="ctaRow"><button type="button" className="primary" onClick={() => void analyze()} disabled={loading || sessionLoading || !selectedCategory || !text.trim() || (selectedCategory === 'leasing-specialist' && !leasingProvince)}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">{session ? `Entrada: ${getInputLabel(detected, Boolean(file))}` : 'Registrate para analizar'}</span></div>
             {session && <div className="betaAccessNote">Beta completa activa: sin límites ni cobros.</div>}
             {loading && <div className="loading">{steps.map((s, i) => <p key={i}>{s}</p>)}</div>}
             </div>
