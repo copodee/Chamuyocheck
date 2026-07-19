@@ -527,7 +527,7 @@ export default function Page() {
   const [activeInput, setActiveInput] = useState<InputMode>('Texto');
   const [showFullSummary, setShowFullSummary] = useState(false);
   const [showScoreExplanation, setShowScoreExplanation] = useState(false);
-  const [activeView, setActiveView] = useState<'inicio' | 'historial' | 'favoritos' | 'plantillas' | 'comparar' | 'mejorar' | 'ajustes' | 'ayuda'>('inicio');
+  const [activeView, setActiveView] = useState<'inicio' | 'leasing' | 'historial' | 'favoritos' | 'plantillas' | 'comparar' | 'mejorar' | 'ajustes' | 'ayuda'>('inicio');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [favoritesItems, setFavoritesItems] = useState<string[]>([]);
@@ -536,6 +536,8 @@ export default function Page() {
   const [compareRight, setCompareRight] = useState('');
   const [improveDraft, setImproveDraft] = useState('');
   const [showDetailedResults, setShowDetailedResults] = useState(true);
+  const [leasingHubProvinceA, setLeasingHubProvinceA] = useState('Ciudad Autónoma de Buenos Aires');
+  const [leasingHubProvinceB, setLeasingHubProvinceB] = useState('Buenos Aires');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [termsError, setTermsError] = useState('');
@@ -863,6 +865,12 @@ export default function Page() {
     setShowFullSummary(false);
     setShowScoreExplanation(false);
   };
+  const openLeasingHub = () => {
+    setActiveView('leasing');
+    setMobileMenuOpen(false);
+    setShowFullSummary(false);
+    setShowScoreExplanation(false);
+  };
   const openHelp = () => { setActiveView('ayuda'); setMobileMenuOpen(false); };
   const saveFavorite = () => {
     if (!analysis) return;
@@ -883,6 +891,12 @@ export default function Page() {
     setActiveView('inicio');
     setTimeout(() => document.getElementById('inicio-form')?.scrollIntoView({ behavior: 'smooth' }), 50);
   };
+  const compareLeasingProvinces = () => {
+    setLeasingContractProvince(leasingHubProvinceA);
+    setLeasingProvince(leasingHubProvinceA);
+    setLeasingComparisonProvince(leasingHubProvinceB);
+    useTemplate('leasing-specialist', `Compará un leasing entre ${leasingHubProvinceA} y ${leasingHubProvinceB}. Explicá en cuál conviene celebrar el contrato y registrar o usar el bien, siempre que exista conexión territorial real. Compará porcentajes, bases, Sellos, Ingresos Brutos del dador, patente, registración, opción de compra, beneficios y exenciones. No sumes impuestos con bases diferentes ni supongas libre elección fiscal.`);
+  };
   const compareWords = (value: string) => new Set(value.toLowerCase().split(/\W+/).filter((word) => word.length > 3));
   const leftWords = compareWords(compareLeft);
   const rightWords = compareWords(compareRight);
@@ -895,8 +909,8 @@ export default function Page() {
     setActiveInput('Texto');
     setActiveView('inicio');
   };
-  const sectionTitle = activeView === 'historial' ? 'Historial' : activeView === 'favoritos' ? 'Favoritos' : activeView === 'plantillas' ? 'Plantillas' : activeView === 'comparar' ? 'Comparar' : activeView === 'mejorar' ? 'Mejorar documento' : activeView === 'ajustes' ? 'Ajustes' : activeView === 'ayuda' ? 'Ayuda' : 'Inicio';
-  const sectionHint = activeView === 'historial' ? 'Se muestra el historial local guardado en este navegador.' : activeView === 'favoritos' ? 'Resultados importantes guardados en este navegador.' : activeView === 'plantillas' ? 'Consultas preparadas para iniciar análisis frecuentes.' : activeView === 'comparar' ? 'Compará dos textos antes de pedir un análisis especializado.' : activeView === 'mejorar' ? 'Prepará un documento para una revisión de claridad, respaldo y riesgos.' : activeView === 'ajustes' ? 'Preferencias locales y control de los datos guardados.' : activeView === 'ayuda' ? 'Guía rápida para obtener respuestas útiles y verificables.' : 'Volvé al formulario principal para cargar un nuevo contenido.';
+  const sectionTitle = activeView === 'leasing' ? 'Centro de Leasing' : activeView === 'historial' ? 'Historial' : activeView === 'favoritos' ? 'Favoritos' : activeView === 'plantillas' ? 'Plantillas' : activeView === 'comparar' ? 'Comparar' : activeView === 'mejorar' ? 'Mejorar documento' : activeView === 'ajustes' ? 'Ajustes' : activeView === 'ayuda' ? 'Ayuda' : 'Inicio';
+  const sectionHint = activeView === 'leasing' ? 'Aprendé el instrumento, compará alternativas y prepará una consulta experta.' : activeView === 'historial' ? 'Se muestra el historial local guardado en este navegador.' : activeView === 'favoritos' ? 'Resultados importantes guardados en este navegador.' : activeView === 'plantillas' ? 'Consultas preparadas para iniciar análisis frecuentes.' : activeView === 'comparar' ? 'Compará dos textos antes de pedir un análisis especializado.' : activeView === 'mejorar' ? 'Prepará un documento para una revisión de claridad, respaldo y riesgos.' : activeView === 'ajustes' ? 'Preferencias locales y control de los datos guardados.' : activeView === 'ayuda' ? 'Guía rápida para obtener respuestas útiles y verificables.' : 'Volvé al formulario principal para cargar un nuevo contenido.';
   const userName = String(session?.user.user_metadata?.full_name || session?.user.email || 'Usuario');
   const userInitial = userName.slice(0, 1).toUpperCase();
 
@@ -908,6 +922,7 @@ export default function Page() {
       <button type="button" className="newBtn" onClick={startNewAnalysis}>＋ Nuevo análisis</button>
       <div className="nav">
         <button type="button" className={activeView === 'inicio' ? 'active' : ''} onClick={openHome}>⌂ Inicio</button>
+        <button type="button" className={activeView === 'leasing' ? 'active' : ''} onClick={openLeasingHub}>🏗 Leasing</button>
         <button type="button" className={activeView === 'historial' ? 'active' : ''} onClick={openHistory}>◴ Historial</button>
         <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>
         <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>
@@ -935,6 +950,7 @@ export default function Page() {
       </div>
       {mobileMenuOpen && <div className="mobileNav">
         <button type="button" className={activeView === 'inicio' ? 'active' : ''} onClick={openHome}>⌂ Inicio</button>
+        <button type="button" className={activeView === 'leasing' ? 'active' : ''} onClick={openLeasingHub}>🏗 Leasing</button>
         <button type="button" className={activeView === 'historial' ? 'active' : ''} onClick={openHistory}>◴ Historial</button>
         <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>
         <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>
@@ -1160,6 +1176,26 @@ export default function Page() {
           <h2>{sectionTitle}</h2>
           <p className="hint">{sectionHint}</p>
         </div>
+        {activeView === 'leasing' && <>
+          <div className="panel legalResultPanel" style={{ marginTop: '14px' }}>
+            <h3>Comparar ventajas entre dos provincias</h3>
+            <p>Elegí dos jurisdicciones. La respuesta separará lugar del contrato, uso o radicación, porcentajes, exenciones y gastos de la opción.</p>
+            <div className="cards">
+              <label className="card"><b>Provincia A</b><select value={leasingHubProvinceA} onChange={(event) => setLeasingHubProvinceA(event.target.value)}>{ARGENTINA_JURISDICTIONS.map((province) => <option key={`hub-a-${province}`} value={province}>{province}</option>)}</select></label>
+              <label className="card"><b>Provincia B</b><select value={leasingHubProvinceB} onChange={(event) => setLeasingHubProvinceB(event.target.value)}>{ARGENTINA_JURISDICTIONS.map((province) => <option key={`hub-b-${province}`} value={province}>{province}</option>)}</select></label>
+            </div>
+            {leasingHubProvinceA === leasingHubProvinceB && <p className="termsError">Elegí dos provincias diferentes.</p>}
+            <button type="button" className="primary" disabled={leasingHubProvinceA === leasingHubProvinceB} onClick={compareLeasingProvinces}>Preparar comparación provincial</button>
+          </div>
+          <div className="cards" style={{ marginTop: '14px' }}>
+            <div className="card"><h3>Leasing operativo vs. financiero</h3><p>Diferencias en propiedad, riesgos, servicios, cánones, valor residual y opción de compra.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Explicame y compará leasing operativo y leasing financiero en Argentina. Indicá cómo cambian los cánones, servicios, riesgos, valor residual, devolución y opción de compra; aclarame cuándo una operación puede ser locación y no leasing financiero.')}>Abrir guía comparativa</button></div>
+            <div className="card"><h3>Plazos mínimos y beneficios fiscales</h3><p>Decreto 1038/2000 actualizado por el Decreto 152/2022: duración, vida útil y opción.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Explicame los plazos mínimos fiscales del leasing según el Decreto 1038/2000 actualizado por el Decreto 152/2022. Diferenciá bienes muebles e inmuebles, vida útil, precio de opción y requisitos para el tratamiento impositivo. No confundas estos plazos con el artículo 1238 del Código Civil y Comercial.')}>Consultar plazos</button></div>
+            <div className="card"><h3>Cómo funciona el leasing</h3><p>Guía educativa: partes, bien, maxi canon, cánones, opción, registro, incumplimiento y finalización.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Enseñame cómo funciona un leasing en Argentina desde el inicio hasta la opción o devolución. Explicá dador, tomador, proveedor, elección del bien, maxi canon, cánones, IVA, seguros, mantenimiento, registro, mora, recupero, opción de compra y transferencia.')}>Abrir guía educativa</button></div>
+            <div className="card"><h3>Gastos, beneficios y exenciones</h3><p>Calculá qué paga el tomador y qué conceptos pueden estar exentos según bien, sujeto y provincia.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Quiero saber todos los gastos, beneficios impositivos y exenciones de un leasing. Pedime tipo de bien, tipo fiscal de tomador, provincia del contrato, provincia de uso o registro, maxi canon, cánones, plazo y opción antes de afirmar una exención.')}>Preparar consulta</button></div>
+            <div className="card"><h3>Leasing vs. préstamo</h3><p>Comparación del flujo total después de impuestos para el mismo activo y plazo.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Compará leasing, préstamo prendario y compra al contado para el mismo activo y plazo. Mostrá ventajas diferenciales, garantías, IVA, Ganancias, Sellos, costos registrales, mantenimiento, valor residual y opción, sin prometer ahorro automático.')}>Preparar comparación</button></div>
+            <div className="card"><h3>Leasing público e importación</h3><p>Normas BCRA, garantías, coparticipación, MULC, proveedor extranjero y registros.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Analizá un leasing para sector público o para importar un bien. Separá autorización presupuestaria, endeudamiento, garantías, posible coparticipación, normas BCRA, acceso al MULC, pago al proveedor, aduana y registro del activo.')}>Preparar consulta avanzada</button></div>
+          </div>
+        </>}
         {activeView === 'historial' && <>
           {historyItems.length ? <div className="historyMini" style={{ marginTop: '14px' }}>{historyItems.map((item) => <div className="historyItem" key={item.id}><span>{item.score}</span><div>{item.title}<small>{item.documentType} · {item.date}</small></div></div>)}</div> : <div className="paywall" style={{ marginTop: '14px' }}>Todavía no hay historial local disponible.</div>}
         </>}
