@@ -8,11 +8,13 @@ test('includes every Argentine local stamp-tax jurisdiction without inventing ex
   assert.ok(PROVINCIAL_LEASING_STAMP_MATRIX.filter((item) => item.status === 'verification-required').every((item) => item.exemptions.length === 0));
 });
 
-test('keeps verified 2026 CABA and Buenos Aires leasing treatment distinct', () => {
+test('keeps verified local leasing treatments distinct', () => {
   const verified = verifiedProvincialStampProfiles();
-  assert.equal(verified.length, 2);
+  assert.equal(verified.length, 4);
   assert.match(verified.find((item) => item.jurisdiction === 'Ciudad Autónoma de Buenos Aires')?.treatment || '', /0,50%/);
   assert.match(verified.find((item) => item.jurisdiction === 'Buenos Aires')?.treatment || '', /10,5‰/);
+  assert.match(verified.find((item) => item.jurisdiction === 'Córdoba')?.treatment || '', /exime/);
+  assert.match(verified.find((item) => item.jurisdiction === 'Entre Ríos')?.treatment || '', /pago a cuenta/);
 });
 
 test('does not promise company benefits to consumers or monotributistas', () => {

@@ -44,8 +44,20 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     ],
     sourceUrl: 'https://www.arba.gov.ar/archivos/Publicaciones/leyimpositiva2026.pdf', verifiedAt: '2026-07-18',
   },
+  {
+    jurisdiction: 'Córdoba', fiscalYear: 2026, status: 'verified-current',
+    treatment: 'El Decreto provincial 484/2022, que el portal oficial de Rentas identifica como vigente, exime del Impuesto de Sellos a los contratos de leasing comprendidos en las modalidades de los incisos a), b), c) y e) del artículo 1231 del Código Civil y Comercial, cuando el tomador destina el bien al desarrollo de sus actividades económicas.',
+    exemptions: ['La exención exige modalidad contractual comprendida y destino económico del bien; no es una exención general para consumo personal ni para cualquier contrato denominado leasing.'],
+    sourceUrl: 'https://cms.rentascordoba.gob.ar/wp-content/uploads/2022/05/decreto_n%C2%B0_484-2022_-_eximicion_impuesto_de_sellos._contratos_de_leasing.pdf', verifiedAt: '2026-07-18',
+  },
+  {
+    jurisdiction: 'Entre Ríos', status: 'verified-current',
+    treatment: 'El Código Fiscal provincial establece como base imponible los cánones por los años de duración del leasing y permite tomar el Sellos pagado durante el contrato como pago a cuenta del impuesto correspondiente a la transferencia del dominio. La alícuota debe completarse con la Ley Impositiva anual vigente antes de calcular.',
+    exemptions: ['No se verificó una exención general vigente por el solo hecho de ser leasing.'],
+    sourceUrl: 'https://www.ater.gov.ar/ater2/archivos/ATER-C%C3%B3digo%20Fiscal-digital-2022.pdf', verifiedAt: '2026-07-18',
+  },
   ...[
-    'Catamarca', 'Chaco', 'Chubut', 'Córdoba', 'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy',
+    'Catamarca', 'Chaco', 'Chubut', 'Corrientes', 'Formosa', 'Jujuy',
     'La Pampa', 'La Rioja', 'Mendoza', 'Misiones', 'Neuquén', 'Río Negro', 'Salta', 'San Juan',
     'San Luis', 'Santa Cruz', 'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
   ].map(pending),
