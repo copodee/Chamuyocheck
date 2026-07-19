@@ -55,6 +55,16 @@ export function detectTopic(text: string, inputKind: string, selectedCategory?: 
       recommendations: ['Reuní el documento o resolución pertinente.', 'Verificá jurisdicción, vigencia, notificación y plazos antes de actuar.'],
     };
   }
+  if (selectedCategory === 'leasing-specialist') {
+    return {
+      key: 'leasing', label: 'Leasing especializado', hint: 'Revisá contrato, flujo, impuestos, registro, activo, jurisdicción y riesgos residuales.',
+      summary: 'La consulta se analiza con un especialista transversal en leasing.',
+      prudentConclusion: 'La conveniencia exige separar la forma contractual, el costo económico, el efecto fiscal, la registración y los riesgos del activo.',
+      verdict: `Evaluación especializada de leasing para ${input.noun}: comparar estructura, costo, impuestos, registro y alternativa de financiación.`,
+      modules: ['Contrato', 'Cánones y opción', 'Impuestos', 'Registro', 'Riesgo residual', 'Importación y MULC', 'Sector público', 'Comparación internacional'],
+      recommendations: ['Identificá activo, dador, tomador, plazo, cánones, opción, moneda y jurisdicción.', 'Compará el flujo después de impuestos con préstamo, compra y alquiler operativo.'],
+    };
+  }
   if (selectedCategory === 'finance-credit') {
     return {
       key: 'finance', label: 'Finanzas y créditos', hint: 'Revisá costos reales, tasas y condiciones.',

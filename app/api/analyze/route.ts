@@ -68,6 +68,7 @@ function buildOutOfScopeAnalysis(text: string, inputKind: string, reason: string
     'Finanzas, préstamos, créditos, costos y rentabilidad.',
     'Posibles estafas, ofertas engañosas e inversiones sospechosas.',
     'Derecho argentino, contratos, documentos legales, delitos, penas y divorcios.',
+    'Leasing: contratos, cánones, impuestos, registros, importaciones, sector público y comparación internacional.',
   ];
   const message = 'Esta consulta está fuera del alcance actual de ChamuyoCheck. Para evitar una respuesta superficial o engañosa, no se asignó un puntaje. No se realizó una verificación externa.';
   return {
@@ -383,9 +384,10 @@ export function buildLocalAnalysis(
   const analysisInput = `${userInstruction}\n${text}\n${fileName}\n${sourceUrl}`.trim();
   const all = analysisInput.toLowerCase();
   const unrestrictedLegacyAnalysis = !selectedCategory;
-  const financeCategory = unrestrictedLegacyAnalysis || selectedCategory === 'finance-credit';
+  const leasingCategory = selectedCategory === 'leasing-specialist';
+  const financeCategory = unrestrictedLegacyAnalysis || selectedCategory === 'finance-credit' || leasingCategory;
   const scamCategory = unrestrictedLegacyAnalysis || selectedCategory === 'scam-risk';
-  const legalCategory = unrestrictedLegacyAnalysis || selectedCategory === 'argentina-legal-documents';
+  const legalCategory = unrestrictedLegacyAnalysis || selectedCategory === 'argentina-legal-documents' || leasingCategory;
 
   const missing = !/(fuente|estudio|metodolog|contrato|bases|condiciones|cft|tea|tna|bibliograf|reglamento)/i.test(all);
   const promise = /(garantiz|asegur|sin esfuerzo|millonari|duplic|triplic|100%|riesgo cero|aprobaci[oó]n inmediata)/i.test(all);
@@ -396,7 +398,7 @@ export function buildLocalAnalysis(
   const financialAnalysis = financial ? extractLoanNumbers(text, userInstruction) : null;
   const scamRiskAnalysis = analyzeScamRisk(scamCategory ? analysisInput : '');
   const commercialCourseAnalysis = analyzeCommercialCourse(scamCategory ? analysisInput : '');
-  const argentinaLegalAnalysis = analyzeArgentinaLegal(legalCategory ? analysisInput : '', selectedCategory === 'argentina-legal-documents');
+  const argentinaLegalAnalysis = analyzeArgentinaLegal(legalCategory ? analysisInput : '', selectedCategory === 'argentina-legal-documents' || leasingCategory);
   const investmentProjectAnalysis = analyzeInvestmentProject(
     text,
     userInstruction,
@@ -518,7 +520,7 @@ export function buildLocalAnalysis(
       score: promise ? 65 : 12,
       explanation: 'Detecta urgencia, promesas extraordinarias o lenguaje manipulador.'
     }] : []),
-    ...(financeCategory ? [{
+    ...(financeCategory && !leasingCategory ? [{
       name: 'Riesgo financiero',
       score: financialRiskScore,
       explanation: !financial
@@ -552,7 +554,7 @@ export function buildLocalAnalysis(
     financial,
     pyramid,
     hasHealthClaim(text),
-    selectedCategory === 'argentina-legal-documents' || hasLegalClaim(text),
+    selectedCategory === 'argentina-legal-documents' || leasingCategory || hasLegalClaim(text),
     hasAcademicClaim(text),
     claimNature.primaryNature
   );
@@ -617,6 +619,19 @@ export function buildLocalAnalysis(
         : Math.max(legalIssueScore, legalVerificationScore),
       explanation: argentinaLegalAnalysis.conclusion,
     });
+  }
+  if (leasingCategory) {
+    const completenessRisk = (pattern: RegExp) => pattern.test(all) ? 15 : 65;
+    categoryScores.push(
+      { name: 'Estructura contractual del leasing', score: completenessRisk(/dador|tomador|canon|opci[oó]n\s+de\s+compra|plazo/), explanation: 'Controla partes, bien, cánones, plazo, opción, incumplimiento, seguros y asignación de riesgos.' },
+      { name: 'Costo económico y comparación', score: completenessRisk(/canon|tasa|costo|comisi[oó]n|seguro|valor\s+residual|pr[eé]stamo/), explanation: 'Compara el flujo completo con préstamo, compra, alquiler operativo y costo de capital.' },
+      { name: 'Tratamiento tributario', score: completenessRisk(/ganancias|iva|impuesto|decreto\s+1038|decreto\s+152/), explanation: 'Verifica encuadre vigente, uso empresarial, deducciones, crédito fiscal y tributos locales sin presumir beneficios.' },
+      { name: 'Registro y oponibilidad', score: completenessRisk(/registro|dnrpa|prefectura|pna|anac|aeronave|buque|patent/), explanation: 'Identifica formalidad, registro competente, titularidad y oponibilidad según el activo.' },
+      { name: 'Riesgo residual y operativo', score: completenessRisk(/residual|obsolescencia|mantenimiento|seguro|siniestro|restituci[oó]n/), explanation: 'Evalúa valor residual, estado del activo, mantenimiento, pérdida, obsolescencia y restitución.' },
+      { name: 'Importación y cambios', score: completenessRisk(/import|exterior|mulc|proveedor\s+extranjero|moneda|divisas?/), explanation: 'Separa importador, propietario, pagos, aduana y acceso cambiario conforme al texto vigente del BCRA.' },
+      { name: 'Sector público', score: completenessRisk(/sector\s+p[uú]blico|estado|provincia|municipio|coparticipaci[oó]n|presupuesto/), explanation: 'Controla competencia, contratación, presupuesto, endeudamiento, garantías, capacidad de pago y encuadre BCRA.' },
+      { name: 'Comparación internacional', score: completenessRisk(/estados\s+unidos|europa|reino\s+unido|ifrs|asc\s*842|ucc|internacional/), explanation: 'Distingue contrato, contabilidad, impuestos y registro por país; no usa IFRS como ley fiscal o contractual.' },
+    );
   }
 
   const inputText = describeInput(inputKind);
@@ -939,6 +954,10 @@ export async function handleAnalyzeRequest(req: Request) {
     const termsAccepted = form.get('termsAccepted') === 'true';
     const termsVersion = String(form.get('termsVersion') || '');
     const selectedCategoryRaw = String(form.get('selectedCategory') || '').trim();
+    const leasingProvince = String(form.get('leasingProvince') || '').trim();
+    const leasingContractProvince = String(form.get('leasingContractProvince') || '').trim();
+    const leasingLessorProvince = String(form.get('leasingLessorProvince') || '').trim();
+    const leasingComparisonProvince = String(form.get('leasingComparisonProvince') || '').trim();
 
     if (!termsAccepted || termsVersion !== TERMS_VERSION) {
       return NextResponse.json({
@@ -953,6 +972,9 @@ export async function handleAnalyzeRequest(req: Request) {
       }, { status: 400 });
     }
     const selectedCategory: SupportedProductArea = selectedCategoryRaw;
+    if (selectedCategory === 'leasing-specialist' && !leasingProvince) {
+      return NextResponse.json({ error: 'Elegí la provincia principal del leasing antes de analizar.' }, { status: 400 });
+    }
 
     let fileName = '';
     let fileType = '';
@@ -1032,7 +1054,13 @@ export async function handleAnalyzeRequest(req: Request) {
     const documentText = hasExternalContent
       ? [extracted, webText].filter(Boolean).join('\n\n')
       : userText;
-    const userInstruction = hasExternalContent ? userText : '';
+    const leasingJurisdictionContext = selectedCategory === 'leasing-specialist'
+      ? `Jurisdicción de celebración e instrumentación del contrato: ${leasingContractProvince || 'no indicada'}. Provincia de uso, guarda y radicación del bien: ${leasingProvince}. Domicilio del dador: ${leasingLessorProvince || 'no indicado'}.${leasingComparisonProvince ? ` Escenario provincial alternativo para comparar contrato y radicación: ${leasingComparisonProvince}.` : ''} Determinar territorialidad y pago de Sellos considerando ambas jurisdicciones, los efectos del instrumento y las reglas que eviten doble imposición. Comparar únicamente porcentajes, bases y condiciones —sin calcular montos— de Sellos, Ingresos Brutos, inscripción inicial, patentamiento, patente anual y opción de compra. Clasificar el cambio como posible, condicionado a una conexión real o no justificable. Para Patentes CABA 2026 aplicar la Ley 6.926: domicilio del tomador, guarda habitual o uso/explotación; no usar el domicilio del dador. No se presume libre elección fiscal.`
+      : '';
+    const userInstruction = hasExternalContent ? [userText, leasingJurisdictionContext].filter(Boolean).join('\n') : '';
+    const contextualDocumentText = !hasExternalContent && leasingJurisdictionContext
+      ? `${documentText}\n${leasingJurisdictionContext}`
+      : documentText;
 
     if (userInstruction.length > MAX_USER_INSTRUCTION_LENGTH) {
       return NextResponse.json({ error: 'La instrucción supera el límite permitido.' }, { status: 413 });
@@ -1047,18 +1075,18 @@ export async function handleAnalyzeRequest(req: Request) {
       return NextResponse.json({ error: 'Ingresá texto, una URL o un documento si querés analizar contenido.' }, { status: 400 });
     }
 
-    const productScope = classifyProductScope(documentText, userInstruction, selectedCategory);
+    const productScope = classifyProductScope(contextualDocumentText, userInstruction, selectedCategory);
     if (!productScope.supported) {
       return NextResponse.json(buildOutOfScopeAnalysis(documentText, inputKind, productScope.reason));
     }
 
-    const fallback = buildLocalAnalysis(documentText, inputKind, fileName, extraction, userInstruction, url, selectedCategory);
+    const fallback = buildLocalAnalysis(contextualDocumentText, inputKind, fileName, extraction, userInstruction, url, selectedCategory);
 
     const openai = process.env.OPENAI_API_KEY && openAIAnalysisEnabled()
       ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20_000, maxRetries: 0 })
       : null;
     const noPaidClient = { chat: { completions: { create: async () => { throw new Error('Paid search disabled.'); } } } };
-    const verificationText = selectedCategory === 'argentina-legal-documents'
+    const verificationText = selectedCategory === 'argentina-legal-documents' || selectedCategory === 'leasing-specialist'
       ? `Jurisdicción elegida por el usuario: Argentina. ${documentText}`
       : documentText;
     const webVerification = await runHybridExternalVerification(

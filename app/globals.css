@@ -81,6 +81,10 @@ button,input,textarea{font:inherit}
 .categoryOption:hover{border-color:rgba(39,239,189,.45)}.categoryOption.selected{border-color:var(--green);background:rgba(39,239,189,.09);box-shadow:0 0 0 2px rgba(39,239,189,.10)}
 .categoryOptionIcon{font-size:22px;line-height:1}.categoryOption strong,.categoryOption>span:last-child>span{display:block}.categoryOption>span:last-child>span{margin-top:4px;color:var(--muted);font-size:13px;line-height:1.4;overflow-wrap:anywhere}
 .analysisInputStage{min-width:0;transition:opacity .2s ease}.analysisInputStage.locked{opacity:.45}.analysisInputStage.locked .drop{cursor:not-allowed}
+.leasingJurisdictionPicker{margin-top:18px;padding:16px;border:1px solid rgba(39,239,189,.28);border-radius:14px;background:rgba(39,239,189,.055)}
+.leasingJurisdictionPicker h3{margin:0 0 6px}.leasingJurisdictionPicker p{margin-bottom:12px}.leasingJurisdictionPicker small{display:block;margin-top:10px;color:var(--muted);line-height:1.45}
+.leasingProvinceGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.leasingProvinceGrid label{display:grid;gap:7px;color:#f4efff;font-weight:800;font-size:13px}.leasingProvinceGrid select{width:100%;min-width:0;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:#090d19;color:#fff;padding:12px;font:inherit}
+@media(max-width:700px){.leasingProvinceGrid{grid-template-columns:1fr}}
 .analysisStepTitle{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:800}.analysisStepTitle span{color:var(--green);font-size:11px;letter-spacing:.08em}
 .tab:disabled,.urlInput:disabled,textarea:disabled{cursor:not-allowed}
 .tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}

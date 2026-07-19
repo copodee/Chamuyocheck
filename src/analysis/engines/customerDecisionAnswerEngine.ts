@@ -4,9 +4,11 @@ import type { ArgentinaLegalAnalysis } from '../../lib/legal/argentinaLegalAnaly
 import type { ExternalVerificationSourceRecord } from '../types/externalVerification';
 import type { InvestmentProjectAnalysis } from '../../lib/investments/investmentProjectAnalysis';
 import { leasingKnowledge } from '../../lib/leasing/argentinaLeasingKnowledge';
+import { buildInternationalLeasingFindings } from '../../lib/leasing/internationalLeasingComparison';
+import { LEASING_TAXPAYER_PROFILES, PROVINCIAL_LEASING_STAMP_MATRIX } from '../../lib/leasing/argentinaLeasingTaxMatrix';
 
 export type CustomerDecisionAnswer = {
-  kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'supported-review';
+  kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'leasing-specialist' | 'supported-review';
   status: 'answerable' | 'partial' | 'needs-verification';
   title: string;
   directAnswer: string;
@@ -262,14 +264,16 @@ function buildLegalDebtEnforcementAnswer(analysis: ArgentinaLegalAnalysis): Cust
   };
 }
 
-function buildLeasingAnswer(selectedCategory: string | undefined): CustomerDecisionAnswer {
+function buildLeasingAnswer(selectedCategory: string | undefined, question: string): CustomerDecisionAnswer {
   const kind: CustomerDecisionAnswer['kind'] = selectedCategory === 'finance-credit'
     ? 'financial-product-comparison'
     : selectedCategory === 'investment-project'
       ? 'investment-project'
       : selectedCategory === 'scam-risk'
         ? 'scam-prevention'
-        : 'legal-document';
+        : selectedCategory === 'leasing-specialist'
+          ? 'leasing-specialist'
+          : 'legal-document';
   const focus = selectedCategory === 'finance-credit'
     ? 'Para compararlo con un préstamo hay que llevar ambos a un mismo flujo después de impuestos: anticipo, cánones, IVA, comisiones, seguros, mantenimiento, opción de compra, costo del crédito alternativo y valor residual.'
     : selectedCategory === 'investment-project'
@@ -279,6 +283,116 @@ function buildLeasingAnswer(selectedCategory: string | undefined): CustomerDecis
         : 'Jurídicamente deben revisarse el bien, canon, opción de compra, responsabilidades, inscripción, seguros, mantenimiento, mora, restitución y jurisdicción; la conveniencia económica e impositiva se informa por separado.';
   const currentTaxRule = leasingKnowledge('tax')[0].statement;
   const publicSectorRules = leasingKnowledge('public-sector').map((item) => item.statement);
+  const internationalFindings = buildInternationalLeasingFindings(question);
+  const normalizedQuestion = question.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const profilesToReport = PROVINCIAL_LEASING_STAMP_MATRIX.filter((item) =>
+    item.jurisdiction === 'Buenos Aires'
+      ? normalizedQuestion.replaceAll('ciudad autonoma de buenos aires', '').includes('buenos aires')
+      : normalizedQuestion.includes(item.jurisdiction.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase())
+  );
+  const assetKind = /auto|veh[ií]cul|camion|pickup|utilitario/i.test(question)
+    ? 'automotor'
+    : /maquinaria|equipo|industrial|agr[ií]col/i.test(question)
+      ? 'maquinaria o equipo'
+      : /inmueble|galp[oó]n|oficina|local|campo/i.test(question)
+        ? 'inmueble'
+        : /barco|buque|embarcaci[oó]n|naval/i.test(question)
+          ? 'embarcación'
+          : /avi[oó]n|aeronave/i.test(question)
+            ? 'aeronave'
+            : 'bien no informado';
+  const expenseMap = [
+    'Precio financiero: maxi canon o anticipo, cánones, tasa o margen, comisiones y valor de la opción de compra. Deben mostrarse por separado y también como flujo total.',
+    'IVA: revisar su incidencia en maxi canon, cánones, servicios y opción; el crédito fiscal sólo existe si el tomador está inscripto, el bien se afecta a actividad gravada y existe documentación válida.',
+    ...profilesToReport.flatMap((item) => {
+      const jurisdictionLines = [
+        `${item.jurisdiction} — Sellos: ${item.stampRatePercent === undefined ? 'porcentaje pendiente de verificación' : `${item.stampRatePercent}%`}${item.stampRateCondition ? ` (${item.stampRateCondition})` : ''}.`,
+        `${item.jurisdiction} — Ingresos Brutos del dador: ${item.grossIncomeRatePercent === undefined ? 'incidencia no cuantificada' : `${item.grossIncomeRatePercent}% para la actividad 649100`}. Salvo cláusula expresa de reintegro o facturación separada, se considera incluido en la tasa, margen, cánones u otros gastos y no se suma otra vez.`,
+      ];
+      if (item.exemptions.length) jurisdictionLines.push(`${item.jurisdiction} — Beneficios o exenciones verificadas/condicionadas: ${item.exemptions.join(' ')}`);
+      else jurisdictionLines.push(`${item.jurisdiction} — Exenciones: no hay una exención confirmada para aplicar automáticamente al caso.`);
+      return jurisdictionLines;
+    }),
+    `Registración de ${assetKind}: arancel registral, certificaciones, informes, alta o radicación y gestoría. Para automotores corresponde DNRPA; embarcaciones, Prefectura Naval; aeronaves, Registro Nacional de Aeronaves.`,
+    'Uso durante el contrato: patente o tributo de radicación, seguro, mantenimiento, reparaciones, inspecciones, guarda, multas y tasas locales según el bien y la cláusula contractual.',
+    'Finalización: gastos de cancelación o inscripción, ejercicio de la opción, transferencia de dominio y tributos propios de esa transferencia. El impuesto pagado sobre cánones sólo se toma a cuenta cuando la norma provincial lo permite.',
+  ];
+  const assetTaxBenefits = assetKind === 'maquinaria o equipo'
+    ? [
+        'Beneficio fiscal potencial del bien: si se afecta a una actividad gravada, los cánones pueden tener incidencia en Ganancias conforme el encuadre del contrato y el IVA facturado puede generar crédito fiscal para un responsable inscripto. Para el tratamiento financiero del Decreto 1038/2000 actualizado, los bienes muebles deben cumplir, entre otros requisitos, una duración mínima equivalente al 50% de su vida útil fiscal.',
+        'Maquinaria productiva: revisar beneficios provinciales específicos de Sellos, inscripción o transferencia; no extender a toda maquinaria una exención prevista sólo para determinadas categorías o actividades.',
+      ]
+    : assetKind === 'automotor'
+      ? [
+          'Beneficio fiscal potencial del bien: el uso empresarial puede permitir incidencia de cánones en Ganancias y crédito fiscal de IVA, sujeto a afectación, documentación y a las limitaciones legales específicas de automóviles. Utilitarios, camiones y vehículos productivos pueden tener tratamientos distintos de un automóvil de uso personal.',
+          'Automotor: verificar por separado beneficio o exención en la adquisición inicial, Sellos del contrato, patente durante el uso y tasa de la opción/transferencia. La exención de una etapa no exime las demás.',
+        ]
+      : assetKind === 'inmueble'
+        ? [
+            'Beneficio fiscal potencial del bien: el Decreto 1038/2000 actualizado exige para inmuebles una duración mínima equivalente al 10% de su vida útil fiscal, además de los demás requisitos. Deben separarse cánones, IVA si corresponde, Sellos, tributos inmobiliarios y transferencia por opción.',
+            'Inmueble productivo: pueden existir beneficios en parques o agrupamientos industriales, pero sólo se aplican si la ubicación, destino y reconocimiento oficial cumplen la norma provincial concreta.',
+          ]
+        : assetKind === 'embarcación'
+          ? [
+              'Beneficio fiscal potencial del bien: depende de su afectación a actividad gravada, del encuadre como bien mueble y de las limitaciones aplicables. Deben verificarse IVA, Ganancias, tasas de Prefectura Naval, matrícula, seguros y la transferencia por opción.',
+            ]
+          : assetKind === 'aeronave'
+            ? [
+                'Beneficio fiscal potencial del bien: depende de la afectación empresarial, encuadre como bien mueble, documentación y limitaciones de IVA y Ganancias. Deben agregarse matrícula y aranceles aeronáuticos, seguros, mantenimiento obligatorio y transferencia por opción.',
+              ]
+            : [
+                'Beneficios fiscales según el bien: todavía no pueden determinarse. Indicá si es automotor, maquinaria, inmueble, embarcación o aeronave; cada uno tiene límites, registros, tributos y posibles exenciones diferentes.',
+              ];
+  const distinctiveAdvantages = [
+    'Puede financiar una proporción alta del bien y, según la oferta, también ciertos gastos asociados, reduciendo el capital inicial frente a una compra con préstamo que exige anticipo.',
+    'El propio bien permanece en dominio del dador y funciona como soporte principal de la operación; esto puede reducir la necesidad de hipoteca, prenda u otras garantías adicionales, aunque el dador puede exigirlas.',
+    'Permite diseñar maxi canon, cánones y opción según generación de ingresos, estacionalidad y valor residual del activo; un préstamo tradicional suele amortizar capital e intereses con una estructura menos vinculada al uso del bien.',
+    'En responsables inscriptos con actividad gravada, el IVA de los cánones puede distribuirse durante el contrato en lugar de concentrarse en la compra inicial, sujeto a facturación y encuadre. Para consumidores o monotributistas ese crédito fiscal no existe.',
+    'En Ganancias puede producir un perfil de deducción diferente de comprar y amortizar el activo, si cumple el Decreto 1038/2000 actualizado y el destino empresarial. No se promete ahorro: debe compararse el valor presente después de impuestos.',
+    'La opción permite decidir al final si adquirir el activo; puede ser valiosa frente a obsolescencia, pero pierde fuerza cuando la opción es económicamente obligatoria o el costo de salida es alto.',
+    'No debe venderse como ventaja la antigua idea de que todo leasing queda fuera del balance: la exposición contable depende de las normas aplicables, incluida NIIF 16 cuando corresponda.',
+  ];
+  const leasingTypeAndOptionRules = [
+    'Leasing contractual argentino (CCyC): para quedar bajo los artículos 1227 y siguientes debe existir una opción de compra a favor del tomador. El precio debe estar fijado en el contrato o ser determinable por procedimientos o pautas pactadas; también deben revisarse el momento habilitado para ejercerla y sus efectos.',
+    'Leasing financiero: el dador financia sustancialmente la adquisición y recupera capital, costo financiero y margen mediante maxi canon/cánones y opción. Una opción residual baja puede hacer probable la compra, pero no debe suponerse sin leer el flujo; se compara el costo total incluyendo opción y transferencia.',
+    'Leasing operativo: prioriza disponibilidad, servicios, mantenimiento, renovación o devolución y suele conservar mayor riesgo residual en el proveedor. Si no hay una verdadera opción de compra, puede tratarse económicamente o jurídicamente como locación y no debe recibir automáticamente los beneficios del leasing financiero.',
+    'Lease-back: el futuro tomador vende su activo al dador y lo recibe en leasing. Deben agregarse los impuestos y gastos de la venta inicial, analizar sustancia económica y luego los cánones y la eventual recompra; no equivale a un préstamo garantizado sólo por cambiarle el nombre.',
+    'Control de la opción: informar valor o fórmula, fecha habilitada, IVA, Sellos o impuesto de transferencia, arancel registral, deuda previa, condición del bien y crédito por Sellos pagado sobre cánones cuando la provincia lo admita.',
+  ];
+  const comparableStampRates = profilesToReport.filter((item) => item.stampRatePercent !== undefined);
+  const percentageIncidence = profilesToReport.flatMap((item) => {
+    const lines: string[] = [];
+    if (item.stampRatePercent !== undefined) {
+      lines.push(`${item.jurisdiction} — Sellos del contrato: ${item.stampRatePercent}%. Incidencia directa o trasladable según la obligación legal y la cláusula fiscal; la base es la prevista para el instrumento, no los ingresos del dador.`);
+    }
+    if (item.grossIncomeRatePercent !== undefined) {
+      lines.push(`${item.jurisdiction} — Ingresos Brutos del dador (actividad 649100): ${item.grossIncomeRatePercent}%. El contribuyente legal es el dador, pero puede recuperar total o parcialmente el costo en el canon, maxi canon, tasa, comisiones u opción. Regla de cálculo: salvo que la oferta o el contrato manifiesten expresamente que se factura o reintegra aparte, se presume incorporado en la tasa, el margen, los cánones u otros gastos cobrados al tomador y no se vuelve a sumar. “No discriminado” no significa “sin incidencia económica”. No equivale necesariamente a adicionar ${item.grossIncomeRatePercent}% a cada canon.`);
+    }
+    return lines;
+  });
+  const stampComparison = comparableStampRates.length > 1
+    ? `Comparación preliminar de Sellos del contrato: ${comparableStampRates.map((item) => `${item.jurisdiction} ${item.stampRatePercent}%${item.stampRateCondition ? ` (${item.stampRateCondition})` : ''}`).join('; ')}. La menor tasa nominal no define por sí sola el escenario más barato: faltan inscripción, patente anual, opción de compra y verificar que la jurisdicción alternativa sea legalmente utilizable.`
+    : '';
+  const comparableGrossIncomeRates = profilesToReport.filter((item) => item.grossIncomeRatePercent !== undefined);
+  const grossIncomeComparison = comparableGrossIncomeRates.length
+    ? `Ingresos Brutos de la actividad del dador: ${comparableGrossIncomeRates.map((item) => `${item.jurisdiction} ${item.grossIncomeRatePercent}%`).join('; ')}. Es razonable analizar su traslado económico al tomador, pero la alícuota no se suma automáticamente como impuesto directo: debe revisarse la base imponible del dador y cómo fue incorporada al precio.`
+    : '';
+  const taxFindings = [
+    `Persona jurídica: ${LEASING_TAXPAYER_PROFILES.company}`,
+    `Persona humana en régimen general: ${LEASING_TAXPAYER_PROFILES['human-general-regime']}`,
+    `Monotributista: ${LEASING_TAXPAYER_PROFILES.monotributista}`,
+    `Uso personal: ${LEASING_TAXPAYER_PROFILES.consumer}`,
+    ...profilesToReport.map((item) => `${item.jurisdiction} (${item.fiscalYear || 'norma vigente verificada'}): ${item.treatment} ${item.exemptions.join(' ')}`),
+    'Mapa de gastos y exenciones aplicable a la consulta:',
+    ...expenseMap,
+    'Beneficios impositivos según el tipo de bien informado:',
+    ...assetTaxBenefits,
+    ...percentageIncidence,
+    stampComparison,
+    grossIncomeComparison,
+    'Regla de comparación: mostrar todos los porcentajes, su base, momento y obligado legal. No sumar mecánicamente Sellos, Ingresos Brutos, patente y opción de compra porque pueden recaer sobre bases distintas, corresponder a sujetos diferentes o devengarse en etapas separadas. Un impuesto propio del dador sólo se agrega como cargo separado al flujo del tomador cuando la propuesta o el contrato así lo manifiestan; en caso contrario se trata como incluido en el precio financiero para evitar doble cómputo.',
+    'Sellos es provincial: no existe una única alícuota argentina. Para las demás jurisdicciones debe verificarse la ley anual vigente antes de informar tasa o exención; el sistema no presume que el leasing esté exento.',
+  ];
   return {
     kind,
     status: 'partial',
@@ -288,8 +402,14 @@ function buildLeasingAnswer(selectedCategory: string | undefined): CustomerDecis
       'Marco contractual: Código Civil y Comercial de la Nación, artículos 1227 y siguientes. El artículo 1238 regula el uso y goce del bien; no fija plazos fiscales de amortización.',
       `Marco tributario nacional vigente desde el 29/03/2022: ${currentTaxRule}`,
       'Modalidades económicas a distinguir: leasing financiero, leasing operativo o asimilado a locación y lease-back. La denominación comercial no reemplaza el análisis de las condiciones legales y tributarias.',
+      'Tipo de leasing y efecto sobre la opción de compra:',
+      ...leasingTypeAndOptionRules,
+      'Ventajas diferenciales frente a préstamo, prenda u otra financiación de inversión:',
+      ...distinctiveAdvantages,
       'Una ventaja fiscal sólo existe si el tomador puede computarla conforme su actividad, afectación del bien, impuesto, jurisdicción y documentación; no debe sumarse como ahorro sin verificar su utilización efectiva.',
+      ...taxFindings,
       ...publicSectorRules,
+      ...internationalFindings,
     ],
     nextActions: [
       'Comparar leasing, préstamo y compra al contado con el mismo activo, plazo y valor residual, usando flujos mensuales después de impuestos.',
@@ -298,8 +418,11 @@ function buildLeasingAnswer(selectedCategory: string | undefined): CustomerDecis
       'Confirmar con asesoramiento contable el encuadre en Ganancias, IVA e impuestos provinciales antes de atribuir una ventaja impositiva.',
       'Si el tomador es público, verificar competencia para contratar, procedimiento de selección, autorización presupuestaria y de endeudamiento, capacidad de repago, garantía ofrecida y autorización o encuadre BCRA; no presumir que siempre debe ceder coparticipación.',
       'Si el bien es importado, verificar antes de contratar el régimen aduanero y el texto ordenado vigente de Exterior y Cambios del BCRA para cada pago al exterior.',
+      internationalFindings.length ? 'Para una comparación internacional definitiva, indicar país o estado, residencia fiscal de las partes, tipo de activo, moneda, proveedor, plazo, opción, estándar contable y lugar de registro.' : '',
     ],
-    limitations: ['Faltan tipo y valor del bien, dador, plazo, cánones, opción, tasa o costo alternativo, destino, jurisdicción, impuestos aplicables y capacidad real de aprovechar deducciones o créditos fiscales.'],
+    limitations: [profilesToReport.length
+      ? 'La liquidación es orientativa hasta conocer valor del bien, maxi canon, cánones, plazo, opción, IVA, servicios, cláusula de impuestos y datos registrales.'
+      : 'Para informar gastos y exenciones concretos faltan como mínimo la provincia donde se celebra el contrato, la provincia de uso/radicación, el tipo de bien y el tipo fiscal de tomador. Sin esos datos no debe afirmarse una exención.'],
   };
 }
 
@@ -308,7 +431,7 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   const legalCategorySelected = input.selectedCategory === 'argentina-legal-documents';
   const explicitQuestion = input.userInstruction?.trim() || input.documentText;
   if (/\bleasing\b|lease[ -]?back|arrendamiento\s+financiero|opci[oó]n\s+de\s+compra/i.test(explicitQuestion)) {
-    return buildLeasingAnswer(input.selectedCategory);
+    return buildLeasingAnswer(input.selectedCategory, explicitQuestion);
   }
   if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.subtopic === 'sexual-offense') {
     return buildSexualOffenseAnswer(input.argentinaLegalAnalysis);

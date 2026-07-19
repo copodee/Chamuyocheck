@@ -137,7 +137,7 @@ type Analysis = {
   } | null;
   sourceUrl?: string | null;
   decisionAnswer?: {
-    kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'supported-review';
+    kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'leasing-specialist' | 'supported-review';
     status: 'answerable' | 'partial' | 'needs-verification';
     title: string;
     directAnswer: string;
@@ -149,7 +149,7 @@ type Analysis = {
 
 type InputMode = 'Texto' | 'PDF' | 'Imagen' | 'Web' | 'YouTube';
 
-type AnalysisCategoryId = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents';
+type AnalysisCategoryId = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents' | 'leasing-specialist';
 
 const ANALYSIS_CATEGORIES: Array<{
   id: AnalysisCategoryId;
@@ -161,6 +161,14 @@ const ANALYSIS_CATEGORIES: Array<{
   { id: 'investment-project', icon: '📈', label: 'Inversiones', description: 'Inmuebles, agro, industria, energía, minería y proyectos.' },
   { id: 'scam-risk', icon: '🛡️', label: 'Posibles estafas', description: 'Sitios, ofertas, autotrading, promesas y pedidos de dinero.' },
   { id: 'argentina-legal-documents', icon: '⚖️', label: 'Derecho argentino', description: 'Contratos, documentos, delitos, penas, familia y seguros.' },
+  { id: 'leasing-specialist', icon: '🏗️', label: 'Leasing', description: 'Contrato, cánones, impuestos, registros, importación, sector público y comparación internacional.' },
+];
+
+const ARGENTINA_JURISDICTIONS = [
+  'Ciudad Autónoma de Buenos Aires', 'Buenos Aires', 'Catamarca', 'Chaco', 'Chubut', 'Córdoba',
+  'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy', 'La Pampa', 'La Rioja', 'Mendoza', 'Misiones',
+  'Neuquén', 'Río Negro', 'Salta', 'San Juan', 'San Luis', 'Santa Cruz', 'Santa Fe',
+  'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
 ];
 
 function Bar({ score }: { score: number }) {
@@ -471,7 +479,9 @@ function getScoreExplanationItems(analysis: Analysis, inputKind: string, text: s
   }
 
   const answerKind = analysis.decisionAnswer?.kind;
-  if (answerKind === 'legal-document') {
+  if (answerKind === 'leasing-specialist') {
+    items.push('El puntaje de leasing evalúa por separado contrato, flujo económico, impuestos, registración, riesgo residual, sector público, importación y normativa internacional aplicable.');
+  } else if (answerKind === 'legal-document') {
     items.push('El puntaje jurídico aumenta cuando faltan la resolución, la notificación, la liquidación, la jurisdicción o los hechos necesarios para controlar la consecuencia legal.');
   } else if (answerKind === 'loan-cost' || answerKind === 'financial-product-comparison') {
     items.push('El puntaje financiero aumenta cuando faltan costos, tasas, cargos o condiciones visibles.');
@@ -517,17 +527,26 @@ export default function Page() {
   const [activeInput, setActiveInput] = useState<InputMode>('Texto');
   const [showFullSummary, setShowFullSummary] = useState(false);
   const [showScoreExplanation, setShowScoreExplanation] = useState(false);
-  const [activeView, setActiveView] = useState<'inicio' | 'historial' | 'favoritos' | 'plantillas' | 'comparar' | 'mejorar' | 'ajustes'>('inicio');
+  const [activeView, setActiveView] = useState<'inicio' | 'historial' | 'favoritos' | 'plantillas' | 'comparar' | 'mejorar' | 'ajustes' | 'ayuda'>('inicio');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [favoritesItems, setFavoritesItems] = useState<string[]>([]);
   const [templatesItems, setTemplatesItems] = useState<string[]>([]);
+  const [compareLeft, setCompareLeft] = useState('');
+  const [compareRight, setCompareRight] = useState('');
+  const [improveDraft, setImproveDraft] = useState('');
+  const [showDetailedResults, setShowDetailedResults] = useState(true);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [termsError, setTermsError] = useState('');
   const [instructionError, setInstructionError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<AnalysisCategoryId | null>(null);
   const [categoryError, setCategoryError] = useState('');
+  const [leasingProvince, setLeasingProvince] = useState('');
+  const [leasingContractProvince, setLeasingContractProvince] = useState('Ciudad Autónoma de Buenos Aires');
+  const [leasingLessorProvince, setLeasingLessorProvince] = useState('Ciudad Autónoma de Buenos Aires');
+  const [leasingComparisonProvince, setLeasingComparisonProvince] = useState('');
+  const [leasingProvinceError, setLeasingProvinceError] = useState('');
   const fileRef = useRef<HTMLInputElement | null>(null);
   const categoryRef = useRef<HTMLDivElement | null>(null);
 
@@ -565,6 +584,8 @@ export default function Page() {
       setFavoritesItems([]);
       setTemplatesItems([]);
     }
+    const detailedPreference = localStorage.getItem('cc_detailed_results');
+    if (detailedPreference !== null) setShowDetailedResults(detailedPreference === 'true');
   }, []);
 
   async function submitEmailAuth(event: React.FormEvent) {
@@ -695,6 +716,10 @@ export default function Page() {
       document.querySelector<HTMLTextAreaElement>('#analysis-instruction')?.focus();
       return;
     }
+    if (selectedCategory === 'leasing-specialist' && !leasingProvince) {
+      setLeasingProvinceError('Elegí la provincia principal del leasing antes de analizar.');
+      return;
+    }
     setCategoryError('');
     setInstructionError('');
     if (!termsAccepted) {
@@ -716,6 +741,12 @@ export default function Page() {
       form.append('url', url);
       form.append('inputType', detected);
       form.append('selectedCategory', selectedCategory);
+      if (selectedCategory === 'leasing-specialist') {
+        form.append('leasingProvince', leasingProvince);
+        form.append('leasingContractProvince', leasingContractProvince);
+        form.append('leasingLessorProvince', leasingLessorProvince);
+        if (leasingComparisonProvince) form.append('leasingComparisonProvince', leasingComparisonProvince);
+      }
       form.append('termsAccepted', 'true');
       form.append('termsVersion', TERMS_VERSION);
       if (file?.type.startsWith('image/')) {
@@ -832,8 +863,40 @@ export default function Page() {
     setShowFullSummary(false);
     setShowScoreExplanation(false);
   };
-  const sectionTitle = activeView === 'historial' ? 'Historial' : activeView === 'favoritos' ? 'Favoritos' : activeView === 'plantillas' ? 'Plantillas' : activeView === 'comparar' ? 'Comparar' : activeView === 'mejorar' ? 'Mejorar documento' : activeView === 'ajustes' ? 'Ajustes' : 'Inicio';
-  const sectionHint = activeView === 'historial' ? 'Se muestra el historial local guardado en este navegador.' : activeView === 'favoritos' ? 'Acá aparecerán los elementos marcados como favoritos.' : activeView === 'plantillas' ? 'Podés reutilizar plantillas para análisis y mejoras.' : activeView === 'comparar' ? 'La comparación de documentos está habilitada durante la beta.' : activeView === 'mejorar' ? 'Este panel permite proponer mejoras de claridad, respaldo y verificación.' : activeView === 'ajustes' ? 'Configuración básica del producto y preferencias del análisis.' : 'Volvé al formulario principal para cargar un nuevo contenido.';
+  const openHelp = () => { setActiveView('ayuda'); setMobileMenuOpen(false); };
+  const saveFavorite = () => {
+    if (!analysis) return;
+    const label = analysis.decisionAnswer?.title || analysis.centralQuestion || analysis.documentType;
+    const next = Array.from(new Set([label, ...favoritesItems])).slice(0, 20);
+    setFavoritesItems(next);
+    localStorage.setItem('cc_favorites', JSON.stringify(next));
+  };
+  const removeFavorite = (label: string) => {
+    const next = favoritesItems.filter((item) => item !== label);
+    setFavoritesItems(next);
+    localStorage.setItem('cc_favorites', JSON.stringify(next));
+  };
+  const useTemplate = (category: AnalysisCategoryId, prompt: string) => {
+    setSelectedCategory(category);
+    setText(prompt);
+    setActiveInput('Texto');
+    setActiveView('inicio');
+    setTimeout(() => document.getElementById('inicio-form')?.scrollIntoView({ behavior: 'smooth' }), 50);
+  };
+  const compareWords = (value: string) => new Set(value.toLowerCase().split(/\W+/).filter((word) => word.length > 3));
+  const leftWords = compareWords(compareLeft);
+  const rightWords = compareWords(compareRight);
+  const sharedWords = [...leftWords].filter((word) => rightWords.has(word));
+  const comparisonReady = compareLeft.trim().length > 20 && compareRight.trim().length > 20;
+  const sendImprovementToAnalysis = () => {
+    if (!improveDraft.trim()) return;
+    setSelectedCategory('argentina-legal-documents');
+    setText(`Mejorá la claridad de este documento sin cambiar su sentido. Identificá ambigüedades, datos faltantes y afirmaciones que necesitan fuente.\n\n${improveDraft}`);
+    setActiveInput('Texto');
+    setActiveView('inicio');
+  };
+  const sectionTitle = activeView === 'historial' ? 'Historial' : activeView === 'favoritos' ? 'Favoritos' : activeView === 'plantillas' ? 'Plantillas' : activeView === 'comparar' ? 'Comparar' : activeView === 'mejorar' ? 'Mejorar documento' : activeView === 'ajustes' ? 'Ajustes' : activeView === 'ayuda' ? 'Ayuda' : 'Inicio';
+  const sectionHint = activeView === 'historial' ? 'Se muestra el historial local guardado en este navegador.' : activeView === 'favoritos' ? 'Resultados importantes guardados en este navegador.' : activeView === 'plantillas' ? 'Consultas preparadas para iniciar análisis frecuentes.' : activeView === 'comparar' ? 'Compará dos textos antes de pedir un análisis especializado.' : activeView === 'mejorar' ? 'Prepará un documento para una revisión de claridad, respaldo y riesgos.' : activeView === 'ajustes' ? 'Preferencias locales y control de los datos guardados.' : activeView === 'ayuda' ? 'Guía rápida para obtener respuestas útiles y verificables.' : 'Volvé al formulario principal para cargar un nuevo contenido.';
   const userName = String(session?.user.user_metadata?.full_name || session?.user.email || 'Usuario');
   const userInitial = userName.slice(0, 1).toUpperCase();
 
@@ -851,7 +914,7 @@ export default function Page() {
         <button type="button" className={activeView === 'comparar' ? 'active' : ''} onClick={openCompare}>⚖ Comparar</button>
         <button type="button" className={activeView === 'mejorar' ? 'active' : ''} onClick={openImprove}>↑ Mejorar documento</button>
         <button type="button" className={activeView === 'ajustes' ? 'active' : ''} onClick={openSettings}>⚙ Ajustes</button>
-        <button type="button">? Ayuda</button>
+        <button type="button" className={activeView === 'ayuda' ? 'active' : ''} onClick={openHelp}>? Ayuda</button>
       </div>
       <div className="proBox"><b>ACCESO BETA COMPLETO</b><p>Todos los formatos y análisis están habilitados. No se realizan cobros.</p></div>
       <div className="userBox"><div className="avatar">{session ? userInitial : 'V'}</div><div><b>{session ? userName : 'Sin ingresar'}</b><div className="hint">{session ? 'Beta completa' : 'Registro requerido'}</div></div>{session && <button type="button" className="termsLink" onClick={signOut}>Salir</button>}</div>
@@ -878,6 +941,7 @@ export default function Page() {
         <button type="button" className={activeView === 'comparar' ? 'active' : ''} onClick={openCompare}>⚖ Comparar</button>
         <button type="button" className={activeView === 'mejorar' ? 'active' : ''} onClick={openImprove}>↑ Mejorar documento</button>
         <button type="button" className={activeView === 'ajustes' ? 'active' : ''} onClick={openSettings}>⚙ Ajustes</button>
+        <button type="button" className={activeView === 'ayuda' ? 'active' : ''} onClick={openHelp}>? Ayuda</button>
       </div>}
       <div className="topbar">
         <div className="status"><div className="check">✓</div><div><b>{analysis ? 'Análisis finalizado' : 'Nuevo análisis'}</b><div className="hint">9 de julio de 2026</div></div></div>
@@ -927,6 +991,28 @@ export default function Page() {
                 </button>)}
               </div>
               {categoryError && <div className="termsError" role="alert">{categoryError}</div>}
+              {selectedCategory === 'leasing-specialist' && <div className="leasingJurisdictionPicker">
+                <h3>Provincia del leasing</h3>
+                <p>Elegí por separado dónde se celebra el contrato y dónde se usará y registrará el bien. Ambas jurisdicciones pueden tener consecuencias tributarias.</p>
+                <div className="leasingProvinceGrid">
+                  <label>Uso, guarda y radicación del bien<select value={leasingProvince} onChange={(event) => { setLeasingProvince(event.target.value); setLeasingProvinceError(''); if (event.target.value === leasingComparisonProvince) setLeasingComparisonProvince(''); }}>
+                    <option value="">Elegí una provincia</option>
+                    {ARGENTINA_JURISDICTIONS.map((province) => <option key={province} value={province}>{province}</option>)}
+                  </select></label>
+                  <label>Celebración e instrumentación del contrato<select value={leasingContractProvince} onChange={(event) => setLeasingContractProvince(event.target.value)}>
+                    {ARGENTINA_JURISDICTIONS.map((province) => <option key={province} value={province}>{province}</option>)}
+                  </select></label>
+                  <label>Domicilio del dador<select value={leasingLessorProvince} onChange={(event) => setLeasingLessorProvince(event.target.value)}>
+                    {ARGENTINA_JURISDICTIONS.map((province) => <option key={province} value={province}>{province}</option>)}
+                  </select></label>
+                  <label>Escenario alternativo (opcional)<select value={leasingComparisonProvince} onChange={(event) => setLeasingComparisonProvince(event.target.value)}>
+                    <option value="">Sin comparación</option>
+                    {ARGENTINA_JURISDICTIONS.filter((province) => province !== leasingProvince).map((province) => <option key={province} value={province}>{province}</option>)}
+                  </select></label>
+                </div>
+                <small>El comparativo mostrará porcentajes, bases y condiciones —sin montos— y verificará si la alternativa es jurídicamente posible según domicilio, guarda habitual, lugar de uso y registro competente.</small>
+                {leasingProvinceError && <div className="termsError" role="alert">{leasingProvinceError}</div>}
+              </div>}
             </div>
             <div className={`analysisInputStage ${selectedCategory ? '' : 'locked'}`} aria-disabled={!selectedCategory}>
             <div className="analysisStepTitle"><span>PASO 2</span> Cargá el contenido y escribí tu pregunta</div>
@@ -942,7 +1028,7 @@ export default function Page() {
             {instructionError && <div className="termsError" role="alert">{instructionError}</div>}
             <div className="termsConsent"><input id="terms-consent" type="checkbox" checked={termsAccepted} onChange={(e) => e.target.checked ? acceptCurrentTerms() : revokeTermsAcceptance()} /><label htmlFor="terms-consent">Leí y acepto los <button type="button" className="termsLink" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>Términos y Condiciones</button> (versión {TERMS_VERSION}).</label></div>
             {termsError && <div className="termsError" role="alert">{termsError}</div>}
-            <div className="ctaRow"><button type="button" className="primary" onClick={analyze} disabled={loading || sessionLoading || !selectedCategory || !text.trim()}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">{session ? `Entrada: ${getInputLabel(detected, Boolean(file))}` : 'Registrate para analizar'}</span></div>
+            <div className="ctaRow"><button type="button" className="primary" onClick={analyze} disabled={loading || sessionLoading || !selectedCategory || !text.trim() || (selectedCategory === 'leasing-specialist' && !leasingProvince)}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">{session ? `Entrada: ${getInputLabel(detected, Boolean(file))}` : 'Registrate para analizar'}</span></div>
             {session && <div className="betaAccessNote">Beta completa activa: sin límites ni cobros.</div>}
             {loading && <div className="loading">{steps.map((s, i) => <p key={i}>{s}</p>)}</div>}
             </div>
@@ -961,6 +1047,7 @@ export default function Page() {
         {analysis.decisionAnswer && <div className="panel legalResultPanel decisionAnswerPanel">
           <div className="eyebrow">RESPUESTA A TU CONSULTA</div>
           <h2>{analysis.decisionAnswer.title}</h2>
+          <button type="button" className="ghost" onClick={saveFavorite}>☆ Guardar en favoritos</button>
           <p className="decisionDirectAnswer">{analysis.decisionAnswer.directAnswer}</p>
           {analysis.decisionAnswer.findings.length > 0 && <><h3>Datos y hallazgos</h3><ul>{analysis.decisionAnswer.findings.map((item, index) => <li key={`decision-finding-${index}`}>{item}</li>)}</ul></>}
           {analysis.decisionAnswer.nextActions.length > 0 && <><h3>Qué conviene hacer ahora</h3><ul>{analysis.decisionAnswer.nextActions.map((item, index) => <li key={`decision-action-${index}`}>{item}</li>)}</ul></>}
@@ -1044,7 +1131,7 @@ export default function Page() {
             <div className="meta"><small>Confianza</small><b>{analysis.confidence}</b></div>
           </div>
         </div>
-        <div className="reportTabs">{['Resumen', 'Evidencias', 'Riesgos', 'Finanzas', 'Derecho argentino', 'Recomendaciones', 'Fuentes', 'Datos extraídos'].map((x) => <button key={x} type="button" className={tab === x ? 'active' : ''} onClick={() => setTab(x)}>{x}</button>)}</div>
+        {showDetailedResults && <><div className="reportTabs">{['Resumen', 'Evidencias', 'Riesgos', 'Finanzas', 'Derecho argentino', 'Recomendaciones', 'Fuentes', 'Datos extraídos'].map((x) => <button key={x} type="button" className={tab === x ? 'active' : ''} onClick={() => setTab(x)}>{x}</button>)}</div>
         <div className="cards">
           <div className="card executiveCard">
             <div className="cardHead">
@@ -1060,13 +1147,13 @@ export default function Page() {
         <div className="verifyBand">
           <div><h3>💡 ¿Qué deberías verificar?</h3><p>Antes de tomar una decisión basada en este contenido, conviene contrastar los puntos clave con evidencia externa.</p></div>
           <div className="verifyList">{reportSections?.verify.slice(0, 6).map((x, i) => <div key={i}><span className="num">{i + 1}</span>{x}</div>)}</div>
-          <div><h3>↗ Recomendaciones</h3><p>{reportSections?.contextCard ? reportSections.contextCard.items[0] : 'Obtené sugerencias específicas para aumentar calidad y confiabilidad.'}</p><button type="button" className="ghost">Mejorar documento</button></div>
+          <div><h3>↗ Recomendaciones</h3><p>{reportSections?.contextCard ? reportSections.contextCard.items[0] : 'Obtené sugerencias específicas para aumentar calidad y confiabilidad.'}</p><button type="button" className="ghost" onClick={() => { setImproveDraft(analysis.extractedPreview || text); openImprove(); }}>Mejorar documento</button></div>
         </div>
         {reportSections?.contextCard && <div className="section"><h2>{reportSections.contextCard.title}</h2><ul>{reportSections.contextCard.items.map((x, i) => <li key={i}>{x}</li>)}</ul></div>}
         <div className="section"><h2>Recomendaciones de verificación</h2><ul>{reportSections?.recommendations.slice(0, 6).map((x, i) => <li key={i}>{x}</li>)}</ul></div>
         <div className="section"><h2>Especialistas activados</h2><div className="moduleGrid">{analysis.modules.map(moduleCard)}</div></div>
         <div className="section"><h2>Por qué obtuvo este puntaje</h2><ul>{(analysis.scoreExplanation || []).map((x, i) => <li key={i}>{x}</li>)}</ul></div>
-        {analysis.extractedPreview && <div className="section"><h2>Datos extraídos</h2><p>{analysis.extractedPreview}</p></div>}
+        {analysis.extractedPreview && <div className="section"><h2>Datos extraídos</h2><p>{analysis.extractedPreview}</p></div>}</>}
       </section>}
       </> : <section className="panel viewPanel" style={{ padding: '28px', marginTop: '8px' }}>
         <div className="viewPanelHeader">
@@ -1077,20 +1164,28 @@ export default function Page() {
           {historyItems.length ? <div className="historyMini" style={{ marginTop: '14px' }}>{historyItems.map((item) => <div className="historyItem" key={item.id}><span>{item.score}</span><div>{item.title}<small>{item.documentType} · {item.date}</small></div></div>)}</div> : <div className="paywall" style={{ marginTop: '14px' }}>Todavía no hay historial local disponible.</div>}
         </>}
         {activeView === 'favoritos' && <>
-          {favoritesItems.length ? <ul style={{ color: '#ddd4f4', lineHeight: 1.6, marginTop: '14px' }}>{favoritesItems.map((item, i) => <li key={i}>{item}</li>)}</ul> : <div className="paywall" style={{ marginTop: '14px' }}>No hay favoritos guardados todavía.</div>}
+          {favoritesItems.length ? <div className="historyMini" style={{ marginTop: '14px' }}>{favoritesItems.map((item) => <div className="historyItem" key={item}><div>{item}<small>Guardado en este navegador</small></div><button type="button" className="ghost" onClick={() => removeFavorite(item)}>Quitar</button></div>)}</div> : <div className="paywall" style={{ marginTop: '14px' }}>No hay favoritos guardados todavía. Guardá uno desde su respuesta.</div>}
         </>}
         {activeView === 'plantillas' && <>
-          {templatesItems.length ? <ul style={{ color: '#ddd4f4', lineHeight: 1.6, marginTop: '14px' }}>{templatesItems.map((item, i) => <li key={i}>{item}</li>)}</ul> : <div className="paywall" style={{ marginTop: '14px' }}>Todavía no hay plantillas guardadas.</div>}
+          <div className="cards" style={{ marginTop: '14px' }}>
+            <div className="card"><h3>Leasing: gastos y exenciones</h3><p>Detalla bien, tomador, provincias, cánones y opción.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Quiero analizar un leasing de [TIPO DE BIEN]. El tomador es [EMPRESA / PERSONA HUMANA / MONOTRIBUTISTA]. El contrato se celebra en [PROVINCIA], el bien se usará y registrará en [PROVINCIA]. Informá gastos, porcentajes, exenciones, beneficios fiscales y costo de la opción de compra.')}>Usar plantilla</button></div>
+            <div className="card"><h3>Comparar leasing y préstamo</h3><p>Compara el mismo activo y plazo después de impuestos.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Compará este leasing con un préstamo para comprar el mismo bien. Separá anticipo o maxi canon, cánones/cuotas, tasa, IVA, Sellos, comisiones, seguros, mantenimiento, opción, valor residual y beneficios impositivos realmente utilizables.')}>Usar plantilla</button></div>
+            <div className="card"><h3>Revisar un contrato</h3><p>Busca obligaciones, costos, riesgos y cláusulas ambiguas.</p><button type="button" className="primary" onClick={() => useTemplate('argentina-legal-documents', 'Revisá este contrato argentino. Explicá obligaciones, costos, plazos, mora, garantías, rescisión, jurisdicción, cláusulas ambiguas y datos que faltan verificar.')}>Usar plantilla</button></div>
+          </div>
+          {templatesItems.length > 0 && <ul>{templatesItems.map((item, i) => <li key={i}>{item}</li>)}</ul>}
         </>}
         {activeView === 'comparar' && <>
-          <div className="paywall" style={{ marginTop: '14px' }}>Compará dos documentos y revisá diferencias de riesgo, contexto y evidencia.</div>
+          <div className="cards" style={{ marginTop: '14px' }}><div className="card"><h3>Texto A</h3><textarea value={compareLeft} onChange={(event) => setCompareLeft(event.target.value)} placeholder="Pegá la primera oferta o contrato" /></div><div className="card"><h3>Texto B</h3><textarea value={compareRight} onChange={(event) => setCompareRight(event.target.value)} placeholder="Pegá la segunda oferta o contrato" /></div></div>
+          {comparisonReady ? <div className="panel legalResultPanel" style={{ marginTop: '14px' }}><h3>Comparación preliminar</h3><p>Texto A: {compareLeft.length} caracteres. Texto B: {compareRight.length} caracteres.</p><p>Coincidencias relevantes: {sharedWords.slice(0, 20).join(', ') || 'no se detectaron coincidencias claras'}.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', `Compará estas dos propuestas para el mismo bien. Identificá diferencias de tasa, flujo, impuestos, gastos, opción, garantías y riesgos.\n\nPROPUESTA A:\n${compareLeft}\n\nPROPUESTA B:\n${compareRight}`)}>Analizar la comparación</button></div> : <div className="paywall" style={{ marginTop: '14px' }}>Pegá al menos 20 caracteres en cada texto.</div>}
         </>}
         {activeView === 'mejorar' && <>
-          <div className="paywall" style={{ marginTop: '14px' }}>Podés abrir el panel de mejora desde aquí para revisar la estructura, las fuentes y los puntos a reforzar.</div>
+          <textarea style={{ marginTop: '14px', width: '100%', minHeight: '240px' }} value={improveDraft} onChange={(event) => setImproveDraft(event.target.value)} placeholder="Pegá el documento que querés mejorar" />
+          <button type="button" className="primary" style={{ marginTop: '12px' }} disabled={!improveDraft.trim()} onClick={sendImprovementToAnalysis}>Revisar y mejorar</button>
         </>}
         {activeView === 'ajustes' && <>
-          <div className="paywall" style={{ marginTop: '14px' }}>Ajustes de cuenta, idioma y preferencias del flujo de análisis aparecerán aquí.</div>
+          <div className="panel legalResultPanel" style={{ marginTop: '14px' }}><label><input type="checkbox" checked={showDetailedResults} onChange={(event) => { setShowDetailedResults(event.target.checked); localStorage.setItem('cc_detailed_results', String(event.target.checked)); }} /> Mostrar explicaciones detalladas</label><p className="hint">Idioma: español · Jurisdicción legal predeterminada: Argentina</p><button type="button" className="ghost" onClick={() => { localStorage.removeItem('cc_history'); setHistoryItems([]); }}>Borrar historial local</button> <button type="button" className="ghost" onClick={() => { localStorage.removeItem('cc_favorites'); setFavoritesItems([]); }}>Borrar favoritos</button></div>
         </>}
+        {activeView === 'ayuda' && <div className="panel legalResultPanel" style={{ marginTop: '14px' }}><h3>Cómo obtener una respuesta útil</h3><ol><li>Elegí la categoría correcta.</li><li>Explicá qué decisión necesitás tomar.</li><li>Incluí documento, importes, tasas, fechas y jurisdicción.</li><li>En leasing indicá tipo de bien, tomador, provincia del contrato, provincia de uso/registro, cánones y opción.</li></ol><h3>Qué hace ChamuyoCheck</h3><p>Separa hechos, cálculos, riesgos, gastos, beneficios condicionados y puntos que necesitan una fuente oficial. No inventa una exención cuando faltan datos.</p></div>}
       </section>}
     </main>
     <div className="legalFooter"><details><summary>🔒 Aviso legal</summary><p>{analysis?.legalSafeguard || 'ChamuyoCheck genera una evaluación automatizada y orientativa. No afirma veracidad, falsedad, autoría, plagio, uso de IA ni ilegalidad; no reemplaza asesoramiento profesional.'}</p></details><span>Resultado automatizado, orientativo y sujeto a revisión humana.</span></div>

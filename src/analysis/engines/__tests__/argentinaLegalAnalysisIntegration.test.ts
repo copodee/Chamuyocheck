@@ -80,3 +80,81 @@ test('el leasing público no presume una cesión universal de coparticipación',
   assert.match(rendered, /no un requisito universal|no presumir que siempre/i);
   assert.match(rendered, /autorización presupuestaria y de endeudamiento/i);
 });
+
+test('compara leasing internacional sin convertir IFRS 16 en ley contractual o fiscal europea', () => {
+  const result = buildLocalAnalysis('Compará el leasing argentino con Estados Unidos y Europa.', 'Texto', '', null, '', '', 'argentina-legal-documents');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /UCC Article 2A/i);
+  assert.match(findings, /ASC Topic 842/i);
+  assert.match(findings, /IFRS 16/i);
+  assert.match(findings, /No existe un contrato civil único de leasing para toda la Unión/i);
+  assert.match(findings, /IVA, deducciones, depreciación.*país por país/i);
+});
+
+test('la categoría leasing usa especialista y dimensiones propias', () => {
+  const result = buildLocalAnalysis('Compará un leasing de maquinaria con un préstamo. Canon, opción de compra, IVA, seguro y valor residual.', 'Texto', '', null, '', '', 'leasing-specialist');
+  assert.equal(result.decisionAnswer?.kind, 'leasing-specialist');
+  assert.equal(result.topic, 'leasing');
+  assert.ok(result.categoryScores.some((item) => item.name === 'Estructura contractual del leasing'));
+  assert.ok(result.categoryScores.some((item) => item.name === 'Tratamiento tributario'));
+  assert.ok(result.categoryScores.some((item) => item.name === 'Registro y oponibilidad'));
+  assert.equal(result.categoryScores.some((item) => item.name === 'Riesgo financiero'), false);
+});
+
+test('leasing separa la jurisdicción del tomador de la presentación fiscal del dador', () => {
+  const context = 'Compará impuestos de un leasing automotor. Jurisdicción del tomador y del contrato: Córdoba. Domicilio o lugar de presentación fiscal del dador: Ciudad Autónoma de Buenos Aires. Comparar la jurisdicción del tomador con: Mendoza.';
+  const result = buildLocalAnalysis(context, 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Ciudad Autónoma de Buenos Aires.*0,50%/is);
+  assert.match(findings, /Córdoba.*Decreto provincial 484\/2022/is);
+  assert.match(findings, /Mendoza.*alícuota general de Sellos del 1%/is);
+  assert.doesNotMatch(findings, /Neuquén.*14‰|Jujuy.*8%/is);
+});
+
+test('leasing muestra porcentajes y distingue obligación legal de traslado económico', () => {
+  const result = buildLocalAnalysis('Analizá los porcentajes de un leasing en Río Negro: sellos, Ingresos Brutos y opción de compra.', 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Río Negro — Sellos del contrato: 1%/i);
+  assert.match(findings, /Ingresos Brutos del dador \(actividad 649100\): 9%/i);
+  assert.match(findings, /puede recuperar total o parcialmente.*canon, maxi canon, tasa, comisiones u opción/is);
+  assert.match(findings, /salvo que la oferta o el contrato.*factura o reintegra aparte.*se presume incorporado/is);
+  assert.match(findings, /en caso contrario se trata como incluido.*evitar doble cómputo/is);
+  assert.match(findings, /No sumar mecánicamente Sellos, Ingresos Brutos, patente y opción de compra/i);
+});
+
+test('leasing responde gastos y exenciones de la jurisdicción elegida', () => {
+  const result = buildLocalAnalysis('Quiero un leasing automotor en Córdoba. ¿Qué gastos voy a tener y de cuáles estoy exento?', 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Mapa de gastos y exenciones/i);
+  assert.match(findings, /Precio financiero: maxi canon o anticipo, cánones, tasa o margen/i);
+  assert.match(findings, /Córdoba — Sellos: 0%/i);
+  assert.match(findings, /Córdoba — Sellos: 0%.*Decreto 484\/2022/is);
+  assert.match(findings, /Beneficios o exenciones verificadas\/condicionadas.*destino económico/is);
+  assert.match(findings, /Registración de automotor.*DNRPA/is);
+  assert.match(findings, /Finalización:.*ejercicio de la opción.*transferencia de dominio/is);
+});
+
+test('leasing no inventa una exención cuando faltan jurisdicción y bien', () => {
+  const result = buildLocalAnalysis('¿Qué gastos y exenciones tiene un leasing?', 'Texto', '', null, '', '', 'leasing-specialist');
+  assert.match(result.decisionAnswer?.limitations.join(' ') || '', /faltan como mínimo la provincia.*tipo de bien.*tipo fiscal de tomador/is);
+});
+
+test('leasing explica ventajas exclusivas frente a otras financiaciones sin prometer ahorro', () => {
+  const result = buildLocalAnalysis('Compará un leasing de maquinaria con un préstamo para inversión.', 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Ventajas diferenciales frente a préstamo, prenda u otra financiación/i);
+  assert.match(findings, /propio bien permanece en dominio del dador.*reducir la necesidad.*garantías/is);
+  assert.match(findings, /IVA de los cánones puede distribuirse durante el contrato/is);
+  assert.match(findings, /perfil de deducción diferente.*No se promete ahorro/is);
+  assert.match(findings, /NIIF 16/i);
+});
+
+test('leasing distingue financiero operativo y lease-back al analizar la opción', () => {
+  const result = buildLocalAnalysis('Analizá un leasing operativo o financiero y la opción de compra.', 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Leasing contractual argentino.*debe existir una opción de compra/is);
+  assert.match(findings, /Leasing financiero:.*maxi canon\/cánones y opción/is);
+  assert.match(findings, /Leasing operativo:.*Si no hay una verdadera opción de compra.*locación/is);
+  assert.match(findings, /Lease-back:.*venta inicial.*eventual recompra/is);
+  assert.match(findings, /Control de la opción: informar valor o fórmula.*IVA.*Sellos/is);
+});
