@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { readLocalHistory, type HistoryItem } from '../src/lib/history/localHistory';
 import { TERMS_SECTIONS, TERMS_STORAGE_KEY, TERMS_VERSION } from '../src/lib/legal/terms';
 import { extractImageTextInBrowser } from '../src/lib/extractors/browserOcr';
+import { extractPdfTextInBrowser } from '../src/lib/extractors/browserPdfOcr';
 import { getSupabaseClient } from '../src/lib/supabase/client';
 import { buildLeasingTransparencyEvidence, calculateLeasingTransparencyScore } from '../src/lib/leasing/leasingTransparencyScore';
 import type { Session } from '@supabase/supabase-js';
@@ -846,6 +847,24 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         form.append('ocrConfidence', String(ocr.confidence));
         form.append('clientFileName', file.name);
         form.append('clientFileType', file.type);
+      } else if (file && (file.type.includes('pdf') || file.name.toLowerCase().endsWith('.pdf'))) {
+        setSteps((previous) => [...previous, 'Leyendo las páginas escaneadas en este dispositivo…']);
+        const pdfOcr = await extractPdfTextInBrowser(file, ({ page, totalPages }) => {
+          setSteps((previous) => [
+            ...previous.filter((step) => !step.startsWith('Leyendo página ')),
+            `Leyendo página ${page} de ${totalPages}…`,
+          ]);
+        });
+        if (!pdfOcr.ok) throw new Error(pdfOcr.note);
+        setSteps((previous) => [
+          ...previous.filter((step) => !step.startsWith('Leyendo página ')),
+          `✓ ${pdfOcr.pages} páginas leídas`,
+        ]);
+        form.append('ocrText', pdfOcr.text);
+        form.append('ocrConfidence', String(pdfOcr.confidence));
+        form.append('ocrPages', String(pdfOcr.pages));
+        form.append('clientFileName', file.name);
+        form.append('clientFileType', file.type || 'application/pdf');
       } else if (file) {
         form.append('file', file);
       }
@@ -862,8 +881,15 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       } finally {
         window.clearTimeout(requestTimeout);
       }
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Error');
+      const responseText = await res.text();
+      let data: any = {};
+      try { data = responseText ? JSON.parse(responseText) : {}; } catch { data = {}; }
+      if (!res.ok) {
+        const fallback = res.status === 413
+          ? 'El documento supera el límite de carga. Volvé a intentarlo: los PDFs ahora se leen en tu dispositivo antes de enviarse.'
+          : `No se pudo completar el análisis (código ${res.status}).`;
+        throw new Error(data.error || fallback);
+      }
       setAnalysis(data);
       setTimeout(() => document.getElementById('informe')?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch (e: any) {
@@ -1152,7 +1178,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                 <div className="tabs">{(['Texto', 'PDF', 'Imagen', 'Web'] as InputMode[]).map((x) => <button key={x} type="button" className={`tab ${detected === x || (detected === 'Archivo' && x === 'PDF') ? 'active' : ''}`} onClick={() => chooseInputMode(x)}>{x}</button>)}</div>
                 <div className={`drop ${drag ? 'drag' : ''}`} onClick={() => { if (activeInput === 'PDF' || activeInput === 'Imagen') fileRef.current?.click(); }} onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}>
                   <h3>{file ? 'Cotización cargada' : 'Tocá para cargar o arrastrá el archivo'}</h3>
-                  <p>PDF · imágenes · capturas de cotizaciones de leasing.</p>
+                  <p>PDF hasta 20 MB · imágenes y capturas hasta 10 MB.</p>
                   {file && <span className="filePill">{file.name} · {fmt(file.size)}</span>}
                 </div>
                 {(activeInput === 'Web') && <input className="urlInput" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Pegá la URL de la cotización o propuesta" />}
@@ -1208,6 +1234,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             <div className={`drop ${drag ? 'drag' : ''}`} onClick={() => { if (!selectedCategory) { setCategoryError('Elegí una categoría antes de cargar contenido.'); categoryRef.current?.focus(); return; } if (activeInput === 'PDF' || activeInput === 'Imagen') fileRef.current?.click(); }} onDragOver={(e) => { e.preventDefault(); if (selectedCategory) setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}>
               <h3>Pegá o arrastrá cualquier contenido</h3>
               <p>Texto · PDF · imágenes · capturas · sitios web · videos de YouTube. La categoría elegida guía el análisis y el sistema identifica el subtema.</p>
+              <p className="uploadLimits">PDF hasta 20 MB · imágenes hasta 10 MB.</p>
               {file && <span className="filePill">{file.name} · {fmt(file.size)}</span>}
             </div>
             {(activeInput === 'Web' || activeInput === 'YouTube') && <input className="urlInput" disabled={!selectedCategory} value={url} onChange={(e) => setUrl(e.target.value)} placeholder={activeInput === 'YouTube' ? 'Pegá la URL de YouTube' : 'Pegá la URL del sitio web'} />}

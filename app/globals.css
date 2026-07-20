@@ -115,6 +115,7 @@ button,input,textarea{font:inherit}
 .drop.drag{border-color:var(--cyan);box-shadow:0 0 0 8px rgba(39,239,189,.06)}
 .drop h3{margin:0 0 8px}
 .drop p{margin:0;color:#d8cdf2;line-height:1.45}
+.drop .uploadLimits{margin-top:8px;color:#8ef5d8;font-size:11px;font-weight:800}
 .filePill{display:inline-flex;margin-top:12px;border:1px solid var(--border);border-radius:999px;padding:8px 12px;color:#e9e0ff;background:rgba(255,255,255,.05)}
 .urlInput,textarea{width:100%;border:1px solid rgba(255,255,255,.11);outline:none;background:#040711;color:white;border-radius:16px;padding:18px;font-size:16px;line-height:1.45}
 .urlInput{margin-bottom:12px}

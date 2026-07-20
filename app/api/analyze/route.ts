@@ -42,7 +42,7 @@ import { authenticateAnalysisRequest, recordSuccessfulAnalysis } from '../../../
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 const MAX_USER_INSTRUCTION_LENGTH = 2_000;
-const MAX_CLIENT_OCR_LENGTH = 50_000;
+const MAX_CLIENT_OCR_LENGTH = 150_000;
 
 export function openAIAnalysisEnabled(value = process.env.OPENAI_ANALYSIS_ENABLED): boolean {
   return value === 'true';
@@ -951,6 +951,7 @@ export async function handleAnalyzeRequest(req: Request) {
     const clientFileName = String(form.get('clientFileName') || '').trim();
     const clientFileType = String(form.get('clientFileType') || '').trim();
     const clientOcrConfidence = Number(form.get('ocrConfidence') || 0);
+    const clientOcrPages = Number(form.get('ocrPages') || 1);
     const termsAccepted = form.get('termsAccepted') === 'true';
     const termsVersion = String(form.get('termsVersion') || '');
     const selectedCategoryRaw = String(form.get('selectedCategory') || '').trim();
@@ -1002,9 +1003,11 @@ export async function handleAnalyzeRequest(req: Request) {
       extraction = {
         ok: true,
         text: clientOcrText,
-        pages: 1,
+        pages: Number.isFinite(clientOcrPages) && clientOcrPages > 0 ? clientOcrPages : 1,
         chars: clientOcrText.length,
-        note: `OCR local completado en el dispositivo${clientOcrConfidence ? ` (${clientOcrConfidence.toFixed(0)}% de confianza estimada de lectura)` : ''}.`,
+        note: /pdf/i.test(fileType)
+          ? `PDF escaneado leído mediante OCR en el dispositivo${clientOcrConfidence ? ` (${clientOcrConfidence.toFixed(0)}% de confianza estimada de lectura)` : ''}.`
+          : `OCR local completado en el dispositivo${clientOcrConfidence ? ` (${clientOcrConfidence.toFixed(0)}% de confianza estimada de lectura)` : ''}.`,
         confidence: clientOcrConfidence || undefined,
       };
       extracted = clientOcrText;
