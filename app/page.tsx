@@ -157,10 +157,9 @@ type Analysis = {
 type InputMode = 'Texto' | 'PDF' | 'Imagen' | 'Web' | 'YouTube';
 
 type AnalysisCategoryId = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents' | 'leasing-specialist';
-type LegalBranchSelection = 'auto' | 'civil' | 'commercial' | 'family' | 'criminal' | 'administrative' | 'tax';
+type LegalBranchSelection = 'civil' | 'commercial' | 'family' | 'criminal' | 'administrative' | 'tax';
 
 const LEGAL_BRANCHES: Array<{ id: LegalBranchSelection; label: string; description: string }> = [
-  { id: 'auto', label: 'Automático', description: 'El sistema identifica la rama según la pregunta y el documento.' },
   { id: 'civil', label: 'Civil y contratos', description: 'Obligaciones, contratos, daños, sucesiones, consumo y seguros.' },
   { id: 'commercial', label: 'Comercial', description: 'Acuerdos entre empresas, sociedades, títulos, concursos y quiebras.' },
   { id: 'family', label: 'Familia', description: 'Divorcio, alimentos, cuidado, comunicación y responsabilidad parental.' },
@@ -563,7 +562,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [termsError, setTermsError] = useState('');
   const [instructionError, setInstructionError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<AnalysisCategoryId | null>(leasingPage ? 'leasing-specialist' : null);
-  const [legalBranch, setLegalBranch] = useState<LegalBranchSelection>('auto');
+  const [legalBranch, setLegalBranch] = useState<LegalBranchSelection | null>(null);
   const [categoryError, setCategoryError] = useState('');
   const [leasingProvince, setLeasingProvince] = useState('');
   const [leasingContractProvince, setLeasingContractProvince] = useState('Ciudad Autónoma de Buenos Aires');
@@ -785,6 +784,11 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       window.location.assign('/leasing');
       return;
     }
+    if (selectedCategory === 'argentina-legal-documents' && !legalBranch) {
+      setCategoryError('Elegí qué tipo de derecho querés analizar antes de continuar.');
+      categoryRef.current?.focus();
+      return;
+    }
     setText(value);
     setInstructionError('');
   }
@@ -830,7 +834,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       form.append('url', url);
       form.append('inputType', detected);
       form.append('selectedCategory', selectedCategory);
-      if (selectedCategory === 'argentina-legal-documents') form.append('legalBranch', legalBranch);
+      if (selectedCategory === 'argentina-legal-documents' && legalBranch) form.append('legalBranch', legalBranch);
       if (selectedCategory === 'leasing-specialist') {
         form.append('leasingProvince', leasingProvince);
         form.append('leasingContractProvince', leasingContractProvince);
@@ -990,7 +994,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setLoading(false);
     setSteps([]);
     setSelectedCategory(leasingPage ? 'leasing-specialist' : null);
-    setLegalBranch('auto');
+    setLegalBranch(null);
     setLeasingConfirmedFields(new Set());
     setCategoryError('');
     setInstructionError('');
@@ -1180,15 +1184,15 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
               <h2 id="category-picker-title">{leasingPage ? 'Configurá tu análisis de leasing' : 'Elegí la categoría'}</h2>
               <p>{leasingPage ? 'Indicá jurisdicciones y datos conocidos, o subí directamente una cotización.' : 'La categoría define el tipo de análisis y las fuentes que corresponden.'}</p>
               {!leasingPage && <div className="categoryGrid" role="radiogroup" aria-required="true">
-                {ANALYSIS_CATEGORIES.map((category) => <button key={category.id} type="button" role="radio" aria-checked={selectedCategory === category.id} className={`categoryOption ${category.id === 'leasing-specialist' ? 'leasingCategoryOption' : ''} ${selectedCategory === category.id ? 'selected' : ''}`} onClick={() => { if (category.id === 'leasing-specialist') { window.location.assign('/leasing'); return; } setSelectedCategory(category.id); setCategoryError(''); setAnalysis(null); setFile(null); setUrl(''); setText(''); setActiveInput('Texto'); }}>
+                {ANALYSIS_CATEGORIES.map((category) => <button key={category.id} type="button" role="radio" aria-checked={selectedCategory === category.id} className={`categoryOption ${category.id === 'leasing-specialist' ? 'leasingCategoryOption' : ''} ${selectedCategory === category.id ? 'selected' : ''}`} onClick={() => { if (category.id === 'leasing-specialist') { window.location.assign('/leasing'); return; } setSelectedCategory(category.id); setLegalBranch(null); setCategoryError(''); setAnalysis(null); setFile(null); setUrl(''); setText(''); setActiveInput('Texto'); }}>
                   <span className="categoryOptionIcon" aria-hidden="true">{category.icon}</span>
                   <span><strong>{category.label}</strong><span>{category.description}</span></span>
                 </button>)}
               </div>}
               {selectedCategory === 'argentina-legal-documents' && <div className="legalBranchPicker">
                 <h3>¿Qué tipo de derecho necesitás analizar?</h3>
-                <p>Si lo sabés, elegilo para priorizar esa normativa. Si tenés dudas, dejá Automático.</p>
-                <div className="legalBranchGrid" role="radiogroup" aria-label="Rama del derecho argentino">
+                <p>Elegí la rama que consideres más cercana a tu consulta. La respuesta usará esa normativa y luego identificará el subtema.</p>
+                <div className="legalBranchGrid" role="radiogroup" aria-label="Rama del derecho argentino" aria-required="true">
                   {LEGAL_BRANCHES.map((branch) => <button key={branch.id} type="button" role="radio" aria-checked={legalBranch === branch.id} className={`categoryOption ${legalBranch === branch.id ? 'selected' : ''}`} onClick={() => { setLegalBranch(branch.id); setAnalysis(null); }}>
                     <span><strong>{branch.label}</strong><span>{branch.description}</span></span>
                   </button>)}
@@ -1268,7 +1272,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             {instructionError && <div className="termsError" role="alert">{instructionError}</div>}
             <div className="termsConsent"><input id="terms-consent" type="checkbox" checked={termsAccepted} onChange={(e) => e.target.checked ? acceptCurrentTerms() : revokeTermsAcceptance()} /><label htmlFor="terms-consent">Leí y acepto los <button type="button" className="termsLink" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>Términos y Condiciones</button> (versión {TERMS_VERSION}).</label></div>
             {termsError && <div className="termsError" role="alert">{termsError}</div>}
-            <div className="ctaRow"><button type="button" className="primary" onClick={() => void analyze()} disabled={loading || sessionLoading || !selectedCategory || !text.trim() || (selectedCategory === 'leasing-specialist' && !leasingProvince)}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">{session ? `Entrada: ${getInputLabel(detected, Boolean(file))}` : 'Registrate para analizar'}</span></div>
+            <div className="ctaRow"><button type="button" className="primary" onClick={() => void analyze()} disabled={loading || sessionLoading || !selectedCategory || !text.trim() || (selectedCategory === 'argentina-legal-documents' && !legalBranch) || (selectedCategory === 'leasing-specialist' && !leasingProvince)}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">{session ? `Entrada: ${getInputLabel(detected, Boolean(file))}` : 'Registrate para analizar'}</span></div>
             {session && <div className="betaAccessNote">Beta completa activa: sin límites ni cobros.</div>}
             {loading && <div className="loading">{steps.map((s, i) => <p key={i}>{s}</p>)}</div>}
             </div>

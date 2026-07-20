@@ -76,6 +76,7 @@ test('analyze endpoint rejects oversized file instructions', async () => {
   const form = new FormData();
   form.set('file', new File(['contenido'], 'entrega.txt', { type: 'text/plain' }));
   form.set('selectedCategory', 'argentina-legal-documents');
+  form.set('legalBranch', 'civil');
   form.set('text', 'x'.repeat(2_001));
   form.set('termsAccepted', 'true');
   form.set('termsVersion', TERMS_VERSION);
@@ -87,6 +88,7 @@ test('analyze endpoint accepts locally recognized scanned legal PDFs', async () 
   const form = new FormData();
   form.set('text', 'Decime si Percorsi está bien cubierto y si al pagar todo le entregarán las camionetas.');
   form.set('selectedCategory', 'argentina-legal-documents');
+  form.set('legalBranch', 'civil');
   form.set('ocrText', 'ACUERDO COMERCIAL. Percorsi se obliga a cancelar las cuotas pactadas. La entrega y transferencia de las camionetas queda sujeta al pago íntegro, cumplimiento de las obligaciones y documentación indicada en las cláusulas del acuerdo.');
   form.set('ocrConfidence', '82');
   form.set('ocrPages', '17');
@@ -101,6 +103,17 @@ test('analyze endpoint accepts locally recognized scanned legal PDFs', async () 
   assert.match(data.extractionStatus, /PDF escaneado leído mediante OCR/);
   assert.equal(data.detectedInput, 'PDF');
   assert.match(data.userInstruction, /Percorsi/);
+});
+
+test('analyze endpoint requires an explicit legal branch', async () => {
+  const form = new FormData();
+  form.set('text', 'Necesito revisar un acuerdo comercial y sus obligaciones de entrega.');
+  form.set('selectedCategory', 'argentina-legal-documents');
+  form.set('termsAccepted', 'true');
+  form.set('termsVersion', TERMS_VERSION);
+  const response = await handleAnalyzeRequest(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /tipo de derecho/i);
 });
 
 test('analyze endpoint requires the current terms acceptance', async () => {

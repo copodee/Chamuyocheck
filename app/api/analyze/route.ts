@@ -956,7 +956,7 @@ export async function handleAnalyzeRequest(req: Request) {
     const termsAccepted = form.get('termsAccepted') === 'true';
     const termsVersion = String(form.get('termsVersion') || '');
     const selectedCategoryRaw = String(form.get('selectedCategory') || '').trim();
-    const legalBranchRaw = String(form.get('legalBranch') || 'auto').trim();
+    const legalBranchRaw = String(form.get('legalBranch') || '').trim();
     const leasingProvince = String(form.get('leasingProvince') || '').trim();
     const leasingContractProvince = String(form.get('leasingContractProvince') || '').trim();
     const leasingAssetType = String(form.get('leasingAssetType') || '').trim();
@@ -986,7 +986,10 @@ export async function handleAnalyzeRequest(req: Request) {
       }, { status: 400 });
     }
     const selectedCategory: SupportedProductArea = selectedCategoryRaw;
-    const legalBranch: LegalBranchPreference = ['auto', 'civil', 'commercial', 'family', 'criminal', 'administrative', 'tax'].includes(legalBranchRaw)
+    if (selectedCategory === 'argentina-legal-documents' && !['civil', 'commercial', 'family', 'criminal', 'administrative', 'tax'].includes(legalBranchRaw)) {
+      return NextResponse.json({ error: 'Elegí qué tipo de derecho querés analizar.' }, { status: 400 });
+    }
+    const legalBranch: LegalBranchPreference = ['civil', 'commercial', 'family', 'criminal', 'administrative', 'tax'].includes(legalBranchRaw)
       ? legalBranchRaw as LegalBranchPreference
       : 'auto';
     if (selectedCategory === 'leasing-specialist' && !leasingProvince) {
