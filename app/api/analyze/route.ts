@@ -398,7 +398,7 @@ export function buildLocalAnalysis(
   const financialAnalysis = financial ? extractLoanNumbers(text, userInstruction) : null;
   const scamRiskAnalysis = analyzeScamRisk(scamCategory ? analysisInput : '');
   const commercialCourseAnalysis = analyzeCommercialCourse(scamCategory ? analysisInput : '');
-  const argentinaLegalAnalysis = analyzeArgentinaLegal(legalCategory ? analysisInput : '', selectedCategory === 'argentina-legal-documents' || leasingCategory);
+  const argentinaLegalAnalysis = analyzeArgentinaLegal(legalCategory ? analysisInput : '', selectedCategory === 'argentina-legal-documents' || leasingCategory, userInstruction);
   const investmentProjectAnalysis = analyzeInvestmentProject(
     text,
     userInstruction,

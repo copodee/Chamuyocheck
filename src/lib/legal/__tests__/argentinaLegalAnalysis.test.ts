@@ -79,3 +79,15 @@ test('distingue sociedades concursos títulos y contrataciones públicas', () =>
   assert.equal(procurement.subtopic, 'public-procurement');
   assert.ok(procurement.sourceTargets.some((item) => /1023\/2001/i.test(item)));
 });
+
+test('la pregunta contractual prevalece sobre menciones penales o de leasing incidentales del documento', () => {
+  const document = 'ACUERDO COMERCIAL entre dos empresas. El anexo menciona una penalidad contractual, una operación previa de leasing y advierte que una defraudación podría denunciarse. Percorsi pagó las cuotas y reclama la entrega de las camionetas.';
+  const question = 'Necesito saber si Percorsi, habiendo pagado todo, tiene riesgo de que Vitalcan no entregue las camionetas según el acuerdo y cómo puede demandar.';
+  const result = analyzeArgentinaLegal(`${question}\n${document}`, true, question);
+  assert.equal(result.legalBranch, 'commercial');
+  assert.equal(result.area, 'contracts');
+  assert.equal(result.subtopic, 'contract-review');
+  assert.doesNotMatch(result.areaLabel, /penal/i);
+  assert.ok(result.sourceTargets.some((item) => /Código Civil y Comercial/i.test(item)));
+  assert.ok(result.sourceTargets.every((item) => !/Código Penal/i.test(item)));
+});
