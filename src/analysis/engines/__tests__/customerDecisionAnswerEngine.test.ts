@@ -263,3 +263,39 @@ test('la respuesta administrativa prioriza acto expediente notificación y recur
   assert.match(rendered, /régimen nacional no debe aplicarse automáticamente/i);
   assert.doesNotMatch(answer.title, /civil|comercial|financier/i);
 });
+
+test('la respuesta general de familia separa asuntos personales patrimoniales y urgentes', () => {
+  const text = 'Estoy por divorciarme, tenemos hijos, vivienda y bienes.';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text, userInstruction: '¿Qué tengo que ordenar primero?', selectedCategory: 'argentina-legal-documents',
+    financialAnalysis: null, scamRiskAnalysis: analyzeScamRisk(text),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(text, true, '¿Qué tengo que ordenar primero?', 'family'),
+  });
+  const rendered = [answer.title, answer.directAnswer, ...answer.findings, ...answer.nextActions].join(' ');
+  assert.match(rendered, /centro de vida.*acuerdos.*medidas vigentes/is);
+  assert.match(rendered, /separar los asuntos personales de los patrimoniales/i);
+});
+
+test('la respuesta penal no convierte un incumplimiento contractual en delito', () => {
+  const text = 'Una empresa no cumplió el acuerdo y quiero denunciar una estafa.';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text, userInstruction: '¿Es delito?', selectedCategory: 'argentina-legal-documents',
+    financialAnalysis: null, scamRiskAnalysis: analyzeScamRisk(text),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(text, true, '¿Es delito?', 'criminal'),
+  });
+  const rendered = [answer.title, answer.directAnswer, ...answer.findings, ...answer.nextActions].join(' ');
+  assert.match(rendered, /conducta concreta, evidencia y circunstancias/i);
+  assert.match(rendered, /no convierte automáticamente.*delito/i);
+});
+
+test('la respuesta comercial distingue sociedades títulos garantías y concursos', () => {
+  const text = 'Los socios discuten una decisión del directorio y la empresa tiene cheques vencidos.';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text, userInstruction: '¿Qué vías existen?', selectedCategory: 'argentina-legal-documents',
+    financialAnalysis: null, scamRiskAnalysis: analyzeScamRisk(text),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(text, true, '¿Qué vías existen?', 'commercial'),
+  });
+  const rendered = [answer.title, answer.directAnswer, ...answer.findings, ...answer.nextActions].join(' ');
+  assert.match(rendered, /sociedad.*título de crédito.*situación concursal/is);
+  assert.match(rendered, /personalidad jurídica.*administradores, socios o garantes/i);
+});

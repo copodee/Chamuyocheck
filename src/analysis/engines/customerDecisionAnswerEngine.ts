@@ -352,6 +352,69 @@ function buildAdministrativeAnswer(analysis: ArgentinaLegalAnalysis): CustomerDe
   };
 }
 
+function buildFamilyAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return {
+    kind: 'legal-document',
+    status: 'partial',
+    title: 'El caso de familia debe organizarse según vínculos, centro de vida, acuerdos y medidas vigentes',
+    directAnswer: 'La respuesta depende del tema concreto: divorcio, cuidado personal, comunicación, filiación, vivienda, bienes, compensación económica o protección urgente. Cuando hay niñas, niños o adolescentes, deben identificarse su centro de vida, necesidades, modalidad actual de cuidados y cualquier acuerdo o medida vigente. También corresponde separar los asuntos personales de los patrimoniales, porque no tienen necesariamente el mismo trámite, prueba ni urgencia.',
+    findings: [
+      ...analysis.issues.map((issue) => `${issue.label}: ${issue.explanation}`),
+      'Un acuerdo informal puede ser evidencia relevante, pero su alcance y exigibilidad dependen del contenido, la materia y su eventual homologación.',
+      'La existencia de violencia, riesgo, traslado, ocultamiento de bienes o incumplimiento de una medida puede requerir una respuesta urgente y distinta del trámite principal.',
+    ],
+    nextActions: [
+      'Reunir partidas, acuerdos, resoluciones, denuncias, comunicaciones, comprobantes de gastos y documentación de bienes y deudas.',
+      'Precisar domicilio, centro de vida, modalidad de cuidados, régimen vigente y toda audiencia o plazo próximo.',
+      ...analysis.sourceTargets.map((source) => `Contrastar con ${source}.`),
+      'Separar las medidas urgentes de las pretensiones definitivas y verificar el procedimiento de familia de la jurisdicción.',
+    ],
+    limitations: analysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
+  };
+}
+
+function buildCriminalAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return {
+    kind: 'legal-document',
+    status: 'needs-verification',
+    title: 'La calificación penal depende de una conducta concreta, evidencia y circunstancias legalmente relevantes',
+    directAnswer: 'No puede afirmarse que existió un delito ni indicar una pena solamente por una descripción breve o por palabras como “estafa”, “amenaza” o “robo”. Hay que reconstruir qué ocurrió, quién intervino, con qué intención, qué evidencia existe, cuándo y dónde sucedió y si concurren agravantes, tentativa, participación u otras circunstancias. También debe distinguirse una denuncia penal de un incumplimiento civil o comercial: que una parte no cumpla un contrato no convierte automáticamente el conflicto en delito.',
+    findings: [
+      ...analysis.issues.map((issue) => `${issue.label}: ${issue.explanation}`),
+      'La calificación jurídica y la escala penal dependen de hechos probados, no del nombre coloquial usado por quien consulta.',
+      'La preservación de evidencia y los riesgos actuales para personas o bienes pueden ser más urgentes que definir inicialmente el artículo aplicable.',
+    ],
+    nextActions: [
+      'Ordenar una cronología y conservar mensajes, documentos, comprobantes, archivos originales, testigos y datos de identificación.',
+      'Precisar conducta, intención atribuida, resultado, lugar, fecha, personas afectadas, agravantes y medidas ya adoptadas.',
+      ...analysis.sourceTargets.map((source) => `Contrastar con ${source}.`),
+      'Si existe peligro actual o riesgo de pérdida de evidencia, acudir de inmediato a la autoridad o asistencia profesional competente.',
+    ],
+    limitations: analysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
+  };
+}
+
+function buildCommercialAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return {
+    kind: 'legal-document',
+    status: 'partial',
+    title: 'El análisis comercial depende del vehículo jurídico, las partes, la documentación y la situación patrimonial',
+    directAnswer: 'Primero debe identificarse si el conflicto corresponde a una sociedad, un acuerdo entre empresas, un título de crédito, una garantía, una operación comercial o una situación concursal. Después hay que revisar quién asumió cada obligación, la representación y facultades de quienes firmaron, vencimientos, registraciones, garantías, contabilidad y comunicaciones. Si existe insolvencia o cesación de pagos, el análisis cambia porque el cobro individual puede quedar condicionado por el proceso concursal.',
+    findings: [
+      ...analysis.issues.map((issue) => `${issue.label}: ${issue.explanation}`),
+      'La personalidad jurídica de la sociedad y la responsabilidad de administradores, socios o garantes no deben confundirse.',
+      'Una factura, cheque, pagaré, acta o contrato produce efectos distintos y exige controles propios antes de reclamar.',
+    ],
+    nextActions: [
+      'Reunir contratos, anexos, facturas, títulos, garantías, actas, poderes, registraciones y comunicaciones relevantes.',
+      'Verificar representación, vencimiento, mora, jurisdicción, solvencia, procesos concursales y medidas cautelares posibles.',
+      ...analysis.sourceTargets.map((source) => `Contrastar con ${source}.`),
+      'Definir si se busca cumplimiento, cobro ejecutivo, responsabilidad societaria, impugnación de una decisión o verificación de crédito.',
+    ],
+    limitations: analysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
+  };
+}
+
 function buildLegalDebtEnforcementAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
   return {
     kind: 'legal-document',
@@ -686,6 +749,15 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   }
   if (legalCategorySelected && input.argentinaLegalAnalysis.subtopic === 'debt-enforcement') {
     return buildLegalDebtEnforcementAnswer(input.argentinaLegalAnalysis);
+  }
+  if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'family') {
+    return buildFamilyAnswer(input.argentinaLegalAnalysis);
+  }
+  if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'criminal') {
+    return buildCriminalAnswer(input.argentinaLegalAnalysis);
+  }
+  if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'commercial') {
+    return buildCommercialAnswer(input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'civil') {
     return buildCivilAnswer(input.argentinaLegalAnalysis);
