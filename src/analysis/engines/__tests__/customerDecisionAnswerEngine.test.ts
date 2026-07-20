@@ -6,6 +6,42 @@ import { analyzeArgentinaLegal } from '../../../lib/legal/argentinaLegalAnalysis
 import { analyzeInvestmentProject } from '../../../lib/investments/investmentProjectAnalysis';
 import { buildCustomerDecisionAnswer, enrichDecisionAnswerWithExternalEvidence } from '../customerDecisionAnswerEngine';
 
+test('la categoría elegida gobierna el tipo de respuesta aunque la redacción sea genérica', () => {
+  const baseText = 'Necesito analizar esta propuesta y saber qué información falta.';
+  const legal = analyzeArgentinaLegal(baseText, true, baseText, 'civil', 'CABA');
+
+  const financeAnswer = buildCustomerDecisionAnswer({
+    documentText: baseText, selectedCategory: 'finance-credit',
+    financialAnalysis: extractLoanNumbers(baseText), scamRiskAnalysis: analyzeScamRisk(''), argentinaLegalAnalysis: analyzeArgentinaLegal(''),
+  });
+  assert.equal(financeAnswer.kind, 'loan-cost');
+
+  const investmentAnswer = buildCustomerDecisionAnswer({
+    documentText: baseText, selectedCategory: 'investment-project', financialAnalysis: null,
+    investmentProjectAnalysis: analyzeInvestmentProject(baseText, '', true), scamRiskAnalysis: analyzeScamRisk(''), argentinaLegalAnalysis: analyzeArgentinaLegal(''),
+  });
+  assert.equal(investmentAnswer.kind, 'investment-project');
+
+  const scamAnswer = buildCustomerDecisionAnswer({
+    documentText: baseText, selectedCategory: 'scam-risk', financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(baseText), argentinaLegalAnalysis: analyzeArgentinaLegal(''),
+  });
+  assert.equal(scamAnswer.kind, 'scam-prevention');
+  assert.match(scamAnswer.directAnswer, /no acredita la identidad/i);
+
+  const legalAnswer = buildCustomerDecisionAnswer({
+    documentText: baseText, selectedCategory: 'argentina-legal-documents', financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(''), argentinaLegalAnalysis: legal,
+  });
+  assert.equal(legalAnswer.kind, 'legal-document');
+
+  const leasingAnswer = buildCustomerDecisionAnswer({
+    documentText: baseText, selectedCategory: 'leasing-specialist', financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(''), argentinaLegalAnalysis: analyzeArgentinaLegal(''),
+  });
+  assert.equal(leasingAnswer.kind, 'leasing-specialist');
+});
+
 test('responde primero cuánto se paga y estima tasas para el plazo pedido', () => {
   const text = 'Monto del préstamo $1.007.000. 12 cuotas de $130.381. 24 cuotas de $100.553. 36 cuotas de $106.213. 48 cuotas de $107.037.';
   const instruction = 'Necesito saber el CFT y la TNA para 36 meses.';

@@ -726,7 +726,7 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   const question = `${input.userInstruction || ''}\n${input.documentText}`;
   const legalCategorySelected = input.selectedCategory === 'argentina-legal-documents';
   const explicitQuestion = input.userInstruction?.trim() || input.documentText;
-  if (/\bleasing\b|lease[ -]?back|arrendamiento\s+financiero|opci[oó]n\s+de\s+compra/i.test(explicitQuestion)) {
+  if (input.selectedCategory === 'leasing-specialist' || /\bleasing\b|lease[ -]?back|arrendamiento\s+financiero|opci[oó]n\s+de\s+compra/i.test(explicitQuestion)) {
     return buildLeasingAnswer(input.selectedCategory, explicitQuestion);
   }
   if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.subtopic === 'sexual-offense') {
@@ -769,13 +769,13 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
     return buildFinancialProductComparisonAnswer(question);
   }
   const asksInvestment = /\b(?:inversi[oó]n|invertir|rentabilidad|renta|retorno|viabilidad|proyecto|alquiler|precio\s+por\s+m2|precio\s+por\s+metro|exportaci[oó]n|demanda\s+internacional|miner[ií]a|minero|litio|cobre|oro|petr[oó]leo|gas\s+natural|hidrocarburo|vaca\s+muerta|yacimiento|tierras?|terrenos?)\b/i.test(question);
-  if (input.investmentProjectAnalysis?.applicable && asksInvestment) {
+  if (input.investmentProjectAnalysis?.applicable && (input.selectedCategory === 'investment-project' || asksInvestment)) {
     return buildInvestmentAnswer(input.investmentProjectAnalysis);
   }
   if (input.financialAnalysis && (input.selectedCategory === 'finance-credit' || /(?:cu[aá]nto|total|costo|inter[eé]s|tasa|inflaci[oó]n|tna|tea|cft|cuota|pag(?:ar|ando)|pr[eé]stamo|cr[eé]dito|prenda(?:ria)?|prendari[oa]|financi)/i.test(question))) {
     return buildLoanAnswer(input.financialAnalysis, question);
   }
-  if (input.scamRiskAnalysis.applicable) {
+  if (input.selectedCategory === 'scam-risk' || input.scamRiskAnalysis.applicable) {
     const hasSignals = input.scamRiskAnalysis.signals.length > 0;
     const elevatedRisk = ['alto', 'muy-alto'].includes(input.scamRiskAnalysis.level);
     return {
@@ -783,7 +783,9 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
       title: elevatedRisk ? 'La propuesta presenta un riesgo elevado: no pagues sin verificarla' : hasSignals ? 'Hay señales que conviene verificar antes de pagar' : 'No alcanza para confirmar que la operación sea segura',
       directAnswer: elevatedRisk
         ? `Evaluación preliminar: riesgo ${input.scamRiskAnalysis.level === 'muy-alto' ? 'muy alto' : 'alto'}. ${input.scamRiskAnalysis.conclusion} No puede afirmarse que sea una estafa sin identificar al operador y contrastar su autorización, pero tampoco debe tratarse como una oferta confiable.`
-        : input.scamRiskAnalysis.conclusion,
+        : input.scamRiskAnalysis.applicable
+          ? input.scamRiskAnalysis.conclusion
+          : 'No aparecen señales concretas suficientes para afirmar que la propuesta sea engañosa. Eso no acredita la identidad, autorización ni solvencia de la contraparte: la categoría exige revisar esos elementos antes de confiar o pagar.',
       findings: input.scamRiskAnalysis.signals.map((signal) => `${signal.label}: “${signal.evidence}”.`),
       nextActions: input.scamRiskAnalysis.checks,
       limitations: ['La ausencia de patrones conocidos no acredita la identidad, legitimidad o solvencia de la contraparte.'],
