@@ -64,6 +64,19 @@ test('separates cash price, down payment and financed capital in colloquial purc
   }
 });
 
+test('includes an additional final payment in the total and implicit rate', () => {
+  const query = 'El bien vale 15.000.000 pesos. Pago 36 cuotas de 500.000 pesos y una cuota final adicional de 3.000.000 pesos.';
+  const result = extractLoanNumbers(query);
+  assert.equal(result.principal, 15_000_000);
+  assert.equal(result.months, 36);
+  assert.equal(result.installment, 500_000);
+  assert.equal(result.finalPayment, 3_000_000);
+  assert.equal(result.calculatedInstallmentsTotal, 21_000_000);
+  assert.equal(result.financingCost, 6_000_000);
+  assert.ok((result.impliedTeaPercent || 0) > 20);
+  assert.match(result.warnings.join(' '), /pago adicional.*reemplaza la última cuota/is);
+});
+
 test('the selected finance category forces a financial answer and recognizes a pledge', () => {
   const query = '¿Qué gastos tiene una prenda sobre un vehículo y qué debería comparar?';
   const scope = classifyProductScope(query, '', 'finance-credit');
