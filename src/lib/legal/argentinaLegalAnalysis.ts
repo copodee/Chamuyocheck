@@ -11,8 +11,8 @@ export type ArgentinaLegalAnalysis = {
   jurisdiction: 'argentina' | 'not-specified';
   area: 'contracts' | 'criminal' | 'family' | 'other-legal';
   areaLabel: string;
-  legalBranch: 'family' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'tax' | 'general';
-  subtopic: 'family-support' | 'family-divorce' | 'family-parental' | 'sexual-offense' | 'criminal-penalty' | 'debt-enforcement' | 'civil-damages' | 'consumer' | 'insurance' | 'succession' | 'leasing' | 'contract-review' | 'corporate' | 'insolvency' | 'negotiable-instruments' | 'administrative-procedure' | 'tax' | 'public-procurement' | 'general-legal';
+  legalBranch: 'family' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
+  subtopic: 'family-support' | 'family-divorce' | 'family-parental' | 'sexual-offense' | 'criminal-penalty' | 'debt-enforcement' | 'civil-damages' | 'consumer' | 'insurance' | 'succession' | 'leasing' | 'contract-review' | 'corporate' | 'insolvency' | 'negotiable-instruments' | 'administrative-procedure' | 'labor' | 'tax' | 'public-procurement' | 'general-legal';
   intent: 'validity' | 'amount-or-duration' | 'consequences' | 'next-steps' | 'document-review' | 'general';
   issues: LegalIssue[];
   factsNeeded: string[];
@@ -37,13 +37,16 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
   const criminal = /\b(?:delito|denuncia\s+penal|causa\s+penal|penas?|prisi[oó]n|c[aá]rcel|condena|hurto|robo|homicidio|lesiones|amenazas|estafa|defraudaci[oó]n|violaci[oó]n|violador(?:a|es)?|abuso sexual|integridad sexual)\b|c[oó]digo penal/i.test(routingText);
   const contracts = /contrato|acuerdo|cl[aá]usula|rescisi[oó]n|incumplimiento|penalidad|jurisdicci[oó]n|t[eé]rminos y condiciones|locaci[oó]n|compraventa|pagar?\b|cuotas?|entreg(?:a|ar|ue)|demandar?/i.test(routingText);
   const administrative = /acto\s+administrativo|procedimiento\s+administrativo|recurso\s+administrativo|administraci[oó]n\s+p[uú]blica|organismo\s+(?:p[uú]blico|estatal)|ministerio|municipalidad|estado\s+nacional|habilitaci[oó]n|licencia|concesi[oó]n|multa\s+(?:administrativa|estatal)|arca|afip|anmat/i.test(routingText);
+  const labor = /despid|emplead[oa]|empleador|trabajador|relaci[oó]n\s+laboral|contrato\s+de\s+trabajo|salario|sueldo|remuneraci[oó]n|indemnizaci[oó]n\s+laboral|accidente\s+de\s+trabajo|aseguradora\s+de\s+riesgos\s+del\s+trabajo|sindicat|convenio\s+colectivo/i.test(routingText);
   const commercial = /acuerdo\s+comercial|operaci[oó]n\s+comercial|sociedad(?:es)?|socios?|accionistas?|acciones|directorio|empresa|concurso\s+preventivo|quiebra|insolvencia|cheque|pagar[eé]|fondo\s+de\s+comercio|ley\s+general\s+de\s+sociedades/i.test(`${routingText}\n${text}`);
   const civil = contracts || /da[ñn]os?|perjuicios?|responsabilidad\s+civil|deuda|acreedor|deudor|embarg|ejecuci[oó]n|sucesi[oó]n|herencia|propiedad|alquiler|obligaci[oó]n|intereses?|honorarios?/i.test(text);
-  const detectedBranch: ArgentinaLegalAnalysis['legalBranch'] = family ? 'family' : criminal ? 'criminal' : administrative ? 'administrative' : commercial && contracts ? 'commercial' : civil ? 'civil' : commercial ? 'commercial' : 'general';
+  const detectedBranch: ArgentinaLegalAnalysis['legalBranch'] = family ? 'family' : criminal ? 'criminal' : labor ? 'labor' : administrative ? 'administrative' : commercial && contracts ? 'commercial' : civil ? 'civil' : commercial ? 'commercial' : 'general';
   const legalBranch: ArgentinaLegalAnalysis['legalBranch'] = branchPreference === 'auto' ? detectedBranch : branchPreference;
   const area: ArgentinaLegalAnalysis['area'] = legalBranch === 'family' ? 'family' : legalBranch === 'criminal' ? 'criminal' : legalBranch === 'civil' || legalBranch === 'commercial' ? 'contracts' : 'other-legal';
-  const areaLabel = legalBranch === 'family' ? 'Familia' : legalBranch === 'criminal' ? 'Derecho penal' : legalBranch === 'civil' ? 'Derecho civil' : legalBranch === 'commercial' ? 'Derecho comercial' : legalBranch === 'administrative' ? 'Derecho administrativo' : legalBranch === 'tax' ? 'Derecho tributario' : 'Consulta jurídica general';
-  const subtopic: ArgentinaLegalAnalysis['subtopic'] = legalBranch === 'tax'
+  const areaLabel = legalBranch === 'family' ? 'Familia' : legalBranch === 'criminal' ? 'Derecho penal' : legalBranch === 'civil' ? 'Derecho civil' : legalBranch === 'commercial' ? 'Derecho comercial' : legalBranch === 'administrative' ? 'Derecho administrativo' : legalBranch === 'labor' ? 'Derecho laboral' : legalBranch === 'tax' ? 'Derecho tributario' : 'Consulta jurídica general';
+  const subtopic: ArgentinaLegalAnalysis['subtopic'] = legalBranch === 'labor'
+    ? 'labor'
+    : legalBranch === 'tax'
     ? 'tax'
     : /\bleasing\b|lease[ -]?back|arrendamiento\s+financiero|opci[oó]n\s+de\s+compra/i.test(routingText)
     ? 'leasing'
@@ -125,6 +128,7 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
     subtopic === 'corporate' ? 'tipo societario, estatuto, jurisdicción registral, participación, decisiones y actas relevantes' : '',
     subtopic === 'insolvency' ? 'estado de cesación de pagos, procesos abiertos, acreedores, garantías y vencimientos' : '',
     subtopic === 'administrative-procedure' ? 'organismo, acto o expediente, fecha de notificación, vía recursiva y plazo disponible' : '',
+    subtopic === 'labor' ? 'fecha de ingreso, tareas, modalidad de contratación, registración, remuneración, convenio colectivo, comunicaciones y jurisdicción laboral' : '',
     subtopic === 'tax' ? 'tributo, período fiscal, jurisdicción, acto notificado, vencimiento y etapa administrativa o judicial' : '',
     subtopic === 'public-procurement' ? 'organismo contratante, procedimiento, pliego, oferta, acto cuestionado y etapa del trámite' : '',
     !/(art[ií]culo|ley \d|c[oó]digo|normativa)/i.test(text) ? 'norma o fundamento jurídico invocado' : '',
@@ -153,6 +157,8 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
       ? ['Ley 24.452 de Cheques, texto actualizado', 'Decreto-Ley 5965/63 para letras de cambio y pagarés', 'Código Civil y Comercial y normativa del BCRA según el instrumento']
     : subtopic === 'administrative-procedure'
       ? ['Ley Nacional de Procedimientos Administrativos 19.549, texto actualizado tras la Ley 27.742, si interviene la Administración nacional', 'Reglamento de Procedimientos Administrativos, Decreto 1759/72, texto actualizado', 'Ley especial del organismo y régimen provincial o municipal si corresponde']
+    : subtopic === 'labor'
+      ? ['Ley de Contrato de Trabajo 20.744, texto actualizado, si existe una relación laboral privada comprendida', 'Convenio colectivo y estatuto profesional aplicables a la actividad y categoría', 'Ley procesal laboral de la jurisdicción competente y comunicaciones o registros oficiales del vínculo']
     : subtopic === 'tax'
       ? ['Ley 11.683 de Procedimiento Tributario si el tributo es nacional', 'Ley del impuesto y reglamentación ARCA aplicables al período fiscal', 'Código fiscal y ley impositiva vigente de la provincia o municipio competente']
     : subtopic === 'public-procurement'

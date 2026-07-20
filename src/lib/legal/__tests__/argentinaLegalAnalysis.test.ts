@@ -107,3 +107,12 @@ test('la rama tributaria elegida prioriza fuentes fiscales aunque la consulta se
   assert.match(result.areaLabel, /tributario/i);
   assert.ok(result.sourceTargets.some((item) => /11\.683/i.test(item)));
 });
+
+test('la rama laboral elegida no se desvía a comercial por mencionar empresa y contrato', () => {
+  const result = analyzeArgentinaLegal('La empresa terminó mi contrato y no pagó la indemnización.', true, '¿Qué puedo reclamar por el despido?', 'labor');
+  assert.equal(result.legalBranch, 'labor');
+  assert.equal(result.subtopic, 'labor');
+  assert.match(result.areaLabel, /laboral/i);
+  assert.ok(result.sourceTargets.some((item) => /20\.744/i.test(item)));
+  assert.ok(result.factsNeeded.some((item) => /fecha de ingreso/i.test(item)));
+});

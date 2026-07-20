@@ -129,7 +129,7 @@ type Analysis = {
     jurisdiction: 'argentina' | 'not-specified';
     area: 'contracts' | 'criminal' | 'family' | 'other-legal';
     areaLabel: string;
-    legalBranch: 'family' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'tax' | 'general';
+    legalBranch: 'family' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
     subtopic: string;
     intent: string;
     issues: Array<{ id: string; label: string; evidence: string; explanation: string; severity: 'baja' | 'media' | 'alta' }>;
@@ -157,7 +157,7 @@ type Analysis = {
 type InputMode = 'Texto' | 'PDF' | 'Imagen' | 'Web' | 'YouTube';
 
 type AnalysisCategoryId = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents' | 'leasing-specialist';
-type LegalBranchSelection = 'civil' | 'commercial' | 'family' | 'criminal' | 'administrative' | 'tax';
+type LegalBranchSelection = 'civil' | 'commercial' | 'family' | 'criminal' | 'administrative' | 'labor' | 'tax';
 
 const LEGAL_BRANCHES: Array<{ id: LegalBranchSelection; label: string; description: string }> = [
   { id: 'civil', label: 'Civil y contratos', description: 'Obligaciones, contratos, daños, sucesiones, consumo y seguros.' },
@@ -165,6 +165,7 @@ const LEGAL_BRANCHES: Array<{ id: LegalBranchSelection; label: string; descripti
   { id: 'family', label: 'Familia', description: 'Divorcio, alimentos, cuidado, comunicación y responsabilidad parental.' },
   { id: 'criminal', label: 'Penal', description: 'Delitos, denuncias, penas, agravantes y procedimiento penal.' },
   { id: 'administrative', label: 'Administrativo', description: 'Actos estatales, recursos, habilitaciones y contratación pública.' },
+  { id: 'labor', label: 'Laboral', description: 'Empleo, despidos, salarios, registración, accidentes y relaciones de trabajo.' },
   { id: 'tax', label: 'Tributario', description: 'Impuestos, ARCA, fiscos provinciales, determinaciones y recursos.' },
 ];
 
