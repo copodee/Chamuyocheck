@@ -50,3 +50,32 @@ test('subcategoriza las ramas jurídicas y asigna sus fuentes oficiales', () => 
   assert.ok(administrative.sourceTargets.some((item) => /19\.549/i.test(item)));
   assert.ok(administrative.sourceTargets.some((item) => /1759\/72/i.test(item)));
 });
+
+test('subcategoriza problemas jurídicos por materia y pide hechos específicos', () => {
+  const consumer = analyzeArgentinaLegal('Un proveedor no respeta la garantía legal del producto.', true);
+  const insurance = analyzeArgentinaLegal('La aseguradora rechazó el siniestro de mi póliza.', true);
+  const damages = analyzeArgentinaLegal('Quiero reclamar daños y perjuicios por un accidente.', true);
+  const tax = analyzeArgentinaLegal('ARCA me notificó una determinación de oficio de un impuesto.', true);
+  assert.equal(consumer.subtopic, 'consumer');
+  assert.ok(consumer.sourceTargets.some((item) => /24\.240/i.test(item)));
+  assert.equal(insurance.subtopic, 'insurance');
+  assert.ok(insurance.factsNeeded.some((item) => /póliza completa/i.test(item)));
+  assert.equal(damages.subtopic, 'civil-damages');
+  assert.ok(damages.factsNeeded.some((item) => /relación causal/i.test(item)));
+  assert.equal(tax.subtopic, 'tax');
+  assert.ok(tax.sourceTargets.some((item) => /11\.683/i.test(item)));
+});
+
+test('distingue sociedades concursos títulos y contrataciones públicas', () => {
+  const corporate = analyzeArgentinaLegal('Los accionistas cuestionan una decisión del directorio de la sociedad.', true);
+  const insolvency = analyzeArgentinaLegal('La empresa está en cesación de pagos y analiza un concurso preventivo.', true);
+  const cheque = analyzeArgentinaLegal('Me rechazaron un cheque y quiero ejecutar el título.', true);
+  const procurement = analyzeArgentinaLegal('Impugnamos una licitación de un organismo nacional por el pliego.', true);
+  assert.equal(corporate.subtopic, 'corporate');
+  assert.equal(insolvency.subtopic, 'insolvency');
+  assert.ok(insolvency.sourceTargets.some((item) => /24\.522/i.test(item)));
+  assert.equal(cheque.subtopic, 'negotiable-instruments');
+  assert.ok(cheque.sourceTargets.some((item) => /24\.452/i.test(item)));
+  assert.equal(procurement.subtopic, 'public-procurement');
+  assert.ok(procurement.sourceTargets.some((item) => /1023\/2001/i.test(item)));
+});
