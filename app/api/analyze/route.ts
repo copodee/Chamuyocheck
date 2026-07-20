@@ -396,7 +396,11 @@ export function buildLocalAnalysis(
   // Cuando la persona elige una categoría, esa decisión también gobierna las
   // variables de puntaje. Palabras ambiguas como "cuota" no deben activar el
   // motor financiero dentro de Derecho argentino u otra especialidad.
-  const financial = financeCategory && hasLoanCalculationSignals(all);
+  // La categoría elegida gobierna el motor. En Finanzas y créditos siempre se
+  // construye el flujo financiero, aun cuando la consulta use lenguaje
+  // coloquial (por ejemplo, comprar un bien en cuotas) o nombre una prenda.
+  const financial = selectedCategory === 'finance-credit'
+    || (financeCategory && hasLoanCalculationSignals(all));
   const financialAnalysis = financial ? extractLoanNumbers(text, userInstruction) : null;
   const scamRiskAnalysis = analyzeScamRisk(scamCategory ? analysisInput : '');
   const commercialCourseAnalysis = analyzeCommercialCourse(scamCategory ? analysisInput : '');

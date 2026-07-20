@@ -22,7 +22,7 @@ export type ProductScopeResult = {
 };
 
 const financePatterns = [
-  /\b(?:pr[eé]stamos?|cr[eé]ditos?|microcr[eé]ditos?|leasing|arrendamiento\s+financiero|tarjetas?|cuotas?|cft|cftea|tea|tna|tasa\s+efectiva|tasa\s+nominal|inter[eé]s|mora|financiaci[oó]n|comisi[oó]n|seguro\s+de\s+saldo|capital\s+adeudado)\b/i,
+  /\b(?:pr[eé]stamos?|cr[eé]ditos?|microcr[eé]ditos?|prenda(?:s|ria|rias)?|prendari[oa]s?|leasing|arrendamiento\s+financiero|tarjetas?|cuotas?|cft|cftea|tea|tna|tasa\s+efectiva|tasa\s+nominal|inter[eé]s|mora|financiaci[oó]n|comisi[oó]n|seguro\s+de\s+saldo|capital\s+adeudado)\b/i,
   /\b(?:inversi[oó]n|rentabilidad|rendimiento|ganancia|retorno|broker|bono|acci[oó]n|fondo\s+com[uú]n|plazo\s+fijo|criptomoneda|bitcoin|ethereum|wallet)\b/i,
   /(?:\$|usd|ars)\s*\d[\d.,]*|\b\d+(?:[.,]\d+)?\s*%\b/i,
   /https?:\/\/[^\s]*(?:creditos?|prestamos?|microcreditos?|leasing|financiacion|hipotecario|prendario)[^\s]*/i,
@@ -31,7 +31,7 @@ const financePatterns = [
 ];
 
 const loanCalculationPatterns = [
-  /\b(?:pr[eé]stamo|cr[eé]dito|cuota|cft|tea|tna|financiaci[oó]n|inter[eé]s|leasing|microcr[eé]dito)\b/i,
+  /\b(?:pr[eé]stamo|cr[eé]dito|prenda(?:ria)?|prendari[oa]|cuota|cft|tea|tna|financiaci[oó]n|inter[eé]s|leasing|microcr[eé]dito)\b/i,
   /\b\d[\d.,]*\s*(?:pesos?|d[oó]lares?)\b[\s\S]{0,120}\b(?:\d{1,3}\s*(?:meses?|cuotas?)|termin(?:ar[eé]|a|ar[ií]a)\s+pagando|total\s+(?:a\s+)?pagar)\b/i,
 ];
 

@@ -219,9 +219,10 @@ function firstSemanticAmount(text: string, patterns: RegExp[]): number | null {
 
 function extractLoanSemanticSlots(text: string): LoanSemanticSlots {
   const principal = firstSemanticAmount(text, [
+    new RegExp(`(?:vale|cuesta|(?:su|cuyo|el)?\\s*valor(?:\\s+(?:es|de))?|precio(?:\\s+(?:es|de))?)\\s*${semanticCurrency}\\s*${semanticMoney}${semanticUnit}[\\s\\S]{0,160}?\\d{1,3}\\s*(?:cuotas?|meses?)`, 'i'),
     new RegExp(`(?:me\\s+(?:ofrecen|ofrecieron|ofrece|dan|dieron|prestan|prestaron|quieren\\s+prestar)|van\\s+a\\s+prestar(?:me)?|recib(?:o|ir[ií]a)|solicito|pido)(?:\\s+(?:un\\s+pr[eé]stamo|un\\s+cr[eé]dito|la\\s+suma|un\\s+monto|un\\s+total))?(?:\\s+de)?\\s*${semanticCurrency}\\s*${semanticMoney}${semanticUnit}`, 'i'),
     new RegExp(`(?:capital|monto|importe|pr[eé]stamo|cr[eé]dito)(?:\\s+(?:recibido|otorgado|solicitado|financiado|inicial))?(?:\\s+(?:es|de|:|=))?\\s*${semanticCurrency}\\s*${semanticMoney}${semanticUnit}`, 'i'),
-    new RegExp(`(?:^|\\s)${semanticCurrency}\\s*${semanticMoney}${semanticUnit}[\\s\\S]{0,80}?(?:a\\s+devolver|a\\s+pagar|financiad[oa]|en\\s+\\d{1,3}\\s*(?:cuotas?|meses?))`, 'i'),
+    new RegExp(`(?:^|\\s)${semanticCurrency}\\s*${semanticMoney}${semanticUnit}[\\s\\S]{0,140}?(?:a\\s+devolver|a\\s+pagar|financiad[oa]|(?:en|pagar|abon(?:ar|ando))\\s+\\d{1,3}\\s*(?:cuotas?|meses?))`, 'i'),
   ]);
 
   const monthsMatch = text.match(/(\d{1,3})\s*(?:cuotas?|mes(?:es)?|pagos?\s+mensuales?)/i);

@@ -30,6 +30,41 @@ test('derives the visible cash flow and implicit rate without requiring loan lab
   assert.match(result.warnings.join(' '), /total declarado.*sistema francés/i);
 });
 
+test('interprets colloquial financed purchases by economic roles instead of the kind of asset', () => {
+  const cases = [
+    'Me ofrecen comprar un auto que vale 15.000.000 de pesos y pagar 36 cuotas de 650.000 pesos por mes. ¿Cuál es la tasa?',
+    'Un camión cuesta 15.000.000 pesos y me lo financian: pagaré 36 cuotas de 650.000 pesos.',
+    'Me venden una máquina cuyo valor es 15.000.000 de pesos, a pagar en 36 cuotas de 650.000 pesos.',
+  ];
+
+  for (const query of cases) {
+    const result = extractLoanNumbers(query);
+    assert.equal(result.principal, 15_000_000, query);
+    assert.equal(result.months, 36, query);
+    assert.equal(result.installment, 650_000, query);
+    assert.equal(result.calculatedInstallmentsTotal, 23_400_000, query);
+    assert.ok((result.impliedTnaPercent || 0) > 30, query);
+    assert.equal(result.missingFields.length, 0, query);
+  }
+});
+
+test('the selected finance category forces a financial answer and recognizes a pledge', () => {
+  const query = '¿Qué gastos tiene una prenda sobre un vehículo y qué debería comparar?';
+  const scope = classifyProductScope(query, '', 'finance-credit');
+  assert.equal(scope.primaryArea, 'finance-credit');
+  assert.match(scope.matchedSignals.join(' '), /prenda/i);
+
+  const answer = buildCustomerDecisionAnswer({
+    documentText: query,
+    selectedCategory: 'finance-credit',
+    financialAnalysis: extractLoanNumbers(query),
+    scamRiskAnalysis: analyzeScamRisk(''),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(''),
+  });
+  assert.equal(answer.kind, 'loan-cost');
+  assert.match(answer.directAnswer, /faltan/i);
+});
+
 test('answers the calculation and explains the correct inflation comparison', () => {
   const financialAnalysis = extractLoanNumbers(text);
   const answer = buildCustomerDecisionAnswer({

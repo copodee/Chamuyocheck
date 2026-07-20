@@ -772,7 +772,7 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   if (input.investmentProjectAnalysis?.applicable && asksInvestment) {
     return buildInvestmentAnswer(input.investmentProjectAnalysis);
   }
-  if (input.financialAnalysis && /(?:cu[aá]nto|total|costo|inter[eé]s|tasa|inflaci[oó]n|tna|tea|cft|cuota|pag(?:ar|ando)|pr[eé]stamo|cr[eé]dito|financi)/i.test(question)) {
+  if (input.financialAnalysis && (input.selectedCategory === 'finance-credit' || /(?:cu[aá]nto|total|costo|inter[eé]s|tasa|inflaci[oó]n|tna|tea|cft|cuota|pag(?:ar|ando)|pr[eé]stamo|cr[eé]dito|prenda(?:ria)?|prendari[oa]|financi)/i.test(question))) {
     return buildLoanAnswer(input.financialAnalysis, question);
   }
   if (input.scamRiskAnalysis.applicable) {
