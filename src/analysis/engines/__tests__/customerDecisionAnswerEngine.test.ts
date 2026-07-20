@@ -199,3 +199,35 @@ test('responde un incumplimiento comercial como contrato y no como causa penal',
   assert.match(completeAnswer, /exigir cumplimiento|resolver el acuerdo/i);
   assert.doesNotMatch(answer.title, /derecho penal/i);
 });
+
+test('la respuesta laboral analiza el vínculo real sin tratarlo como contrato comercial', () => {
+  const text = 'Trabajé para una empresa como monotributista durante cuatro años y me despidieron.';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text,
+    userInstruction: '¿Qué puedo reclamar?',
+    selectedCategory: 'argentina-legal-documents',
+    financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(text),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(text, true, '¿Qué puedo reclamar?', 'labor'),
+  });
+  const rendered = [answer.title, answer.directAnswer, ...answer.findings, ...answer.nextActions].join(' ');
+  assert.match(rendered, /vínculo real|cómo se prestaron realmente las tareas/i);
+  assert.match(rendered, /monotributista.*no resuelve/i);
+  assert.doesNotMatch(answer.title, /comercial|financier/i);
+});
+
+test('la respuesta tributaria separa el reclamo fiscal de una financiación', () => {
+  const text = 'ARCA me reclama una deuda, intereses y una multa.';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text,
+    userInstruction: '¿Está bien calculado y cómo lo recurro?',
+    selectedCategory: 'argentina-legal-documents',
+    financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(text),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(text, true, '¿Está bien calculado y cómo lo recurro?', 'tax'),
+  });
+  const rendered = [answer.title, answer.directAnswer, ...answer.findings, ...answer.nextActions].join(' ');
+  assert.match(rendered, /impuesto, período, jurisdicción/i);
+  assert.match(rendered, /fiscalización, determinación de oficio/i);
+  assert.doesNotMatch(rendered, /CFT|préstamo|cuota financiera/i);
+});

@@ -268,6 +268,48 @@ function buildCommercialContractAnswer(analysis: ArgentinaLegalAnalysis): Custom
   };
 }
 
+function buildLaborAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return {
+    kind: 'legal-document',
+    status: 'partial',
+    title: 'La respuesta laboral depende del vínculo real, la registración y la forma de extinción',
+    directAnswer: 'Para determinar qué corresponde reclamar no alcanza con el nombre del contrato. Hay que revisar cómo se prestaron realmente las tareas, quién daba instrucciones, horarios, pagos, registración, antigüedad, categoría, convenio colectivo y las comunicaciones intercambiadas. Si hubo despido o ruptura, también importan la causa invocada, la fecha y la forma de notificación. Con esos datos puede evaluarse si existen diferencias salariales, créditos indemnizatorios, multas, prestaciones de seguridad social o reclamos por accidente, sin mezclar el caso con una deuda civil o un conflicto comercial.',
+    findings: [
+      ...analysis.issues.map((issue) => `${issue.label}: ${issue.explanation}`),
+      'La denominación “contratista”, “monotributista” o “prestador” no resuelve por sí sola si existió una relación laboral.',
+      'Los plazos, rubros y procedimiento dependen de la jurisdicción, el régimen aplicable y las fechas concretas.',
+    ],
+    nextActions: [
+      'Reunir recibos, transferencias, alta o baja registral, mensajes, horarios, instrucciones, tareas, categoría y convenio colectivo.',
+      'Conservar telegramas, cartas documento y cualquier comunicación de despido, renuncia, intimación o sanción.',
+      ...analysis.sourceTargets.map((source) => `Contrastar con ${source}.`),
+      'Verificar de inmediato los plazos de la jurisdicción antes de enviar una intimación o aceptar una liquidación final.',
+    ],
+    limitations: analysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
+  };
+}
+
+function buildTaxAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return {
+    kind: 'legal-document',
+    status: 'needs-verification',
+    title: 'El reclamo tributario debe revisarse por impuesto, período, jurisdicción y etapa procesal',
+    directAnswer: 'No puede confirmarse una deuda fiscal ni recomendar un recurso sin identificar el tributo, el período, el organismo, el acto recibido y su fecha de notificación. Primero debe distinguirse si se trata de una fiscalización, determinación de oficio, multa, intimación, ejecución o simple comunicación. Después corresponde controlar base imponible, alícuota, pagos, retenciones, intereses, competencia del organismo y plazo disponible para responder. Una cifra o la palabra “deuda” no deben convertir este análisis en una financiación.',
+    findings: [
+      ...analysis.issues.map((issue) => `${issue.label}: ${issue.explanation}`),
+      'La normativa aplicable puede cambiar según sea un tributo nacional, provincial o municipal y según el período fiscal involucrado.',
+      'La fecha de notificación es crítica porque determina qué vía y qué plazo pueden seguir disponibles.',
+    ],
+    nextActions: [
+      'Guardar el acto completo, constancia de notificación, declaraciones juradas, papeles de trabajo, pagos, retenciones y presentaciones previas.',
+      'Separar capital, intereses, multa y costas, y verificar cómo fue calculado cada concepto.',
+      ...analysis.sourceTargets.map((source) => `Contrastar con ${source}.`),
+      'Antes de consentir, pagar o recurrir, confirmar la vía y el plazo aplicables al organismo y jurisdicción concretos.',
+    ],
+    limitations: analysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
+  };
+}
+
 function buildLegalDebtEnforcementAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
   return {
     kind: 'legal-document',
@@ -590,6 +632,12 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   }
   if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'commercial' && input.argentinaLegalAnalysis.subtopic === 'contract-review') {
     return buildCommercialContractAnswer(input.argentinaLegalAnalysis);
+  }
+  if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'labor') {
+    return buildLaborAnswer(input.argentinaLegalAnalysis);
+  }
+  if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'tax') {
+    return buildTaxAnswer(input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected && input.argentinaLegalAnalysis.subtopic === 'debt-enforcement') {
     return buildLegalDebtEnforcementAnswer(input.argentinaLegalAnalysis);
