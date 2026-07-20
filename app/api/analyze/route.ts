@@ -1123,6 +1123,9 @@ ${userInstruction || 'Consulta de texto ingresada directamente por el usuario.'}
 CATEGORÍA ELEGIDA POR EL USUARIO (define el dominio principal y no debe ser reemplazada por detección automática):
 ${selectedCategory}
 
+RAMA JURÍDICA ELEGIDA POR EL USUARIO (si no es "auto", tiene prioridad y limita la selección de normativa y fuentes):
+${legalBranch}
+
 CONTENIDO DEL DOCUMENTO (único contenido que debe clasificarse y evaluarse):
 ${documentText.slice(0, 18000)}
 

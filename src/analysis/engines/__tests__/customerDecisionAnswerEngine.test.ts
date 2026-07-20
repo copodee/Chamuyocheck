@@ -182,3 +182,20 @@ test('responde una nota de cuenta remunerada sin inventar sectores ni tratarla c
   assert.match(completeAnswer, /tope.*800\.000/i);
   assert.doesNotMatch(completeAnswer, /transporte|logística|frutas|hectáreas|\bCFT\b/i);
 });
+
+test('responde un incumplimiento comercial como contrato y no como causa penal', () => {
+  const documentText = 'Acuerdo comercial. Percorsi pagó todas las cuotas. Vitalcan debe entregar las camionetas. El contrato contiene una penalidad por demora.';
+  const userInstruction = '¿Puede Vitalcan no entregar los vehículos y cómo puede demandar Percorsi?';
+  const answer = buildCustomerDecisionAnswer({
+    documentText,
+    userInstruction,
+    selectedCategory: 'argentina-legal-documents',
+    financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(documentText),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(documentText, true, userInstruction, 'commercial'),
+  });
+  const completeAnswer = [answer.title, answer.directAnswer, ...answer.findings, ...answer.nextActions].join(' ');
+  assert.match(completeAnswer, /contrato exigible/i);
+  assert.match(completeAnswer, /exigir cumplimiento|resolver el acuerdo/i);
+  assert.doesNotMatch(answer.title, /derecho penal/i);
+});

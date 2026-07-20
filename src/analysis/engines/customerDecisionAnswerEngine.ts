@@ -247,6 +247,27 @@ function buildGeneralLegalAnswer(analysis: ArgentinaLegalAnalysis): CustomerDeci
   };
 }
 
+function buildCommercialContractAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return {
+    kind: 'legal-document',
+    status: 'partial',
+    title: 'El acuerdo comercial debe revisarse como un contrato exigible, no como una causa penal',
+    directAnswer: 'El pago total no garantiza materialmente que la otra parte entregue los bienes, pero puede fortalecer un reclamo contractual si la obligación de entrega ya venció y no estaba sujeta a otra condición. Para determinar si corresponde exigir cumplimiento, resolver el acuerdo, reclamar daños o pedir una medida cautelar hay que verificar el texto completo, los anexos, los comprobantes de pago, el plazo de entrega, las condiciones precedentes, las garantías y el mecanismo pactado para intimar o demandar.',
+    findings: [
+      ...analysis.issues.map((issue) => `${issue.label}: ${issue.explanation}`),
+      'Una penalidad incluida en un acuerdo sigue siendo una cláusula contractual; por sí sola no convierte el conflicto en derecho penal.',
+      'La respuesta debe distinguir entre exigir la entrega, resolver el contrato y reclamar daños, porque cada remedio requiere hechos y prueba diferentes.',
+    ],
+    nextActions: [
+      'Ordenar el acuerdo completo, anexos, facturas, recibos, transferencias y comunicaciones sobre el pago y la entrega.',
+      'Identificar quién asumió la obligación de entregar, cuándo vencía y qué condiciones debían cumplirse antes.',
+      ...analysis.sourceTargets.map((source) => `Contrastar con ${source}.`),
+      'Antes de iniciar una demanda, revisar jurisdicción, procedimiento de intimación, medidas cautelares y solvencia de la contraparte.',
+    ],
+    limitations: analysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
+  };
+}
+
 function buildLegalDebtEnforcementAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
   return {
     kind: 'legal-document',
@@ -566,6 +587,9 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   }
   if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.subtopic === 'family-support') {
     return buildChildSupportAnswer(input.argentinaLegalAnalysis);
+  }
+  if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'commercial' && input.argentinaLegalAnalysis.subtopic === 'contract-review') {
+    return buildCommercialContractAnswer(input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected && input.argentinaLegalAnalysis.subtopic === 'debt-enforcement') {
     return buildLegalDebtEnforcementAnswer(input.argentinaLegalAnalysis);

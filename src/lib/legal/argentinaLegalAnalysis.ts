@@ -55,7 +55,7 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
         ? 'family-divorce'
         : family && /responsabilidad parental|cuidado personal|r[eé]gimen de comunicaci[oó]n|adopci[oó]n|filiaci[oó]n/i.test(text)
           ? 'family-parental'
-      : /honorarios?|abogad[oa]|embarg|ejecuci[oó]n|intimaci[oó]n|acreedor|deudor|mora|intereses?.{0,40}deuda|deuda.{0,40}intereses?/i.test(text)
+      : /honorarios?|abogad[oa]|embarg|ejecuci[oó]n|intimaci[oó]n|acreedor|deudor|\bmora\b|intereses?.{0,40}deuda|deuda.{0,40}intereses?/i.test(text)
         ? 'debt-enforcement'
         : /consumidor|defensa del consumidor|proveedor|garant[ií]a legal|publicidad enga[ñn]osa|bot[oó]n de arrepentimiento/i.test(text)
           ? 'consumer'
