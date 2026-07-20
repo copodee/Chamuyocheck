@@ -231,3 +231,35 @@ test('la respuesta tributaria separa el reclamo fiscal de una financiación', ()
   assert.match(rendered, /fiscalización, determinación de oficio/i);
   assert.doesNotMatch(rendered, /CFT|préstamo|cuota financiera/i);
 });
+
+test('la respuesta civil separa incumplimiento daño y remedios', () => {
+  const text = 'El vendedor no entregó el bien y tuve gastos y daños.';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text,
+    userInstruction: '¿Qué puedo reclamar?',
+    selectedCategory: 'argentina-legal-documents',
+    financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(text),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(text, true, '¿Qué puedo reclamar?', 'civil'),
+  });
+  const rendered = [answer.title, answer.directAnswer, ...answer.findings, ...answer.nextActions].join(' ');
+  assert.match(rendered, /incumplimiento.*prueba del perjuicio/is);
+  assert.match(rendered, /cumplimiento, resolver el contrato.*restitución.*reparación/is);
+  assert.doesNotMatch(answer.title, /penal|tributario|laboral/i);
+});
+
+test('la respuesta administrativa prioriza acto expediente notificación y recurso', () => {
+  const text = 'Un organismo provincial rechazó mi habilitación mediante una resolución.';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text,
+    userInstruction: '¿Cómo puedo impugnarla?',
+    selectedCategory: 'argentina-legal-documents',
+    financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(text),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(text, true, '¿Cómo puedo impugnarla?', 'administrative'),
+  });
+  const rendered = [answer.title, answer.directAnswer, ...answer.findings, ...answer.nextActions].join(' ');
+  assert.match(rendered, /acto.*notificación.*expediente.*vía/is);
+  assert.match(rendered, /régimen nacional no debe aplicarse automáticamente/i);
+  assert.doesNotMatch(answer.title, /civil|comercial|financier/i);
+});

@@ -310,6 +310,48 @@ function buildTaxAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswe
   };
 }
 
+function buildCivilAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return {
+    kind: 'legal-document',
+    status: 'partial',
+    title: 'El reclamo civil debe separar el derecho invocado, el incumplimiento y la prueba del perjuicio',
+    directAnswer: 'Para evaluar un reclamo civil hay que identificar primero qué obligación, derecho o deber se considera incumplido. Después corresponde precisar quién debía cumplir, cuándo, de qué manera y qué prueba existe. Si además se reclaman daños, deben analizarse por separado el perjuicio concreto, su cuantificación, la relación causal y las defensas posibles. Según el caso, la solución puede ser exigir cumplimiento, resolver el contrato, obtener restitución, pedir reparación o cuestionar una ejecución; no todos esos remedios son acumulables ni requieren la misma prueba.',
+    findings: [
+      ...analysis.issues.map((issue) => `${issue.label}: ${issue.explanation}`),
+      'La existencia de una deuda, un contrato o un daño alegado no demuestra por sí sola que el reclamo sea exigible ni cuál sea su monto.',
+      'Consumo, seguros, sucesiones y locaciones pueden tener normas especiales además del Código Civil y Comercial.',
+    ],
+    nextActions: [
+      'Reunir contrato, anexos, comprobantes, comunicaciones, intimaciones y evidencia del cumplimiento propio y del incumplimiento ajeno.',
+      'Separar capital, intereses, penalidades, daños y gastos, explicando el fundamento y la prueba de cada concepto.',
+      ...analysis.sourceTargets.map((source) => `Contrastar con ${source}.`),
+      'Verificar jurisdicción, competencia, prescripción, mediación previa y medidas cautelares antes de iniciar el reclamo.',
+    ],
+    limitations: analysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
+  };
+}
+
+function buildAdministrativeAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return {
+    kind: 'legal-document',
+    status: 'needs-verification',
+    title: 'El caso administrativo depende del acto, la notificación, el expediente y la vía disponible',
+    directAnswer: 'Antes de afirmar que una decisión estatal es válida o impugnarla hay que identificar el organismo, el acto completo, su fundamento, la competencia de quien lo dictó y la fecha y forma de notificación. También debe revisarse el expediente, la prueba ofrecida, si se dio posibilidad de defensa y qué recurso administrativo o vía judicial corresponde. La palabra “multa”, “resolución” o “rechazo” no alcanza para elegir el procedimiento ni calcular el plazo.',
+    findings: [
+      ...analysis.issues.map((issue) => `${issue.label}: ${issue.explanation}`),
+      'El régimen nacional no debe aplicarse automáticamente a una provincia o municipio: cada jurisdicción puede tener su propia ley de procedimiento y plazos.',
+      'La presentación equivocada o tardía puede afectar la revisión, por lo que la constancia de notificación es un dato central.',
+    ],
+    nextActions: [
+      'Obtener copia íntegra del acto, expediente, dictámenes, informes, prueba y constancia de notificación.',
+      'Identificar autoridad que dictó el acto, superior jerárquico, recurso previsto, efecto del recurso y plazo aplicable.',
+      ...analysis.sourceTargets.map((source) => `Contrastar con ${source}.`),
+      'Evaluar si corresponde pedir vista, suspensión, medida cautelar o pronto despacho antes de avanzar por otra vía.',
+    ],
+    limitations: analysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
+  };
+}
+
 function buildLegalDebtEnforcementAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
   return {
     kind: 'legal-document',
@@ -639,8 +681,14 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'tax') {
     return buildTaxAnswer(input.argentinaLegalAnalysis);
   }
+  if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'administrative') {
+    return buildAdministrativeAnswer(input.argentinaLegalAnalysis);
+  }
   if (legalCategorySelected && input.argentinaLegalAnalysis.subtopic === 'debt-enforcement') {
     return buildLegalDebtEnforcementAnswer(input.argentinaLegalAnalysis);
+  }
+  if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'civil') {
+    return buildCivilAnswer(input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected) {
     return buildGeneralLegalAnswer(input.argentinaLegalAnalysis);
