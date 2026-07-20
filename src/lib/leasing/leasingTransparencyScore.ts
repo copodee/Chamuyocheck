@@ -36,7 +36,7 @@ export function calculateLeasingTransparencyScore(text: string): LeasingTranspar
   const missing = dimensions.filter((item) => !item.pattern.test(normalized));
   const score = present.reduce((sum, item) => sum + item.weight, 0);
   const label = score >= 85 ? 'Transparencia muy alta' : score >= 70 ? 'Transparencia alta' : score >= 50 ? 'Información parcial' : score >= 30 ? 'Faltan datos importantes' : 'Información insuficiente';
-  const color = score >= 85 ? '#22e58b' : score >= 70 ? '#8bf53f' : score >= 50 ? '#f4ff00' : score >= 30 ? '#ffb020' : '#ff6b6b';
+  const color = score >= 85 ? '#38bdf8' : score >= 70 ? '#60a5fa' : score >= 50 ? '#a78bfa' : score >= 30 ? '#f59e0b' : '#fb7185';
   return { score, label, color, present: present.map((item) => item.label), missing: missing.map((item) => item.label) };
 }
 

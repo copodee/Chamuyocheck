@@ -23,33 +23,35 @@ export async function extractPdfTextInBrowser(
     return { ok: false, text: '', confidence: 0, pages: 0, note: 'El PDF puede pesar como máximo 20 MB.' };
   }
 
-  const pdfjs = await import('pdfjs-dist');
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url,
-  ).toString();
-  const { createWorker, OEM, PSM } = await import('tesseract.js');
-  const document = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-  if (document.numPages > MAX_PDF_PAGES) {
-    await document.destroy();
-    return {
-      ok: false,
-      text: '',
-      confidence: 0,
-      pages: document.numPages,
-      note: `El PDF tiene ${document.numPages} páginas. El máximo para lectura óptica es ${MAX_PDF_PAGES}.`,
-    };
-  }
-
-  const worker = await createWorker('spa', OEM.LSTM_ONLY);
+  let document: any = null;
+  let worker: any = null;
+  let totalPages = 0;
   const texts: string[] = [];
   const confidences: number[] = [];
   try {
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
+      import.meta.url,
+    ).toString();
+    const { createWorker, OEM, PSM } = await import('tesseract.js');
+    document = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    totalPages = document.numPages;
+    if (totalPages > MAX_PDF_PAGES) {
+      return {
+        ok: false,
+        text: '',
+        confidence: 0,
+        pages: totalPages,
+        note: `El PDF tiene ${totalPages} páginas. El máximo para lectura óptica es ${MAX_PDF_PAGES}.`,
+      };
+    }
+    worker = await createWorker('spa', OEM.LSTM_ONLY);
     await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO, preserve_interword_spaces: '1' });
-    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
-      onProgress?.({ page: pageNumber, totalPages: document.numPages });
+    for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
+      onProgress?.({ page: pageNumber, totalPages });
       const page = await document.getPage(pageNumber);
-      const viewport = page.getViewport({ scale: 1.6 });
+      const viewport = page.getViewport({ scale: 1.35 });
       const canvas = window.document.createElement('canvas');
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
@@ -64,17 +66,20 @@ export async function extractPdfTextInBrowser(
       canvas.width = 1;
       canvas.height = 1;
     }
-  } catch {
+  } catch (error) {
+    const detail = error instanceof Error ? error.message.trim() : '';
     return {
       ok: false,
       text: '',
       confidence: 0,
-      pages: document.numPages,
-      note: 'No se pudo completar la lectura óptica del PDF en este dispositivo.',
+      pages: totalPages,
+      note: detail && detail !== 'Error'
+        ? `No se pudo leer el PDF en este dispositivo: ${detail}`
+        : 'No se pudo iniciar la lectura del PDF en este navegador. Actualizá el navegador o probá desde una computadora.',
     };
   } finally {
-    await worker.terminate().catch(() => undefined);
-    await document.destroy().catch(() => undefined);
+    await worker?.terminate().catch(() => undefined);
+    await document?.destroy().catch(() => undefined);
   }
 
   const text = texts.join('\n\n').trim();
@@ -85,9 +90,9 @@ export async function extractPdfTextInBrowser(
     ok: text.length >= 20,
     text,
     confidence,
-    pages: document.numPages,
+    pages: totalPages,
     note: text.length >= 20
-      ? `PDF escaneado leído en el dispositivo: ${document.numPages} páginas (${confidence.toFixed(0)}% de confianza óptica estimada).`
+      ? `PDF escaneado leído en el dispositivo: ${totalPages} páginas (${confidence.toFixed(0)}% de confianza óptica estimada).`
       : 'El PDF no produjo texto suficiente. Puede estar protegido o tener imágenes de muy baja calidad.',
   };
 }
