@@ -61,8 +61,23 @@ test('the selected finance category forces a financial answer and recognizes a p
     scamRiskAnalysis: analyzeScamRisk(''),
     argentinaLegalAnalysis: analyzeArgentinaLegal(''),
   });
-  assert.equal(answer.kind, 'loan-cost');
-  assert.match(answer.directAnswer, /faltan/i);
+  assert.equal(answer.kind, 'financial-product-comparison');
+  assert.match([answer.directAnswer, ...answer.findings].join(' '), /CFT.*seguro.*inscripci[oó]n.*cancelaci[oó]n/is);
+});
+
+test('a pledge with a complete cash flow keeps the calculation and adds its own costs', () => {
+  const query = 'Crédito prendario para un bien de 15.000.000 pesos, en 36 cuotas de 650.000 pesos. ¿Qué tasa y gastos tiene?';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: query,
+    selectedCategory: 'finance-credit',
+    financialAnalysis: extractLoanNumbers(query),
+    scamRiskAnalysis: analyzeScamRisk(''),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(''),
+  });
+  assert.equal(answer.kind, 'financial-product-comparison');
+  assert.equal(answer.status, 'answerable');
+  assert.match(answer.directAnswer, /36 cuotas sumar[ií]an.*TNA impl[ií]cita/is);
+  assert.match(answer.findings.join(' '), /Sellos.*gestor[ií]a.*cancelaci[oó]n/is);
 });
 
 test('answers the calculation and explains the correct inflation comparison', () => {

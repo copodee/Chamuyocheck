@@ -247,6 +247,38 @@ function buildGeneralLegalAnswer(analysis: ArgentinaLegalAnalysis): CustomerDeci
   };
 }
 
+function buildPledgeFinanceAnswer(financial: LoanNumbers, text: string): CustomerDecisionAnswer {
+  const hasFlow = financial.principal !== null && financial.installment !== null && financial.months !== null;
+  const flowAnswer = hasFlow
+    ? buildLoanAnswer(financial, text)
+    : null;
+  return {
+    kind: 'financial-product-comparison',
+    status: hasFlow ? 'answerable' : 'partial',
+    title: hasFlow ? 'Costo del crédito prendario con los datos aportados' : 'Qué cuesta y qué debe informar un crédito prendario',
+    directAnswer: flowAnswer?.directAnswer
+      || 'La prenda es la garantía registral del crédito; no es por sí sola la tasa ni el costo total. Para conocer cuánto pagarías deben sumarse anticipo, cuotas, CFT, seguro, impuestos, comisión, inscripción, informes, certificaciones, gestoría y cancelación. Si falta el flujo, el sistema debe explicar qué datos faltan sin abandonar la categoría financiera.',
+    findings: [
+      ...(flowAnswer?.findings || []),
+      'Monto y porcentaje financiado: comparar el precio de contado con el capital efectivamente prestado y el anticipo exigido.',
+      'Costo financiero: pedir TNA, TEA y CFT con IVA, además del sistema de amortización, cantidad, periodicidad y variabilidad de las cuotas.',
+      'Garantía: identificar el bien prendado, su valuación, grado de la prenda, acreedor, plazo, condiciones de ejecución y restricciones para disponer del bien.',
+      'Costos iniciales y registrales: revisar comisión de otorgamiento, Sellos según jurisdicción, informes, certificaciones, inscripción registral y gestoría.',
+      'Costos durante el crédito: verificar seguro exigido, cobertura, beneficiario, impuestos, mantenimiento de la garantía y cargos por mora.',
+      'Finalización: confirmar quién tramita y paga la cancelación registral, en qué plazo y qué comprobante acredita que el bien quedó liberado.',
+    ],
+    nextActions: [
+      'Pedir una cotización que separe precio de contado, anticipo, capital financiado, cuotas, TNA, TEA, CFT con IVA y todos los gastos.',
+      'Solicitar el detalle de inscripción, seguro, Sellos, gestoría y cancelación; no asumir que están incluidos en la cuota.',
+      'Comparar contra un préstamo sin garantía y contra leasing usando el mismo bien, anticipo y plazo, computando el flujo total.',
+    ],
+    limitations: [
+      'Los importes y alícuotas registrales o tributarias dependen del bien, la jurisdicción, la fecha y la operación concreta.',
+      ...(flowAnswer?.limitations || ['Sin capital, anticipo, cuotas, plazo y cargos no puede calcularse una tasa ni un costo total.']),
+    ],
+  };
+}
+
 function buildCommercialContractAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
   return {
     kind: 'legal-document',
@@ -767,6 +799,9 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   }
   if (isFinancialProductComparison(question)) {
     return buildFinancialProductComparisonAnswer(question);
+  }
+  if (input.selectedCategory === 'finance-credit' && input.financialAnalysis && /\b(?:prenda(?:s|ria|rias)?|prendari[oa]s?)\b/i.test(question)) {
+    return buildPledgeFinanceAnswer(input.financialAnalysis, question);
   }
   const asksInvestment = /\b(?:inversi[oó]n|invertir|rentabilidad|renta|retorno|viabilidad|proyecto|alquiler|precio\s+por\s+m2|precio\s+por\s+metro|exportaci[oó]n|demanda\s+internacional|miner[ií]a|minero|litio|cobre|oro|petr[oó]leo|gas\s+natural|hidrocarburo|vaca\s+muerta|yacimiento|tierras?|terrenos?)\b/i.test(question);
   if (input.investmentProjectAnalysis?.applicable && (input.selectedCategory === 'investment-project' || asksInvestment)) {
