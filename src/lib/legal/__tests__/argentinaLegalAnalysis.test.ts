@@ -91,3 +91,19 @@ test('la pregunta contractual prevalece sobre menciones penales o de leasing inc
   assert.ok(result.sourceTargets.some((item) => /Código Civil y Comercial/i.test(item)));
   assert.ok(result.sourceTargets.every((item) => !/Código Penal/i.test(item)));
 });
+
+test('la rama comercial elegida por el usuario prevalece sobre una penalidad contractual', () => {
+  const result = analyzeArgentinaLegal('El acuerdo contiene una penalidad por demora.', true, '¿Puedo exigir la entrega pactada?', 'commercial');
+  assert.equal(result.legalBranch, 'commercial');
+  assert.equal(result.area, 'contracts');
+  assert.doesNotMatch(result.areaLabel, /penal/i);
+  assert.ok(result.sourceTargets.some((item) => /Código Civil y Comercial/i.test(item)));
+});
+
+test('la rama tributaria elegida prioriza fuentes fiscales aunque la consulta sea breve', () => {
+  const result = analyzeArgentinaLegal('Recibí esta notificación.', true, '¿Qué debo revisar?', 'tax');
+  assert.equal(result.legalBranch, 'tax');
+  assert.equal(result.subtopic, 'tax');
+  assert.match(result.areaLabel, /tributario/i);
+  assert.ok(result.sourceTargets.some((item) => /11\.683/i.test(item)));
+});

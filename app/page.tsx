@@ -129,7 +129,7 @@ type Analysis = {
     jurisdiction: 'argentina' | 'not-specified';
     area: 'contracts' | 'criminal' | 'family' | 'other-legal';
     areaLabel: string;
-    legalBranch: 'family' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'general';
+    legalBranch: 'family' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'tax' | 'general';
     subtopic: string;
     intent: string;
     issues: Array<{ id: string; label: string; evidence: string; explanation: string; severity: 'baja' | 'media' | 'alta' }>;
@@ -157,6 +157,17 @@ type Analysis = {
 type InputMode = 'Texto' | 'PDF' | 'Imagen' | 'Web' | 'YouTube';
 
 type AnalysisCategoryId = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents' | 'leasing-specialist';
+type LegalBranchSelection = 'auto' | 'civil' | 'commercial' | 'family' | 'criminal' | 'administrative' | 'tax';
+
+const LEGAL_BRANCHES: Array<{ id: LegalBranchSelection; label: string; description: string }> = [
+  { id: 'auto', label: 'Automático', description: 'El sistema identifica la rama según la pregunta y el documento.' },
+  { id: 'civil', label: 'Civil y contratos', description: 'Obligaciones, contratos, daños, sucesiones, consumo y seguros.' },
+  { id: 'commercial', label: 'Comercial', description: 'Acuerdos entre empresas, sociedades, títulos, concursos y quiebras.' },
+  { id: 'family', label: 'Familia', description: 'Divorcio, alimentos, cuidado, comunicación y responsabilidad parental.' },
+  { id: 'criminal', label: 'Penal', description: 'Delitos, denuncias, penas, agravantes y procedimiento penal.' },
+  { id: 'administrative', label: 'Administrativo', description: 'Actos estatales, recursos, habilitaciones y contratación pública.' },
+  { id: 'tax', label: 'Tributario', description: 'Impuestos, ARCA, fiscos provinciales, determinaciones y recursos.' },
+];
 
 const ANALYSIS_CATEGORIES: Array<{
   id: AnalysisCategoryId;
@@ -552,6 +563,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [termsError, setTermsError] = useState('');
   const [instructionError, setInstructionError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<AnalysisCategoryId | null>(leasingPage ? 'leasing-specialist' : null);
+  const [legalBranch, setLegalBranch] = useState<LegalBranchSelection>('auto');
   const [categoryError, setCategoryError] = useState('');
   const [leasingProvince, setLeasingProvince] = useState('');
   const [leasingContractProvince, setLeasingContractProvince] = useState('Ciudad Autónoma de Buenos Aires');
@@ -818,6 +830,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       form.append('url', url);
       form.append('inputType', detected);
       form.append('selectedCategory', selectedCategory);
+      if (selectedCategory === 'argentina-legal-documents') form.append('legalBranch', legalBranch);
       if (selectedCategory === 'leasing-specialist') {
         form.append('leasingProvince', leasingProvince);
         form.append('leasingContractProvince', leasingContractProvince);
@@ -977,6 +990,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setLoading(false);
     setSteps([]);
     setSelectedCategory(leasingPage ? 'leasing-specialist' : null);
+    setLegalBranch('auto');
     setLeasingConfirmedFields(new Set());
     setCategoryError('');
     setInstructionError('');
@@ -1170,6 +1184,15 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                   <span className="categoryOptionIcon" aria-hidden="true">{category.icon}</span>
                   <span><strong>{category.label}</strong><span>{category.description}</span></span>
                 </button>)}
+              </div>}
+              {selectedCategory === 'argentina-legal-documents' && <div className="legalBranchPicker">
+                <h3>¿Qué tipo de derecho necesitás analizar?</h3>
+                <p>Si lo sabés, elegilo para priorizar esa normativa. Si tenés dudas, dejá Automático.</p>
+                <div className="legalBranchGrid" role="radiogroup" aria-label="Rama del derecho argentino">
+                  {LEGAL_BRANCHES.map((branch) => <button key={branch.id} type="button" role="radio" aria-checked={legalBranch === branch.id} className={`categoryOption ${legalBranch === branch.id ? 'selected' : ''}`} onClick={() => { setLegalBranch(branch.id); setAnalysis(null); }}>
+                    <span><strong>{branch.label}</strong><span>{branch.description}</span></span>
+                  </button>)}
+                </div>
               </div>}
               {categoryError && <div className="termsError" role="alert">{categoryError}</div>}
               {leasingPage && <div ref={leasingUploadRef} className="leasingUploadStage">

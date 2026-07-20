@@ -30,7 +30,7 @@ import { extractWebText as extractStructuredWebText } from '../../../src/lib/ext
 import { analyzeScamRisk } from '../../../src/lib/scams/scamRiskAnalysis';
 import { extractYoutubeTranscript } from '../../../src/lib/extractors/youtubeTranscriptExtractor';
 import { analyzeCommercialCourse } from '../../../src/lib/scams/commercialCourseAnalysis';
-import { analyzeArgentinaLegal } from '../../../src/lib/legal/argentinaLegalAnalysis';
+import { analyzeArgentinaLegal, type LegalBranchPreference } from '../../../src/lib/legal/argentinaLegalAnalysis';
 import { resolveUrlInput } from '../../../src/lib/extractors/inputUrl';
 import { auditUrlIdentity, summarizePublicUrl } from '../../../src/lib/scams/urlIdentityAudit';
 import { describeFinancialUrl } from '../../../src/lib/finance/financialUrlContext';
@@ -379,7 +379,8 @@ export function buildLocalAnalysis(
   extraction: Extraction | null,
   userInstruction = '',
   sourceUrl = '',
-  selectedCategory?: SupportedProductArea | null
+  selectedCategory?: SupportedProductArea | null,
+  legalBranch: LegalBranchPreference = 'auto'
 ) {
   const analysisInput = `${userInstruction}\n${text}\n${fileName}\n${sourceUrl}`.trim();
   const all = analysisInput.toLowerCase();
@@ -398,7 +399,7 @@ export function buildLocalAnalysis(
   const financialAnalysis = financial ? extractLoanNumbers(text, userInstruction) : null;
   const scamRiskAnalysis = analyzeScamRisk(scamCategory ? analysisInput : '');
   const commercialCourseAnalysis = analyzeCommercialCourse(scamCategory ? analysisInput : '');
-  const argentinaLegalAnalysis = analyzeArgentinaLegal(legalCategory ? analysisInput : '', selectedCategory === 'argentina-legal-documents' || leasingCategory, userInstruction);
+  const argentinaLegalAnalysis = analyzeArgentinaLegal(legalCategory ? analysisInput : '', selectedCategory === 'argentina-legal-documents' || leasingCategory, userInstruction, legalBranch);
   const investmentProjectAnalysis = analyzeInvestmentProject(
     text,
     userInstruction,
@@ -955,6 +956,7 @@ export async function handleAnalyzeRequest(req: Request) {
     const termsAccepted = form.get('termsAccepted') === 'true';
     const termsVersion = String(form.get('termsVersion') || '');
     const selectedCategoryRaw = String(form.get('selectedCategory') || '').trim();
+    const legalBranchRaw = String(form.get('legalBranch') || 'auto').trim();
     const leasingProvince = String(form.get('leasingProvince') || '').trim();
     const leasingContractProvince = String(form.get('leasingContractProvince') || '').trim();
     const leasingAssetType = String(form.get('leasingAssetType') || '').trim();
@@ -984,6 +986,9 @@ export async function handleAnalyzeRequest(req: Request) {
       }, { status: 400 });
     }
     const selectedCategory: SupportedProductArea = selectedCategoryRaw;
+    const legalBranch: LegalBranchPreference = ['auto', 'civil', 'commercial', 'family', 'criminal', 'administrative', 'tax'].includes(legalBranchRaw)
+      ? legalBranchRaw as LegalBranchPreference
+      : 'auto';
     if (selectedCategory === 'leasing-specialist' && !leasingProvince) {
       return NextResponse.json({ error: 'Elegí la provincia principal del leasing antes de analizar.' }, { status: 400 });
     }
@@ -1094,7 +1099,7 @@ export async function handleAnalyzeRequest(req: Request) {
       return NextResponse.json(buildOutOfScopeAnalysis(documentText, inputKind, productScope.reason));
     }
 
-    const fallback = buildLocalAnalysis(contextualDocumentText, inputKind, fileName, extraction, userInstruction, url, selectedCategory);
+    const fallback = buildLocalAnalysis(contextualDocumentText, inputKind, fileName, extraction, userInstruction, url, selectedCategory, legalBranch);
 
     const openai = process.env.OPENAI_API_KEY && openAIAnalysisEnabled()
       ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20_000, maxRetries: 0 })

@@ -11,7 +11,7 @@ export type ArgentinaLegalAnalysis = {
   jurisdiction: 'argentina' | 'not-specified';
   area: 'contracts' | 'criminal' | 'family' | 'other-legal';
   areaLabel: string;
-  legalBranch: 'family' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'general';
+  legalBranch: 'family' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'tax' | 'general';
   subtopic: 'family-support' | 'family-divorce' | 'family-parental' | 'sexual-offense' | 'criminal-penalty' | 'debt-enforcement' | 'civil-damages' | 'consumer' | 'insurance' | 'succession' | 'leasing' | 'contract-review' | 'corporate' | 'insolvency' | 'negotiable-instruments' | 'administrative-procedure' | 'tax' | 'public-procurement' | 'general-legal';
   intent: 'validity' | 'amount-or-duration' | 'consequences' | 'next-steps' | 'document-review' | 'general';
   issues: LegalIssue[];
@@ -20,6 +20,8 @@ export type ArgentinaLegalAnalysis = {
   conclusion: string;
 };
 
+export type LegalBranchPreference = 'auto' | Exclude<ArgentinaLegalAnalysis['legalBranch'], 'general'>;
+
 function evidence(text: string, pattern: RegExp): string {
   const match = text.match(pattern);
   if (!match) return '';
@@ -27,7 +29,7 @@ function evidence(text: string, pattern: RegExp): string {
   return text.slice(Math.max(0, index - 35), Math.min(text.length, index + match[0].length + 55)).replace(/\s+/g, ' ').trim();
 }
 
-export function analyzeArgentinaLegal(text: string, assumeArgentina = false, userInstruction = ''): ArgentinaLegalAnalysis {
+export function analyzeArgentinaLegal(text: string, assumeArgentina = false, userInstruction = '', branchPreference: LegalBranchPreference = 'auto'): ArgentinaLegalAnalysis {
   const routingText = userInstruction.trim() || text;
   const legal = assumeArgentina || /ley|legal|ilegal|derecho|contrato|cl[aá]usula|delito|pena|prisi[oó]n|c[aá]rcel|hurto|robo|violaci[oó]n|violador(?:a|es)?|abuso sexual|integridad sexual|divorci\w*|alimentos?|cuota\s+aliment(?:o|aria)|jurisdicci[oó]n|rescisi[oó]n|incumplimiento|sentencia|honorarios?|costas?\s+judiciales?|ejecuci[oó]n\s+judicial/i.test(text);
   const jurisdiction = assumeArgentina || /argentina|argentino|c[oó]digo (?:civil|penal)|infoleg|bolet[ií]n oficial/i.test(text) ? 'argentina' : 'not-specified';
@@ -37,10 +39,13 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
   const administrative = /acto\s+administrativo|procedimiento\s+administrativo|recurso\s+administrativo|administraci[oó]n\s+p[uú]blica|organismo\s+(?:p[uú]blico|estatal)|ministerio|municipalidad|estado\s+nacional|habilitaci[oó]n|licencia|concesi[oó]n|multa\s+(?:administrativa|estatal)|arca|afip|anmat/i.test(routingText);
   const commercial = /acuerdo\s+comercial|operaci[oó]n\s+comercial|sociedad(?:es)?|socios?|accionistas?|acciones|directorio|empresa|concurso\s+preventivo|quiebra|insolvencia|cheque|pagar[eé]|fondo\s+de\s+comercio|ley\s+general\s+de\s+sociedades/i.test(`${routingText}\n${text}`);
   const civil = contracts || /da[ñn]os?|perjuicios?|responsabilidad\s+civil|deuda|acreedor|deudor|embarg|ejecuci[oó]n|sucesi[oó]n|herencia|propiedad|alquiler|obligaci[oó]n|intereses?|honorarios?/i.test(text);
-  const legalBranch = family ? 'family' : criminal ? 'criminal' : administrative ? 'administrative' : commercial && contracts ? 'commercial' : civil ? 'civil' : commercial ? 'commercial' : 'general';
-  const area = family ? 'family' : criminal ? 'criminal' : contracts ? 'contracts' : 'other-legal';
-  const areaLabel = legalBranch === 'family' ? 'Familia' : legalBranch === 'criminal' ? 'Derecho penal' : legalBranch === 'civil' ? 'Derecho civil' : legalBranch === 'commercial' ? 'Derecho comercial' : legalBranch === 'administrative' ? 'Derecho administrativo' : 'Consulta jurídica general';
-  const subtopic: ArgentinaLegalAnalysis['subtopic'] = /\bleasing\b|lease[ -]?back|arrendamiento\s+financiero|opci[oó]n\s+de\s+compra/i.test(routingText)
+  const detectedBranch: ArgentinaLegalAnalysis['legalBranch'] = family ? 'family' : criminal ? 'criminal' : administrative ? 'administrative' : commercial && contracts ? 'commercial' : civil ? 'civil' : commercial ? 'commercial' : 'general';
+  const legalBranch: ArgentinaLegalAnalysis['legalBranch'] = branchPreference === 'auto' ? detectedBranch : branchPreference;
+  const area: ArgentinaLegalAnalysis['area'] = legalBranch === 'family' ? 'family' : legalBranch === 'criminal' ? 'criminal' : legalBranch === 'civil' || legalBranch === 'commercial' ? 'contracts' : 'other-legal';
+  const areaLabel = legalBranch === 'family' ? 'Familia' : legalBranch === 'criminal' ? 'Derecho penal' : legalBranch === 'civil' ? 'Derecho civil' : legalBranch === 'commercial' ? 'Derecho comercial' : legalBranch === 'administrative' ? 'Derecho administrativo' : legalBranch === 'tax' ? 'Derecho tributario' : 'Consulta jurídica general';
+  const subtopic: ArgentinaLegalAnalysis['subtopic'] = legalBranch === 'tax'
+    ? 'tax'
+    : /\bleasing\b|lease[ -]?back|arrendamiento\s+financiero|opci[oó]n\s+de\s+compra/i.test(routingText)
     ? 'leasing'
     : /violaci[oó]n|violador(?:a|es)?|abuso sexual|acceso carnal/i.test(text)
     ? 'sexual-offense'
@@ -158,6 +163,8 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
       ? ['Código Civil y Comercial de la Nación en InfoLEG/Argentina.gob.ar', 'Normativa procesal de la jurisdicción correspondiente', 'Jurisprudencia oficial pertinente']
       : legalBranch === 'administrative'
         ? ['Ley Nacional de Procedimientos Administrativos 19.549 si interviene la Administración nacional', 'Decreto 1759/72 reglamentario si corresponde', 'Ley especial del organismo y normativa provincial o municipal según la jurisdicción']
+        : legalBranch === 'tax'
+          ? ['Ley 11.683 de Procedimiento Tributario si el tributo es nacional', 'Ley del impuesto y reglamentación ARCA aplicables al período fiscal', 'Código fiscal y ley impositiva vigente de la provincia o municipio competente']
         : legalBranch === 'commercial'
           ? ['Ley General de Sociedades 19.550 cuando corresponda', 'Ley de Concursos y Quiebras 24.522 si existe insolvencia o proceso concursal', 'Código Civil y Comercial de la Nación y normativa registral o sectorial aplicable']
           : /honorarios?|abogad[oa]|embarg|ejecuci[oó]n/i.test(text)
