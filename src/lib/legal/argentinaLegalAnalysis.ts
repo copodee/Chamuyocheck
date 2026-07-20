@@ -12,6 +12,7 @@ export type ArgentinaLegalAnalysis = {
   area: 'contracts' | 'criminal' | 'family' | 'other-legal';
   areaLabel: string;
   legalBranch: 'family' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
+  selectedJurisdiction?: string;
   subtopic: 'family-support' | 'family-divorce' | 'family-parental' | 'sexual-offense' | 'criminal-penalty' | 'debt-enforcement' | 'civil-damages' | 'consumer' | 'insurance' | 'succession' | 'leasing' | 'contract-review' | 'corporate' | 'insolvency' | 'negotiable-instruments' | 'administrative-procedure' | 'labor' | 'tax' | 'public-procurement' | 'general-legal';
   intent: 'validity' | 'amount-or-duration' | 'consequences' | 'next-steps' | 'document-review' | 'general';
   issues: LegalIssue[];
@@ -29,7 +30,7 @@ function evidence(text: string, pattern: RegExp): string {
   return text.slice(Math.max(0, index - 35), Math.min(text.length, index + match[0].length + 55)).replace(/\s+/g, ' ').trim();
 }
 
-export function analyzeArgentinaLegal(text: string, assumeArgentina = false, userInstruction = '', branchPreference: LegalBranchPreference = 'auto'): ArgentinaLegalAnalysis {
+export function analyzeArgentinaLegal(text: string, assumeArgentina = false, userInstruction = '', branchPreference: LegalBranchPreference = 'auto', selectedJurisdiction = ''): ArgentinaLegalAnalysis {
   const routingText = userInstruction.trim() || text;
   const legal = assumeArgentina || /ley|legal|ilegal|derecho|contrato|cl[aá]usula|delito|pena|prisi[oó]n|c[aá]rcel|hurto|robo|violaci[oó]n|violador(?:a|es)?|abuso sexual|integridad sexual|divorci\w*|alimentos?|cuota\s+aliment(?:o|aria)|jurisdicci[oó]n|rescisi[oó]n|incumplimiento|sentencia|honorarios?|costas?\s+judiciales?|ejecuci[oó]n\s+judicial/i.test(text);
   const jurisdiction = assumeArgentina || /argentina|argentino|c[oó]digo (?:civil|penal)|infoleg|bolet[ií]n oficial/i.test(text) ? 'argentina' : 'not-specified';
@@ -178,17 +179,21 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
           : legalBranch === 'civil'
             ? ['Código Civil y Comercial de la Nación', 'Código Procesal Civil y Comercial aplicable a la jurisdicción', 'Ley especial pertinente, como Defensa del Consumidor, locaciones o seguros, según el caso']
             : ['InfoLEG/Argentina.gob.ar', 'Boletín Oficial', 'Normativa de la jurisdicción correspondiente'];
+  const jurisdictionSourceTargets = selectedJurisdiction
+    ? sourceTargets.map((source) => source.replace(/la jurisdicción correspondiente/gi, selectedJurisdiction).replace(/jurisdicción correspondiente/gi, selectedJurisdiction))
+    : sourceTargets;
   return {
     applicable: legal,
     jurisdiction,
     area,
     areaLabel,
     legalBranch,
+    selectedJurisdiction: selectedJurisdiction || undefined,
     subtopic,
     intent,
     issues,
     factsNeeded,
-    sourceTargets,
+    sourceTargets: jurisdictionSourceTargets,
     conclusion: !legal
       ? 'No se identificó una consulta jurídica dentro del alcance.'
       : jurisdiction === 'not-specified'

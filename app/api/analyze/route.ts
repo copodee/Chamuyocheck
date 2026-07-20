@@ -380,7 +380,8 @@ export function buildLocalAnalysis(
   userInstruction = '',
   sourceUrl = '',
   selectedCategory?: SupportedProductArea | null,
-  legalBranch: LegalBranchPreference = 'auto'
+  legalBranch: LegalBranchPreference = 'auto',
+  legalJurisdiction = ''
 ) {
   const analysisInput = `${userInstruction}\n${text}\n${fileName}\n${sourceUrl}`.trim();
   const all = analysisInput.toLowerCase();
@@ -399,7 +400,7 @@ export function buildLocalAnalysis(
   const financialAnalysis = financial ? extractLoanNumbers(text, userInstruction) : null;
   const scamRiskAnalysis = analyzeScamRisk(scamCategory ? analysisInput : '');
   const commercialCourseAnalysis = analyzeCommercialCourse(scamCategory ? analysisInput : '');
-  const argentinaLegalAnalysis = analyzeArgentinaLegal(legalCategory ? analysisInput : '', selectedCategory === 'argentina-legal-documents' || leasingCategory, userInstruction, legalBranch);
+  const argentinaLegalAnalysis = analyzeArgentinaLegal(legalCategory ? analysisInput : '', selectedCategory === 'argentina-legal-documents' || leasingCategory, userInstruction, legalBranch, legalJurisdiction);
   const investmentProjectAnalysis = analyzeInvestmentProject(
     text,
     userInstruction,
@@ -957,6 +958,7 @@ export async function handleAnalyzeRequest(req: Request) {
     const termsVersion = String(form.get('termsVersion') || '');
     const selectedCategoryRaw = String(form.get('selectedCategory') || '').trim();
     const legalBranchRaw = String(form.get('legalBranch') || '').trim();
+    const legalJurisdiction = String(form.get('legalJurisdiction') || '').trim();
     const leasingProvince = String(form.get('leasingProvince') || '').trim();
     const leasingContractProvince = String(form.get('leasingContractProvince') || '').trim();
     const leasingAssetType = String(form.get('leasingAssetType') || '').trim();
@@ -988,6 +990,9 @@ export async function handleAnalyzeRequest(req: Request) {
     const selectedCategory: SupportedProductArea = selectedCategoryRaw;
     if (selectedCategory === 'argentina-legal-documents' && !['civil', 'commercial', 'family', 'criminal', 'administrative', 'labor', 'tax'].includes(legalBranchRaw)) {
       return NextResponse.json({ error: 'Elegí qué tipo de derecho querés analizar.' }, { status: 400 });
+    }
+    if (selectedCategory === 'argentina-legal-documents' && !legalJurisdiction) {
+      return NextResponse.json({ error: 'Elegí la jurisdicción principal del caso.' }, { status: 400 });
     }
     const legalBranch: LegalBranchPreference = ['civil', 'commercial', 'family', 'criminal', 'administrative', 'labor', 'tax'].includes(legalBranchRaw)
       ? legalBranchRaw as LegalBranchPreference
@@ -1102,7 +1107,7 @@ export async function handleAnalyzeRequest(req: Request) {
       return NextResponse.json(buildOutOfScopeAnalysis(documentText, inputKind, productScope.reason));
     }
 
-    const fallback = buildLocalAnalysis(contextualDocumentText, inputKind, fileName, extraction, userInstruction, url, selectedCategory, legalBranch);
+    const fallback = buildLocalAnalysis(contextualDocumentText, inputKind, fileName, extraction, userInstruction, url, selectedCategory, legalBranch, legalJurisdiction);
 
     const openai = process.env.OPENAI_API_KEY && openAIAnalysisEnabled()
       ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20_000, maxRetries: 0 })
@@ -1128,6 +1133,9 @@ ${selectedCategory}
 
 RAMA JURÍDICA ELEGIDA POR EL USUARIO (si no es "auto", tiene prioridad y limita la selección de normativa y fuentes):
 ${legalBranch}
+
+JURISDICCIÓN PRINCIPAL ELEGIDA POR EL USUARIO:
+${legalJurisdiction || 'No indicada'}
 
 CONTENIDO DEL DOCUMENTO (único contenido que debe clasificarse y evaluarse):
 ${documentText.slice(0, 18000)}

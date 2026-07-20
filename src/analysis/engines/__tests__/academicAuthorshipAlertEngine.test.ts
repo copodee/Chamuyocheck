@@ -77,6 +77,7 @@ test('analyze endpoint rejects oversized file instructions', async () => {
   form.set('file', new File(['contenido'], 'entrega.txt', { type: 'text/plain' }));
   form.set('selectedCategory', 'argentina-legal-documents');
   form.set('legalBranch', 'civil');
+  form.set('legalJurisdiction', 'Ciudad Autónoma de Buenos Aires');
   form.set('text', 'x'.repeat(2_001));
   form.set('termsAccepted', 'true');
   form.set('termsVersion', TERMS_VERSION);
@@ -89,6 +90,7 @@ test('analyze endpoint accepts locally recognized scanned legal PDFs', async () 
   form.set('text', 'Decime si Percorsi está bien cubierto y si al pagar todo le entregarán las camionetas.');
   form.set('selectedCategory', 'argentina-legal-documents');
   form.set('legalBranch', 'civil');
+  form.set('legalJurisdiction', 'Buenos Aires');
   form.set('ocrText', 'ACUERDO COMERCIAL. Percorsi se obliga a cancelar las cuotas pactadas. La entrega y transferencia de las camionetas queda sujeta al pago íntegro, cumplimiento de las obligaciones y documentación indicada en las cláusulas del acuerdo.');
   form.set('ocrConfidence', '82');
   form.set('ocrPages', '17');

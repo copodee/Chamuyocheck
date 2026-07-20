@@ -116,3 +116,9 @@ test('la rama laboral elegida no se desvía a comercial por mencionar empresa y 
   assert.ok(result.sourceTargets.some((item) => /20\.744/i.test(item)));
   assert.ok(result.factsNeeded.some((item) => /fecha de ingreso/i.test(item)));
 });
+
+test('conserva la jurisdicción elegida y la aplica a las fuentes procesales', () => {
+  const result = analyzeArgentinaLegal('Quiero reclamar daños por un incumplimiento.', true, '¿Cómo demando?', 'civil', 'Buenos Aires');
+  assert.equal(result.selectedJurisdiction, 'Buenos Aires');
+  assert.ok(result.sourceTargets.some((item) => /Buenos Aires/i.test(item)));
+});
