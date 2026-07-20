@@ -219,7 +219,6 @@ function firstSemanticAmount(text: string, patterns: RegExp[]): number | null {
 
 function extractLoanSemanticSlots(text: string): LoanSemanticSlots {
   const principal = firstSemanticAmount(text, [
-    new RegExp(`(?:vale|cuesta|(?:su|cuyo|el)?\\s*valor(?:\\s+(?:es|de))?|precio(?:\\s+(?:es|de))?)\\s*${semanticCurrency}\\s*${semanticMoney}${semanticUnit}[\\s\\S]{0,160}?\\d{1,3}\\s*(?:cuotas?|meses?)`, 'i'),
     new RegExp(`(?:me\\s+(?:ofrecen|ofrecieron|ofrece|dan|dieron|prestan|prestaron|quieren\\s+prestar)|van\\s+a\\s+prestar(?:me)?|recib(?:o|ir[ií]a)|solicito|pido)(?:\\s+(?:un\\s+pr[eé]stamo|un\\s+cr[eé]dito|la\\s+suma|un\\s+monto|un\\s+total))?(?:\\s+de)?\\s*${semanticCurrency}\\s*${semanticMoney}${semanticUnit}`, 'i'),
     new RegExp(`(?:capital|monto|importe|pr[eé]stamo|cr[eé]dito)(?:\\s+(?:recibido|otorgado|solicitado|financiado|inicial))?(?:\\s+(?:es|de|:|=))?\\s*${semanticCurrency}\\s*${semanticMoney}${semanticUnit}`, 'i'),
     new RegExp(`(?:^|\\s)${semanticCurrency}\\s*${semanticMoney}${semanticUnit}[\\s\\S]{0,140}?(?:a\\s+devolver|a\\s+pagar|financiad[oa]|(?:en|pagar|abon(?:ar|ando))\\s+\\d{1,3}\\s*(?:cuotas?|meses?))`, 'i'),
@@ -263,18 +262,25 @@ export function extractLoanNumbers(text: string, userInstruction = ''): LoanNumb
   const amortizationSystem: 'french' | 'german' = /sistema\s+alem[aá]n/i.test(`${userInstruction}\n${normalized}`) ? 'german' : 'french';
   const paymentPeriod: 'monthly' = 'monthly';
   const paymentTiming: 'arrears' = 'arrears';
-  const cashPrice = labeledMoney(normalized, ['precio\\s+de\\s+contado', 'precio\\s+final', 'valor\\s+del\\s+veh[ií]culo']);
-  const downPayment = labeledMoney(normalized, ['anticipo', 'entrega\\s+inicial', 'pago\\s+inicial']);
+  const cashPrice = labeledMoney(normalized, ['precio\\s+de\\s+contado', 'precio\\s+final', 'valor\\s+del\\s+veh[ií]culo'])
+    ?? firstSemanticAmount(normalized, [
+      new RegExp(`(?:vale|cuesta|(?:su|cuyo|el)?\\s*valor(?:\\s+(?:es|de))?|precio(?:\\s+(?:es|de))?)\\s*${semanticCurrency}\\s*${semanticMoney}${semanticUnit}[\\s\\S]{0,180}?\\d{1,3}\\s*(?:cuotas?|meses?)`, 'i'),
+    ]);
+  const downPayment = labeledMoney(normalized, ['anticipo', 'entrega\\s+inicial', 'pago\\s+inicial'])
+    ?? firstSemanticAmount(normalized, [
+      new RegExp(`${semanticCurrency}\\s*${semanticMoney}${semanticUnit}\\s*(?:de\\s+)?(?:anticipo|entrega\\s+inicial|pago\\s+inicial)`, 'i'),
+    ]);
   const principalExample = normalized.match(/(?:pr[eé]stamo|cr[eé]dito)(?:\s+(?:personal|prendario))?\s+de[ \t]*(?:ARS|\$)[ \t]*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)/i);
   const conversationalPrincipal = normalized.match(/(?:me\s+quieren\s+prestar|me\s+prestan|van\s+a\s+prestar(?:me)?|prestar(?:me)?)(?:\s+(?:la\s+suma\s+de|un\s+total\s+de|de))?\s*(?:USD|U\$S|US\$|ARS|\$)?\s*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)\s*(?:de\s+)?(?:d[oó]lares?|pesos?)?/i);
   const delayedPrincipal = normalized.match(/(?:eleg[ií]|seleccion[ae]|indic[ae])?\s*(?:el\s+)?monto\s+(?:de\s+tu|del)?\s*(?:pr[eé]stamo|cr[eé]dito)[\s\S]{0,240}?(?:ARS|\$)\s*([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)/i);
   const economicFlowPrincipal = normalized.match(/(?:^|\s)([\d]{1,3}(?:[. ][\d]{3})+(?:,[\d]{1,2})?|[\d]+(?:,[\d]{1,2})?)\s*(?:pesos?|d[oó]lares?)\s+(?:a|en)\s+\d{1,3}\s*(?:meses?|cuotas?)/i);
-  const principal = labeledMoney(normalized, ['monto\\s+(?:del\\s+)?(?:pr[eé]stamo|cr[eé]dito)', 'monto\\s+financiad[oa]', 'importe\\s+financiad[oa]', 'importe\\s+a\\s+solicitar'])
+  const explicitPrincipal = labeledMoney(normalized, ['monto\\s+(?:del\\s+)?(?:pr[eé]stamo|cr[eé]dito)', 'monto\\s+financiad[oa]', 'importe\\s+financiad[oa]', 'importe\\s+a\\s+solicitar'])
     ?? parseLocaleNumber(delayedPrincipal?.[1] || '')
     ?? parseLocaleNumber(principalExample?.[1] || '')
     ?? parseLocaleNumber(conversationalPrincipal?.[1] || '')
-    ?? parseLocaleNumber(economicFlowPrincipal?.[1] || '')
-    ?? semanticSlots.principal;
+    ?? parseLocaleNumber(economicFlowPrincipal?.[1] || '');
+  const principal = explicitPrincipal
+    ?? (cashPrice !== null ? Math.max(0, cashPrice - (downPayment || 0)) : semanticSlots.principal);
   const rawScenarios = extractScenarioPairs(normalized);
   const requestedMonths = requestedMonthsFromInstruction(userInstruction);
   const selectedRawScenario = (requestedMonths !== null ? rawScenarios.find((scenario) => scenario.months === requestedMonths) : null)

@@ -48,6 +48,22 @@ test('interprets colloquial financed purchases by economic roles instead of the 
   }
 });
 
+test('separates cash price, down payment and financed capital in colloquial purchases', () => {
+  const cases = [
+    'El vehículo vale 20.000.000 pesos, entrego 5.000.000 de anticipo y pago 24 cuotas de 900.000 pesos.',
+    'Una máquina cuyo valor es 20.000.000 de pesos: pago inicial 5.000.000 y el saldo en 24 cuotas de 900.000.',
+  ];
+  for (const query of cases) {
+    const result = extractLoanNumbers(query);
+    assert.equal(result.cashPrice, 20_000_000, query);
+    assert.equal(result.downPayment, 5_000_000, query);
+    assert.equal(result.principal, 15_000_000, query);
+    assert.equal(result.installment, 900_000, query);
+    assert.equal(result.months, 24, query);
+    assert.equal(result.missingFields.length, 0, query);
+  }
+});
+
 test('the selected finance category forces a financial answer and recognizes a pledge', () => {
   const query = '¿Qué gastos tiene una prenda sobre un vehículo y qué debería comparar?';
   const scope = classifyProductScope(query, '', 'finance-credit');
