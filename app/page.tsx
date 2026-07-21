@@ -1,7 +1,7 @@
 
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { readLocalHistory, type HistoryItem } from '../src/lib/history/localHistory';
+import { readLocalHistory, saveLocalHistory, type HistoryItem } from '../src/lib/history/localHistory';
 import { TERMS_SECTIONS, TERMS_STORAGE_KEY, TERMS_VERSION } from '../src/lib/legal/terms';
 import { extractImageTextInBrowser } from '../src/lib/extractors/browserOcr';
 import { extractPdfTextInBrowser } from '../src/lib/extractors/browserPdfOcr';
@@ -919,6 +919,19 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         throw new Error(data.error || fallback);
       }
       setAnalysis(data);
+      const historyItem: HistoryItem = {
+        id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}`,
+        date: new Date().toLocaleDateString('es-AR'),
+        title: data.decisionAnswer?.title || data.centralQuestion || text.trim().slice(0, 100) || 'Análisis',
+        score: data.score ?? 0,
+        documentType: data.documentType || getInputLabel(detected, Boolean(file)),
+        query: text.trim(),
+        category: selectedCategory,
+        legalBranch: legalBranch || undefined,
+        legalJurisdiction: legalJurisdiction || undefined,
+      };
+      saveLocalHistory(historyItem);
+      setHistoryItems(readLocalHistory());
       setTimeout(() => document.getElementById('informe')?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch (e: any) {
       alert(e?.name === 'AbortError'
@@ -1119,6 +1132,20 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setAnalysis(null);
     setSelectedCategory(category);
     setText(prompt);
+    setActiveInput('Texto');
+    setActiveView('inicio');
+    setMobileMenuOpen(false);
+    setPreparedFormRequest((request) => request + 1);
+  };
+  const resumeHistoryItem = (item: HistoryItem) => {
+    const category = ANALYSIS_CATEGORIES.some((candidate) => candidate.id === item.category) ? item.category as AnalysisCategoryId : null;
+    setAnalysis(null);
+    setSelectedCategory(category);
+    setText(item.query || '');
+    setLegalBranch(item.legalBranch && LEGAL_BRANCHES.some((branch) => branch.id === item.legalBranch) ? item.legalBranch as LegalBranchSelection : null);
+    setLegalJurisdiction(item.legalJurisdiction || '');
+    setFile(null);
+    setUrl('');
     setActiveInput('Texto');
     setActiveView('inicio');
     setMobileMenuOpen(false);
@@ -1510,7 +1537,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
           </div>
         </>}
         {activeView === 'historial' && <>
-          {historyItems.length ? <div className="historyMini" style={{ marginTop: '14px' }}>{historyItems.map((item) => <div className="historyItem" key={item.id}><span>{item.score}</span><div>{item.title}<small>{item.documentType} · {item.date}</small></div></div>)}</div> : <div className="paywall" style={{ marginTop: '14px' }}>Todavía no hay historial local disponible.</div>}
+          {historyItems.length ? <div className="historyMini" style={{ marginTop: '14px' }}>{historyItems.map((item) => <div className="historyItem" key={item.id}><span>{item.score}</span><div>{item.title}<small>{item.documentType} · {item.date}</small></div>{item.query && <button type="button" className="ghost" onClick={() => resumeHistoryItem(item)}>Volver a consultar</button>}</div>)}</div> : <div className="paywall" style={{ marginTop: '14px' }}>Todavía no hay historial local disponible.</div>}
         </>}
         {activeView === 'favoritos' && <>
           {favoritesItems.length ? <div className="historyMini" style={{ marginTop: '14px' }}>{favoritesItems.map((item) => <div className="historyItem" key={item}><div>{item}<small>Guardado en este navegador</small></div><button type="button" className="ghost" onClick={() => removeFavorite(item)}>Quitar</button></div>)}</div> : <div className="paywall" style={{ marginTop: '14px' }}>No hay favoritos guardados todavía. Guardá uno desde su respuesta.</div>}
