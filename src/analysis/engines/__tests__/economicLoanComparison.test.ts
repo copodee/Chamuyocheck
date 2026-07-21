@@ -77,6 +77,18 @@ test('includes an additional final payment in the total and implicit rate', () =
   assert.match(result.warnings.join(' '), /pago adicional.*reemplaza la última cuota/is);
 });
 
+test('adds explicitly separate monthly insurance or charges to the financial flow', () => {
+  const query = 'Financio 10.000.000 pesos en 24 cuotas de 600.000 pesos más un seguro de 40.000 pesos por mes.';
+  const result = extractLoanNumbers(query);
+  assert.equal(result.principal, 10_000_000);
+  assert.equal(result.installment, 600_000);
+  assert.equal(result.monthlyAdditionalCost, 40_000);
+  assert.equal(result.months, 24);
+  assert.equal(result.calculatedInstallmentsTotal, 15_360_000);
+  assert.equal(result.financingCost, 5_360_000);
+  assert.match(result.warnings.join(' '), /sumó a cada cuota.*evitar duplicarlo/is);
+});
+
 test('the selected finance category forces a financial answer and recognizes a pledge', () => {
   const query = '¿Qué gastos tiene una prenda sobre un vehículo y qué debería comparar?';
   const scope = classifyProductScope(query, '', 'finance-credit');
