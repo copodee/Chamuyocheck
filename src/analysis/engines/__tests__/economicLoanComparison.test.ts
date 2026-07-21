@@ -89,6 +89,45 @@ test('adds explicitly separate monthly insurance or charges to the financial flo
   assert.match(result.warnings.join(' '), /sumó a cada cuota.*evitar duplicarlo/is);
 });
 
+test('includes a fixed upfront fee in net disbursement and implicit cost', () => {
+  const result = extractLoanNumbers('Préstamo de 1.000.000 pesos, comisión inicial 50.000 pesos y 12 cuotas de 110.000 pesos.');
+  assert.equal(result.upfrontFeePercent, null);
+  assert.equal(result.upfrontFeeAmount, 50_000);
+  assert.equal(result.netDisbursement, 950_000);
+  assert.equal(result.calculatedKnownTotal, 1_370_000);
+  assert.equal(result.financingCost, 370_000);
+  assert.match(result.warnings.join(' '), /importe fijo.*desembolso neto/is);
+});
+
+test('distinguishes advance installments from installments in arrears', () => {
+  const arrears = extractLoanNumbers('Financio 1.000.000 pesos en 12 cuotas vencidas de 100.000 pesos.');
+  const advance = extractLoanNumbers('Financio 1.000.000 pesos en 12 cuotas adelantadas de 100.000 pesos.');
+  assert.equal(arrears.paymentTiming, 'arrears');
+  assert.equal(advance.paymentTiming, 'advance');
+  assert.ok((advance.impliedTeaPercent || 0) > (arrears.impliedTeaPercent || 0));
+});
+
+test('models an explicitly disclosed grace period in payment timing', () => {
+  const result = extractLoanNumbers('Financio 1.000.000 pesos en 12 cuotas de 110.000 pesos, con período de gracia de 3 meses.');
+  assert.equal(result.graceMonths, 3);
+  assert.equal(result.paymentTiming, 'arrears');
+  assert.match(result.warnings.join(' '), /3 meses.*capitalizan intereses/is);
+  assert.match(result.calculationBasis.join(' '), /3 meses de gracia antes del primer pago/i);
+});
+
+test('models staged installments as one variable cash flow', () => {
+  const result = extractLoanNumbers('Financio 10.000.000 pesos: primeras 12 cuotas de 500.000 pesos y siguientes 12 cuotas de 700.000 pesos.');
+  assert.deepEqual(result.variablePaymentStages, [
+    { months: 12, installment: 500_000 },
+    { months: 12, installment: 700_000 },
+  ]);
+  assert.equal(result.months, 24);
+  assert.equal(result.calculatedInstallmentsTotal, 14_400_000);
+  assert.equal(result.financingCost, 4_400_000);
+  assert.ok((result.impliedTeaPercent || 0) > 0);
+  assert.match(result.warnings.join(' '), /plan escalonado.*orden.*importe/is);
+});
+
 test('the selected finance category forces a financial answer and recognizes a pledge', () => {
   const query = '¿Qué gastos tiene una prenda sobre un vehículo y qué debería comparar?';
   const scope = classifyProductScope(query, '', 'finance-credit');

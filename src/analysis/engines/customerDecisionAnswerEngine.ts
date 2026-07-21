@@ -84,17 +84,19 @@ function buildLoanAnswer(financial: LoanNumbers, question: string): CustomerDeci
     || financial.cftPercent !== null
   );
   const asksInflationComparison = /\b(?:inflaci[oó]n|ipc|indec|rem|bcra|poder\s+adquisitivo|tasa\s+real)\b/i.test(question);
-  const hasUpfrontFee = financial.upfrontFeePercent !== null && financial.upfrontFeeAmount !== null;
+  const hasUpfrontFee = financial.upfrontFeeAmount !== null;
   const systemExplanation = financial.amortizationSystem === 'german'
     ? 'El cálculo usa sistema alemán: cuotas mensuales vencidas y decrecientes, con amortización de capital constante.'
     : 'El cálculo usa sistema francés: cuotas mensuales iguales y vencidas, pagadas al final de cada mes.';
   const paymentSummary = hasFlow
-    ? financial.amortizationSystem === 'german'
+    ? financial.variablePaymentStages.length > 0
+      ? `El plan escalonado tiene ${financial.months} cuotas distribuidas en ${financial.variablePaymentStages.length} tramos y suma ${money(financial.calculatedInstallmentsTotal || 0, financial.currency)}.`
+      : financial.amortizationSystem === 'german'
       ? `Las ${financial.months} cuotas irían desde ${money(financial.firstInstallment || 0, financial.currency)} hasta ${money(financial.lastInstallment || 0, financial.currency)} y sumarían ${money(financial.calculatedInstallmentsTotal || 0, financial.currency)}.`
       : `La cuota mensual ${financial.installmentEstimated ? 'estimada' : 'informada'} es ${money(financial.installment || 0, financial.currency)} y ${financial.months} cuotas sumarían un total estimado de ${money(financial.calculatedInstallmentsTotal || 0, financial.currency)}.`
     : '';
   const adjustedRateAnswer = modeledFromRate && financial.tnaPercent !== null && hasImplicitRate
-    ? `La TNA contractual sigue siendo ${percent(financial.tnaPercent || 0)}. ${hasUpfrontFee ? `La comisión inicial de ${percent(financial.upfrontFeePercent || 0)} equivale a ${money(financial.upfrontFeeAmount || 0, financial.currency)} y deja un desembolso neto de ${money(financial.netDisbursement || 0, financial.currency)}. ` : ''}La TNA implícita ajustada por el flujo es ${percent(financial.impliedTnaPercent || 0)} y la TEA implícita es ${percent(financial.impliedTeaPercent || 0)}. No son un CFT oficial.`
+    ? `La TNA contractual sigue siendo ${percent(financial.tnaPercent || 0)}. ${hasUpfrontFee ? `La comisión inicial${financial.upfrontFeePercent !== null ? ` de ${percent(financial.upfrontFeePercent)}` : ''} equivale a ${money(financial.upfrontFeeAmount || 0, financial.currency)} y deja un desembolso neto de ${money(financial.netDisbursement || 0, financial.currency)}. ` : ''}La TNA implícita ajustada por el flujo es ${percent(financial.impliedTnaPercent || 0)} y la TEA implícita es ${percent(financial.impliedTeaPercent || 0)}. No son un CFT oficial.`
     : '';
   const baseDirectAnswer = hasFlow
     ? `${paymentSummary} ${systemExplanation} ${adjustedRateAnswer || `${hasImplicitRate ? `La TNA implícita estimada es ${percent(financial.impliedTnaPercent || 0)} y el costo efectivo anual visible es ${percent(financial.impliedTeaPercent || 0)}. ${financial.cftPercent === null ? 'El CFT oficial no puede conocerse sin los cargos e impuestos del contrato.' : `El CFT informado es ${percent(financial.cftPercent)}.`}` : 'Con los datos visibles no alcanza para estimar una tasa implícita.'}`}`
@@ -110,10 +112,10 @@ function buildLoanAnswer(financial: LoanNumbers, question: string): CustomerDeci
     findings: [
       financial.principal !== null ? `Capital contractual: ${money(financial.principal, financial.currency)}.` : '',
       financial.netDisbursement !== null && hasUpfrontFee ? `Dinero neto disponible después de la comisión: ${money(financial.netDisbursement, financial.currency)}.` : '',
-      hasFlow ? `Modelo de cálculo: sistema ${financial.amortizationSystem === 'german' ? 'alemán, con amortización constante y cuotas decrecientes' : 'francés, con cuotas iguales'}; periodicidad mensual; pagos vencidos al final de cada mes.` : '',
+      hasFlow ? `Modelo de cálculo: sistema ${financial.amortizationSystem === 'german' ? 'alemán, con amortización constante y cuotas decrecientes' : 'francés, con cuotas iguales'}; periodicidad mensual; pagos ${financial.paymentTiming === 'advance' ? 'adelantados al comienzo de cada período' : 'vencidos al final de cada período'}${financial.graceMonths > 0 ? `, luego de ${financial.graceMonths} meses de gracia` : ''}.` : '',
       hasFlow && !financial.installmentEstimated ? 'El sistema de amortización es un supuesto necesario para estimar la tasa implícita; debe confirmarse en el contrato.' : '',
       financial.selectedScenarioReason || '',
-      financial.installment !== null && financial.months !== null && financial.amortizationSystem === 'french' ? `${financial.months} cuotas ${financial.installmentEstimated ? 'estimadas' : 'informadas'} de ${money(financial.installment, financial.currency)}.` : '',
+      financial.variablePaymentStages.length > 0 ? `Plan escalonado: ${financial.variablePaymentStages.map((stage) => `${stage.months} cuotas de ${money(stage.installment, financial.currency)}`).join('; ')}.` : financial.installment !== null && financial.months !== null && financial.amortizationSystem === 'french' ? `${financial.months} cuotas ${financial.installmentEstimated ? 'estimadas' : 'informadas'} de ${money(financial.installment, financial.currency)}.` : '',
       financial.monthlyAdditionalCost !== null ? `Seguro o cargo periódico adicional: ${money(financial.monthlyAdditionalCost, financial.currency)} por mes.` : '',
       financial.finalPayment !== null ? `Pago final o extraordinario adicional informado: ${money(financial.finalPayment, financial.currency)}.` : '',
       financial.installmentEstimated && financial.amortizationSystem === 'german' ? `${financial.months} cuotas decrecientes: primera de ${money(financial.firstInstallment || 0, financial.currency)} y última de ${money(financial.lastInstallment || 0, financial.currency)}.` : '',
