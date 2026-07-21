@@ -55,6 +55,7 @@ const INDUSTRIAL_PARK_REAL_ESTATE = /\b(?:parque|polo|predio)\s+industrial|\b(?:
 const PRODUCTIVE_INPUT_PRICES = /\b(?:cianuro\s+de\s+sodio|[aá]cido\s+sulf[uú]rico|fertilizantes?|urea|fosfato\s+diam[oó]nico|cloruro\s+de\s+potasio|muriato\s+de\s+potasio|equipamiento\s+(?:para|de)\s+ganado|m[aá]quina\s+de\s+orde(?:ñ|n)e|mixer\s+(?:de|para)\s+ganado)\b/i;
 const EXPORT_INVESTMENT = /\b(?:exportaci[oó]n|exportar|comercio\s+exterior|demanda\s+(?:mundial|internacional)|mercado\s+internacional|venta\s+al\s+exterior|aduana)\b/i;
 const SECTOR_INVESTMENT = /\b(?:proyecto\s+de\s+inversi[oó]n|invertir|inversi[oó]n|rentabilidad|retorno|viabilidad|flujo\s+de\s+fondos|\btir\b|\bvan\b)\b/i;
+const ENTITY_OR_OFFER_VERIFICATION = /\b(?:es|son|parece|parecen|existe|existen|opera|operan|funciona|funcionan|ser[ií]a|ser[ií]an)\b.{0,100}\b(?:real(?:es)?|leg[ií]tim[oa]s?|confiable(?:s)?|segur[oa]s?|viable(?:s)?|estafa(?:s)?|fraude(?:s)?)\b|\b(?:es|son)\s+(?:una?\s+)?(?:posible\s+)?(?:estafa|fraude)|\b(?:validar|verificar|comprobar|confirmar)\b.{0,100}\b(?:empresa|entidad|fintech|plataforma|sitio|dominio|oferta|inversi[oó]n)\b/i;
 const AUTOMATED_INVESTMENT_OFFER = /\b(?:scam|estafa|autotrader|auto\s*trader|trading\s*bot|bot\s+de\s+(?:trading|inversi[oó]n)|robot\s+de\s+trading|plataforma\s+de\s+trading|inversi[oó]n\s+automatizada)\b|\b(?:ia|ai|inteligencia\s+artificial|algoritmo|robot)\b.{0,80}\b(?:hace|genera|gana|produce|multiplica)\b.{0,30}\b(?:dinero|ganancias?|rentabilidad|ingresos?)\b/i;
 
 function unique(values: string[]): string[] {
@@ -104,6 +105,15 @@ export function decideExternalVerification(
 
   if (AUTOMATED_INVESTMENT_OFFER.test(claimText)) {
     return finish(true, 'Una oferta de inversión automatizada o una consulta sobre posible scam exige verificar la identidad del operador, su autorización, las alertas regulatorias, la custodia y retiro de fondos y la evidencia del rendimiento. La publicidad o el dominio no bastan para declararla legítima ni fraudulenta.', {
+      suggestedSourceTypes: ['securities-regulator-cnv', 'regulatory-records', 'company-registries', 'consumer-protection-agencies', 'domain-registration-data'],
+      minimumIndependentSources: 2,
+      recencyRequired: true,
+      officialSourceRequired: true,
+    });
+  }
+
+  if (ENTITY_OR_OFFER_VERIFICATION.test(claimText) && !CRYPTO_ASSET.test(claimText)) {
+    return finish(true, 'La consulta pide comprobar la existencia, identidad, legitimidad o factibilidad de una entidad u oferta. Deben separarse la existencia comercial, la autorización regulatoria, el dominio, la estructura contractual y la viabilidad de la propuesta.', {
       suggestedSourceTypes: ['securities-regulator-cnv', 'regulatory-records', 'company-registries', 'consumer-protection-agencies', 'domain-registration-data'],
       minimumIndependentSources: 2,
       recencyRequired: true,

@@ -23,6 +23,12 @@ function firstExternalUrl(text: string): URL | null {
       if (!parsed.hostname.endsWith('argentina.gob.ar')) return parsed;
     } catch { /* Ignore malformed URLs. */ }
   }
+  for (const raw of decodedText(text).match(/\b(?:www\.)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|com\.ar|net|org|io|app|finance|money)\b/gi) || []) {
+    try {
+      const parsed = new URL(`https://${raw.replace(/[),.;]+$/, '')}`);
+      if (!parsed.hostname.endsWith('argentina.gob.ar')) return parsed;
+    } catch { /* Ignore malformed bare domains. */ }
+  }
   return null;
 }
 
@@ -46,7 +52,8 @@ function registrarName(entities: RdapEntity[] | undefined): string | undefined {
 
 function isInvestmentScamCheck(text: string): boolean {
   const normalized = decodedText(text);
-  return /https?:\/\//i.test(normalized) && /\b(?:scam|estafa|fraude|enga[ñn]o|real|leg[ií]tim[oa]|segur[oa]|confiable|autotrader|auto\s*trader|trading\s*bot|inversi[oó]n|rentabilidad|ganancias?|dinero)\b/i.test(normalized);
+  const hasDomain = /https?:\/\//i.test(normalized) || /\b(?:www\.)?(?:[a-z0-9-]+\.)+(?:com|com\.ar|net|org|io|app|finance|money)\b/i.test(normalized);
+  return hasDomain && /\b(?:scam|estafa|fraude|enga[ñn]o|real|leg[ií]tim[oa]|segur[oa]|confiable|posible|viable|autotrader|auto\s*trader|trading\s*bot|inversi[oó]n|rentabilidad|ganancias?|dinero)\b/i.test(normalized);
 }
 
 function htmlText(html: string): string {

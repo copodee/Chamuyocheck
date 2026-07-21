@@ -256,6 +256,44 @@ function buildGeneralLegalAnswer(analysis: ArgentinaLegalAnalysis): CustomerDeci
   };
 }
 
+function asksEntityOrOfferVerification(text: string): boolean {
+  return /\b(?:es|son|parece|parecen|existe|existen|opera|operan|funciona|funcionan|ser[ií]a|ser[ií]an)\b.{0,100}\b(?:real(?:es)?|leg[ií]tim[oa]s?|confiable(?:s)?|segur[oa]s?|posible(?:s)?|viable(?:s)?|estafa(?:s)?|fraude(?:s)?)\b|\b(?:es|son)\s+(?:una?\s+)?(?:posible\s+)?(?:estafa|fraude)|\b(?:validar|verificar|comprobar|confirmar)\b.{0,100}\b(?:empresa|entidad|fintech|plataforma|sitio|dominio|oferta|inversi[oó]n)\b/i.test(text);
+}
+
+function extractNamedOperators(text: string): string[] {
+  const candidates = [...text.matchAll(/\b([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9.-]{2,40})\b(?=\s+(?:es|opera|ofrece|permite|usa|trabaja|se\s+presenta|aunque)\s+(?:una?\s+)?(?:startup|plataforma|fintech|proptech|empresa|exchange|broker)?)/g)]
+    .map((match) => match[1])
+    .filter((name) => !/^(?:Argentina|Enlace|Título|Página|Esta|Aunque)$/i.test(name));
+  return [...new Set(candidates)].slice(0, 8);
+}
+
+function buildEntityVerificationAnswer(input: DecisionAnswerInput, question: string): CustomerDecisionAnswer {
+  const operators = extractNamedOperators(input.documentText);
+  const sourceIsArticle = /\b(?:nota|artículo|blog|redacción|actualizado)\b/i.test(input.documentText);
+  return {
+    kind: 'scam-prevention',
+    status: 'needs-verification',
+    title: operators.length
+      ? 'La página menciona entidades reales como nombres, pero eso no valida cada operación'
+      : 'La existencia o legitimidad de la entidad todavía debe comprobarse',
+    directAnswer: `${sourceIsArticle ? 'La página aportada es una fuente secundaria: permite identificar qué entidades u ofertas menciona, pero no demuestra por sí sola que estén actualmente activas, autorizadas ni que una propuesta concreta sea segura. ' : ''}La pregunta requiere comprobar por separado identidad legal, dominio oficial, autorización aplicable, contrato, custodio de fondos y posibilidad real de retiro o cumplimiento. No corresponde responder con una plantilla de rentabilidad ni afirmar estafa solamente por falta de datos.`,
+    findings: [
+      operators.length ? `Entidades o plataformas mencionadas en el contenido: ${operators.join(', ')}.` : '',
+      'Que una marca aparezca en una nota, publicidad o buscador demuestra únicamente que fue mencionada; no acredita CUIT, razón social, regulación, solvencia ni vigencia.',
+      /tokeniz|crowdfunding|fideicomiso|cripto|inmobili/i.test(`${question} ${input.documentText}`)
+        ? 'La factibilidad de una inversión tokenizada, colectiva o inmobiliaria depende además de la estructura jurídica, titularidad del activo, vehículo contractual, custodia y derechos de salida.'
+        : '',
+    ].filter(Boolean),
+    nextActions: [
+      'Identificar para cada marca la razón social, CUIT, domicilio, responsables y dominio oficial exacto.',
+      'Comprobar en CNV, BCRA u otro regulador competente qué actividad declara y si requiere autorización; una ausencia en un registro no prueba por sí sola fraude.',
+      'Revisar quién recibe y custodia el dinero, qué derecho adquiere el usuario, cómo puede retirarlo o venderlo y qué contrato respalda la operación.',
+      'Contrastar la información de la nota con el sitio oficial y documentación vigente de cada entidad, sin depositar a partir de un enlace publicitario.',
+    ],
+    limitations: ['La lectura de una página permite auditar lo que afirma esa fuente, pero la existencia de las entidades y la vigencia de sus autorizaciones requieren fuentes independientes y actuales.'],
+  };
+}
+
 function buildLegalSubtopicAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer | null {
   const content: Partial<Record<ArgentinaLegalAnalysis['subtopic'], { title: string; answer: string; findings: string[]; actions: string[] }>> = {
     'contract-review': {
@@ -974,6 +1012,9 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   }
   if (isFinancialProductComparison(question)) {
     return buildFinancialProductComparisonAnswer(question);
+  }
+  if ((input.selectedCategory === 'investment-project' || input.selectedCategory === 'scam-risk') && asksEntityOrOfferVerification(question)) {
+    return buildEntityVerificationAnswer(input, question);
   }
   if (input.selectedCategory === 'finance-credit' && input.financialAnalysis && /\b(?:prenda(?:s|ria|rias)?|prendari[oa]s?)\b/i.test(question)) {
     return buildPledgeFinanceAnswer(input.financialAnalysis, question);

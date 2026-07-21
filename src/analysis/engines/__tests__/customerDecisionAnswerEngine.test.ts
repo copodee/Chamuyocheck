@@ -42,6 +42,39 @@ test('la categoría elegida gobierna el tipo de respuesta aunque la redacción s
   assert.equal(leasingAnswer.kind, 'leasing-specialist');
 });
 
+test('inversiones responde una consulta de existencia de fintech como verificación de entidades', () => {
+  const text = 'Artículo de blog. Simplestate es una startup inmobiliaria. Crowdium es una plataforma de crowdfunding. Reental es una proptech internacional.';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text, userInstruction: '¿Son reales estas fintech?', selectedCategory: 'investment-project',
+    financialAnalysis: null, investmentProjectAnalysis: analyzeInvestmentProject(text, '', true),
+    scamRiskAnalysis: analyzeScamRisk(''), argentinaLegalAnalysis: analyzeArgentinaLegal(''),
+  });
+  assert.equal(answer.kind, 'scam-prevention');
+  assert.match(answer.findings.join(' '), /Simplestate.*Crowdium.*Reental/i);
+  assert.match(answer.directAnswer, /fuente secundaria.*no demuestra/i);
+  assert.doesNotMatch(answer.title, /viabilidad de la inversión/i);
+});
+
+test('estafas trata un dominio escrito sin protocolo como verificación de entidad', () => {
+  const answer = buildCustomerDecisionAnswer({
+    documentText: 'nexo.com', userInstruction: '¿Nexo.com es una posible estafa?', selectedCategory: 'scam-risk',
+    financialAnalysis: null, scamRiskAnalysis: analyzeScamRisk('nexo.com posible estafa'), argentinaLegalAnalysis: analyzeArgentinaLegal(''),
+  });
+  assert.equal(answer.kind, 'scam-prevention');
+  assert.match(answer.directAnswer, /identidad legal.*dominio oficial.*autorización/i);
+});
+
+test('inversiones pregunta si una tokenización es posible y recibe factibilidad jurídica y operativa', () => {
+  const text = 'Inversión inmobiliaria inteligente mediante tokenización en Argentina.';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: text, userInstruction: '¿Esto es posible?', selectedCategory: 'investment-project',
+    financialAnalysis: null, investmentProjectAnalysis: analyzeInvestmentProject(text, '', true),
+    scamRiskAnalysis: analyzeScamRisk(''), argentinaLegalAnalysis: analyzeArgentinaLegal(''),
+  });
+  assert.equal(answer.kind, 'scam-prevention');
+  assert.match(answer.findings.join(' '), /estructura jurídica.*titularidad.*custodia/i);
+});
+
 test('responde primero cuánto se paga y estima tasas para el plazo pedido', () => {
   const text = 'Monto del préstamo $1.007.000. 12 cuotas de $130.381. 24 cuotas de $100.553. 36 cuotas de $106.213. 48 cuotas de $107.037.';
   const instruction = 'Necesito saber el CFT y la TNA para 36 meses.';
