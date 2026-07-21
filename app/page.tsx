@@ -1350,6 +1350,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         {analysis?.scopeStatus === 'out-of-scope' ? <section id="informe" className="analysisSection">
           <div className="panel legalResultPanel">
             <h2>Consulta fuera del alcance actual</h2>
+            <div className="reportActions"><button type="button" className="ghost" onClick={downloadAnalysisReport}>Descargar informe</button><button type="button" className="ghost" onClick={startNewAnalysis}>Nuevo análisis</button></div>
             <p>{analysis.summary}</p>
             <p><b>Motivo:</b> {analysis.scopeReason}</p>
             <h3>ChamuyoCheck analiza actualmente</h3>
@@ -1360,7 +1361,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         {analysis.decisionAnswer && <div className="panel legalResultPanel decisionAnswerPanel">
           <div className="eyebrow">RESPUESTA A TU CONSULTA</div>
           <h2>{analysis.decisionAnswer.title}</h2>
-          <button type="button" className="ghost" onClick={saveFavorite}>☆ Guardar en favoritos</button>
+          <div className="reportActions"><button type="button" className="ghost" onClick={saveFavorite}>☆ Guardar en favoritos</button><button type="button" className="ghost" onClick={downloadAnalysisReport}>Descargar informe</button><button type="button" className="ghost" onClick={startNewAnalysis}>Nuevo análisis</button></div>
           <p className="decisionDirectAnswer">{analysis.decisionAnswer.directAnswer}</p>
           {analysis.decisionAnswer.comparisonTable && <section className="leasingComparisonSection">
             <h3>Comparación de jurisdicciones</h3>

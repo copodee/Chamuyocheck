@@ -476,6 +476,7 @@ pre,code{white-space:pre-wrap}
 @media(max-width:720px){.statsGrid,.loginOptions{grid-template-columns:1fr}}
 .decisionAnswerPanel{margin-bottom:24px;border-color:rgba(32,226,173,.42);background:linear-gradient(135deg,rgba(32,226,173,.09),rgba(124,58,237,.08)),#101827}
 .decisionAnswerPanel h2{max-width:900px;margin-top:10px}
+.reportActions{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0 18px}.reportActions .ghost{min-width:0}
 .decisionDirectAnswer{font-size:1.25rem;line-height:1.65;max-width:1000px;color:#f5f3ff}
 .leasingComparisonSection{margin-top:24px}
 .leasingComparisonHint{margin:-4px 0 12px;color:#aaa2bc;font-size:.9rem}
@@ -498,6 +499,7 @@ pre,code{white-space:pre-wrap}
 .leasingNextActions{margin-top:14px;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px 18px;background:rgba(124,58,237,.06)}
 .leasingNextActions summary{cursor:pointer;color:#c7bfff;font-weight:800}
 @media(max-width:900px){.leasingResultSection summary{align-items:flex-start}.leasingResultSection summary small{display:none}.leasingComparisonTable{min-width:690px}}
+@media(max-width:520px){.reportActions{display:grid;grid-template-columns:1fr}.reportActions .ghost{width:100%;white-space:normal}.decisionAnswerPanel{padding:18px}.decisionAnswerPanel h2{font-size:1.75rem;overflow-wrap:anywhere}}
 .authPanel{
   display:grid;
   grid-template-columns:minmax(0,1fr) minmax(320px,520px);
