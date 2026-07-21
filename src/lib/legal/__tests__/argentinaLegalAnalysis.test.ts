@@ -164,3 +164,18 @@ test('distingue violencia familiar, delitos patrimoniales, económicos y sancion
   assert.equal(analyzeArgentinaLegal('Me engañaron para transferir dinero y denuncio una estafa.', true).subtopic, 'criminal-economic');
   assert.equal(analyzeArgentinaLegal('El municipio aplicó una clausura y multa administrativa.', true).subtopic, 'administrative-sanctions');
 });
+
+test('expone la especialidad dominante y materias relacionadas sin ocultar consultas mixtas', () => {
+  const result = analyzeArgentinaLegal('En el divorcio discutimos alimentos de los hijos, una sociedad familiar y bienes gananciales.', true, '', 'family');
+  assert.equal(result.detectedBranch, 'family');
+  assert.equal(result.detectedBranchLabel, 'Familia');
+  assert.ok(result.classificationConfidence > 0 && result.classificationConfidence <= 100);
+  assert.ok(result.alternativeBranches.some((item) => item.branch === 'commercial'));
+});
+
+test('una consulta sin señales no inventa confianza ni ramas alternativas', () => {
+  const result = analyzeArgentinaLegal('Necesito orientación sobre una situación.', true, '', 'civil');
+  assert.equal(result.detectedBranch, 'general');
+  assert.equal(result.classificationConfidence, 0);
+  assert.deepEqual(result.alternativeBranches, []);
+});

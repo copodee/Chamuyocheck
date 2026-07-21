@@ -13,7 +13,10 @@ export type ArgentinaLegalAnalysis = {
   areaLabel: string;
   legalBranch: 'family' | 'succession' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
   detectedBranch: 'family' | 'succession' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
+  detectedBranchLabel: string;
   branchSelectionWarning?: string;
+  classificationConfidence: number;
+  alternativeBranches: Array<{ branch: Exclude<ArgentinaLegalAnalysis['legalBranch'], 'general'>; label: string; score: number }>;
   selectedJurisdiction?: string;
   subtopic: 'family-support' | 'family-divorce' | 'family-parental' | 'family-violence' | 'sexual-offense' | 'criminal-property' | 'criminal-economic' | 'criminal-penalty' | 'debt-enforcement' | 'civil-damages' | 'consumer' | 'insurance' | 'succession' | 'leasing' | 'contract-review' | 'property-rights' | 'leases' | 'corporate' | 'insolvency' | 'negotiable-instruments' | 'administrative-procedure' | 'administrative-sanctions' | 'labor' | 'tax' | 'public-procurement' | 'general-legal';
   intent: 'validity' | 'amount-or-duration' | 'consequences' | 'next-steps' | 'document-review' | 'general';
@@ -69,6 +72,15 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
     family: 'Familia', succession: 'Sucesiones y herencias', criminal: 'Penal', civil: 'Civil y contratos',
     commercial: 'Comercial', administrative: 'Administrativo', labor: 'Laboral', tax: 'Tributario', general: 'Derecho argentino',
   };
+  const rankedBranches = (Object.entries(branchScores) as Array<[Exclude<ArgentinaLegalAnalysis['legalBranch'], 'general'>, number]>)
+    .filter(([, score]) => score > 0)
+    .sort((a, b) => b[1] - a[1]);
+  const totalBranchSignals = rankedBranches.reduce((sum, [, score]) => sum + score, 0);
+  const classificationConfidence = detectedBranchFinal === 'general' ? 0 : Math.round(((rankedBranches[0]?.[1] || 1) / Math.max(1, totalBranchSignals)) * 100);
+  const alternativeBranches = rankedBranches
+    .filter(([branch]) => branch !== detectedBranchFinal)
+    .slice(0, 3)
+    .map(([branch, score]) => ({ branch, label: branchLabels[branch], score }));
   const compatibleBranches = new Set(['family:succession', 'succession:family', 'civil:succession', 'succession:civil', 'civil:commercial', 'commercial:civil']);
   const branchSelectionWarning = branchPreference !== 'auto' && detectedBranchFinal !== 'general' && detectedBranchFinal !== legalBranch
     && !compatibleBranches.has(`${legalBranch}:${detectedBranchFinal}`)
@@ -246,7 +258,10 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
     areaLabel,
     legalBranch,
     detectedBranch: detectedBranchFinal,
+    detectedBranchLabel: branchLabels[detectedBranchFinal],
     branchSelectionWarning,
+    classificationConfidence,
+    alternativeBranches,
     selectedJurisdiction: selectedJurisdiction || undefined,
     subtopic,
     intent,

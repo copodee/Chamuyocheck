@@ -131,7 +131,10 @@ type Analysis = {
     areaLabel: string;
     legalBranch: 'family' | 'succession' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
     detectedBranch?: 'family' | 'succession' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
+    detectedBranchLabel?: string;
     branchSelectionWarning?: string;
+    classificationConfidence?: number;
+    alternativeBranches?: Array<{ branch: string; label: string; score: number }>;
     selectedJurisdiction?: string;
     subtopic: string;
     intent: string;
@@ -1473,6 +1476,12 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         {analysis.decisionAnswer && <div className="panel legalResultPanel decisionAnswerPanel">
           <div className="eyebrow">RESPUESTA A TU CONSULTA</div>
           <h2>{analysis.decisionAnswer.title}</h2>
+          {analysis.argentinaLegalAnalysis?.detectedBranch && analysis.argentinaLegalAnalysis.detectedBranch !== 'general' ? (
+            <div className="legalClassification" aria-label="Clasificación jurídica detectada">
+              <strong>Especialidad detectada: {analysis.argentinaLegalAnalysis.detectedBranchLabel || analysis.argentinaLegalAnalysis.areaLabel}</strong>
+              {analysis.argentinaLegalAnalysis.alternativeBranches?.length ? <span>También puede involucrar: {analysis.argentinaLegalAnalysis.alternativeBranches.map((item) => item.label).join(', ')}.</span> : null}
+            </div>
+          ) : null}
           {analysis.decisionAnswer.categoryWarning ? <div className="categoryWarning" role="alert">{analysis.decisionAnswer.categoryWarning}</div> : null}
           <div className="reportActions"><button type="button" className="ghost" onClick={saveFavorite}>☆ Guardar en favoritos</button><button type="button" className="ghost" onClick={saveCurrentAsTemplate}>Guardar como plantilla</button><button type="button" className="ghost" onClick={downloadAnalysisReport}>Descargar informe</button><button type="button" className="ghost" onClick={startNewAnalysis}>Nuevo análisis</button></div>
           <p className="decisionDirectAnswer">{analysis.decisionAnswer.directAnswer}</p>
