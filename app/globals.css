@@ -477,17 +477,26 @@ pre,code{white-space:pre-wrap}
 .decisionAnswerPanel h2{max-width:900px;margin-top:10px}
 .decisionDirectAnswer{font-size:1.25rem;line-height:1.65;max-width:1000px;color:#f5f3ff}
 .leasingComparisonSection{margin-top:24px}
-.leasingComparisonTableWrap{overflow-x:auto;border:1px solid rgba(255,255,255,.13);border-radius:14px}
-.leasingComparisonTable{width:100%;min-width:760px;border-collapse:collapse;background:rgba(5,10,20,.45)}
-.leasingComparisonTable th,.leasingComparisonTable td{padding:14px 16px;border-right:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1);vertical-align:top;text-align:left;line-height:1.45}
-.leasingComparisonTable thead th{background:rgba(124,58,237,.18);color:#fff;font-size:1rem}
-.leasingComparisonTable tbody th{width:210px;color:#79f4d3;background:rgba(32,226,173,.06)}
+.leasingComparisonHint{margin:-4px 0 12px;color:#aaa2bc;font-size:.9rem}
+.leasingComparisonTableWrap{overflow-x:auto;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:#08101d;box-shadow:0 12px 28px rgba(0,0,0,.18)}
+.leasingComparisonTable{width:100%;min-width:760px;border-collapse:separate;border-spacing:0;background:#08101d;font-size:.92rem}
+.leasingComparisonTable th,.leasingComparisonTable td{padding:11px 13px;border-right:1px solid rgba(255,255,255,.13);border-bottom:1px solid rgba(255,255,255,.13);vertical-align:top;text-align:left;line-height:1.38}
+.leasingComparisonTable thead th{position:sticky;top:0;z-index:2;background:#25204a;color:#fff;font-size:.92rem;letter-spacing:.01em}
+.leasingComparisonTable tbody th{position:sticky;left:0;z-index:1;width:210px;color:#63e6c4;background:#111d2c;font-weight:800}
+.leasingComparisonTable tbody tr:nth-child(even) td{background:rgba(255,255,255,.035)}
 .leasingComparisonTable tr:last-child th,.leasingComparisonTable tr:last-child td{border-bottom:0}
-.leasingResultSections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:24px}
-.leasingResultSection{border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:18px;background:rgba(8,13,25,.48)}
-.leasingResultSection h3{margin-top:0;color:#79f4d3}
+.leasingResultSections{display:grid;grid-template-columns:1fr;gap:10px;margin-top:24px}
+.leasingResultSection{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:0;background:rgba(8,13,25,.48);overflow:hidden}
+.leasingResultSection summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 18px;cursor:pointer;color:#79f4d3;font-size:1.03rem;font-weight:850;list-style:none}
+.leasingResultSection summary::-webkit-details-marker{display:none}
+.leasingResultSection summary:after{content:'+';font-size:1.35rem;color:#a89df5}
+.leasingResultSection[open] summary:after{content:'−'}
+.leasingResultSection summary small{margin-left:auto;color:#9189a4;font-size:.72rem;font-weight:650;text-transform:uppercase;letter-spacing:.05em}
+.leasingResultSection ul{margin:0;padding:0 34px 16px 42px;border-top:1px solid rgba(255,255,255,.08)}
 .leasingResultSection li{margin-bottom:9px;line-height:1.5}
-@media(max-width:900px){.leasingResultSections{grid-template-columns:1fr}}
+.leasingNextActions{margin-top:14px;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px 18px;background:rgba(124,58,237,.06)}
+.leasingNextActions summary{cursor:pointer;color:#c7bfff;font-weight:800}
+@media(max-width:900px){.leasingResultSection summary{align-items:flex-start}.leasingResultSection summary small{display:none}.leasingComparisonTable{min-width:690px}}
 .authPanel{
   display:grid;
   grid-template-columns:minmax(0,1fr) minmax(320px,520px);

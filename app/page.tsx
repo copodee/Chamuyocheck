@@ -569,7 +569,6 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [legalJurisdiction, setLegalJurisdiction] = useState('');
   const [categoryError, setCategoryError] = useState('');
   const [leasingProvince, setLeasingProvince] = useState('');
-  const [leasingContractProvince, setLeasingContractProvince] = useState('Ciudad Autónoma de Buenos Aires');
   const [leasingLessorProvince, setLeasingLessorProvince] = useState('Ciudad Autónoma de Buenos Aires');
   const [leasingComparisonProvince, setLeasingComparisonProvince] = useState('');
   const [leasingProvinceError, setLeasingProvinceError] = useState('');
@@ -848,7 +847,6 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       if (selectedCategory === 'argentina-legal-documents' && legalJurisdiction) form.append('legalJurisdiction', legalJurisdiction);
       if (selectedCategory === 'leasing-specialist') {
         form.append('leasingProvince', leasingProvince);
-        form.append('leasingContractProvince', leasingContractProvince);
         form.append('leasingLessorProvince', leasingLessorProvince);
         if (leasingComparisonProvince) form.append('leasingComparisonProvince', leasingComparisonProvince);
         form.append('leasingQuoteUploaded', file ? 'true' : 'false');
@@ -1084,10 +1082,9 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setPreparedFormRequest((request) => request + 1);
   };
   const compareLeasingProvinces = () => {
-    setLeasingContractProvince(leasingHubProvinceA);
     setLeasingProvince(leasingHubProvinceA);
     setLeasingComparisonProvince(leasingHubProvinceB);
-    useTemplate('leasing-specialist', `Compará un leasing entre ${leasingHubProvinceA} y ${leasingHubProvinceB}. Explicá en cuál conviene celebrar el contrato y registrar o usar el bien, siempre que exista conexión territorial real. Compará porcentajes, bases, Sellos, Ingresos Brutos del dador, patente, registración, opción de compra, beneficios y exenciones. No sumes impuestos con bases diferentes ni supongas libre elección fiscal.`);
+    useTemplate('leasing-specialist', `Compará el domicilio de uso del cliente entre ${leasingHubProvinceA} y ${leasingHubProvinceB}, considerando además la jurisdicción legal de quien financia. Explicá las diferencias siempre que exista conexión territorial real. Compará porcentajes, bases, Sellos, Ingresos Brutos del financiador, patente, registración, opción de compra, beneficios y exenciones. No sumes impuestos con bases diferentes ni supongas libre elección fiscal.`);
   };
   const compareWords = (value: string) => new Set(value.toLowerCase().split(/\W+/).filter((word) => word.length > 3));
   const leftWords = compareWords(compareLeft);
@@ -1233,16 +1230,13 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
               {selectedCategory === 'leasing-specialist' && <div className="leasingJurisdictionPicker">
                 <div className="analysisStepTitle"><span>PASO 3</span> Elegí las jurisdicciones</div>
                 <h3>Provincia del leasing</h3>
-                <p>Elegí por separado dónde se celebra el contrato y dónde se usará y registrará el bien. Ambas jurisdicciones pueden tener consecuencias tributarias.</p>
+                <p>Indicá el domicilio donde el cliente usará el bien y la jurisdicción legal de la entidad o empresa que financia. Ambos datos pueden tener consecuencias tributarias y registrales.</p>
                 <div className="leasingProvinceGrid">
-                  <label>Uso, guarda y radicación del bien<select value={leasingProvince} onChange={(event) => { setLeasingProvince(event.target.value); setLeasingProvinceError(''); if (event.target.value === leasingComparisonProvince) setLeasingComparisonProvince(''); }}>
+                  <label>Domicilio de uso del cliente<select value={leasingProvince} onChange={(event) => { setLeasingProvince(event.target.value); setLeasingProvinceError(''); if (event.target.value === leasingComparisonProvince) setLeasingComparisonProvince(''); }}>
                     <option value="">Elegí una provincia</option>
                     {ARGENTINA_JURISDICTIONS.map((province) => <option key={province} value={province}>{province}</option>)}
                   </select></label>
-                  <label>Celebración e instrumentación del contrato<select value={leasingContractProvince} onChange={(event) => setLeasingContractProvince(event.target.value)}>
-                    {ARGENTINA_JURISDICTIONS.map((province) => <option key={province} value={province}>{province}</option>)}
-                  </select></label>
-                  <label>Domicilio del dador<select value={leasingLessorProvince} onChange={(event) => setLeasingLessorProvince(event.target.value)}>
+                  <label>Jurisdicción legal de quien financia<select value={leasingLessorProvince} onChange={(event) => setLeasingLessorProvince(event.target.value)}>
                     {ARGENTINA_JURISDICTIONS.map((province) => <option key={province} value={province}>{province}</option>)}
                   </select></label>
                   <label>¿Si el uso fuera en otra provincia, qué diferencia habría? (opcional)<select value={leasingComparisonProvince} onChange={(event) => setLeasingComparisonProvince(event.target.value)}>
@@ -1313,11 +1307,9 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
           <h2>{analysis.decisionAnswer.title}</h2>
           <button type="button" className="ghost" onClick={saveFavorite}>☆ Guardar en favoritos</button>
           <p className="decisionDirectAnswer">{analysis.decisionAnswer.directAnswer}</p>
-          {analysis.decisionAnswer.sections?.length
-            ? <div className="leasingResultSections">{analysis.decisionAnswer.sections.map((section) => <section className="leasingResultSection" key={section.title}><h3>{section.title}</h3><ul>{section.items.map((item, index) => <li key={`${section.title}-${index}`}>{item}</li>)}</ul></section>)}</div>
-            : analysis.decisionAnswer.findings.length > 0 && <><h3>Datos y hallazgos</h3><ul>{analysis.decisionAnswer.findings.map((item, index) => <li key={`decision-finding-${index}`}>{item}</li>)}</ul></>}
           {analysis.decisionAnswer.comparisonTable && <section className="leasingComparisonSection">
-            <h3>Comparación provincial resumida</h3>
+            <h3>Comparación de jurisdicciones</h3>
+            <p className="leasingComparisonHint">Leé cada concepto por fila y compará las jurisdicciones por columna.</p>
             <div className="leasingComparisonTableWrap">
               <table className="leasingComparisonTable">
                 <thead><tr><th>Concepto</th>{analysis.decisionAnswer.comparisonTable.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
@@ -1325,7 +1317,12 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
               </table>
             </div>
           </section>}
-          {analysis.decisionAnswer.nextActions.length > 0 && <><h3>Qué conviene hacer ahora</h3><ul>{analysis.decisionAnswer.nextActions.map((item, index) => <li key={`decision-action-${index}`}>{item}</li>)}</ul></>}
+          {analysis.decisionAnswer.sections?.length
+            ? <div className="leasingResultSections">{analysis.decisionAnswer.sections.map((section, sectionIndex) => <details className="leasingResultSection" key={section.title} open={sectionIndex === 0}><summary><span>{section.title}</span><small>{sectionIndex === 0 ? 'Resultado principal' : 'Abrir detalle'}</small></summary><ul>{section.items.map((item, index) => <li key={`${section.title}-${index}`}>{item}</li>)}</ul></details>)}</div>
+            : analysis.decisionAnswer.findings.length > 0 && <><h3>Datos y hallazgos</h3><ul>{analysis.decisionAnswer.findings.map((item, index) => <li key={`decision-finding-${index}`}>{item}</li>)}</ul></>}
+          {analysis.decisionAnswer.nextActions.length > 0 && (isLeasingAnalysis
+            ? <details className="leasingNextActions"><summary>Qué conviene hacer ahora</summary><ul>{analysis.decisionAnswer.nextActions.map((item, index) => <li key={`decision-action-${index}`}>{item}</li>)}</ul></details>
+            : <><h3>Qué conviene hacer ahora</h3><ul>{analysis.decisionAnswer.nextActions.map((item, index) => <li key={`decision-action-${index}`}>{item}</li>)}</ul></>)}
           {analysis.decisionAnswer.limitations.length > 0 && <details><summary>Supuestos y datos que todavía deben verificarse</summary><ul>{analysis.decisionAnswer.limitations.map((item, index) => <li key={`decision-limit-${index}`}>{item}</li>)}</ul></details>}
         </div>}
         <div className="heroGrid">
@@ -1464,7 +1461,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         </>}
         {activeView === 'plantillas' && <>
           <div className="cards" style={{ marginTop: '14px' }}>
-            <div className="card"><h3>Leasing: gastos y exenciones</h3><p>Detalla bien, tomador, provincias, cánones y opción.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Quiero analizar un leasing de [TIPO DE BIEN]. El tomador es [EMPRESA / PERSONA HUMANA / MONOTRIBUTISTA]. El contrato se celebra en [PROVINCIA], el bien se usará y registrará en [PROVINCIA]. Informá gastos, porcentajes, exenciones, beneficios fiscales y costo de la opción de compra.')}>Usar plantilla</button></div>
+            <div className="card"><h3>Leasing: gastos y exenciones</h3><p>Detalla bien, tomador, provincias, cánones y opción.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Quiero analizar un leasing de [TIPO DE BIEN]. El tomador es [EMPRESA / PERSONA HUMANA / MONOTRIBUTISTA]. Su domicilio de uso es [PROVINCIA] y la jurisdicción legal de quien financia es [PROVINCIA]. Informá gastos, porcentajes, exenciones, beneficios fiscales y costo de la opción de compra.')}>Usar plantilla</button></div>
             <div className="card"><h3>Comparar leasing y préstamo</h3><p>Compara el mismo activo y plazo después de impuestos.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Compará este leasing con un préstamo para comprar el mismo bien. Separá anticipo o maxi canon, cánones/cuotas, tasa, IVA, Sellos, comisiones, seguros, mantenimiento, opción, valor residual y beneficios impositivos realmente utilizables.')}>Usar plantilla</button></div>
             <div className="card"><h3>Revisar un contrato</h3><p>Busca obligaciones, costos, riesgos y cláusulas ambiguas.</p><button type="button" className="primary" onClick={() => useTemplate('argentina-legal-documents', 'Revisá este contrato argentino. Explicá obligaciones, costos, plazos, mora, garantías, rescisión, jurisdicción, cláusulas ambiguas y datos que faltan verificar.')}>Usar plantilla</button></div>
           </div>
