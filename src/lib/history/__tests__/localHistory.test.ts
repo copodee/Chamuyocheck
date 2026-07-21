@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readLocalHistory, saveLocalHistory } from '../localHistory';
+import { readLocalHistory, removeLocalHistoryItem, saveLocalHistory } from '../localHistory';
 
 function installStorage(initial = '') {
   const values = new Map<string, string>();
@@ -28,4 +28,12 @@ test('history persists the query context and replaces a duplicate id', () => {
 test('history fails closed when local storage is malformed', () => {
   installStorage('{broken');
   assert.deepEqual(readLocalHistory(), []);
+});
+
+test('history removes only the selected analysis', () => {
+  installStorage();
+  saveLocalHistory({ id: 'case-1', date: '', title: 'Uno', score: 10, documentType: 'Texto' });
+  saveLocalHistory({ id: 'case-2', date: '', title: 'Dos', score: 20, documentType: 'Texto' });
+  const remaining = removeLocalHistoryItem('case-1');
+  assert.deepEqual(remaining.map((item) => item.id), ['case-2']);
 });

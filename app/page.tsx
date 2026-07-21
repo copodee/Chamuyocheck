@@ -1,7 +1,7 @@
 
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { readLocalHistory, saveLocalHistory, type HistoryItem } from '../src/lib/history/localHistory';
+import { readLocalHistory, removeLocalHistoryItem, saveLocalHistory, type HistoryItem } from '../src/lib/history/localHistory';
 import { TERMS_SECTIONS, TERMS_STORAGE_KEY, TERMS_VERSION } from '../src/lib/legal/terms';
 import { extractImageTextInBrowser } from '../src/lib/extractors/browserOcr';
 import { extractPdfTextInBrowser } from '../src/lib/extractors/browserPdfOcr';
@@ -159,6 +159,20 @@ type InputMode = 'Texto' | 'PDF' | 'Imagen' | 'Web' | 'YouTube';
 
 type AnalysisCategoryId = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents' | 'leasing-specialist';
 type LegalBranchSelection = 'civil' | 'commercial' | 'family' | 'criminal' | 'administrative' | 'labor' | 'tax';
+type FavoriteItem = {
+  id: string;
+  label: string;
+  query: string;
+  category: AnalysisCategoryId | null;
+  legalBranch?: LegalBranchSelection;
+  legalJurisdiction?: string;
+};
+type SavedTemplate = {
+  id: string;
+  label: string;
+  prompt: string;
+  category: AnalysisCategoryId;
+};
 
 const LEGAL_BRANCHES: Array<{ id: LegalBranchSelection; label: string; description: string }> = [
   { id: 'civil', label: 'Civil y contratos', description: 'Obligaciones, contratos, daños, sucesiones, consumo y seguros.' },
@@ -550,8 +564,8 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [activeView, setActiveView] = useState<'inicio' | 'leasing' | 'historial' | 'favoritos' | 'plantillas' | 'comparar' | 'mejorar' | 'ajustes' | 'ayuda'>('inicio');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
-  const [favoritesItems, setFavoritesItems] = useState<string[]>([]);
-  const [templatesItems, setTemplatesItems] = useState<string[]>([]);
+  const [favoritesItems, setFavoritesItems] = useState<FavoriteItem[]>([]);
+  const [templatesItems, setTemplatesItems] = useState<SavedTemplate[]>([]);
   const [compareLeft, setCompareLeft] = useState('');
   const [compareRight, setCompareRight] = useState('');
   const [compareCategory, setCompareCategory] = useState<AnalysisCategoryId>('finance-credit');
@@ -634,8 +648,18 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setHistoryItems(readLocalHistory());
     if (typeof window === 'undefined') return;
     try {
-      setFavoritesItems(JSON.parse(localStorage.getItem('cc_favorites') || '[]'));
-      setTemplatesItems(JSON.parse(localStorage.getItem('cc_templates') || '[]'));
+      const storedFavorites = JSON.parse(localStorage.getItem('cc_favorites') || '[]');
+      setFavoritesItems(Array.isArray(storedFavorites) ? storedFavorites.map((item, index): FavoriteItem | null => {
+        if (typeof item === 'string') return { id: `legacy-${index}`, label: item, query: '', category: null };
+        if (!item || typeof item.label !== 'string') return null;
+        return { id: String(item.id || `favorite-${index}`), label: item.label, query: String(item.query || ''), category: ANALYSIS_CATEGORIES.some((category) => category.id === item.category) ? item.category : null, legalBranch: item.legalBranch, legalJurisdiction: item.legalJurisdiction };
+      }).filter((item): item is FavoriteItem => Boolean(item)) : []);
+      const storedTemplates = JSON.parse(localStorage.getItem('cc_templates') || '[]');
+      setTemplatesItems(Array.isArray(storedTemplates) ? storedTemplates.map((item, index): SavedTemplate | null => {
+        if (typeof item === 'string') return { id: `legacy-template-${index}`, label: item.slice(0, 80), prompt: item, category: 'finance-credit' };
+        if (!item || typeof item.prompt !== 'string' || !ANALYSIS_CATEGORIES.some((category) => category.id === item.category)) return null;
+        return { id: String(item.id || `template-${index}`), label: String(item.label || item.prompt.slice(0, 80)), prompt: item.prompt, category: item.category };
+      }).filter((item): item is SavedTemplate => Boolean(item)) : []);
     } catch {
       setFavoritesItems([]);
       setTemplatesItems([]);
@@ -919,11 +943,28 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         throw new Error(data.error || fallback);
       }
       setAnalysis(data);
+      const historyScore = data.decisionAnswer?.kind === 'leasing-specialist'
+        ? calculateLeasingTransparencyScore(buildLeasingTransparencyEvidence({
+          documentText: data.extractedPreview || '',
+          userText: text,
+          manualFields: file ? {} : {
+            assetType: leasingConfirmedFields.has('assetType') ? leasingAssetType : '',
+            assetValue: leasingAssetValue,
+            financedPercent: leasingConfirmedFields.has('financedPercent') ? `${leasingFinancedPercent}%` : '',
+            months: leasingConfirmedFields.has('months') ? `${leasingMonths} meses` : '',
+            tna: leasingTna ? `${leasingTna}%` : '',
+            option: leasingConfirmedFields.has('option') ? (leasingOptionMode === 'percent' ? `${leasingOptionPercent}%` : leasingOptionAmount) : '',
+            structuringFee: leasingConfirmedFields.has('structuringFee') ? `${leasingStructuringFeePercent}%` : '',
+            guaranteeCanons: leasingConfirmedFields.has('guaranteeCanons') ? leasingGuaranteeCanons : '',
+            jurisdiction: leasingProvince,
+          },
+        })).score
+        : data.score ?? 0;
       const historyItem: HistoryItem = {
         id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}`,
         date: new Date().toLocaleDateString('es-AR'),
         title: data.decisionAnswer?.title || data.centralQuestion || text.trim().slice(0, 100) || 'Análisis',
-        score: data.score ?? 0,
+        score: historyScore,
         documentType: data.documentType || getInputLabel(detected, Boolean(file)),
         query: text.trim(),
         category: selectedCategory,
@@ -1119,12 +1160,20 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const saveFavorite = () => {
     if (!analysis) return;
     const label = analysis.decisionAnswer?.title || analysis.centralQuestion || analysis.documentType;
-    const next = Array.from(new Set([label, ...favoritesItems])).slice(0, 20);
+    const favorite: FavoriteItem = {
+      id: `${selectedCategory || 'analysis'}:${text.trim().toLowerCase().slice(0, 120) || label.toLowerCase()}`,
+      label,
+      query: text.trim(),
+      category: selectedCategory,
+      legalBranch: legalBranch || undefined,
+      legalJurisdiction: legalJurisdiction || undefined,
+    };
+    const next = [favorite, ...favoritesItems.filter((item) => item.id !== favorite.id)].slice(0, 20);
     setFavoritesItems(next);
     localStorage.setItem('cc_favorites', JSON.stringify(next));
   };
-  const removeFavorite = (label: string) => {
-    const next = favoritesItems.filter((item) => item !== label);
+  const removeFavorite = (id: string) => {
+    const next = favoritesItems.filter((item) => item.id !== id);
     setFavoritesItems(next);
     localStorage.setItem('cc_favorites', JSON.stringify(next));
   };
@@ -1150,6 +1199,38 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setActiveView('inicio');
     setMobileMenuOpen(false);
     setPreparedFormRequest((request) => request + 1);
+  };
+  const resumeFavorite = (item: FavoriteItem) => {
+    if (!item.query || !item.category) return;
+    resumeHistoryItem({
+      id: item.id,
+      date: '',
+      title: item.label,
+      score: 0,
+      documentType: 'Favorito',
+      query: item.query,
+      category: item.category,
+      legalBranch: item.legalBranch,
+      legalJurisdiction: item.legalJurisdiction,
+    });
+  };
+  const removeHistoryItem = (id: string) => setHistoryItems(removeLocalHistoryItem(id));
+  const saveCurrentAsTemplate = () => {
+    if (!text.trim() || !selectedCategory) return;
+    const template: SavedTemplate = {
+      id: `${selectedCategory}:${text.trim().toLowerCase().slice(0, 120)}`,
+      label: analysis?.decisionAnswer?.title || text.trim().slice(0, 80),
+      prompt: text.trim(),
+      category: selectedCategory,
+    };
+    const next = [template, ...templatesItems.filter((item) => item.id !== template.id)].slice(0, 20);
+    setTemplatesItems(next);
+    localStorage.setItem('cc_templates', JSON.stringify(next));
+  };
+  const removeTemplate = (id: string) => {
+    const next = templatesItems.filter((item) => item.id !== id);
+    setTemplatesItems(next);
+    localStorage.setItem('cc_templates', JSON.stringify(next));
   };
   const compareLeasingProvinces = () => {
     setLeasingProvince(leasingHubProvinceA);
@@ -1388,7 +1469,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         {analysis.decisionAnswer && <div className="panel legalResultPanel decisionAnswerPanel">
           <div className="eyebrow">RESPUESTA A TU CONSULTA</div>
           <h2>{analysis.decisionAnswer.title}</h2>
-          <div className="reportActions"><button type="button" className="ghost" onClick={saveFavorite}>☆ Guardar en favoritos</button><button type="button" className="ghost" onClick={downloadAnalysisReport}>Descargar informe</button><button type="button" className="ghost" onClick={startNewAnalysis}>Nuevo análisis</button></div>
+          <div className="reportActions"><button type="button" className="ghost" onClick={saveFavorite}>☆ Guardar en favoritos</button><button type="button" className="ghost" onClick={saveCurrentAsTemplate}>Guardar como plantilla</button><button type="button" className="ghost" onClick={downloadAnalysisReport}>Descargar informe</button><button type="button" className="ghost" onClick={startNewAnalysis}>Nuevo análisis</button></div>
           <p className="decisionDirectAnswer">{analysis.decisionAnswer.directAnswer}</p>
           {analysis.decisionAnswer.comparisonTable && <section className="leasingComparisonSection">
             <h3>Comparación de jurisdicciones</h3>
@@ -1537,10 +1618,10 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
           </div>
         </>}
         {activeView === 'historial' && <>
-          {historyItems.length ? <div className="historyMini" style={{ marginTop: '14px' }}>{historyItems.map((item) => <div className="historyItem" key={item.id}><span>{item.score}</span><div>{item.title}<small>{item.documentType} · {item.date}</small></div>{item.query && <button type="button" className="ghost" onClick={() => resumeHistoryItem(item)}>Volver a consultar</button>}</div>)}</div> : <div className="paywall" style={{ marginTop: '14px' }}>Todavía no hay historial local disponible.</div>}
+          {historyItems.length ? <div className="historyMini" style={{ marginTop: '14px' }}>{historyItems.map((item) => <div className="historyItem" key={item.id}><span>{item.score}</span><div>{item.title}<small>{item.documentType} · {item.date}</small></div><div className="savedItemActions">{item.query && <button type="button" className="ghost" onClick={() => resumeHistoryItem(item)}>Volver a consultar</button>}<button type="button" className="ghost" onClick={() => removeHistoryItem(item.id)}>Quitar</button></div></div>)}</div> : <div className="paywall" style={{ marginTop: '14px' }}>Todavía no hay historial local disponible.</div>}
         </>}
         {activeView === 'favoritos' && <>
-          {favoritesItems.length ? <div className="historyMini" style={{ marginTop: '14px' }}>{favoritesItems.map((item) => <div className="historyItem" key={item}><div>{item}<small>Guardado en este navegador</small></div><button type="button" className="ghost" onClick={() => removeFavorite(item)}>Quitar</button></div>)}</div> : <div className="paywall" style={{ marginTop: '14px' }}>No hay favoritos guardados todavía. Guardá uno desde su respuesta.</div>}
+          {favoritesItems.length ? <div className="historyMini" style={{ marginTop: '14px' }}>{favoritesItems.map((item) => <div className="historyItem" key={item.id}><div>{item.label}<small>{item.query ? 'Consulta recuperable en este navegador' : 'Favorito anterior sin consulta guardada'}</small></div><div className="savedItemActions">{item.query && item.category && <button type="button" className="ghost" onClick={() => resumeFavorite(item)}>Volver a consultar</button>}<button type="button" className="ghost" onClick={() => removeFavorite(item.id)}>Quitar</button></div></div>)}</div> : <div className="paywall" style={{ marginTop: '14px' }}>No hay favoritos guardados todavía. Guardá uno desde su respuesta.</div>}
         </>}
         {activeView === 'plantillas' && <>
           <div className="cards" style={{ marginTop: '14px' }}>
@@ -1548,7 +1629,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             <div className="card"><h3>Comparar leasing y préstamo</h3><p>Compara el mismo activo y plazo después de impuestos.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Compará este leasing con un préstamo para comprar el mismo bien. Separá anticipo o maxi canon, cánones/cuotas, tasa, IVA, Sellos, comisiones, seguros, mantenimiento, opción, valor residual y beneficios impositivos realmente utilizables.')}>Usar plantilla</button></div>
             <div className="card"><h3>Revisar un contrato</h3><p>Busca obligaciones, costos, riesgos y cláusulas ambiguas.</p><button type="button" className="primary" onClick={() => useTemplate('argentina-legal-documents', 'Revisá este contrato argentino. Explicá obligaciones, costos, plazos, mora, garantías, rescisión, jurisdicción, cláusulas ambiguas y datos que faltan verificar.')}>Usar plantilla</button></div>
           </div>
-          {templatesItems.length > 0 && <ul>{templatesItems.map((item, i) => <li key={i}>{item}</li>)}</ul>}
+          {templatesItems.length > 0 && <div className="savedTemplates"><h3>Mis plantillas</h3>{templatesItems.map((item) => <div className="historyItem" key={item.id}><div>{item.label}<small>{ANALYSIS_CATEGORIES.find((category) => category.id === item.category)?.label}</small></div><div className="savedItemActions"><button type="button" className="ghost" onClick={() => useTemplate(item.category, item.prompt)}>Usar</button><button type="button" className="ghost" onClick={() => removeTemplate(item.id)}>Quitar</button></div></div>)}</div>}
         </>}
         {activeView === 'comparar' && <>
           <label className="menuCategoryPicker"><b>Tipo de comparación</b><select value={compareCategory} onChange={(event) => setCompareCategory(event.target.value as AnalysisCategoryId)}>{ANALYSIS_CATEGORIES.map((category) => <option key={`compare-${category.id}`} value={category.id}>{category.label}</option>)}</select><small>La categoría elegida determina qué cálculos, normas y riesgos se aplican.</small></label>
@@ -1561,7 +1642,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
           <button type="button" className="primary" style={{ marginTop: '12px' }} disabled={!improveDraft.trim()} onClick={sendImprovementToAnalysis}>Revisar y mejorar</button>
         </>}
         {activeView === 'ajustes' && <>
-          <div className="panel legalResultPanel" style={{ marginTop: '14px' }}><label><input type="checkbox" checked={showDetailedResults} onChange={(event) => { setShowDetailedResults(event.target.checked); localStorage.setItem('cc_detailed_results', String(event.target.checked)); }} /> Mostrar explicaciones detalladas</label><p className="hint">Idioma: español · Jurisdicción legal predeterminada: Argentina</p><button type="button" className="ghost" onClick={() => { localStorage.removeItem('cc_history'); setHistoryItems([]); }}>Borrar historial local</button> <button type="button" className="ghost" onClick={() => { localStorage.removeItem('cc_favorites'); setFavoritesItems([]); }}>Borrar favoritos</button></div>
+          <div className="panel legalResultPanel settingsPanel" style={{ marginTop: '14px' }}><label><input type="checkbox" checked={showDetailedResults} onChange={(event) => { setShowDetailedResults(event.target.checked); localStorage.setItem('cc_detailed_results', String(event.target.checked)); }} /> Mostrar explicaciones detalladas</label><p className="hint">Idioma: español · Jurisdicción legal predeterminada: Argentina</p><div className="settingsSummary"><span><b>{historyItems.length}</b> análisis en el historial</span><span><b>{favoritesItems.length}</b> favoritos</span><span><b>{templatesItems.length}</b> plantillas propias</span></div><div className="settingsActions"><button type="button" className="ghost" disabled={!historyItems.length} onClick={() => { if (window.confirm('¿Borrar todo el historial guardado en este navegador?')) { localStorage.removeItem('cc_history'); setHistoryItems([]); } }}>Borrar historial local</button><button type="button" className="ghost" disabled={!favoritesItems.length} onClick={() => { if (window.confirm('¿Borrar todos los favoritos guardados en este navegador?')) { localStorage.removeItem('cc_favorites'); setFavoritesItems([]); } }}>Borrar favoritos</button><button type="button" className="ghost" disabled={!templatesItems.length} onClick={() => { if (window.confirm('¿Borrar todas tus plantillas guardadas en este navegador?')) { localStorage.removeItem('cc_templates'); setTemplatesItems([]); } }}>Borrar mis plantillas</button></div></div>
         </>}
         {activeView === 'ayuda' && <div className="panel legalResultPanel" style={{ marginTop: '14px' }}><h3>Cómo obtener una respuesta útil</h3><ol><li>Elegí la categoría correcta.</li><li>Explicá qué decisión necesitás tomar.</li><li>Incluí documento, importes, tasas, fechas y jurisdicción.</li><li>En leasing indicá tipo de bien, tomador, provincia del contrato, provincia de uso/registro, cánones y opción.</li></ol><h3>Qué hace ChamuyoCheck</h3><p>Separa hechos, cálculos, riesgos, gastos, beneficios condicionados y puntos que necesitan una fuente oficial. No inventa una exención cuando faltan datos.</p></div>}
       </section>}

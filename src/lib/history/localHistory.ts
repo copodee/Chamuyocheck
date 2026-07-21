@@ -26,3 +26,10 @@ export function readLocalHistory(): HistoryItem[] {
     return [];
   }
 }
+
+export function removeLocalHistoryItem(id: string): HistoryItem[] {
+  if (typeof window === 'undefined') return [];
+  const next = readLocalHistory().filter((item) => item.id !== id);
+  localStorage.setItem('cc_history', JSON.stringify(next));
+  return next;
+}
