@@ -14,6 +14,7 @@ export type CustomerDecisionAnswer = {
   status: 'answerable' | 'partial' | 'needs-verification';
   title: string;
   directAnswer: string;
+  categoryWarning?: string;
   findings: string[];
   sections?: Array<{ title: string; items: string[] }>;
   comparisonTable?: {
@@ -23,6 +24,10 @@ export type CustomerDecisionAnswer = {
   nextActions: string[];
   limitations: string[];
 };
+
+function withLegalCategoryWarning(answer: CustomerDecisionAnswer, analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return analysis.branchSelectionWarning ? { ...answer, categoryWarning: analysis.branchSelectionWarning } : answer;
+}
 
 type DecisionAnswerInput = {
   documentText: string;
@@ -409,6 +414,30 @@ function buildFamilyAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAn
   };
 }
 
+function buildSuccessionAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
+  return {
+    kind: 'legal-document',
+    status: 'partial',
+    title: 'La herencia de la viuda y los hijos depende de si los bienes eran propios o gananciales',
+    directAnswer: 'Si una persona casada muere sin testamento y deja cónyuge e hijos, no se reparte todo con un único porcentaje. Primero se liquidan los bienes gananciales: el cónyuge sobreviviente conserva su mitad por el régimen matrimonial y la mitad que pertenecía al fallecido se transmite a los hijos, sin que el cónyuge vuelva a participar en esa mitad. En cambio, sobre los bienes propios del fallecido, el cónyuge hereda la misma porción que cada hijo. Por ejemplo, con viuda y dos hijos, un bien propio se divide en tres partes iguales; en un bien ganancial, la viuda conserva 50% y cada hijo recibe 25%. Esto puede cambiar si había separación de hecho sin voluntad de unirse, divorcio, testamento, otros descendientes, deudas o bienes con distinta titularidad.',
+    findings: [
+      'Artículo 2426: los hijos heredan por derecho propio y por partes iguales, salvo representación de descendientes.',
+      'Artículo 2433: cuando concurre con descendientes, el cónyuge recibe en los bienes propios una parte igual a la de un hijo.',
+      'El mismo artículo 2433 excluye al cónyuge de la división de los gananciales que correspondían al causante; antes debe separarse la mitad propia del cónyuge por la liquidación del régimen matrimonial.',
+      'Las deudas y cargas de la sucesión se determinan antes de conocer el valor neto que finalmente se parte.',
+      ...analysis.issues.map((issue) => `${issue.label}: ${issue.explanation}`),
+    ],
+    nextActions: [
+      'Clasificar cada bien como propio o ganancial y reunir títulos, fechas de adquisición y origen de los fondos.',
+      'Confirmar cantidad y vínculo de todos los descendientes, estado matrimonial al fallecimiento y si existía separación de hecho.',
+      'Verificar testamento, donaciones, deudas, cargas y último domicilio del causante antes de calcular porcentajes definitivos.',
+      ...analysis.sourceTargets.map((source) => `Contrastar con ${source}.`),
+      'Iniciar o revisar el proceso sucesorio en la jurisdicción del último domicilio del causante.',
+    ],
+    limitations: analysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
+  };
+}
+
 function buildCriminalAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer {
   return {
     kind: 'legal-document',
@@ -790,40 +819,43 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
     return buildLeasingAnswer(input.selectedCategory, explicitQuestion);
   }
   if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.subtopic === 'sexual-offense') {
-    return buildSexualOffenseAnswer(input.argentinaLegalAnalysis);
+    return withLegalCategoryWarning(buildSexualOffenseAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
   }
   if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.subtopic === 'family-support') {
-    return buildChildSupportAnswer(input.argentinaLegalAnalysis);
+    return withLegalCategoryWarning(buildChildSupportAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
+  }
+  if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.subtopic === 'succession') {
+    return withLegalCategoryWarning(buildSuccessionAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'commercial' && input.argentinaLegalAnalysis.subtopic === 'contract-review') {
-    return buildCommercialContractAnswer(input.argentinaLegalAnalysis);
+    return withLegalCategoryWarning(buildCommercialContractAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
   }
-  if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'labor') {
-    return buildLaborAnswer(input.argentinaLegalAnalysis);
+  if (legalCategorySelected && input.argentinaLegalAnalysis.subtopic === 'labor') {
+    return withLegalCategoryWarning(buildLaborAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
   }
-  if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'tax') {
-    return buildTaxAnswer(input.argentinaLegalAnalysis);
+  if (legalCategorySelected && input.argentinaLegalAnalysis.subtopic === 'tax') {
+    return withLegalCategoryWarning(buildTaxAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'administrative') {
-    return buildAdministrativeAnswer(input.argentinaLegalAnalysis);
+    return withLegalCategoryWarning(buildAdministrativeAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected && input.argentinaLegalAnalysis.subtopic === 'debt-enforcement') {
-    return buildLegalDebtEnforcementAnswer(input.argentinaLegalAnalysis);
+    return withLegalCategoryWarning(buildLegalDebtEnforcementAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'family') {
-    return buildFamilyAnswer(input.argentinaLegalAnalysis);
+    return withLegalCategoryWarning(buildFamilyAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'criminal') {
-    return buildCriminalAnswer(input.argentinaLegalAnalysis);
+    return withLegalCategoryWarning(buildCriminalAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'commercial') {
-    return buildCommercialAnswer(input.argentinaLegalAnalysis);
+    return withLegalCategoryWarning(buildCommercialAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'civil') {
-    return buildCivilAnswer(input.argentinaLegalAnalysis);
+    return withLegalCategoryWarning(buildCivilAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected) {
-    return buildGeneralLegalAnswer(input.argentinaLegalAnalysis);
+    return withLegalCategoryWarning(buildGeneralLegalAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
   }
   if (isFinancialProductComparison(question)) {
     return buildFinancialProductComparisonAnswer(question);

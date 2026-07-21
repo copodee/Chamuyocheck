@@ -129,7 +129,9 @@ type Analysis = {
     jurisdiction: 'argentina' | 'not-specified';
     area: 'contracts' | 'criminal' | 'family' | 'other-legal';
     areaLabel: string;
-    legalBranch: 'family' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
+    legalBranch: 'family' | 'succession' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
+    detectedBranch?: 'family' | 'succession' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
+    branchSelectionWarning?: string;
     selectedJurisdiction?: string;
     subtopic: string;
     intent: string;
@@ -144,6 +146,7 @@ type Analysis = {
     status: 'answerable' | 'partial' | 'needs-verification';
     title: string;
     directAnswer: string;
+    categoryWarning?: string;
     findings: string[];
     sections?: Array<{ title: string; items: string[] }>;
     comparisonTable?: {
@@ -158,7 +161,7 @@ type Analysis = {
 type InputMode = 'Texto' | 'PDF' | 'Imagen' | 'Web' | 'YouTube';
 
 type AnalysisCategoryId = 'finance-credit' | 'investment-project' | 'scam-risk' | 'argentina-legal-documents' | 'leasing-specialist';
-type LegalBranchSelection = 'civil' | 'commercial' | 'family' | 'criminal' | 'administrative' | 'labor' | 'tax';
+type LegalBranchSelection = 'civil' | 'commercial' | 'family' | 'succession' | 'criminal' | 'administrative' | 'labor' | 'tax';
 type FavoriteItem = {
   id: string;
   label: string;
@@ -178,6 +181,7 @@ const LEGAL_BRANCHES: Array<{ id: LegalBranchSelection; label: string; descripti
   { id: 'civil', label: 'Civil y contratos', description: 'Obligaciones, contratos, daños, sucesiones, consumo y seguros.' },
   { id: 'commercial', label: 'Comercial', description: 'Acuerdos entre empresas, sociedades, títulos, concursos y quiebras.' },
   { id: 'family', label: 'Familia', description: 'Divorcio, alimentos, cuidado, comunicación y responsabilidad parental.' },
+  { id: 'succession', label: 'Sucesiones y herencias', description: 'Herederos, cónyuge, hijos, testamentos, legítima, bienes propios y gananciales.' },
   { id: 'criminal', label: 'Penal', description: 'Delitos, denuncias, penas, agravantes y procedimiento penal.' },
   { id: 'administrative', label: 'Administrativo', description: 'Actos estatales, recursos, habilitaciones y contratación pública.' },
   { id: 'labor', label: 'Laboral', description: 'Empleo, despidos, salarios, registración, accidentes y relaciones de trabajo.' },
@@ -1469,6 +1473,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         {analysis.decisionAnswer && <div className="panel legalResultPanel decisionAnswerPanel">
           <div className="eyebrow">RESPUESTA A TU CONSULTA</div>
           <h2>{analysis.decisionAnswer.title}</h2>
+          {analysis.decisionAnswer.categoryWarning ? <div className="categoryWarning" role="alert">{analysis.decisionAnswer.categoryWarning}</div> : null}
           <div className="reportActions"><button type="button" className="ghost" onClick={saveFavorite}>☆ Guardar en favoritos</button><button type="button" className="ghost" onClick={saveCurrentAsTemplate}>Guardar como plantilla</button><button type="button" className="ghost" onClick={downloadAnalysisReport}>Descargar informe</button><button type="button" className="ghost" onClick={startNewAnalysis}>Nuevo análisis</button></div>
           <p className="decisionDirectAnswer">{analysis.decisionAnswer.directAnswer}</p>
           {analysis.decisionAnswer.comparisonTable && <section className="leasingComparisonSection">

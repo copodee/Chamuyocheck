@@ -122,3 +122,24 @@ test('conserva la jurisdicción elegida y la aplica a las fuentes procesales', (
   assert.equal(result.selectedJurisdiction, 'Buenos Aires');
   assert.ok(result.sourceTargets.some((item) => /Buenos Aires/i.test(item)));
 });
+
+test('reconoce sucesiones con distintas formas de preguntar aunque se haya elegido familia o civil', () => {
+  const variants = [
+    'Si muere el padre, ¿cómo se reparte la herencia entre su viuda y sus hijos?',
+    'Falleció mi esposo y tenemos dos hijos, ¿cómo se divide la casa?',
+    'Murió mi mamá, ¿quiénes heredan?',
+    '¿Cómo se reparte un bien ganancial si hay cónyuge y tres hijos?',
+  ];
+  for (const [index, question] of variants.entries()) {
+    const result = analyzeArgentinaLegal(question, true, question, index % 2 ? 'civil' : 'family');
+    assert.equal(result.subtopic, 'succession');
+    assert.equal(result.detectedBranch, 'succession');
+    assert.match(result.sourceTargets.join(' '), /2426.*2433/);
+  }
+});
+
+test('avisa cuando la consulta no coincide con la rama jurídica seleccionada', () => {
+  const result = analyzeArgentinaLegal('Me despidieron y no me pagaron la indemnización.', true, '', 'criminal');
+  assert.equal(result.detectedBranch, 'labor');
+  assert.match(result.branchSelectionWarning || '', /Laboral.*Penal/i);
+});

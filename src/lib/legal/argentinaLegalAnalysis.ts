@@ -11,7 +11,9 @@ export type ArgentinaLegalAnalysis = {
   jurisdiction: 'argentina' | 'not-specified';
   area: 'contracts' | 'criminal' | 'family' | 'other-legal';
   areaLabel: string;
-  legalBranch: 'family' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
+  legalBranch: 'family' | 'succession' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
+  detectedBranch: 'family' | 'succession' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
+  branchSelectionWarning?: string;
   selectedJurisdiction?: string;
   subtopic: 'family-support' | 'family-divorce' | 'family-parental' | 'sexual-offense' | 'criminal-penalty' | 'debt-enforcement' | 'civil-damages' | 'consumer' | 'insurance' | 'succession' | 'leasing' | 'contract-review' | 'corporate' | 'insolvency' | 'negotiable-instruments' | 'administrative-procedure' | 'labor' | 'tax' | 'public-procurement' | 'general-legal';
   intent: 'validity' | 'amount-or-duration' | 'consequences' | 'next-steps' | 'document-review' | 'general';
@@ -32,7 +34,7 @@ function evidence(text: string, pattern: RegExp): string {
 
 export function analyzeArgentinaLegal(text: string, assumeArgentina = false, userInstruction = '', branchPreference: LegalBranchPreference = 'auto', selectedJurisdiction = ''): ArgentinaLegalAnalysis {
   const routingText = userInstruction.trim() || text;
-  const legal = assumeArgentina || /ley|legal|ilegal|derecho|contrato|cl[aá]usula|delito|pena|prisi[oó]n|c[aá]rcel|hurto|robo|violaci[oó]n|violador(?:a|es)?|abuso sexual|integridad sexual|divorci\w*|alimentos?|cuota\s+aliment(?:o|aria)|jurisdicci[oó]n|rescisi[oó]n|incumplimiento|sentencia|honorarios?|costas?\s+judiciales?|ejecuci[oó]n\s+judicial/i.test(text);
+  const legal = assumeArgentina || /ley|legal|ilegal|derecho|contrato|cl[aá]usula|delito|pena|prisi[oó]n|c[aá]rcel|hurto|robo|violaci[oó]n|violador(?:a|es)?|abuso sexual|integridad sexual|divorci\w*|alimentos?|cuota\s+aliment(?:o|aria)|sucesi[oó]n|herencia|hereder|testamento|jurisdicci[oó]n|rescisi[oó]n|incumplimiento|sentencia|honorarios?|costas?\s+judiciales?|ejecuci[oó]n\s+judicial/i.test(text);
   const jurisdiction = assumeArgentina || /argentina|argentino|c[oó]digo (?:civil|penal)|infoleg|bolet[ií]n oficial/i.test(text) ? 'argentina' : 'not-specified';
   const family = /divorci\w*|separaci[oó]n|alimentos?|cuota\s+aliment(?:o|aria)|responsabilidad parental|r[eé]gimen de comunicaci[oó]n|bienes gananciales|compensaci[oó]n econ[oó]mica/i.test(routingText);
   const criminal = /\b(?:delito|denuncia\s+penal|causa\s+penal|penas?|prisi[oó]n|c[aá]rcel|condena|hurto|robo|homicidio|lesiones|amenazas|estafa|defraudaci[oó]n|violaci[oó]n|violador(?:a|es)?|abuso sexual|integridad sexual)\b|c[oó]digo penal/i.test(routingText);
@@ -40,17 +42,29 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
   const administrative = /acto\s+administrativo|procedimiento\s+administrativo|recurso\s+administrativo|administraci[oó]n\s+p[uú]blica|organismo\s+(?:p[uú]blico|estatal)|ministerio|municipalidad|estado\s+nacional|habilitaci[oó]n|licencia|concesi[oó]n|multa\s+(?:administrativa|estatal)|arca|afip|anmat/i.test(routingText);
   const labor = /despid|emplead[oa]|empleador|trabajador|relaci[oó]n\s+laboral|contrato\s+de\s+trabajo|salario|sueldo|remuneraci[oó]n|indemnizaci[oó]n\s+laboral|accidente\s+de\s+trabajo|aseguradora\s+de\s+riesgos\s+del\s+trabajo|sindicat|convenio\s+colectivo/i.test(routingText);
   const commercial = /acuerdo\s+comercial|operaci[oó]n\s+comercial|sociedad(?:es)?|socios?|accionistas?|acciones|directorio|empresa|concurso\s+preventivo|quiebra|insolvencia|cheque|pagar[eé]|fondo\s+de\s+comercio|ley\s+general\s+de\s+sociedades/i.test(`${routingText}\n${text}`);
+  const succession = /sucesi[oó]n|herencia|hered(?:a|an|ar|ero|era|eros|eras)|testamento|leg[ií]tima hereditaria|causante|viud[oa].{0,40}hij[oa]s?|(?:muri[oó]|muere|falleci[oó]|fallece).{0,80}(?:espos[oa]|mam[aá]|madre|padre|c[oó]nyuge|hij[oa]s?|bienes?|casa)|bien(?:es)?\s+ganancial(?:es)?.{0,80}(?:c[oó]nyuge|hij[oa]s?)/i.test(routingText);
   const civil = contracts || /da[ñn]os?|perjuicios?|responsabilidad\s+civil|deuda|acreedor|deudor|embarg|ejecuci[oó]n|sucesi[oó]n|herencia|propiedad|alquiler|obligaci[oó]n|intereses?|honorarios?/i.test(text);
-  const detectedBranch: ArgentinaLegalAnalysis['legalBranch'] = family ? 'family' : criminal ? 'criminal' : labor ? 'labor' : administrative ? 'administrative' : commercial && contracts ? 'commercial' : civil ? 'civil' : commercial ? 'commercial' : 'general';
+  const detectedBranch: ArgentinaLegalAnalysis['legalBranch'] = succession ? 'succession' : family ? 'family' : criminal ? 'criminal' : labor ? 'labor' : administrative ? 'administrative' : commercial && contracts ? 'commercial' : civil ? 'civil' : commercial ? 'commercial' : 'general';
   const legalBranch: ArgentinaLegalAnalysis['legalBranch'] = branchPreference === 'auto' ? detectedBranch : branchPreference;
-  const area: ArgentinaLegalAnalysis['area'] = legalBranch === 'family' ? 'family' : legalBranch === 'criminal' ? 'criminal' : legalBranch === 'civil' || legalBranch === 'commercial' ? 'contracts' : 'other-legal';
-  const areaLabel = legalBranch === 'family' ? 'Familia' : legalBranch === 'criminal' ? 'Derecho penal' : legalBranch === 'civil' ? 'Derecho civil' : legalBranch === 'commercial' ? 'Derecho comercial' : legalBranch === 'administrative' ? 'Derecho administrativo' : legalBranch === 'labor' ? 'Derecho laboral' : legalBranch === 'tax' ? 'Derecho tributario' : 'Consulta jurídica general';
+  const branchLabels: Record<ArgentinaLegalAnalysis['legalBranch'], string> = {
+    family: 'Familia', succession: 'Sucesiones y herencias', criminal: 'Penal', civil: 'Civil y contratos',
+    commercial: 'Comercial', administrative: 'Administrativo', labor: 'Laboral', tax: 'Tributario', general: 'Derecho argentino',
+  };
+  const compatibleBranches = new Set(['family:succession', 'succession:family', 'civil:succession', 'succession:civil', 'civil:commercial', 'commercial:civil']);
+  const branchSelectionWarning = branchPreference !== 'auto' && detectedBranch !== 'general' && detectedBranch !== legalBranch
+    && !compatibleBranches.has(`${legalBranch}:${detectedBranch}`)
+    ? `La consulta parece corresponder a ${branchLabels[detectedBranch]}, pero seleccionaste ${branchLabels[legalBranch]}. Revisá la categoría antes de usar el resultado.`
+    : undefined;
+  const area: ArgentinaLegalAnalysis['area'] = legalBranch === 'family' ? 'family' : legalBranch === 'criminal' ? 'criminal' : legalBranch === 'civil' || legalBranch === 'commercial' || legalBranch === 'succession' ? 'contracts' : 'other-legal';
+  const areaLabel = legalBranch === 'family' ? 'Familia' : legalBranch === 'succession' ? 'Sucesiones y herencias' : legalBranch === 'criminal' ? 'Derecho penal' : legalBranch === 'civil' ? 'Derecho civil' : legalBranch === 'commercial' ? 'Derecho comercial' : legalBranch === 'administrative' ? 'Derecho administrativo' : legalBranch === 'labor' ? 'Derecho laboral' : legalBranch === 'tax' ? 'Derecho tributario' : 'Consulta jurídica general';
   const subtopic: ArgentinaLegalAnalysis['subtopic'] = legalBranch === 'labor'
     ? 'labor'
     : legalBranch === 'tax'
     ? 'tax'
     : /\bleasing\b|lease[ -]?back|arrendamiento\s+financiero|opci[oó]n\s+de\s+compra/i.test(routingText)
     ? 'leasing'
+    : legalBranch === 'succession' || succession
+    ? 'succession'
     : /violaci[oó]n|violador(?:a|es)?|abuso sexual|acceso carnal/i.test(text)
     ? 'sexual-offense'
     : family && /alimentos?|cuota\s+aliment/i.test(text)
@@ -125,7 +139,7 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
     subtopic === 'consumer' ? 'carácter de consumidor final, proveedor, oferta, contratación, reclamos y comprobantes' : '',
     subtopic === 'insurance' ? 'póliza completa, vigencia, riesgo cubierto, denuncia del siniestro, rechazo y comunicaciones' : '',
     subtopic === 'civil-damages' ? 'hecho, daño acreditable, relación causal, responsables, fecha y seguros involucrados' : '',
-    subtopic === 'succession' ? 'último domicilio del causante, vínculo familiar, bienes, testamento y procesos iniciados' : '',
+    subtopic === 'succession' ? 'último domicilio del causante; cantidad y vínculo de herederos; estado matrimonial y eventual separación de hecho; carácter propio o ganancial de cada bien; deudas, donaciones, testamento y procesos iniciados' : '',
     subtopic === 'corporate' ? 'tipo societario, estatuto, jurisdicción registral, participación, decisiones y actas relevantes' : '',
     subtopic === 'insolvency' ? 'estado de cesación de pagos, procesos abiertos, acreedores, garantías y vencimientos' : '',
     subtopic === 'administrative-procedure' ? 'organismo, acto o expediente, fecha de notificación, vía recursiva y plazo disponible' : '',
@@ -147,7 +161,7 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
     : subtopic === 'insurance'
       ? ['Ley 17.418 de Seguros, texto actualizado', 'Código Civil y Comercial de la Nación y Ley 24.240 si existe relación de consumo', 'Normativa y registros oficiales de la Superintendencia de Seguros de la Nación']
     : subtopic === 'succession'
-      ? ['Código Civil y Comercial de la Nación, transmisión hereditaria, legítimas y sucesiones', 'Código procesal civil de la jurisdicción del último domicilio del causante', 'Registro de Actos de Última Voluntad y registros de bienes pertinentes']
+      ? ['Código Civil y Comercial de la Nación, artículos 2426, 2433, 2437 y normas sobre transmisión hereditaria, legítimas y sucesiones', 'Código procesal civil de la jurisdicción del último domicilio del causante', 'Registro de Actos de Última Voluntad y registros de bienes pertinentes']
     : subtopic === 'civil-damages'
       ? ['Código Civil y Comercial de la Nación, responsabilidad civil y reparación del daño', 'Ley especial aplicable según el hecho, actividad o relación de consumo', 'Código procesal y jurisprudencia oficial de la jurisdicción correspondiente']
     : subtopic === 'corporate'
@@ -188,6 +202,8 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
     area,
     areaLabel,
     legalBranch,
+    detectedBranch,
+    branchSelectionWarning,
     selectedJurisdiction: selectedJurisdiction || undefined,
     subtopic,
     intent,

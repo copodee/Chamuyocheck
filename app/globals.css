@@ -535,3 +535,4 @@ pre,code{white-space:pre-wrap}
 }
 .betaAccessNote{margin-top:10px;font-size:.9rem}
 @media(max-width:900px){.authPanel{grid-template-columns:1fr}.authActions{grid-template-columns:1fr}}
+.categoryWarning{margin:0 0 1rem;padding:.85rem 1rem;border:1px solid rgba(255,194,51,.65);border-radius:12px;background:rgba(255,194,51,.1);color:#ffe08a;font-weight:700;line-height:1.45}

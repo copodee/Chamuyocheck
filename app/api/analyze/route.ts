@@ -993,13 +993,13 @@ export async function handleAnalyzeRequest(req: Request) {
       }, { status: 400 });
     }
     const selectedCategory: SupportedProductArea = selectedCategoryRaw;
-    if (selectedCategory === 'argentina-legal-documents' && !['civil', 'commercial', 'family', 'criminal', 'administrative', 'labor', 'tax'].includes(legalBranchRaw)) {
+    if (selectedCategory === 'argentina-legal-documents' && !['civil', 'commercial', 'family', 'succession', 'criminal', 'administrative', 'labor', 'tax'].includes(legalBranchRaw)) {
       return NextResponse.json({ error: 'Elegí qué tipo de derecho querés analizar.' }, { status: 400 });
     }
     if (selectedCategory === 'argentina-legal-documents' && !legalJurisdiction) {
       return NextResponse.json({ error: 'Elegí la jurisdicción principal del caso.' }, { status: 400 });
     }
-    const legalBranch: LegalBranchPreference = ['civil', 'commercial', 'family', 'criminal', 'administrative', 'labor', 'tax'].includes(legalBranchRaw)
+    const legalBranch: LegalBranchPreference = ['civil', 'commercial', 'family', 'succession', 'criminal', 'administrative', 'labor', 'tax'].includes(legalBranchRaw)
       ? legalBranchRaw as LegalBranchPreference
       : 'auto';
     if (selectedCategory === 'leasing-specialist' && !leasingProvince) {

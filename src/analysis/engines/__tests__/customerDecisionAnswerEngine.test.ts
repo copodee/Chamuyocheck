@@ -335,3 +335,29 @@ test('la respuesta comercial distingue sociedades títulos garantías y concurso
   assert.match(rendered, /sociedad.*título de crédito.*situación concursal/is);
   assert.match(rendered, /personalidad jurídica.*administradores, socios o garantes/i);
 });
+
+test('responde específicamente cómo se distribuye una herencia entre cónyuge e hijos', () => {
+  const question = 'Si muere el padre de una familia, ¿cómo se reparte la herencia entre su viuda y dos hijos?';
+  for (const branch of ['family', 'civil', 'succession'] as const) {
+    const legal = analyzeArgentinaLegal(question, true, question, branch);
+    const answer = buildCustomerDecisionAnswer({
+      documentText: question, userInstruction: question, selectedCategory: 'argentina-legal-documents',
+      financialAnalysis: null, scamRiskAnalysis: analyzeScamRisk(question), argentinaLegalAnalysis: legal,
+    });
+    const rendered = [answer.title, answer.directAnswer, ...answer.findings, ...answer.nextActions].join(' ');
+    assert.match(rendered, /bienes propios.*misma porción que (?:cada|un) hijo/is);
+    assert.match(rendered, /50%.*cada hijo recibe 25%/is);
+    assert.match(rendered, /artículo 2426.*artículo 2433/is);
+    assert.doesNotMatch(answer.title, /caso de familia debe organizarse|reclamo civil/i);
+  }
+});
+
+test('muestra una advertencia clara si la rama seleccionada contradice la consulta', () => {
+  const question = 'Me despidieron y no me pagaron la indemnización.';
+  const legal = analyzeArgentinaLegal(question, true, question, 'criminal');
+  const answer = buildCustomerDecisionAnswer({
+    documentText: question, userInstruction: question, selectedCategory: 'argentina-legal-documents',
+    financialAnalysis: null, scamRiskAnalysis: analyzeScamRisk(question), argentinaLegalAnalysis: legal,
+  });
+  assert.match(answer.categoryWarning || '', /Laboral.*Penal/i);
+});
