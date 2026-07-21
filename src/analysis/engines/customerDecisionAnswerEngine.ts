@@ -276,6 +276,24 @@ function buildLegalSubtopicAnswer(analysis: ArgentinaLegalAnalysis): CustomerDec
       findings: ['Las tareas de cuidado y la continuidad cotidiana son hechos jurídicamente relevantes.', 'Una urgencia o riesgo exige medidas distintas del planteo definitivo.'],
       actions: ['Preparar cronología de cuidados, domicilios, escolaridad, salud, comunicaciones y acuerdos.', 'Identificar toda resolución, audiencia, denuncia o restricción vigente.'],
     },
+    'family-violence': {
+      title: 'La prioridad es proteger a las personas en riesgo y preservar la evidencia',
+      answer: 'Una consulta por violencia familiar o doméstica requiere identificar peligro actual, convivencia, lesiones, amenazas, armas, niñas o niños involucrados y medidas ya vigentes. No debe quedar absorbida por el trámite de divorcio, alimentos o bienes. Según los hechos pueden corresponder medidas urgentes de protección y, por separado, actuaciones de familia, civiles o penales.',
+      findings: ['La urgencia se evalúa por hechos actuales y riesgo, no sólo por la existencia de una denuncia previa.', 'Una medida protectoria no resuelve automáticamente el conflicto familiar o patrimonial definitivo.'],
+      actions: ['Si existe peligro inmediato, acudir a emergencias o a la autoridad local sin esperar este análisis.', 'Conservar mensajes, fotografías, certificados, testigos, denuncias y resoluciones; identificar personas protegidas y medidas vigentes.'],
+    },
+    'criminal-property': {
+      title: 'El delito contra la propiedad depende de cómo ocurrió el apoderamiento o la afectación del bien',
+      answer: 'Robo, hurto, usurpación y daño no son equivalentes. Deben precisarse la conducta, violencia o fuerza, titularidad o tenencia, lugar, momento, participación, recuperación del bien y evidencia disponible. La denominación usada por quien consulta no sustituye la calificación jurídica ni permite anticipar una pena.',
+      findings: ['Violencia sobre personas, fuerza sobre cosas y ausencia de ambas pueden modificar el encuadre.', 'Un conflicto por posesión, entrega o contrato puede ser civil aunque también deba preservarse evidencia de una conducta penal.'],
+      actions: ['Preparar cronología, inventario, títulos o comprobantes, fotografías, cámaras, testigos y comunicaciones.', 'Identificar bien, valor, tenencia, modo de acceso, daños, amenazas y personas intervinientes.'],
+    },
+    'criminal-economic': {
+      title: 'El delito económico exige probar el mecanismo, el engaño o abuso y el perjuicio',
+      answer: 'La falta de pago o el incumplimiento de un negocio no constituyen por sí solos estafa, defraudación, administración fraudulenta, lavado o corrupción. Debe reconstruirse qué se afirmó u ocultó, cuándo existió el propósito atribuido, qué disposición patrimonial produjo, quién se benefició y qué documentación respalda cada paso. El análisis penal debe convivir con las posibles acciones civiles o comerciales sin confundirlas.',
+      findings: ['El momento del engaño o abuso y la relación con la entrega de dinero o bienes son datos centrales.', 'Contabilidad, flujos, beneficiarios, poderes y comunicaciones pueden ser más relevantes que la etiqueta usada.'],
+      actions: ['Preservar contratos, transferencias, facturas, contabilidad, mensajes, identidades, cuentas y trazabilidad de fondos.', 'Separar incumplimiento posterior de maniobras previas o concomitantes y cuantificar el perjuicio documentado.'],
+    },
     consumer: {
       title: 'La relación de consumo debe contrastar la oferta, lo entregado y la respuesta del proveedor',
       answer: 'Para establecer si corresponde reparación, cambio, devolución, cumplimiento o daños hay que comprobar quién ofreció el producto o servicio, qué prometió, qué se contrató, cuál fue la falla y cómo respondió. La publicidad, la oferta, la garantía y el trato recibido pueden integrar el análisis; no alcanza con que el proveedor invoque sus términos internos.',
@@ -329,6 +347,12 @@ function buildLegalSubtopicAnswer(analysis: ArgentinaLegalAnalysis): CustomerDec
       answer: 'Una licitación, adjudicación, sanción o ejecución contractual pública debe analizarse desde el régimen aplicable y el expediente completo. El pliego, la oferta, los dictámenes, la competencia del organismo, la igualdad entre oferentes, la motivación y la notificación determinan qué observación, impugnación, recurso o medida puede corresponder.',
       findings: ['El régimen nacional no se aplica automáticamente a provincias, municipios o empresas públicas.', 'La etapa del trámite y la fecha de notificación condicionan la vía disponible.'],
       actions: ['Obtener expediente, pliego, circulares, oferta, actas, dictámenes, acto y constancia de notificación.', 'Precisar organismo, jurisdicción, etapa, agravio y plazo vigente.'],
+    },
+    'administrative-sanctions': {
+      title: 'La sanción administrativa debe respetar competencia, procedimiento, defensa y proporcionalidad',
+      answer: 'Para revisar una multa, clausura, inhabilitación o sanción disciplinaria hay que identificar la norma imputada, autoridad competente, acta, prueba, descargo, motivación, graduación, reincidencia y notificación. No toda irregularidad invalida automáticamente la sanción, pero la falta de defensa, prueba, competencia o fundamento puede ser relevante. La vía y el plazo dependen del organismo y jurisdicción.',
+      findings: ['Acta de constatación, imputación y acto sancionatorio cumplen funciones diferentes.', 'Debe revisarse si el recurso suspende la ejecución o si hace falta pedir una medida específica.'],
+      actions: ['Obtener expediente completo, acta, imputación, descargo, prueba, dictamen, resolución y notificación.', 'Controlar norma, competencia, antecedentes, graduación, recurso, efecto y vencimiento.'],
     },
   };
   const selected = content[analysis.subtopic];

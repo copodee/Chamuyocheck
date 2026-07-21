@@ -320,8 +320,8 @@ test('la respuesta penal no convierte un incumplimiento contractual en delito', 
     argentinaLegalAnalysis: analyzeArgentinaLegal(text, true, '¿Es delito?', 'criminal'),
   });
   const rendered = [answer.title, answer.directAnswer, ...answer.findings, ...answer.nextActions].join(' ');
-  assert.match(rendered, /conducta concreta, evidencia y circunstancias/i);
-  assert.match(rendered, /no convierte automáticamente.*delito/i);
+  assert.match(rendered, /delito económico.*engaño o abuso.*perjuicio/is);
+  assert.match(rendered, /incumplimiento.*no constituyen por sí solos estafa/i);
 });
 
 test('la respuesta comercial distingue sociedades títulos garantías y concursos', () => {

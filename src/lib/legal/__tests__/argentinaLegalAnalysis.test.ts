@@ -143,3 +143,24 @@ test('avisa cuando la consulta no coincide con la rama jurídica seleccionada', 
   assert.equal(result.detectedBranch, 'labor');
   assert.match(result.branchSelectionWarning || '', /Laboral.*Penal/i);
 });
+
+test('pondera múltiples señales y no decide la rama por una sola palabra ambigua', () => {
+  const cases = [
+    ['La empresa me echó, no registró el empleo y debe salarios e indemnización.', 'labor'],
+    ['ARCA determinó impuesto, aplicó intereses fiscales y rechazó la declaración jurada.', 'tax'],
+    ['El municipio clausuró el local después de un sumario y aplicó una sanción.', 'administrative'],
+    ['Los accionistas impugnan el acta del directorio de la sociedad.', 'commercial'],
+    ['El inquilino incumplió la locación y no restituyó el inmueble.', 'civil'],
+    ['Necesito fijar cuidado personal, alimentos y comunicación con mis hijos.', 'family'],
+    ['Hubo amenazas, lesiones y una denuncia penal.', 'criminal'],
+    ['Falleció el causante, hay testamento, herederos y bienes.', 'succession'],
+  ] as const;
+  for (const [question, branch] of cases) assert.equal(analyzeArgentinaLegal(question, true).detectedBranch, branch, question);
+});
+
+test('distingue violencia familiar, delitos patrimoniales, económicos y sanciones administrativas', () => {
+  assert.equal(analyzeArgentinaLegal('Solicito exclusión del hogar por violencia familiar.', true).subtopic, 'family-violence');
+  assert.equal(analyzeArgentinaLegal('Me robaron el auto usando violencia.', true).subtopic, 'criminal-property');
+  assert.equal(analyzeArgentinaLegal('Me engañaron para transferir dinero y denuncio una estafa.', true).subtopic, 'criminal-economic');
+  assert.equal(analyzeArgentinaLegal('El municipio aplicó una clausura y multa administrativa.', true).subtopic, 'administrative-sanctions');
+});
