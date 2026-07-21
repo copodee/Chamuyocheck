@@ -71,8 +71,8 @@ test('inversiones pregunta si una tokenización es posible y recibe factibilidad
     financialAnalysis: null, investmentProjectAnalysis: analyzeInvestmentProject(text, '', true),
     scamRiskAnalysis: analyzeScamRisk(''), argentinaLegalAnalysis: analyzeArgentinaLegal(''),
   });
-  assert.equal(answer.kind, 'scam-prevention');
-  assert.match(answer.findings.join(' '), /estructura jurídica.*titularidad.*custodia/i);
+  assert.equal(answer.kind, 'investment-project');
+  assert.match(`${answer.directAnswer} ${answer.findings.join(' ')}`, /activo real.*vehículo legal.*custodia/is);
 });
 
 test('responde primero cuánto se paga y estima tasas para el plazo pedido', () => {

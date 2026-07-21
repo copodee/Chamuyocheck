@@ -8,6 +8,7 @@ import { buildInternationalLeasingFindings } from '../../lib/leasing/internation
 import { LEASING_TAXPAYER_PROFILES, PROVINCIAL_LEASING_STAMP_MATRIX } from '../../lib/leasing/argentinaLeasingTaxMatrix';
 import { calculateFinancialLeasing } from '../../lib/leasing/leasingFinanceMath';
 import { extractLeasingQuoteData } from '../../lib/leasing/leasingQuoteExtraction';
+import { classifyUserDecisionIntent } from './userDecisionIntent';
 
 export type CustomerDecisionAnswer = {
   kind: 'loan-cost' | 'financial-product-comparison' | 'investment-project' | 'scam-prevention' | 'legal-document' | 'leasing-specialist' | 'supported-review';
@@ -256,15 +257,31 @@ function buildGeneralLegalAnswer(analysis: ArgentinaLegalAnalysis): CustomerDeci
   };
 }
 
-function asksEntityOrOfferVerification(text: string): boolean {
-  return /\b(?:es|son|parece|parecen|existe|existen|opera|operan|funciona|funcionan|ser[ií]a|ser[ií]an)\b.{0,100}\b(?:real(?:es)?|leg[ií]tim[oa]s?|confiable(?:s)?|segur[oa]s?|posible(?:s)?|viable(?:s)?|estafa(?:s)?|fraude(?:s)?)\b|\b(?:es|son)\s+(?:una?\s+)?(?:posible\s+)?(?:estafa|fraude)|\b(?:validar|verificar|comprobar|confirmar)\b.{0,100}\b(?:empresa|entidad|fintech|plataforma|sitio|dominio|oferta|inversi[oó]n)\b/i.test(text);
-}
-
 function extractNamedOperators(text: string): string[] {
   const candidates = [...text.matchAll(/\b([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9.-]{2,40})\b(?=\s+(?:es|opera|ofrece|permite|usa|trabaja|se\s+presenta|aunque)\s+(?:una?\s+)?(?:startup|plataforma|fintech|proptech|empresa|exchange|broker)?)/g)]
     .map((match) => match[1])
     .filter((name) => !/^(?:Argentina|Enlace|Título|Página|Esta|Aunque)$/i.test(name));
   return [...new Set(candidates)].slice(0, 8);
+}
+
+function buildInvestmentFeasibilityAnswer(): CustomerDecisionAnswer {
+  return {
+    kind: 'investment-project', status: 'needs-verification',
+    title: 'La estructura puede ser posible, pero falta validar cómo funciona el caso concreto',
+    directAnswer: 'Una inversión tokenizada, colectiva, fiduciaria o canalizada por una plataforma puede ser jurídicamente y económicamente posible. Eso no demuestra que esta implementación sea válida, operativa o conveniente. Hay que separar el activo real, el derecho que compra el inversor, el vehículo legal, quién recibe y custodia el dinero, cómo se generan los retornos y cómo se recupera o vende la inversión.',
+    findings: [
+      'La factibilidad del modelo no acredita la existencia, autorización o solvencia de un operador particular.',
+      'Ser titular de un token, participación o crédito no equivale necesariamente a ser dueño registral del activo subyacente.',
+      'La rentabilidad publicitada debe reconstruirse con flujos, costos, impuestos, plazos, vacancia o incumplimiento y escenario de salida.',
+    ],
+    nextActions: [
+      'Identificar el activo, su titular registral y las restricciones o gravámenes que lo afectan.',
+      'Leer el contrato y precisar qué derecho adquiere el inversor, contra quién puede ejercerlo y con qué prioridad.',
+      'Verificar vehículo legal, administradores, custodia de fondos y autorizaciones regulatorias aplicables.',
+      'Construir escenarios de flujo y comprobar cómo se rescata, transfiere o liquida la participación.',
+    ],
+    limitations: ['Sin documentación contractual, identidad del operador y flujo económico completo sólo puede evaluarse la estructura general, no validarse la oferta concreta.'],
+  };
 }
 
 function buildEntityVerificationAnswer(input: DecisionAnswerInput, question: string): CustomerDecisionAnswer {
@@ -962,6 +979,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
 
 export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): CustomerDecisionAnswer {
   const question = `${input.userInstruction || ''}\n${input.documentText}`;
+  const decisionIntent = classifyUserDecisionIntent(input.userInstruction || '', input.documentText);
   const legalCategorySelected = input.selectedCategory === 'argentina-legal-documents';
   const explicitQuestion = input.userInstruction?.trim() || input.documentText;
   if (input.selectedCategory === 'leasing-specialist' || /\bleasing\b|lease[ -]?back|arrendamiento\s+financiero|opci[oó]n\s+de\s+compra/i.test(explicitQuestion)) {
@@ -1013,8 +1031,11 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   if (isFinancialProductComparison(question)) {
     return buildFinancialProductComparisonAnswer(question);
   }
-  if ((input.selectedCategory === 'investment-project' || input.selectedCategory === 'scam-risk') && asksEntityOrOfferVerification(question)) {
+  if ((input.selectedCategory === 'investment-project' || input.selectedCategory === 'scam-risk') && decisionIntent.primary === 'identity-legitimacy') {
     return buildEntityVerificationAnswer(input, question);
+  }
+  if (input.selectedCategory === 'investment-project' && decisionIntent.primary === 'feasibility') {
+    return buildInvestmentFeasibilityAnswer();
   }
   if (input.selectedCategory === 'finance-credit' && input.financialAnalysis && /\b(?:prenda(?:s|ria|rias)?|prendari[oa]s?)\b/i.test(question)) {
     return buildPledgeFinanceAnswer(input.financialAnalysis, question);
