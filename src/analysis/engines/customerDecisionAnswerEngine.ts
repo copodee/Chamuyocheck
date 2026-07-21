@@ -657,9 +657,27 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     const firstSentence = compact.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() || compact;
     return firstSentence.length > 150 ? `${firstSentence.slice(0, 147).trimEnd()}…` : firstSentence;
   };
+  const jurisdictionRole = (jurisdiction: string) => {
+    const normalizedJurisdiction = jurisdiction.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const roles: string[] = [];
+    if (normalizedQuestion.includes(`domicilio de uso del cliente: ${normalizedJurisdiction}`)
+      || normalizedQuestion.includes(`jurisdiccion del tomador y del contrato: ${normalizedJurisdiction}`)
+      || normalizedQuestion.includes(`provincia de uso, guarda y radicacion del bien: ${normalizedJurisdiction}`)) roles.push('Uso del cliente');
+    if (normalizedQuestion.includes(`jurisdiccion legal de quien financia: ${normalizedJurisdiction}`)
+      || normalizedQuestion.includes(`domicilio o lugar de presentacion fiscal del dador: ${normalizedJurisdiction}`)
+      || normalizedQuestion.includes(`domicilio del dador: ${normalizedJurisdiction}`)) roles.push('Financiador');
+    if (normalizedQuestion.includes(`provincia alternativa de uso para comparar: ${normalizedJurisdiction}`)
+      || normalizedQuestion.includes(`comparar la jurisdiccion del tomador con: ${normalizedJurisdiction}`)
+      || normalizedQuestion.includes(`escenario provincial alternativo para comparar contrato y radicacion: ${normalizedJurisdiction}`)) roles.push('Uso alternativo');
+    return roles.length ? roles.join(' + ') : 'Jurisdicción comparada';
+  };
   const provincialComparisonTable = profilesToReport.length > 1 ? {
     columns: profilesToReport.map((item) => item.jurisdiction),
     rows: [
+      {
+        label: 'Rol en la consulta',
+        values: profilesToReport.map((item) => jurisdictionRole(item.jurisdiction)),
+      },
       {
         label: 'Sellos del contrato',
         values: profilesToReport.map((item) => item.stampRatePercent === undefined
@@ -680,7 +698,13 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       },
       {
         label: 'Base, territorialidad y condiciones',
-        values: profilesToReport.map((item) => item.treatment),
+        values: profilesToReport.map((item) => shortCell(item.treatment, 'Tratamiento pendiente de verificación')),
+      },
+      {
+        label: 'Estado de la fuente',
+        values: profilesToReport.map((item) => item.status === 'verified-current'
+          ? `Norma ${item.fiscalYear || 'vigente'} verificada`
+          : 'Requiere confirmar la norma anual vigente'),
       },
     ],
   } : undefined;

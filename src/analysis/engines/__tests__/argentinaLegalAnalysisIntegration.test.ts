@@ -115,12 +115,23 @@ test('leasing entrega provincias en columnas y separa resultados por tema', () =
   const result = buildLocalAnalysis('Compará un leasing entre Ciudad Autónoma de Buenos Aires y Mendoza para una persona humana.', 'Texto', '', null, '', '', 'leasing-specialist');
   assert.deepEqual(result.decisionAnswer?.comparisonTable?.columns, ['Ciudad Autónoma de Buenos Aires', 'Mendoza']);
   assert.ok(result.decisionAnswer?.comparisonTable?.rows.some((row) => row.label === 'Sellos del contrato'));
+  assert.ok(result.decisionAnswer?.comparisonTable?.rows.some((row) => row.label === 'Estado de la fuente'));
   assert.ok(result.decisionAnswer?.sections?.some((section) => section.title === 'Resultado financiero'));
   assert.ok(result.decisionAnswer?.sections?.some((section) => section.title === 'Ventajas frente a préstamo y prenda'));
   const sections = result.decisionAnswer?.sections?.flatMap((section) => section.items).join(' ') || '';
   assert.match(sections, /no integra el patrimonio del tomador a declarar en Bienes Personales/i);
   assert.match(sections, /puede cubrir hasta el 100%.*no existe una prohibición legal universal/is);
   assert.match(sections, /Costos de la prenda a comparar:.*interés y CFT.*inscripción/is);
+});
+
+test('la grilla identifica el rol de cada jurisdicción y sintetiza sus celdas', () => {
+  const result = buildLocalAnalysis('Domicilio de uso del cliente: Córdoba. Jurisdicción legal de quien financia: Ciudad Autónoma de Buenos Aires. Provincia alternativa de uso para comparar: Mendoza.', 'Texto', '', null, '', '', 'leasing-specialist');
+  const table = result.decisionAnswer?.comparisonTable;
+  assert.deepEqual(table?.columns, ['Ciudad Autónoma de Buenos Aires', 'Córdoba', 'Mendoza']);
+  const roles = table?.rows.find((row) => row.label === 'Rol en la consulta');
+  assert.deepEqual(roles?.values, ['Financiador', 'Uso del cliente', 'Uso alternativo']);
+  const territoriality = table?.rows.find((row) => row.label === 'Base, territorialidad y condiciones');
+  assert.ok(territoriality?.values.every((value) => value.length <= 150));
 });
 
 test('leasing muestra porcentajes y distingue obligación legal de traslado económico', () => {
