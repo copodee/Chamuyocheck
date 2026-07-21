@@ -256,6 +256,73 @@ function buildGeneralLegalAnswer(analysis: ArgentinaLegalAnalysis): CustomerDeci
   };
 }
 
+function buildLegalSubtopicAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer | null {
+  const content: Partial<Record<ArgentinaLegalAnalysis['subtopic'], { title: string; answer: string; findings: string[]; actions: string[] }>> = {
+    'family-divorce': {
+      title: 'El divorcio y sus efectos personales y patrimoniales deben analizarse por separado',
+      answer: 'En Argentina cualquiera de los cónyuges puede pedir el divorcio sin expresar una causa. La sentencia de divorcio no resuelve automáticamente cuidado, alimentos, vivienda, distribución de bienes ni compensación económica: esos efectos requieren una propuesta reguladora, acuerdo o decisión específica. Las fechas importan especialmente para bienes, deudas y una eventual compensación.',
+      findings: ['Separar hijos, vivienda y medidas urgentes de la liquidación patrimonial.', 'Verificar si existe desequilibrio económico y el plazo legal para reclamar compensación.'],
+      actions: ['Reunir partidas, fecha de separación, propuesta reguladora, títulos, saldos, deudas e ingresos.', 'Identificar bienes propios y gananciales antes de proponer una distribución.'],
+    },
+    'family-parental': {
+      title: 'El interés del niño, su centro de vida y los cuidados reales ordenan el análisis',
+      answer: 'Cuidado personal, comunicación, responsabilidad parental y filiación no se resuelven sólo por lo que desea uno de los adultos. Deben examinarse el centro de vida, la organización efectiva de cuidados, la edad y necesidades del niño, los acuerdos y resoluciones vigentes y cualquier situación de riesgo. Una modificación estable o un traslado pueden requerir acuerdo o intervención judicial.',
+      findings: ['Las tareas de cuidado y la continuidad cotidiana son hechos jurídicamente relevantes.', 'Una urgencia o riesgo exige medidas distintas del planteo definitivo.'],
+      actions: ['Preparar cronología de cuidados, domicilios, escolaridad, salud, comunicaciones y acuerdos.', 'Identificar toda resolución, audiencia, denuncia o restricción vigente.'],
+    },
+    consumer: {
+      title: 'La relación de consumo debe contrastar la oferta, lo entregado y la respuesta del proveedor',
+      answer: 'Para establecer si corresponde reparación, cambio, devolución, cumplimiento o daños hay que comprobar quién ofreció el producto o servicio, qué prometió, qué se contrató, cuál fue la falla y cómo respondió. La publicidad, la oferta, la garantía y el trato recibido pueden integrar el análisis; no alcanza con que el proveedor invoque sus términos internos.',
+      findings: ['Debe verificarse si la persona actuó como destinataria final y quién integra la cadena de proveedores.', 'Los plazos y remedios varían según incumplimiento, garantía, contratación a distancia y daño.'],
+      actions: ['Guardar publicidad, presupuesto, factura, garantía, reclamos, respuestas y evidencia de la falla.', 'Precisar qué solución se pidió y cuándo fue rechazada o incumplida.'],
+    },
+    insurance: {
+      title: 'La cobertura depende de la póliza, el riesgo, el siniestro y las comunicaciones',
+      answer: 'No puede validarse un rechazo o calcular una indemnización sin leer la póliza completa, anexos, vigencia, suma asegurada, franquicia, exclusiones y denuncia del siniestro. También deben controlarse las razones y fechas comunicadas por la aseguradora y si la cobertura fue contratada como relación de consumo.',
+      findings: ['Una exclusión debe analizarse dentro de la póliza completa y frente al hecho concreto.', 'Las fechas de denuncia, requerimientos y rechazo pueden afectar las vías disponibles.'],
+      actions: ['Reunir póliza, anexos, recibos, denuncia, peritajes, presupuestos y carta de rechazo.', 'Separar daño, suma asegurada, franquicia, límites y gastos reclamados.'],
+    },
+    'civil-damages': {
+      title: 'Un reclamo de daños necesita hecho, perjuicio, causalidad y responsable identificados',
+      answer: 'La sola existencia de un accidente o incumplimiento no determina automáticamente responsabilidad ni monto. Deben probarse el hecho, el daño concreto, su relación causal, quién debe responder y las defensas aplicables. Cada rubro reclamado necesita fundamento y evidencia propios, y deben revisarse seguros, prescripción y posibles responsabilidades concurrentes.',
+      findings: ['Daño material, lucro cesante, incapacidad y consecuencias no patrimoniales no se calculan del mismo modo.', 'Debe evitarse duplicar rubros o atribuir al hecho consecuencias sin respaldo.'],
+      actions: ['Conservar documentación, fotografías, historia clínica, facturas, peritajes, testigos y comunicaciones.', 'Construir una cronología y una liquidación separada por rubro.'],
+    },
+    corporate: {
+      title: 'El conflicto societario depende del tipo social, el estatuto, las mayorías y las actas',
+      answer: 'Para analizar derechos de socios, decisiones del directorio, administración o responsabilidad hay que identificar el tipo societario, estatuto, composición del capital, convocatoria, quórum, mayorías, actas y registraciones. La deuda de la sociedad no se traslada automáticamente a socios o administradores, pero pueden existir garantías o responsabilidades específicas.',
+      findings: ['Sociedad, socios, administradores y garantes son sujetos distintos.', 'Una decisión puede requerir impugnación dentro de plazos y con legitimación concreta.'],
+      actions: ['Reunir estatuto, reformas, libros, actas, convocatorias, poderes, estados contables y registraciones.', 'Precisar decisión cuestionada, fecha, voto, perjuicio y medida pretendida.'],
+    },
+    insolvency: {
+      title: 'La cesación de pagos cambia las reglas de cobro y exige revisar el proceso concursal',
+      answer: 'Si existe concurso preventivo o quiebra, un acreedor no debe tratar el caso como un cobro comercial ordinario. Hay que verificar apertura, juzgado, publicaciones, fecha de presentación, período de verificación, causa, monto, privilegio y garantías del crédito. La estrategia cambia según el crédito sea anterior o posterior y tenga o no garantía.',
+      findings: ['La existencia de mora aislada no prueba por sí sola cesación de pagos.', 'Privilegio, garantía y fecha de origen afectan el tratamiento del crédito.'],
+      actions: ['Obtener expediente, edictos, síndico, fechas, título, comprobantes y garantías.', 'Preparar capital, causa, privilegio, intereses y documentación para la vía correspondiente.'],
+    },
+    'negotiable-instruments': {
+      title: 'Cheque, pagaré y letra tienen requisitos y defensas propios',
+      answer: 'Antes de ejecutar un título debe verificarse qué instrumento es, sus requisitos formales, firmas, representación, vencimiento, presentación, rechazo, cadena de endosos y prescripción. La vía ejecutiva puede limitar las defensas iniciales, pero un documento incompleto o una relación de consumo pueden exigir controles adicionales.',
+      findings: ['Factura, cheque y pagaré no son equivalentes ni acreditan lo mismo.', 'La causa del negocio y la protección del consumidor pueden ser relevantes según el caso.'],
+      actions: ['Conservar el original y reunir constancias de presentación, rechazo, endosos, avales e intimaciones.', 'Controlar vencimiento, jurisdicción, legitimación y plazo antes de iniciar la ejecución.'],
+    },
+    'public-procurement': {
+      title: 'La contratación pública depende del expediente, el pliego y la etapa del procedimiento',
+      answer: 'Una licitación, adjudicación, sanción o ejecución contractual pública debe analizarse desde el régimen aplicable y el expediente completo. El pliego, la oferta, los dictámenes, la competencia del organismo, la igualdad entre oferentes, la motivación y la notificación determinan qué observación, impugnación, recurso o medida puede corresponder.',
+      findings: ['El régimen nacional no se aplica automáticamente a provincias, municipios o empresas públicas.', 'La etapa del trámite y la fecha de notificación condicionan la vía disponible.'],
+      actions: ['Obtener expediente, pliego, circulares, oferta, actas, dictámenes, acto y constancia de notificación.', 'Precisar organismo, jurisdicción, etapa, agravio y plazo vigente.'],
+    },
+  };
+  const selected = content[analysis.subtopic];
+  if (!selected) return null;
+  return {
+    kind: 'legal-document', status: 'partial', title: selected.title, directAnswer: selected.answer,
+    findings: [...selected.findings, ...analysis.issues.map((issue) => `${issue.label}: ${issue.explanation}`)],
+    nextActions: [...selected.actions, ...analysis.sourceTargets.map((source) => `Contrastar con ${source}.`)],
+    limitations: analysis.factsNeeded.map((fact) => `Falta precisar: ${fact}.`),
+  };
+}
+
 function buildPledgeFinanceAnswer(financial: LoanNumbers, text: string): CustomerDecisionAnswer {
   const hasFlow = financial.principal !== null && financial.installment !== null && financial.months !== null;
   const flowAnswer = hasFlow
@@ -826,6 +893,10 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   }
   if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.subtopic === 'succession') {
     return withLegalCategoryWarning(buildSuccessionAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
+  }
+  if (legalCategorySelected) {
+    const subtopicAnswer = buildLegalSubtopicAnswer(input.argentinaLegalAnalysis);
+    if (subtopicAnswer) return withLegalCategoryWarning(subtopicAnswer, input.argentinaLegalAnalysis);
   }
   if (legalCategorySelected && input.argentinaLegalAnalysis.legalBranch === 'commercial' && input.argentinaLegalAnalysis.subtopic === 'contract-review') {
     return withLegalCategoryWarning(buildCommercialContractAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);

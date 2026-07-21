@@ -279,8 +279,8 @@ test('la respuesta civil separa incumplimiento daño y remedios', () => {
     argentinaLegalAnalysis: analyzeArgentinaLegal(text, true, '¿Qué puedo reclamar?', 'civil'),
   });
   const rendered = [answer.title, answer.directAnswer, ...answer.findings, ...answer.nextActions].join(' ');
-  assert.match(rendered, /incumplimiento.*prueba del perjuicio/is);
-  assert.match(rendered, /cumplimiento, resolver el contrato.*restitución.*reparación/is);
+  assert.match(rendered, /hecho.*perjuicio.*causalidad.*responsable/is);
+  assert.match(rendered, /daño concreto.*relación causal.*defensas/is);
   assert.doesNotMatch(answer.title, /penal|tributario|laboral/i);
 });
 
@@ -332,8 +332,8 @@ test('la respuesta comercial distingue sociedades títulos garantías y concurso
     argentinaLegalAnalysis: analyzeArgentinaLegal(text, true, '¿Qué vías existen?', 'commercial'),
   });
   const rendered = [answer.title, answer.directAnswer, ...answer.findings, ...answer.nextActions].join(' ');
-  assert.match(rendered, /sociedad.*título de crédito.*situación concursal/is);
-  assert.match(rendered, /personalidad jurídica.*administradores, socios o garantes/i);
+  assert.match(rendered, /conflicto societario.*estatuto.*mayorías.*actas/is);
+  assert.match(rendered, /sociedad.*socios.*administradores.*garantes/i);
 });
 
 test('responde específicamente cómo se distribuye una herencia entre cónyuge e hijos', () => {
@@ -360,4 +360,27 @@ test('muestra una advertencia clara si la rama seleccionada contradice la consul
     financialAnalysis: null, scamRiskAnalysis: analyzeScamRisk(question), argentinaLegalAnalysis: legal,
   });
   assert.match(answer.categoryWarning || '', /Laboral.*Penal/i);
+});
+
+test('las materias legales frecuentes reciben una respuesta específica y no una plantilla genérica', () => {
+  const cases = [
+    ['family', 'Quiero divorciarme y dividir los bienes gananciales.', /divorcio.*efectos personales y patrimoniales/i],
+    ['family', 'Quiero cambiar el cuidado personal y el régimen de comunicación de mi hijo.', /interés del niño.*centro de vida/i],
+    ['civil', 'El proveedor no respeta la garantía legal del producto.', /relación de consumo/i],
+    ['civil', 'La aseguradora rechazó el siniestro cubierto por mi póliza.', /póliza.*riesgo.*siniestro/i],
+    ['civil', 'Quiero reclamar daños y perjuicios por un accidente.', /hecho.*perjuicio.*causalidad/i],
+    ['commercial', 'Los accionistas quieren impugnar una decisión del directorio.', /conflicto societario/i],
+    ['commercial', 'La empresa está en cesación de pagos y concurso preventivo.', /cesación de pagos/i],
+    ['commercial', 'Me rechazaron un cheque y quiero ejecutar el título.', /cheque.*pagaré.*letra/i],
+    ['administrative', 'Quiero impugnar una licitación pública y su adjudicación.', /contratación pública/i],
+  ] as const;
+  for (const [branch, question, titlePattern] of cases) {
+    const legal = analyzeArgentinaLegal(question, true, question, branch);
+    const answer = buildCustomerDecisionAnswer({
+      documentText: question, userInstruction: question, selectedCategory: 'argentina-legal-documents',
+      financialAnalysis: null, scamRiskAnalysis: analyzeScamRisk(question), argentinaLegalAnalysis: legal,
+    });
+    assert.match(answer.title, titlePattern, `${branch}: ${question}`);
+    assert.ok(answer.nextActions.length >= 3);
+  }
 });

@@ -178,12 +178,12 @@ type SavedTemplate = {
 };
 
 const LEGAL_BRANCHES: Array<{ id: LegalBranchSelection; label: string; description: string }> = [
-  { id: 'civil', label: 'Civil y contratos', description: 'Obligaciones, contratos, daños, sucesiones, consumo y seguros.' },
-  { id: 'commercial', label: 'Comercial', description: 'Acuerdos entre empresas, sociedades, títulos, concursos y quiebras.' },
-  { id: 'family', label: 'Familia', description: 'Divorcio, alimentos, cuidado, comunicación y responsabilidad parental.' },
+  { id: 'civil', label: 'Civil y contratos', description: 'Obligaciones, contratos, daños, propiedad, locaciones, consumo y seguros.' },
+  { id: 'commercial', label: 'Comercial', description: 'Empresas, sociedades, títulos de crédito, garantías, concursos y quiebras.' },
+  { id: 'family', label: 'Familia', description: 'Divorcio, alimentos, cuidado, comunicación, filiación, adopción y responsabilidad parental.' },
   { id: 'succession', label: 'Sucesiones y herencias', description: 'Herederos, cónyuge, hijos, testamentos, legítima, bienes propios y gananciales.' },
-  { id: 'criminal', label: 'Penal', description: 'Delitos, denuncias, penas, agravantes y procedimiento penal.' },
-  { id: 'administrative', label: 'Administrativo', description: 'Actos estatales, recursos, habilitaciones y contratación pública.' },
+  { id: 'criminal', label: 'Penal', description: 'Delitos contra personas, propiedad e integridad sexual; denuncias, penas y procedimiento.' },
+  { id: 'administrative', label: 'Administrativo', description: 'Actos estatales, recursos, habilitaciones, sanciones y contratación pública.' },
   { id: 'labor', label: 'Laboral', description: 'Empleo, despidos, salarios, registración, accidentes y relaciones de trabajo.' },
   { id: 'tax', label: 'Tributario', description: 'Impuestos, ARCA, fiscos provinciales, determinaciones y recursos.' },
 ];
