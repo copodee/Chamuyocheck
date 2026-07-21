@@ -231,7 +231,7 @@ test('responde un incumplimiento comercial como contrato y no como causa penal',
     argentinaLegalAnalysis: analyzeArgentinaLegal(documentText, true, userInstruction, 'commercial'),
   });
   const completeAnswer = [answer.title, answer.directAnswer, ...answer.findings, ...answer.nextActions].join(' ');
-  assert.match(completeAnswer, /contrato exigible/i);
+  assert.match(completeAnswer, /contrato (?:es )?exigible/i);
   assert.match(completeAnswer, /exigir cumplimiento|resolver el acuerdo/i);
   assert.doesNotMatch(answer.title, /derecho penal/i);
 });
@@ -369,6 +369,8 @@ test('las materias legales frecuentes reciben una respuesta específica y no una
     ['civil', 'El proveedor no respeta la garantía legal del producto.', /relación de consumo/i],
     ['civil', 'La aseguradora rechazó el siniestro cubierto por mi póliza.', /póliza.*riesgo.*siniestro/i],
     ['civil', 'Quiero reclamar daños y perjuicios por un accidente.', /hecho.*perjuicio.*causalidad/i],
+    ['civil', 'El inquilino no paga el alquiler, las expensas y no devuelve el inmueble.', /locación.*canon.*depósito/i],
+    ['civil', 'Ocupo el terreno hace años y quiero saber si tengo usucapión.', /propiedad.*posesión.*registración/i],
     ['commercial', 'Los accionistas quieren impugnar una decisión del directorio.', /conflicto societario/i],
     ['commercial', 'La empresa está en cesación de pagos y concurso preventivo.', /cesación de pagos/i],
     ['commercial', 'Me rechazaron un cheque y quiero ejecutar el título.', /cheque.*pagaré.*letra/i],
@@ -383,4 +385,17 @@ test('las materias legales frecuentes reciben una respuesta específica y no una
     assert.match(answer.title, titlePattern, `${branch}: ${question}`);
     assert.ok(answer.nextActions.length >= 3);
   }
+});
+
+test('sucesiones no presupone siempre viuda e hijos y contempla testamento y órdenes hereditarios', () => {
+  const question = 'Murió mi tío sin hijos y dejó un testamento, ¿quién hereda y qué pasa con sus deudas?';
+  const legal = analyzeArgentinaLegal(question, true, question, 'succession');
+  const answer = buildCustomerDecisionAnswer({
+    documentText: question, userInstruction: question, selectedCategory: 'argentina-legal-documents',
+    financialAnalysis: null, scamRiskAnalysis: analyzeScamRisk(question), argentinaLegalAnalysis: legal,
+  });
+  const rendered = [answer.title, answer.directAnswer, ...answer.findings].join(' ');
+  assert.match(rendered, /descendientes.*ascendientes.*cónyuge.*otros parientes/is);
+  assert.match(rendered, /testamento.*legítimas.*donaciones.*deudas/is);
+  assert.match(rendered, /si no hay descendientes.*ascendientes.*cónyuge.*colaterales/is);
 });

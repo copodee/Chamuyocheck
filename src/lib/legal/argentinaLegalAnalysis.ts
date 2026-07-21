@@ -15,7 +15,7 @@ export type ArgentinaLegalAnalysis = {
   detectedBranch: 'family' | 'succession' | 'criminal' | 'civil' | 'commercial' | 'administrative' | 'labor' | 'tax' | 'general';
   branchSelectionWarning?: string;
   selectedJurisdiction?: string;
-  subtopic: 'family-support' | 'family-divorce' | 'family-parental' | 'sexual-offense' | 'criminal-penalty' | 'debt-enforcement' | 'civil-damages' | 'consumer' | 'insurance' | 'succession' | 'leasing' | 'contract-review' | 'corporate' | 'insolvency' | 'negotiable-instruments' | 'administrative-procedure' | 'labor' | 'tax' | 'public-procurement' | 'general-legal';
+  subtopic: 'family-support' | 'family-divorce' | 'family-parental' | 'sexual-offense' | 'criminal-penalty' | 'debt-enforcement' | 'civil-damages' | 'consumer' | 'insurance' | 'succession' | 'leasing' | 'contract-review' | 'property-rights' | 'leases' | 'corporate' | 'insolvency' | 'negotiable-instruments' | 'administrative-procedure' | 'labor' | 'tax' | 'public-procurement' | 'general-legal';
   intent: 'validity' | 'amount-or-duration' | 'consequences' | 'next-steps' | 'document-review' | 'general';
   issues: LegalIssue[];
   factsNeeded: string[];
@@ -77,12 +77,16 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
         ? 'debt-enforcement'
         : /consumidor|defensa del consumidor|proveedor|garant[ií]a legal|publicidad enga[ñn]osa|bot[oó]n de arrepentimiento/i.test(text)
           ? 'consumer'
-          : /seguro|aseguradora|p[oó]liza|siniestro|indemnizaci[oó]n.*seguro/i.test(text)
+            : /seguro|aseguradora|p[oó]liza|siniestro|indemnizaci[oó]n.*seguro/i.test(text)
             ? 'insurance'
             : /sucesi[oó]n|herencia|hereder|testamento|leg[ií]tima hereditaria/i.test(text)
               ? 'succession'
               : /da[ñn]os?|perjuicios?|responsabilidad civil|indemnizaci[oó]n/i.test(text)
                 ? 'civil-damages'
+                : /alquiler|locaci[oó]n|inquilin|locador|desalojo|dep[oó]sito de garant[ií]a|expensas/i.test(text)
+                  ? 'leases'
+                  : /dominio|condominio|posesi[oó]n|usucapi[oó]n|servidumbre|usufructo|medianera|propiedad horizontal/i.test(text)
+                    ? 'property-rights'
                 : /concurso preventivo|quiebra|cesaci[oó]n de pagos|verificaci[oó]n de cr[eé]dito/i.test(text)
                   ? 'insolvency'
                   : /sociedad(?:es)?|socios?|accionistas?|directorio|ley general de sociedades/i.test(text)
@@ -139,6 +143,8 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
     subtopic === 'consumer' ? 'carácter de consumidor final, proveedor, oferta, contratación, reclamos y comprobantes' : '',
     subtopic === 'insurance' ? 'póliza completa, vigencia, riesgo cubierto, denuncia del siniestro, rechazo y comunicaciones' : '',
     subtopic === 'civil-damages' ? 'hecho, daño acreditable, relación causal, responsables, fecha y seguros involucrados' : '',
+    subtopic === 'leases' ? 'contrato de locación, destino, plazo, canon, depósito, garantías, inventario, pagos, comunicaciones y estado del inmueble' : '',
+    subtopic === 'property-rights' ? 'títulos, informes registrales, planos, mensura, antecedentes de posesión, ocupantes, fechas y actos de disposición' : '',
     subtopic === 'succession' ? 'último domicilio del causante; cantidad y vínculo de herederos; estado matrimonial y eventual separación de hecho; carácter propio o ganancial de cada bien; deudas, donaciones, testamento y procesos iniciados' : '',
     subtopic === 'corporate' ? 'tipo societario, estatuto, jurisdicción registral, participación, decisiones y actas relevantes' : '',
     subtopic === 'insolvency' ? 'estado de cesación de pagos, procesos abiertos, acreedores, garantías y vencimientos' : '',
@@ -164,6 +170,10 @@ export function analyzeArgentinaLegal(text: string, assumeArgentina = false, use
       ? ['Código Civil y Comercial de la Nación, artículos 2426, 2433, 2437 y normas sobre transmisión hereditaria, legítimas y sucesiones', 'Código procesal civil de la jurisdicción del último domicilio del causante', 'Registro de Actos de Última Voluntad y registros de bienes pertinentes']
     : subtopic === 'civil-damages'
       ? ['Código Civil y Comercial de la Nación, responsabilidad civil y reparación del daño', 'Ley especial aplicable según el hecho, actividad o relación de consumo', 'Código procesal y jurisprudencia oficial de la jurisdicción correspondiente']
+    : subtopic === 'leases'
+      ? ['Código Civil y Comercial de la Nación, locación de cosas, texto actualizado', 'Normas especiales vigentes aplicables al destino habitacional o comercial', 'Código procesal y régimen local de mediación, desalojo y ejecución']
+    : subtopic === 'property-rights'
+      ? ['Código Civil y Comercial de la Nación, derechos reales, posesión y prescripción adquisitiva', 'Registro de la Propiedad Inmueble y normativa catastral de la jurisdicción', 'Código procesal aplicable a acciones reales y posesorias']
     : subtopic === 'corporate'
       ? ['Ley General de Sociedades 19.550, texto actualizado', 'Estatuto, contrato social, actas y normativa del registro público competente', 'Normativa de IGJ, registro provincial o CNV según sociedad y jurisdicción']
     : subtopic === 'insolvency'

@@ -258,6 +258,12 @@ function buildGeneralLegalAnswer(analysis: ArgentinaLegalAnalysis): CustomerDeci
 
 function buildLegalSubtopicAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisionAnswer | null {
   const content: Partial<Record<ArgentinaLegalAnalysis['subtopic'], { title: string; answer: string; findings: string[]; actions: string[] }>> = {
+    'contract-review': {
+      title: 'El contrato debe leerse como un sistema de obligaciones, condiciones, riesgos y remedios',
+      answer: 'Para determinar si un contrato es exigible y qué puede reclamarse hay que identificar partes y representación, objeto, precio, plazos, condiciones, obligaciones recíprocas, garantías, incumplimientos, intimaciones y mecanismos de terminación. El pago fortalece el reclamo de la prestación correspondiente, pero no reemplaza la revisión de condiciones pendientes, excepciones ni solvencia. Según el caso puede corresponder exigir cumplimiento, resolver, obtener restitución, reclamar daños o pedir una medida cautelar.',
+      findings: ['Una cláusula aislada no debe interpretarse sin el resto del contrato y sus anexos.', 'Penalidades, intereses, limitaciones y jurisdicción necesitan control de validez y reciprocidad.'],
+      actions: ['Ordenar contrato, anexos, poderes, facturas, pagos, entregas, intimaciones y comunicaciones.', 'Construir una tabla con obligación, responsable, vencimiento, condición, prueba e incumplimiento.'],
+    },
     'family-divorce': {
       title: 'El divorcio y sus efectos personales y patrimoniales deben analizarse por separado',
       answer: 'En Argentina cualquiera de los cónyuges puede pedir el divorcio sin expresar una causa. La sentencia de divorcio no resuelve automáticamente cuidado, alimentos, vivienda, distribución de bienes ni compensación económica: esos efectos requieren una propuesta reguladora, acuerdo o decisión específica. Las fechas importan especialmente para bienes, deudas y una eventual compensación.',
@@ -287,6 +293,18 @@ function buildLegalSubtopicAnswer(analysis: ArgentinaLegalAnalysis): CustomerDec
       answer: 'La sola existencia de un accidente o incumplimiento no determina automáticamente responsabilidad ni monto. Deben probarse el hecho, el daño concreto, su relación causal, quién debe responder y las defensas aplicables. Cada rubro reclamado necesita fundamento y evidencia propios, y deben revisarse seguros, prescripción y posibles responsabilidades concurrentes.',
       findings: ['Daño material, lucro cesante, incapacidad y consecuencias no patrimoniales no se calculan del mismo modo.', 'Debe evitarse duplicar rubros o atribuir al hecho consecuencias sin respaldo.'],
       actions: ['Conservar documentación, fotografías, historia clínica, facturas, peritajes, testigos y comunicaciones.', 'Construir una cronología y una liquidación separada por rubro.'],
+    },
+    leases: {
+      title: 'La locación debe separar canon, depósito, conservación, restitución y garantías',
+      answer: 'Para responder sobre alquileres hay que revisar el contrato vigente, destino del inmueble, plazo, actualización, depósito, garantías, expensas, servicios, reparaciones, mora, rescisión y estado de entrega. Locador e inquilino tienen obligaciones diferentes y no todo gasto puede trasladarse sólo porque figure en una liquidación. El desalojo, cobro, reparación o devolución del depósito requieren hechos y documentación específicos.',
+      findings: ['Debe diferenciarse reparación necesaria, mantenimiento ordinario, mejora y daño imputable.', 'La normativa aplicable depende de la fecha del contrato, su destino y la jurisdicción procesal.'],
+      actions: ['Reunir contrato, inventario, fotografías, recibos, expensas, presupuestos y comunicaciones.', 'Precisar fechas de ocupación, mora, intimación, restitución y estado actual del inmueble.'],
+    },
+    'property-rights': {
+      title: 'Propiedad, posesión y registración son situaciones distintas y deben probarse',
+      answer: 'Tener la posesión, figurar en un boleto, pagar impuestos o aparecer en un registro no produce siempre el mismo derecho. El análisis debe identificar el inmueble o bien, título, registración, tradición, ocupación, planos, límites, gravámenes y actos realizados por cada parte. Condominio, usufructo, servidumbre, propiedad horizontal y prescripción adquisitiva tienen requisitos y remedios diferentes.',
+      findings: ['La publicidad registral y la situación posesoria deben verificarse por separado.', 'Fechas, continuidad de la posesión y buena o mala fe pueden modificar el análisis.'],
+      actions: ['Obtener título, informe de dominio e inhibiciones, catastro, plano, mensura y antecedentes posesorios.', 'Identificar ocupantes, actos de posesión, pagos, oposición, gravámenes y procesos existentes.'],
     },
     corporate: {
       title: 'El conflicto societario depende del tipo social, el estatuto, las mayorías y las actas',
@@ -485,13 +503,15 @@ function buildSuccessionAnswer(analysis: ArgentinaLegalAnalysis): CustomerDecisi
   return {
     kind: 'legal-document',
     status: 'partial',
-    title: 'La herencia de la viuda y los hijos depende de si los bienes eran propios o gananciales',
-    directAnswer: 'Si una persona casada muere sin testamento y deja cónyuge e hijos, no se reparte todo con un único porcentaje. Primero se liquidan los bienes gananciales: el cónyuge sobreviviente conserva su mitad por el régimen matrimonial y la mitad que pertenecía al fallecido se transmite a los hijos, sin que el cónyuge vuelva a participar en esa mitad. En cambio, sobre los bienes propios del fallecido, el cónyuge hereda la misma porción que cada hijo. Por ejemplo, con viuda y dos hijos, un bien propio se divide en tres partes iguales; en un bien ganancial, la viuda conserva 50% y cada hijo recibe 25%. Esto puede cambiar si había separación de hecho sin voluntad de unirse, divorcio, testamento, otros descendientes, deudas o bienes con distinta titularidad.',
+    title: 'La herencia depende de quiénes sobreviven, qué bienes existen y si hay testamento',
+    directAnswer: 'La distribución no puede calcularse sólo por el parentesco mencionado. Primero hay que identificar descendientes, ascendientes, cónyuge y, si faltan herederos de órdenes preferentes, otros parientes; después deben revisarse testamento, legítimas, donaciones, deudas y el carácter propio o ganancial de cada bien. Si una persona casada muere sin testamento y deja cónyuge e hijos, primero se liquidan los gananciales: el cónyuge conserva su mitad y la mitad del fallecido se transmite a los hijos. Sobre los bienes propios, el cónyuge hereda la misma porción que cada hijo. Ejemplo: con viuda y dos hijos, un bien propio se divide en tercios; en un bien ganancial, la viuda conserva 50% y cada hijo recibe 25%.',
     findings: [
       'Artículo 2426: los hijos heredan por derecho propio y por partes iguales, salvo representación de descendientes.',
       'Artículo 2433: cuando concurre con descendientes, el cónyuge recibe en los bienes propios una parte igual a la de un hijo.',
       'El mismo artículo 2433 excluye al cónyuge de la división de los gananciales que correspondían al causante; antes debe separarse la mitad propia del cónyuge por la liquidación del régimen matrimonial.',
       'Las deudas y cargas de la sucesión se determinan antes de conocer el valor neto que finalmente se parte.',
+      'Un testamento no permite desconocer sin más las porciones legítimas protegidas; debe revisarse junto con donaciones y actos anteriores.',
+      'Si no hay descendientes, cambia el orden y la concurrencia de ascendientes, cónyuge y colaterales; no debe reutilizarse el ejemplo de viuda e hijos.',
       ...analysis.issues.map((issue) => `${issue.label}: ${issue.explanation}`),
     ],
     nextActions: [
