@@ -977,6 +977,47 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const shouldShowScoreExplanationPanel = showScoreExplanation && scoreExplanationItems.length > 0;
   const toggleScoreExplanation = () => setShowScoreExplanation((value) => !value);
   const executiveSummaryText = showFullSummary ? analysis?.summary : analysis?.verdict;
+  const downloadAnalysisReport = () => {
+    if (!analysis || typeof window === 'undefined') return;
+    const answer = analysis.decisionAnswer;
+    const scoreName = isLeasingAnalysis ? 'LeasingScore' : 'ChamuyoScore';
+    const scoreValue = isLeasingAnalysis ? leasingScore.score : score;
+    const lines = [
+      isLeasingAnalysis ? 'LEASINGSCORE — INFORME' : 'CHAMUYOCHECK — INFORME',
+      `Fecha: ${new Date().toLocaleDateString('es-AR')}`,
+      `Categoría: ${ANALYSIS_CATEGORIES.find((item) => item.id === selectedCategory)?.label || analysis.topicLabel || 'Análisis general'}`,
+      `Entrada: ${getInputLabel(detected, Boolean(file))}`,
+      '',
+      answer?.title || analysis.centralQuestion || 'Resultado del análisis',
+      answer?.directAnswer || analysis.summary,
+      '',
+      `${scoreName}: ${scoreValue}/100`,
+      isLeasingAnalysis ? leasingScore.label : getChamuyoLabel(score),
+    ];
+    if (answer?.comparisonTable) {
+      lines.push('', 'COMPARACIÓN', ['Concepto', ...answer.comparisonTable.columns].join('\t'));
+      answer.comparisonTable.rows.forEach((row) => lines.push([row.label, ...row.values].join('\t')));
+    }
+    if (answer?.sections?.length) {
+      answer.sections.forEach((section) => lines.push('', section.title.toUpperCase(), ...section.items.map((item) => `• ${item}`)));
+    } else if (answer?.findings?.length) {
+      lines.push('', 'DATOS Y HALLAZGOS', ...answer.findings.map((item) => `• ${item}`));
+    }
+    if (answer?.nextActions?.length) lines.push('', 'QUÉ CONVIENE HACER AHORA', ...answer.nextActions.map((item) => `• ${item}`));
+    if (answer?.limitations?.length) lines.push('', 'DATOS QUE DEBEN VERIFICARSE', ...answer.limitations.map((item) => `• ${item}`));
+    lines.push('', 'AVISO', analysis.legalSafeguard || 'Resultado automatizado, orientativo y sujeto a revisión humana.');
+    const filenameBase = (answer?.title || (isLeasingAnalysis ? 'informe-leasing' : 'informe-chamuyocheck'))
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase().slice(0, 60);
+    const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/plain;charset=utf-8' });
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = `${filenameBase || 'informe'}-${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(href);
+  };
   const openHome = () => {
     if (leasingPage && typeof window !== 'undefined') {
       window.location.assign('/');
@@ -1164,7 +1205,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       </div>}
       <div className="topbar">
         <div className="status"><div className="check">✓</div><div><b>{analysis ? 'Análisis finalizado' : 'Nuevo análisis'}</b><div className="hint">9 de julio de 2026</div></div></div>
-        <div className="topActions"><button type="button" className="ghost" onClick={() => setAnalysis(null)}>Analizar otro</button><button type="button" className="ghost">Descargar informe⌄</button><button type="button" className="iconBtn">⋮</button></div>
+        <div className="topActions"><button type="button" className="ghost" onClick={startNewAnalysis}>Analizar otro</button><button type="button" className="ghost" disabled={!analysis} onClick={downloadAnalysisReport}>Descargar informe</button><button type="button" className="iconBtn" aria-label="Abrir ayuda" title="Ayuda" onClick={openHelp}>?</button></div>
       </div>
       {activeView === 'inicio' ? <>
         {!session && !sessionLoading && <section id="registro" className="panel authPanel" aria-labelledby="auth-title">
