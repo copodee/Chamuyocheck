@@ -554,7 +554,9 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [templatesItems, setTemplatesItems] = useState<string[]>([]);
   const [compareLeft, setCompareLeft] = useState('');
   const [compareRight, setCompareRight] = useState('');
+  const [compareCategory, setCompareCategory] = useState<AnalysisCategoryId>('finance-credit');
   const [improveDraft, setImproveDraft] = useState('');
+  const [improveCategory, setImproveCategory] = useState<AnalysisCategoryId>('argentina-legal-documents');
   const [showDetailedResults, setShowDetailedResults] = useState(true);
   const [leasingHubProvinceA, setLeasingHubProvinceA] = useState('Ciudad Autónoma de Buenos Aires');
   const [leasingHubProvinceB, setLeasingHubProvinceB] = useState('Buenos Aires');
@@ -1091,9 +1093,21 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const rightWords = compareWords(compareRight);
   const sharedWords = [...leftWords].filter((word) => rightWords.has(word));
   const comparisonReady = compareLeft.trim().length > 20 && compareRight.trim().length > 20;
+  const analyzeComparison = () => {
+    const category = compareCategory;
+    const categoryLabel = ANALYSIS_CATEGORIES.find((item) => item.id === category)?.label || 'la categoría elegida';
+    const prompt = category === 'leasing-specialist'
+      ? `Compará estas dos propuestas de leasing para el mismo bien. Identificá diferencias de tasa, flujo, impuestos, gastos, opción, garantías, transparencia y riesgos.`
+      : `Compará estos dos contenidos dentro de la categoría ${categoryLabel}. Separá coincidencias, diferencias relevantes, costos u obligaciones, riesgos, información faltante y qué alternativa resulta más conveniente según los datos aportados.`;
+    useTemplate(category, `${prompt}\n\nPROPUESTA A:\n${compareLeft}\n\nPROPUESTA B:\n${compareRight}`);
+  };
   const sendImprovementToAnalysis = () => {
     if (!improveDraft.trim()) return;
-    setSelectedCategory('argentina-legal-documents');
+    setSelectedCategory(improveCategory);
+    if (improveCategory !== 'argentina-legal-documents') {
+      setLegalBranch(null);
+      setLegalJurisdiction('');
+    }
     setText(`Mejorá la claridad de este documento sin cambiar su sentido. Identificá ambigüedades, datos faltantes y afirmaciones que necesitan fuente.\n\n${improveDraft}`);
     setActiveInput('Texto');
     setActiveView('inicio');
@@ -1468,10 +1482,12 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
           {templatesItems.length > 0 && <ul>{templatesItems.map((item, i) => <li key={i}>{item}</li>)}</ul>}
         </>}
         {activeView === 'comparar' && <>
+          <label className="menuCategoryPicker"><b>Tipo de comparación</b><select value={compareCategory} onChange={(event) => setCompareCategory(event.target.value as AnalysisCategoryId)}>{ANALYSIS_CATEGORIES.map((category) => <option key={`compare-${category.id}`} value={category.id}>{category.label}</option>)}</select><small>La categoría elegida determina qué cálculos, normas y riesgos se aplican.</small></label>
           <div className="cards" style={{ marginTop: '14px' }}><div className="card"><h3>Texto A</h3><textarea value={compareLeft} onChange={(event) => setCompareLeft(event.target.value)} placeholder="Pegá la primera oferta o contrato" /></div><div className="card"><h3>Texto B</h3><textarea value={compareRight} onChange={(event) => setCompareRight(event.target.value)} placeholder="Pegá la segunda oferta o contrato" /></div></div>
-          {comparisonReady ? <div className="panel legalResultPanel" style={{ marginTop: '14px' }}><h3>Comparación preliminar</h3><p>Texto A: {compareLeft.length} caracteres. Texto B: {compareRight.length} caracteres.</p><p>Coincidencias relevantes: {sharedWords.slice(0, 20).join(', ') || 'no se detectaron coincidencias claras'}.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', `Compará estas dos propuestas para el mismo bien. Identificá diferencias de tasa, flujo, impuestos, gastos, opción, garantías y riesgos.\n\nPROPUESTA A:\n${compareLeft}\n\nPROPUESTA B:\n${compareRight}`)}>Analizar la comparación</button></div> : <div className="paywall" style={{ marginTop: '14px' }}>Pegá al menos 20 caracteres en cada texto.</div>}
+          {comparisonReady ? <div className="panel legalResultPanel" style={{ marginTop: '14px' }}><h3>Comparación preliminar</h3><p>Texto A: {compareLeft.length} caracteres. Texto B: {compareRight.length} caracteres.</p><p>Coincidencias relevantes: {sharedWords.slice(0, 20).join(', ') || 'no se detectaron coincidencias claras'}.</p><button type="button" className="primary" onClick={analyzeComparison}>Analizar en {ANALYSIS_CATEGORIES.find((item) => item.id === compareCategory)?.label}</button></div> : <div className="paywall" style={{ marginTop: '14px' }}>Pegá al menos 20 caracteres en cada texto.</div>}
         </>}
         {activeView === 'mejorar' && <>
+          <label className="menuCategoryPicker"><b>Contexto del documento</b><select value={improveCategory} onChange={(event) => setImproveCategory(event.target.value as AnalysisCategoryId)}>{ANALYSIS_CATEGORIES.map((category) => <option key={`improve-${category.id}`} value={category.id}>{category.label}</option>)}</select><small>Se conservará el sentido, pero la revisión usará criterios propios de esta categoría.</small></label>
           <textarea style={{ marginTop: '14px', width: '100%', minHeight: '240px' }} value={improveDraft} onChange={(event) => setImproveDraft(event.target.value)} placeholder="Pegá el documento que querés mejorar" />
           <button type="button" className="primary" style={{ marginTop: '12px' }} disabled={!improveDraft.trim()} onClick={sendImprovementToAnalysis}>Revisar y mejorar</button>
         </>}
