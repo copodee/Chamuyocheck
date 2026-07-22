@@ -476,6 +476,8 @@ pre,code{white-space:pre-wrap}
 @media(max-width:720px){.statsGrid,.loginOptions{grid-template-columns:1fr}}
 .decisionAnswerPanel{margin-bottom:24px;border-color:rgba(32,226,173,.42);background:linear-gradient(135deg,rgba(32,226,173,.09),rgba(124,58,237,.08)),#101827}
 .decisionAnswerPanel h2{max-width:900px;margin-top:10px}
+.webSafetyStatus{display:grid;gap:.35rem;margin:0 0 1.1rem;padding:.85rem 1rem;border-left:4px solid var(--status-color);border-radius:0 12px 12px 0;background:color-mix(in srgb,var(--status-color) 10%,transparent)}
+.webSafetyStatus b{color:var(--status-color);font-size:1.02rem}.webSafetyStatus span{color:#d7d2ee;line-height:1.45}
 .reportActions{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0 18px}.reportActions .ghost{min-width:0}
 .savedItemActions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.savedItemActions .ghost{min-width:0}
 .settingsSummary,.settingsActions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.settingsSummary span{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.035);color:var(--muted)}.settingsSummary b{color:var(--text)}.settingsActions .ghost{min-width:0}

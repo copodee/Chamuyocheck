@@ -80,7 +80,7 @@ type Analysis = {
     }>;
     execution?: {
       status: string;
-      records: Array<{ url: string; title: string; sourceType: string; sourceDate?: string; official: boolean }>;
+      records: Array<{ url: string; title: string; sourceType: string; sourceDate?: string; official: boolean; excerpt?: string }>;
       errors: string[];
     } | null;
   };
@@ -219,7 +219,7 @@ function Bar({ score }: { score: number }) {
 
 function detectUrlType(s: string) {
   if (/youtu\.be|youtube\.com/i.test(s)) return 'YouTube';
-  if (/^https?:\/\//i.test(s)) return 'Web';
+  if (/^https?:\/\//i.test(s) || /^(?:www\.)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:[\/?#:]|$)/i.test(s.trim())) return 'Web';
   return 'Texto';
 }
 
@@ -1040,6 +1040,18 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     : s >= 25 ? { txt: 'Sin alerta técnica conocida; faltan controles', color: 'var(--yellow)' }
     : { txt: 'Sin señales observadas; no equivale a validación', color: 'var(--green)' };
   const isScamAnalysis = analysis?.selectedCategory === 'scam-risk';
+  const safeBrowsingRecord = analysis?.externalVerification?.execution?.records?.find((record) =>
+    record.sourceType === 'url-threat-intelligence' || record.sourceType === 'url-threat-intelligence-status'
+  );
+  const safeBrowsingKnownThreat = Boolean(safeBrowsingRecord?.sourceType === 'url-threat-intelligence'
+    && /coincidencia\(s\).*bloquearse/i.test(safeBrowsingRecord.excerpt || ''));
+  const safeBrowsingState = !safeBrowsingRecord
+    ? null
+    : safeBrowsingRecord.sourceType === 'url-threat-intelligence-status'
+      ? { label: 'ComprobaciÃ³n tÃ©cnica inconclusa', color: 'var(--yellow)' }
+      : safeBrowsingKnownThreat
+        ? { label: 'Google Safe Browsing detectÃ³ una amenaza conocida', color: 'var(--red)' }
+        : { label: 'Google Safe Browsing: sin coincidencias conocidas', color: 'var(--green)' };
   const semaforo = isScamAnalysis ? getScamAdvice(score) : getChamuyoAdvice(score);
   const scoreColor = isScamAnalysis ? semaforo.color : getChamuyoColor(score);
   const scoreLabel = isScamAnalysis ? semaforo.txt : getChamuyoLabel(score);
@@ -1486,6 +1498,10 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         {analysis.decisionAnswer && <div className="panel legalResultPanel decisionAnswerPanel">
           <div className="eyebrow">RESPUESTA A TU CONSULTA</div>
           <h2>{analysis.decisionAnswer.title}</h2>
+          {isScamAnalysis && safeBrowsingState && <div className="webSafetyStatus" style={{ ['--status-color' as any]: safeBrowsingState.color }}>
+            <b>{safeBrowsingState.label}</b>
+            <span>{safeBrowsingRecord?.excerpt}</span>
+          </div>}
           {analysis.selectedCategory === 'argentina-legal-documents' && analysis.argentinaLegalAnalysis?.detectedBranch && analysis.argentinaLegalAnalysis.detectedBranch !== 'general' ? (
             <div className="legalClassification" aria-label="Clasificación jurídica detectada">
               <strong>Especialidad detectada: {analysis.argentinaLegalAnalysis.detectedBranchLabel || analysis.argentinaLegalAnalysis.areaLabel}</strong>
