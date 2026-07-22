@@ -589,3 +589,86 @@ pre,code{white-space:pre-wrap}
 @media(max-width:900px){.authPanel{grid-template-columns:1fr}.authActions{grid-template-columns:1fr}}
 .categoryWarning{margin:0 0 1rem;padding:.85rem 1rem;border:1px solid rgba(255,194,51,.65);border-radius:12px;background:rgba(255,194,51,.1);color:#ffe08a;font-weight:700;line-height:1.45}
 .legalClassification{display:flex;flex-wrap:wrap;gap:.45rem 1rem;margin:0 0 1rem;padding:.75rem .9rem;border-left:3px solid #27efbd;background:rgba(39,239,189,.07);color:#c8fff2;line-height:1.4}.legalClassification span{color:#c9c2e8}
+
+/* LeasingScoring: final light-theme contrast guard.
+   Kept at the end so legacy dark-theme component rules cannot override it. */
+.leasingAppShell .topbar,
+.leasingAppShell .authPanel,
+.leasingAppShell .decisionAnswerPanel{
+  background:#fff;
+  border-color:rgba(11,100,114,.22);
+}
+.leasingAppShell .status b,
+.leasingAppShell .authPanel h2,
+.leasingAppShell .authForm label,
+.leasingAppShell .decisionAnswerPanel h2,
+.leasingAppShell .scamVerificationSummary h3,
+.leasingAppShell .scamVerificationRow b{
+  color:#102f3b;
+}
+.leasingAppShell .status .hint,
+.leasingAppShell .authPanel p,
+.leasingAppShell .webSafetyStatus span,
+.leasingAppShell .scamVerificationRow>span:last-child,
+.leasingAppShell .webSafetyDetail,
+.leasingAppShell .decisionDirectAnswer{
+  color:#516b76;
+}
+.leasingAppShell .authForm input{
+  background:#fff;
+  color:#163844;
+  border-color:rgba(11,100,114,.30);
+  box-shadow:0 1px 0 rgba(11,100,114,.04);
+}
+.leasingAppShell .authForm input:focus{
+  outline:3px solid rgba(8,127,140,.15);
+  border-color:#087f8c;
+}
+.leasingAppShell .authSwitch,
+.leasingAppShell .termsLink{
+  color:#0b6472;
+}
+.leasingAppShell .authMessage,
+.leasingAppShell .betaAccessNote{
+  background:#e7f7f5;
+  border-color:rgba(8,127,140,.28);
+  color:#125b65;
+}
+.leasingAppShell .categoryWarning{
+  background:#fff7df;
+  border-color:#d9a526;
+  color:#704b00;
+}
+.leasingAppShell .legalClassification{
+  background:#e8f7f5;
+  border-left-color:#087f8c;
+  color:#123f49;
+}
+.leasingAppShell .legalClassification span{color:#516b76}
+.leasingAppShell .scamVerificationSummary,
+.leasingAppShell .scamVerificationRow,
+.leasingAppShell .leasingComparisonTableWrap,
+.leasingAppShell .leasingComparisonTable,
+.leasingAppShell .leasingComparisonTable tbody th,
+.leasingAppShell .leasingResultSection,
+.leasingAppShell .leasingNextActions{
+  background:#f7fafb;
+  border-color:rgba(11,100,114,.20);
+  color:#163844;
+}
+.leasingAppShell .leasingComparisonTable thead th{
+  background:#0b6472;
+  color:#fff;
+}
+.leasingAppShell .leasingComparisonTable th,
+.leasingAppShell .leasingComparisonTable td,
+.leasingAppShell .leasingResultSection ul{
+  border-color:rgba(11,100,114,.16);
+}
+.leasingAppShell .leasingComparisonTable tbody th,
+.leasingAppShell .leasingResultSection summary,
+.leasingAppShell .leasingNextActions summary{
+  color:#0b6472;
+}
+.leasingAppShell .leasingComparisonTable tbody tr:nth-child(even) td{background:#eef5f7}
+.leasingAppShell .leasingResultSection summary small{color:#647d86}
