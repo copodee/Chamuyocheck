@@ -30,13 +30,44 @@ body{
 }
 button,input,textarea{font:inherit}
 .appShell{min-height:100vh;min-width:0;max-width:100%;display:grid;grid-template-columns:290px minmax(0,1fr)}
-.leasingAppShell{--green:#60a5fa;--cyan:#38bdf8;--violet:#4f46e5;--violet2:#8b5cf6;background:radial-gradient(circle at 18% 8%,rgba(79,70,229,.20),transparent 31%),radial-gradient(circle at 76% 3%,rgba(56,189,248,.13),transparent 29%),linear-gradient(180deg,#07091a,#03050d)}
-.leasingAppShell .sidebar{background:linear-gradient(180deg,rgba(8,10,34,.99),rgba(4,6,20,.99));border-right-color:rgba(96,165,250,.22)}
-.leasingAppShell .logo{color:#f8fafc}.leasingAppShell .logo span{color:#7dd3fc;text-shadow:0 0 16px rgba(56,189,248,.28)}
-.leasingAppShell .tag{color:#a5b4fc}
-.leasingAppShell .heroIntroPanel,.leasingAppShell .inputPanel{border-color:rgba(96,165,250,.17)}
-.leasingAppShell .leasingScoreCard{border-color:rgba(96,165,250,.34);box-shadow:0 24px 70px rgba(79,70,229,.13)}
-.leasingAppShell .chamuyoDisclaimer{background:rgba(96,165,250,.08);border-left-color:#60a5fa;color:#dbeafe}
+.leasingAppShell{
+  --bg:#07111f;
+  --side:#091827;
+  --panel:#102235;
+  --panel2:#152b40;
+  --border:rgba(148,185,210,.20);
+  --text:#f6f2e8;
+  --muted:#b8c9d5;
+  --soft:#7893a6;
+  --green:#f4b740;
+  --cyan:#f4b740;
+  --violet:#176b87;
+  --violet2:#2c8aa3;
+  --yellow:#f4b740;
+  background:
+    radial-gradient(circle at 78% 2%,rgba(244,183,64,.12),transparent 29%),
+    radial-gradient(circle at 14% 10%,rgba(23,107,135,.22),transparent 34%),
+    linear-gradient(180deg,#071522,#040b13);
+}
+.leasingAppShell .sidebar{background:linear-gradient(180deg,#0b2334,#07131f);border-right-color:rgba(244,183,64,.24)}
+.leasingAppShell .logo{color:#f8f4ea;letter-spacing:-.025em}.leasingAppShell .logo span{color:#f4b740;text-shadow:0 0 18px rgba(244,183,64,.22)}
+.leasingAppShell .tag{color:#8fc9d8}
+.leasingAppShell .shield{background:linear-gradient(145deg,#176b87,#0a293a);border-color:rgba(244,183,64,.65);color:#f4b740}
+.leasingAppShell .newBtn,.leasingAppShell .primary{background:linear-gradient(135deg,#f4b740,#d99318);color:#17202a;box-shadow:0 12px 34px rgba(217,147,24,.20)}
+.leasingAppShell .nav button.active,.leasingAppShell .mobileNav button.active{background:rgba(244,183,64,.13);color:#ffd879}
+.leasingAppShell .panel,.leasingAppShell .card,.leasingAppShell .section{background:linear-gradient(180deg,rgba(17,40,58,.96),rgba(10,25,39,.97));border-color:rgba(148,185,210,.18)}
+.leasingAppShell .heroIntroPanel,.leasingAppShell .inputPanel{border-color:rgba(244,183,64,.22)}
+.leasingAppShell .eyebrow,.leasingAppShell .categoryStep{border-color:rgba(244,183,64,.46);background:rgba(244,183,64,.10);color:#ffd36a}
+.leasingAppShell .heroSubtitle{color:#8fd3df}
+.leasingAppShell .heroCta,.leasingAppShell .leasingUploadStage{border-color:rgba(45,153,178,.38);background:rgba(23,107,135,.13)}
+.leasingAppShell .tab.active{border-color:rgba(244,183,64,.65);background:rgba(244,183,64,.12);color:#ffdc8a}
+.leasingAppShell .leasingJurisdictionPicker{border-color:rgba(45,153,178,.38);background:rgba(23,107,135,.09)}
+.leasingAppShell .leasingScoreCard{border-color:rgba(244,183,64,.42);box-shadow:0 24px 70px rgba(0,13,24,.38)}
+.leasingAppShell .chamuyoDisclaimer{background:rgba(23,107,135,.12);border-left-color:#45a7bd;color:#d9eef2}
+.leasingAppShell .leasingResultSection summary{color:#f4c762}
+.leasingAppShell .leasingComparisonTable thead th{background:#16465b;color:#fff7e2}
+.leasingAppShell .leasingComparisonTable tbody th{background:#102d3e;color:#f4c762}
+.leasingAppShell .legalFooter{background:rgba(5,18,29,.92);border-top-color:rgba(244,183,64,.18)}
 .sidebar{position:sticky;top:0;height:100vh;background:linear-gradient(180deg,rgba(7,16,29,.98),rgba(4,8,15,.98));border-right:1px solid var(--border);padding:28px 20px;display:flex;flex-direction:column;gap:22px}
 .brand{display:flex;gap:12px;align-items:center}
 .shield{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--violet),#111827);display:grid;place-items:center;border:1px solid rgba(39,239,189,.35);font-size:24px}
