@@ -1029,7 +1029,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const leasingScoreExplanationItems = [
     `Información aportada: ${leasingScore.present.length ? leasingScore.present.join(', ') : 'no se identificaron datos financieros suficientes'}.`,
     `Información faltante: ${leasingScore.missing.length ? leasingScore.missing.join(', ') : 'no se detectaron faltantes esenciales'}.`,
-    'LeasingScore mide transparencia y completitud de los datos aportados. No mide engaño, veracidad ni calidad jurídica del leasing.',
+    'LeasingScoring mide transparencia y completitud de los datos aportados. No mide engaño, veracidad ni calidad jurídica del leasing.',
   ];
   const getChamuyoColor = (s: number) => s > 80 ? '#8b0000' : s > 60 ? 'var(--red)' : s > 40 ? 'var(--yellow)' : 'var(--green)';
   const getChamuyoLabel = (s: number) => s > 80 ? 'Chamuyo extremo' : s > 60 ? 'Alto chamuyo' : s > 40 ? 'Requiere verificación' : s > 20 ? 'Bajo chamuyo' : 'Muy poco chamuyo';
@@ -1087,10 +1087,10 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const downloadAnalysisReport = () => {
     if (!analysis || typeof window === 'undefined') return;
     const answer = analysis.decisionAnswer;
-    const scoreName = isLeasingAnalysis ? 'LeasingScore' : 'ChamuyoScore';
+    const scoreName = isLeasingAnalysis ? 'LeasingScoring' : 'ChamuyoScore';
     const scoreValue = isLeasingAnalysis ? leasingScore.score : score;
     const lines = [
-      isLeasingAnalysis ? 'LEASINGSCORE — INFORME' : 'CHAMUYOCHECK — INFORME',
+      isLeasingAnalysis ? 'LEASINGSCORING — INFORME' : 'CHAMUYOCHECK — INFORME',
       `Fecha: ${new Date().toLocaleDateString('es-AR')}`,
       `Categoría: ${ANALYSIS_CATEGORIES.find((item) => item.id === selectedCategory)?.label || analysis.topicLabel || 'Análisis general'}`,
       `Entrada: ${getInputLabel(detected, Boolean(file))}`,
@@ -1323,7 +1323,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     {showTerms && <div className="termsBackdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowTerms(false); }}><section className="termsModal" role="dialog" aria-modal="true" aria-labelledby="terms-title"><div className="termsHeader"><div><h2 id="terms-title">Términos y Condiciones</h2><span>Versión {TERMS_VERSION}</span></div><button type="button" className="iconBtn" aria-label="Cerrar términos" onClick={() => setShowTerms(false)}>×</button></div><div className="termsBody"><p>Leé estos términos antes de usar ChamuyoCheck. La aceptación es obligatoria para realizar análisis.</p>{TERMS_SECTIONS.map((section) => <section key={section.title}><h3>{section.title}</h3><p>{section.body}</p></section>)}<p className="legalDisclaimerSubtle">Este texto establece condiciones operativas iniciales y debe ser revisado por asesoría jurídica argentina antes del lanzamiento comercial definitivo.</p></div><div className="termsActions"><button type="button" className="ghost" onClick={() => setShowTerms(false)}>Cerrar</button><button type="button" className="primary" onClick={acceptCurrentTerms}>Acepto los Términos y Condiciones</button></div></section></div>}
     <input ref={fileRef} type="file" accept=".pdf,image/*,.txt,.doc,.docx" hidden onChange={(e) => onFile(e.target.files?.[0])} />
     <aside className="sidebar">
-      <div className="brand"><div className="shield">✓</div><div><div className="logo">{leasingPage ? <>LEASING<span>SCORE</span></> : <>CHAMUYO<span>CHECK</span></>}</div><div className="tag">{leasingPage ? 'Transparencia financiera del leasing' : 'Finanzas · Estafas · Derecho'}</div></div></div>
+      <div className="brand"><div className="shield">✓</div><div><div className="logo">{leasingPage ? <>LEASING<span>SCORING</span></> : <>CHAMUYO<span>CHECK</span></>}</div><div className="tag">{leasingPage ? 'Transparencia financiera del leasing' : 'Finanzas · Estafas · Derecho'}</div></div></div>
       <button type="button" className="newBtn" onClick={startNewAnalysis}>＋ {leasingPage ? 'Nuevo leasing' : 'Nuevo análisis'}</button>
       <div className="nav">
         <button type="button" className={activeView === 'inicio' ? 'active' : ''} onClick={openHome}>⌂ Inicio</button>
@@ -1396,7 +1396,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             {!leasingPage && <button type="button" className="leasingModuleBadge" onClick={() => window.location.assign('/leasing')}>MÓDULO ESPECIAL LEASING</button>}
             <p className="heroBody">{leasingPage ? 'El leasing es un instrumento regulado. Este espacio no lo califica como chamuyo: ordena la información, muestra lo informado, detecta lo que falta y permite comparar alternativas.' : 'Subí una captura, una oferta, un enlace o un documento. ChamuyoCheck responde tu pregunta con cálculos reproducibles, señales observables y próximos pasos.'}</p>
             {leasingPage
-              ? <button type="button" className="heroCta leasingUploadCta" onClick={openLeasingQuoteUpload}>Subí una cotización o completá el caso. LeasingScore evaluará si informa tasas, costo total, cánones, opción, gastos, impuestos y condiciones esenciales.</button>
+              ? <button type="button" className="heroCta leasingUploadCta" onClick={openLeasingQuoteUpload}>Subí una cotización o completá el caso. LeasingScoring evaluará si informa tasas, costo total, cánones, opción, gastos, impuestos y condiciones esenciales.</button>
               : <div className="heroCta">Preguntá: “¿Cuánto pago en total?”, “¿Me pueden estar estafando?” o “¿Qué obligación estoy aceptando?”.</div>}
             <div className="heroHighlights">
               <div><strong>{localDoc.label}</strong><span>{localDoc.focus}</span></div>
@@ -1433,7 +1433,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
               {categoryError && <div className="termsError" role="alert">{categoryError}</div>}
               {leasingPage && <div ref={leasingUploadRef} className="leasingUploadStage">
                 <div className="analysisStepTitle"><span>PASO 2</span> Cargá la cotización o el contenido</div>
-                <p>Podés subir un PDF, una imagen o una captura. Si cargás una cotización, LeasingScore extraerá sus datos y reemplazará el formulario manual.</p>
+                <p>Podés subir un PDF, una imagen o una captura. Si cargás una cotización, LeasingScoring extraerá sus datos y reemplazará el formulario manual.</p>
                 <div className="tabs">{(['Texto', 'PDF', 'Imagen', 'Web'] as InputMode[]).map((x) => <button key={x} type="button" className={`tab ${detected === x || (detected === 'Archivo' && x === 'PDF') ? 'active' : ''}`} onClick={() => chooseInputMode(x)}>{x}</button>)}</div>
                 <div className={`drop ${drag ? 'drag' : ''}`} onClick={() => { if (activeInput === 'PDF' || activeInput === 'Imagen') fileRef.current?.click(); }} onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}>
                   <h3>{file ? 'Cotización cargada' : 'Tocá para cargar o arrastrá el archivo'}</h3>
@@ -1465,7 +1465,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                 {file ? <div className="leasingManualReplaced" role="status"><b>Formulario manual reemplazado por la cotización.</b><span>Se utilizarán los datos extraídos del archivo. Solamente completá abajo el uso del bien, el perfil del tomador y cualquier condición que no figure en el documento.</span></div> : <>
                 <div className="analysisStepTitle leasingManualStep"><span>PASO 4</span> Completá los datos conocidos</div>
                 <h3>Datos del caso práctico</h3>
-                <p>Completá lo que conozcas. LeasingScore analizará por defecto un leasing financiero; cuando deba simular un caso usará cánones calculados por sistema francés.</p>
+                <p>Completá lo que conozcas. LeasingScoring analizará por defecto un leasing financiero; cuando deba simular un caso usará cánones calculados por sistema francés.</p>
                 <div className="leasingProvinceGrid">
                   <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => { setLeasingAssetType(event.target.value); confirmLeasingField('assetType'); }}><option>Maquinaria o equipo</option><option>Automotor</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
                   <label>Valor del bien sin IVA<input inputMode="decimal" value={leasingAssetValue} onChange={(event) => setLeasingAssetValue(event.target.value)} placeholder="Ej.: 100000000" /><small>Ingresá el precio neto. El IVA se calcula y analiza por separado.</small></label>
@@ -1565,7 +1565,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
           <div className={`panel scoreCard ${isLeasingAnalysis ? 'leasingScoreCard' : ''}`}>
             <div className="scoreWrap">
               <div className="circleScore" style={{ ['--p' as any]: isLeasingAnalysis ? leasingScore.score : score, background: `conic-gradient(${isLeasingAnalysis ? leasingScore.color : scoreColor} calc(${isLeasingAnalysis ? leasingScore.score : score}*1%), #293241 0)` }}><div><span style={{ color: isLeasingAnalysis ? leasingScore.color : scoreColor }}>{isLeasingAnalysis ? leasingScore.score : score}</span><small>/100</small></div></div>
-              <div className="scoreText"><h2>{isLeasingAnalysis ? 'LeasingScore™' : isScamAnalysis ? 'Indicador de riesgo observado' : 'ChamuyoScore™'}</h2><h3 style={{ color: isLeasingAnalysis ? leasingScore.color : scoreColor }}>{isLeasingAnalysis ? leasingScore.label : scoreLabel}</h3><p className="chamuyoDisclaimer">{isLeasingAnalysis ? 'LeasingScore mide la transparencia financiera y la completitud de la información aportada. Un puntaje mayor significa que la propuesta informa mejor sus costos y condiciones.' : isScamAnalysis ? 'Este indicador mide señales concretas observadas. La falta de datos se informa como verificación pendiente y no se convierte por sí sola en una acusación o riesgo crítico.' : 'El ChamuyoScore mide el nivel de señales de manipulación, falta de evidencia o contenido dudoso. No representa un porcentaje de verdad.'}</p><p>{isLeasingAnalysis ? 'La puntuación considera identificación de partes y bien, valor neto e IVA, financiación, plazo, cánones, TNA, TEA, CFTEA, opción, comisiones, seguro, garantías, impuestos y registración.' : analysis.summary}</p><button type="button" className="ghost" onClick={toggleScoreExplanation} aria-expanded={showScoreExplanation}>{showScoreExplanation ? 'Ocultar explicación del puntaje' : 'Ver explicación del puntaje'}</button>{showScoreExplanation && <div className="scoreExplanationPanel" role="region" aria-live="polite"><ul>{(isLeasingAnalysis ? leasingScoreExplanationItems : scoreExplanationItems).map((item, i) => <li key={i}>{item}</li>)}</ul></div>}</div>
+              <div className="scoreText"><h2>{isLeasingAnalysis ? 'LeasingScoring™' : isScamAnalysis ? 'Indicador de riesgo observado' : 'ChamuyoScore™'}</h2><h3 style={{ color: isLeasingAnalysis ? leasingScore.color : scoreColor }}>{isLeasingAnalysis ? leasingScore.label : scoreLabel}</h3><p className="chamuyoDisclaimer">{isLeasingAnalysis ? 'LeasingScoring mide la transparencia financiera y la completitud de la información aportada. Un puntaje mayor significa que la propuesta informa mejor sus costos y condiciones.' : isScamAnalysis ? 'Este indicador mide señales concretas observadas. La falta de datos se informa como verificación pendiente y no se convierte por sí sola en una acusación o riesgo crítico.' : 'El ChamuyoScore mide el nivel de señales de manipulación, falta de evidencia o contenido dudoso. No representa un porcentaje de verdad.'}</p><p>{isLeasingAnalysis ? 'La puntuación considera identificación de partes y bien, valor neto e IVA, financiación, plazo, cánones, TNA, TEA, CFTEA, opción, comisiones, seguro, garantías, impuestos y registración.' : analysis.summary}</p><button type="button" className="ghost" onClick={toggleScoreExplanation} aria-expanded={showScoreExplanation}>{showScoreExplanation ? 'Ocultar explicación del puntaje' : 'Ver explicación del puntaje'}</button>{showScoreExplanation && <div className="scoreExplanationPanel" role="region" aria-live="polite"><ul>{(isLeasingAnalysis ? leasingScoreExplanationItems : scoreExplanationItems).map((item, i) => <li key={i}>{item}</li>)}</ul></div>}</div>
             </div>
           </div>
           <div className="panel decisionCard"><div className="light" style={{ background: isLeasingAnalysis ? leasingScore.color : semaforo.color }}></div><div><h2>{isLeasingAnalysis ? 'Estado de la información' : 'Semáforo de decisiones'}</h2><h3 style={{ color: isLeasingAnalysis ? leasingScore.color : semaforo.color }}>{isLeasingAnalysis ? leasingScore.label : semaforo.txt}</h3><p>{isLeasingAnalysis ? `${leasingScore.missing.length} de ${leasingScore.present.length + leasingScore.missing.length} datos de transparencia todavía no aparecen informados.` : analysis.prudentConclusion}</p></div></div>
@@ -1660,7 +1660,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         {reportSections?.contextCard && <div className="section"><h2>{reportSections.contextCard.title}</h2><ul>{reportSections.contextCard.items.map((x, i) => <li key={i}>{x}</li>)}</ul></div>}
         <div className="section"><h2>Recomendaciones de verificación</h2><ul>{reportSections?.recommendations.slice(0, 6).map((x, i) => <li key={i}>{x}</li>)}</ul></div>
         <div className="section"><h2>Especialistas activados</h2><div className="moduleGrid">{analysis.modules.map(moduleCard)}</div></div>
-        <div className="section"><h2>{isLeasingAnalysis ? 'Cómo se calculó LeasingScore' : 'Por qué obtuvo este puntaje'}</h2><ul>{(isLeasingAnalysis ? leasingScoreExplanationItems : (analysis.scoreExplanation || [])).map((x, i) => <li key={i}>{x}</li>)}</ul></div>
+        <div className="section"><h2>{isLeasingAnalysis ? 'Cómo se calculó LeasingScoring' : 'Por qué obtuvo este puntaje'}</h2><ul>{(isLeasingAnalysis ? leasingScoreExplanationItems : (analysis.scoreExplanation || [])).map((x, i) => <li key={i}>{x}</li>)}</ul></div>
         {analysis.extractedPreview && <div className="section"><h2>Datos extraídos</h2><p>{analysis.extractedPreview}</p></div>}</>}
       </section>}
       </> : <section className="panel viewPanel" style={{ padding: '28px', marginTop: '8px' }}>

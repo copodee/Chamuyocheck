@@ -46,7 +46,8 @@ test('leasing conserva el contenido de la cotización aunque exista una pregunta
   const quote = `Tomador: El Caqui SAS. Bien a dar en leasing: Audi Q5 Sportback Sline.
   Valor del bien (sin IVA): $ 125.826.000. Plazo del leasing: 36 meses.
   Cánones a pagar: 34 cánones fijos de $ 6.060.000. Opción de compra: $ 6.060.000.
-  Cánones en garantía: 2 cánones por $ 12.120.000. Comisión de estructuración: 3% + IVA.`;
+  Cánones en garantía: 2 cánones por $ 12.120.000. Comisión de estructuración: 3% + IVA.
+  Domicilio de uso del cliente: Buenos Aires.`;
   const answer = buildCustomerDecisionAnswer({
     documentText: quote,
     userInstruction: 'Calculá cánones, opción, garantía, comisión y señalá solamente lo que falte.',
@@ -58,6 +59,10 @@ test('leasing conserva el contenido de la cotización aunque exista una pregunta
   assert.match(answer.directAnswer, /125\.826\.000.*34 cánones de 6\.060\.000.*opción de 6\.060\.000/is);
   assert.match(answer.directAnswer, /costo total visible.*TIR mensual.*CFTEA/is);
   assert.match(answer.sections?.[0]?.items.join(' ') || '', /costo total nominal.*costo financiero nominal.*TIR mensual/is);
+  assert.match(answer.sections?.[0]?.items.join(' ') || '', /Sellos estimado.*2\.354\.310.*1,05%/is);
+  assert.ok((answer.sections?.[0]?.items.length || 0) <= 9, 'el resumen financiero debe seguir siendo breve');
+  assert.match(answer.sections?.[1]?.title || '', /Detalle de cargos y supuestos/i);
+  assert.match(answer.sections?.[1]?.items.join(' ') || '', /garantía inicial.*comisión de estructuración/is);
   assert.doesNotMatch(answer.findings.join(' '), /Robbie Williams/i);
   assert.doesNotMatch(answer.sections?.flatMap((section) => section.items).join(' ') || '', /La cotización indica:/i);
   assert.doesNotMatch(answer.sections?.map((section) => section.title).join(' ') || '', /Sector público/i);
