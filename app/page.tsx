@@ -1351,7 +1351,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       <div className="mobileTopbar">
         <div className="mobileTopbarBrand">
           <div className="shield">✓</div>
-          <div>
+          <div className="authIntro">
             <div className="logo">{leasingPage ? <>LEASING<span>SCORING</span></> : <>CHAMUYO<span>CHECK</span></>}</div>
             <div className="tag">{leasingPage ? 'Transparencia financiera' : 'Finanzas · Estafas · Derecho'}</div>
           </div>
@@ -1383,7 +1383,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             <h2 id="auth-title">{authMode === 'signup' ? `Creá tu cuenta para usar ${leasingPage ? 'LeasingScoring' : 'ChamuyoCheck'}` : 'Ingresá a tu cuenta'}</h2>
             <p>Durante la beta, todo usuario registrado tiene acceso completo a textos, enlaces, imágenes y documentos. No se realizan cobros.</p>
           </div>
-          <form className="authForm" onSubmit={submitEmailAuth}>
+          <form className="authForm authCard" onSubmit={submitEmailAuth}>
             {authMode === 'signup' && <label>Nombre<input value={authName} onChange={(event) => setAuthName(event.target.value)} autoComplete="name" /></label>}
             <label>Email<input type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} autoComplete="email" required /></label>
             <label>Clave<input type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} minLength={6} required /></label>
