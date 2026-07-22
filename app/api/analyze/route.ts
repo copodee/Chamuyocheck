@@ -694,6 +694,7 @@ export function buildLocalAnalysis(
     extractionStatus: inputKind === 'Texto' ? 'Se analizará el texto ingresado directamente.' : extraction?.note || 'Contenido recibido.',
     extractedChars: extraction?.chars || text.length,
     extractedPreview: text.slice(0, 1200),
+    leasingEvidenceText: selectedCategory === 'leasing-specialist' ? text.slice(0, 50_000) : undefined,
     score: finalScore,
     risk: riskLabel,
     confidence: extraction?.chars ? 'Media/Alta' : 'Media',
@@ -1181,11 +1182,17 @@ export async function handleAnalyzeRequest(req: Request) {
 
     const fallback = buildLocalAnalysis(contextualDocumentText, inputKind, fileName, extraction, userInstruction, url, selectedCategory, legalBranch, legalJurisdiction);
 
+    // Leasing usa su motor documental y financiero especializado. La verificación
+    // web general puede introducir noticias o fuentes ajenas a una cotización.
+    if (selectedCategory === 'leasing-specialist') {
+      return NextResponse.json(fallback);
+    }
+
     const openai = process.env.OPENAI_API_KEY && openAIAnalysisEnabled()
       ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20_000, maxRetries: 0 })
       : null;
     const noPaidClient = { chat: { completions: { create: async () => { throw new Error('Paid search disabled.'); } } } };
-    const verificationText = selectedCategory === 'argentina-legal-documents' || selectedCategory === 'leasing-specialist'
+    const verificationText = selectedCategory === 'argentina-legal-documents'
       ? `Jurisdicción elegida por el usuario: Argentina. ${documentText}`
       : documentText;
     const webVerification = await runHybridExternalVerification(

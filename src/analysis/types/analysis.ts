@@ -13,6 +13,7 @@ export type AnalysisResult = {
   extractionStatus: string;
   extractedChars: number;
   extractedPreview?: string;
+  leasingEvidenceText?: string;
   score: number;
   risk: RiskLevel | string;
   confidence: string;

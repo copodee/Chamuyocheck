@@ -35,3 +35,16 @@ test('document evidence and confirmed form fields are combined without invented 
   assert.ok(result.present.includes('Opción de compra cuantificada'));
   assert.ok(result.present.includes('Registro, jurisdicción y gastos de transferencia'));
 });
+
+test('a detailed commercial quote is not scored as insufficient merely because rates are absent', () => {
+  const quote = `Tomador El Caqui SAS, CUIT 30-71671988-6. Finanlease S.A. Bien a dar en leasing: Audi Q5 Sportback Sline.
+  Valor del bien sin IVA $125.826.000; IVA $26.423.460. Plazo 36 meses. 34 cánones fijos de $6.060.000.
+  Opción de compra $6.060.000. Maxicanon $0. Dos cánones en garantía por $12.120.000.
+  Comisión de estructuración 3% más IVA. Seguro del bien a cargo del Tomador, contratado por Finanlease S.A.
+  Sellos, Ingresos Brutos, patente, registración y gastos de transferencia discriminados.`;
+  const result = calculateLeasingTransparencyScore(quote);
+  assert.ok(result.score >= 60, `score inesperadamente bajo: ${result.score}`);
+  assert.ok(result.present.includes('Identificación del dador y del tomador'));
+  assert.ok(result.present.includes('Seguro y mantenimiento'));
+  assert.ok(result.missing.includes('CFTEA o costo financiero total'));
+});

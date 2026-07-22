@@ -56,3 +56,29 @@ test('extracts the values from the ZRV quotation without replacing them with for
   assert.equal(result?.guaranteeAmount, 4_784_892);
   assert.equal(result?.structuringFeePercent, 4.5);
 });
+
+test('extracts the Audi Q5 quotation used as a production regression case', () => {
+  const quote = `
+    Tomador: El Caqui SAS CUIT 30-71671988-6
+    Bien a dar en leasing: Audi Q5 Sportback Sline
+    Valor del bien (sin IVA): $ 125.826.000
+    IVA del bien: $ 26.423.460
+    Valor del bien (IVA incluido): $ 152.249.460
+    Plazo del leasing: 36 meses
+    Cánones a pagar: 34 cánones fijos de $ 6.060.000 c/u
+    Opción de compra del bien: $ 6.060.000
+    Maxicanon / Adelanto: $ 0
+    Cánones en garantía: 2 cánones por $ 12.120.000
+    Comisión de estructuración: 3% + IVA
+    Seguro del bien: A cargo del Tomador, contratado por Finanlease S.A.
+  `;
+  const result = extractLeasingQuoteData(quote);
+  assert.equal(result?.assetDescription, 'Audi Q5 Sportback Sline');
+  assert.equal(result?.assetValueNet, 125_826_000);
+  assert.equal(result?.months, 36);
+  assert.equal(result?.regularCanonCount, 34);
+  assert.equal(result?.regularCanonAmount, 6_060_000);
+  assert.equal(result?.optionAmount, 6_060_000);
+  assert.equal(result?.guaranteeAmount, 12_120_000);
+  assert.equal(result?.structuringFeePercent, 3);
+});

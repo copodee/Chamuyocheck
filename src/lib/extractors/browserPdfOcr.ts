@@ -34,7 +34,6 @@ export async function extractPdfTextInBrowser(
       'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
       import.meta.url,
     ).toString();
-    const { createWorker, OEM, PSM } = await import('tesseract.js');
     document = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
     totalPages = document.numPages;
     if (totalPages > MAX_PDF_PAGES) {
@@ -46,11 +45,26 @@ export async function extractPdfTextInBrowser(
         note: `El PDF tiene ${totalPages} páginas. El máximo para lectura óptica es ${MAX_PDF_PAGES}.`,
       };
     }
-    worker = await createWorker('spa', OEM.LSTM_ONLY);
-    await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO, preserve_interword_spaces: '1' });
     for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
       onProgress?.({ page: pageNumber, totalPages });
       const page = await document.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const nativeText = content.items
+        .map((item: any) => typeof item?.str === 'string' ? item.str : '')
+        .join(' ')
+        .replace(/[ \t]+/g, ' ')
+        .trim();
+      if (nativeText.length >= 30) {
+        texts.push(`[Página ${pageNumber}]\n${nativeText}`);
+        confidences.push(100);
+        page.cleanup();
+        continue;
+      }
+      if (!worker) {
+        const { createWorker, OEM, PSM } = await import('tesseract.js');
+        worker = await createWorker('spa', OEM.LSTM_ONLY);
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO, preserve_interword_spaces: '1' });
+      }
       const viewport = page.getViewport({ scale: 1.35 });
       const canvas = window.document.createElement('canvas');
       canvas.width = Math.ceil(viewport.width);
@@ -92,7 +106,7 @@ export async function extractPdfTextInBrowser(
     confidence,
     pages: totalPages,
     note: text.length >= 20
-      ? `PDF escaneado leído en el dispositivo: ${totalPages} páginas (${confidence.toFixed(0)}% de confianza óptica estimada).`
+      ? `PDF leído en el dispositivo: ${totalPages} páginas. Se usó texto nativo cuando estaba disponible y lectura óptica sólo como respaldo.`
       : 'El PDF no produjo texto suficiente. Puede estar protegido o tener imágenes de muy baja calidad.',
   };
 }

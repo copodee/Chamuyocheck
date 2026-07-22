@@ -42,6 +42,24 @@ test('la categoría elegida gobierna el tipo de respuesta aunque la redacción s
   assert.equal(leasingAnswer.kind, 'leasing-specialist');
 });
 
+test('leasing conserva el contenido de la cotización aunque exista una pregunta separada', () => {
+  const quote = `Tomador: El Caqui SAS. Bien a dar en leasing: Audi Q5 Sportback Sline.
+  Valor del bien (sin IVA): $ 125.826.000. Plazo del leasing: 36 meses.
+  Cánones a pagar: 34 cánones fijos de $ 6.060.000. Opción de compra: $ 6.060.000.
+  Cánones en garantía: 2 cánones por $ 12.120.000. Comisión de estructuración: 3% + IVA.`;
+  const answer = buildCustomerDecisionAnswer({
+    documentText: quote,
+    userInstruction: 'Calculá cánones, opción, garantía, comisión y señalá solamente lo que falte.',
+    selectedCategory: 'leasing-specialist',
+    financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(''),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(''),
+  });
+  assert.match(answer.directAnswer, /125\.826\.000.*34 cánones de 6\.060\.000.*opción de 6\.060\.000/is);
+  assert.doesNotMatch(answer.findings.join(' '), /Robbie Williams/i);
+  assert.doesNotMatch(answer.sections?.map((section) => section.title).join(' ') || '', /Sector público/i);
+});
+
 test('inversiones responde una consulta de existencia de fintech como verificación de entidades', () => {
   const text = 'Artículo de blog. Simplestate es una startup inmobiliaria. Crowdium es una plataforma de crowdfunding. Reental es una proptech internacional.';
   const answer = buildCustomerDecisionAnswer({

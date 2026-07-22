@@ -21,6 +21,7 @@ type Analysis = {
   extractionStatus: string;
   extractedChars: number;
   extractedPreview?: string;
+  leasingEvidenceText?: string;
   score: number;
   risk: string;
   confidence: string;
@@ -953,7 +954,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       setAnalysis(data);
       const historyScore = data.decisionAnswer?.kind === 'leasing-specialist'
         ? calculateLeasingTransparencyScore(buildLeasingTransparencyEvidence({
-          documentText: data.extractedPreview || '',
+          documentText: data.leasingEvidenceText || data.extractedPreview || '',
           userText: text,
           manualFields: file ? {} : {
             assetType: leasingConfirmedFields.has('assetType') ? leasingAssetType : '',
@@ -1009,7 +1010,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
 
   const score = analysis?.score ?? 35;
   const leasingScoreSource = buildLeasingTransparencyEvidence({
-    documentText: analysis?.extractedPreview || '',
+    documentText: analysis?.leasingEvidenceText || analysis?.extractedPreview || '',
     userText: text,
     manualFields: file ? {} : {
       assetType: leasingConfirmedFields.has('assetType') ? leasingAssetType : '',

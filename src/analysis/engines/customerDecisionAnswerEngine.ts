@@ -716,9 +716,11 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
         ? 'La existencia de un leasing no acredita que la oferta sea legítima: deben verificarse el dador, la titularidad del bien, el contrato, la inscripción, los pagos y las condiciones de recuperación y compra.'
         : 'Jurídicamente deben revisarse el bien, canon, opción de compra, responsabilidades, inscripción, seguros, mantenimiento, mora, restitución y jurisdicción; la conveniencia económica e impositiva se informa por separado.';
   const currentTaxRule = leasingKnowledge('tax')[0].statement;
-  const publicSectorRules = leasingKnowledge('public-sector').map((item) => item.statement);
-  const internationalFindings = buildInternationalLeasingFindings(question);
   const normalizedQuestion = question.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const asksPublicSector = /sector\s+publico|estado\b|municipi|licitaci|coparticipaci|presupuesto\s+publico/i.test(normalizedQuestion);
+  const asksImport = /importaci|importar|mulc|proveedor\s+extranjero|pago\s+al\s+exterior/i.test(normalizedQuestion);
+  const publicSectorRules = asksPublicSector ? leasingKnowledge('public-sector').map((item) => item.statement) : [];
+  const internationalFindings = buildInternationalLeasingFindings(question);
   const isLeaseBack = /lease[ -]?back|retro(?:leasing|arrendamiento)|venta\s+(?:y|con)\s+(?:posterior\s+)?leasing/i.test(question);
   const numericField = (label: string) => {
     const match = question.match(new RegExp(`${label}:\\s*([\\d.,]+)`, 'i'));
@@ -995,8 +997,8 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       'Separar canon financiero, servicios, IVA, seguros, mantenimiento, gastos registrales, comisiones y precio de opción.',
       'Verificar quién es el dador, cómo se eligió el bien, quién asume vicios, pérdida, mantenimiento, seguro, impuestos y obsolescencia.',
       'Confirmar con asesoramiento contable el encuadre en Ganancias, IVA e impuestos provinciales antes de atribuir una ventaja impositiva.',
-      'Si el tomador es público, verificar competencia para contratar, procedimiento de selección, autorización presupuestaria y de endeudamiento, capacidad de repago, garantía ofrecida y autorización o encuadre BCRA; no presumir que siempre debe ceder coparticipación.',
-      'Si el bien es importado, verificar antes de contratar el régimen aduanero y el texto ordenado vigente de Exterior y Cambios del BCRA para cada pago al exterior.',
+      asksPublicSector ? 'Si el tomador es público, verificar competencia para contratar, procedimiento de selección, autorización presupuestaria y de endeudamiento, capacidad de repago, garantía ofrecida y autorización o encuadre BCRA; no presumir que siempre debe ceder coparticipación.' : '',
+      asksImport ? 'Si el bien es importado, verificar antes de contratar el régimen aduanero y el texto ordenado vigente de Exterior y Cambios del BCRA para cada pago al exterior.' : '',
       internationalFindings.length ? 'Para una comparación internacional definitiva, indicar país o estado, residencia fiscal de las partes, tipo de activo, moneda, proveedor, plazo, opción, estándar contable y lugar de registro.' : '',
     ],
     limitations: [profilesToReport.length
@@ -1011,7 +1013,9 @@ export function buildCustomerDecisionAnswer(input: DecisionAnswerInput): Custome
   const legalCategorySelected = input.selectedCategory === 'argentina-legal-documents';
   const explicitQuestion = input.userInstruction?.trim() || input.documentText;
   if (input.selectedCategory === 'leasing-specialist' || /\bleasing\b|lease[ -]?back|arrendamiento\s+financiero|opci[oó]n\s+de\s+compra/i.test(explicitQuestion)) {
-    return buildLeasingAnswer(input.selectedCategory, explicitQuestion);
+    // En archivos de leasing, la pregunta define el foco pero el documento contiene
+    // los importes y condiciones. Nunca se debe descartar uno en favor del otro.
+    return buildLeasingAnswer(input.selectedCategory, [input.documentText, input.userInstruction].filter(Boolean).join('\n'));
   }
   if (input.argentinaLegalAnalysis.applicable && input.argentinaLegalAnalysis.subtopic === 'sexual-offense') {
     return withLegalCategoryWarning(buildSexualOffenseAnswer(input.argentinaLegalAnalysis), input.argentinaLegalAnalysis);
