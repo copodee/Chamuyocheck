@@ -31,43 +31,53 @@ body{
 button,input,textarea{font:inherit}
 .appShell{min-height:100vh;min-width:0;max-width:100%;display:grid;grid-template-columns:290px minmax(0,1fr)}
 .leasingAppShell{
-  --bg:#07111f;
-  --side:#091827;
-  --panel:#102235;
-  --panel2:#152b40;
-  --border:rgba(148,185,210,.20);
-  --text:#f6f2e8;
-  --muted:#b8c9d5;
-  --soft:#7893a6;
-  --green:#f4b740;
-  --cyan:#f4b740;
-  --violet:#176b87;
-  --violet2:#2c8aa3;
-  --yellow:#f4b740;
+  --bg:#f7fafc;
+  --side:#eef5f7;
+  --panel:#ffffff;
+  --panel2:#f1f6f8;
+  --border:rgba(20,72,88,.16);
+  --text:#102a35;
+  --muted:#516b76;
+  --soft:#78909a;
+  --green:#087f8c;
+  --cyan:#087f8c;
+  --violet:#0b6472;
+  --violet2:#168a96;
+  --yellow:#c98916;
   background:
-    radial-gradient(circle at 78% 2%,rgba(244,183,64,.12),transparent 29%),
-    radial-gradient(circle at 14% 10%,rgba(23,107,135,.22),transparent 34%),
-    linear-gradient(180deg,#071522,#040b13);
+    radial-gradient(circle at 82% 0%,rgba(224,171,68,.10),transparent 28%),
+    radial-gradient(circle at 12% 8%,rgba(30,139,151,.09),transparent 32%),
+    linear-gradient(180deg,#ffffff,#f4f8fa);
 }
-.leasingAppShell .sidebar{background:linear-gradient(180deg,#0b2334,#07131f);border-right-color:rgba(244,183,64,.24)}
-.leasingAppShell .logo{color:#f8f4ea;letter-spacing:-.025em}.leasingAppShell .logo span{color:#f4b740;text-shadow:0 0 18px rgba(244,183,64,.22)}
-.leasingAppShell .tag{color:#8fc9d8}
-.leasingAppShell .shield{background:linear-gradient(145deg,#176b87,#0a293a);border-color:rgba(244,183,64,.65);color:#f4b740}
-.leasingAppShell .newBtn,.leasingAppShell .primary{background:linear-gradient(135deg,#f4b740,#d99318);color:#17202a;box-shadow:0 12px 34px rgba(217,147,24,.20)}
-.leasingAppShell .nav button.active,.leasingAppShell .mobileNav button.active{background:rgba(244,183,64,.13);color:#ffd879}
-.leasingAppShell .panel,.leasingAppShell .card,.leasingAppShell .section{background:linear-gradient(180deg,rgba(17,40,58,.96),rgba(10,25,39,.97));border-color:rgba(148,185,210,.18)}
-.leasingAppShell .heroIntroPanel,.leasingAppShell .inputPanel{border-color:rgba(244,183,64,.22)}
-.leasingAppShell .eyebrow,.leasingAppShell .categoryStep{border-color:rgba(244,183,64,.46);background:rgba(244,183,64,.10);color:#ffd36a}
-.leasingAppShell .heroSubtitle{color:#8fd3df}
-.leasingAppShell .heroCta,.leasingAppShell .leasingUploadStage{border-color:rgba(45,153,178,.38);background:rgba(23,107,135,.13)}
-.leasingAppShell .tab.active{border-color:rgba(244,183,64,.65);background:rgba(244,183,64,.12);color:#ffdc8a}
-.leasingAppShell .leasingJurisdictionPicker{border-color:rgba(45,153,178,.38);background:rgba(23,107,135,.09)}
-.leasingAppShell .leasingScoreCard{border-color:rgba(244,183,64,.42);box-shadow:0 24px 70px rgba(0,13,24,.38)}
-.leasingAppShell .chamuyoDisclaimer{background:rgba(23,107,135,.12);border-left-color:#45a7bd;color:#d9eef2}
-.leasingAppShell .leasingResultSection summary{color:#f4c762}
-.leasingAppShell .leasingComparisonTable thead th{background:#16465b;color:#fff7e2}
-.leasingAppShell .leasingComparisonTable tbody th{background:#102d3e;color:#f4c762}
-.leasingAppShell .legalFooter{background:rgba(5,18,29,.92);border-top-color:rgba(244,183,64,.18)}
+.leasingAppShell .sidebar{background:linear-gradient(180deg,#f1f7f8,#e8f1f3);border-right-color:rgba(11,100,114,.18)}
+.leasingAppShell .logo{color:#10333e;letter-spacing:-.025em}.leasingAppShell .logo span{color:#b8750c;text-shadow:none}
+.leasingAppShell .tag{color:#35717b}
+.leasingAppShell .shield{background:linear-gradient(145deg,#0b6472,#168a96);border-color:rgba(201,137,22,.55);color:#fff}
+.leasingAppShell .newBtn,.leasingAppShell .primary{background:linear-gradient(135deg,#0b7180,#075866);color:#fff;box-shadow:0 10px 28px rgba(11,100,114,.18)}
+.leasingAppShell .nav a,.leasingAppShell .nav button,.leasingAppShell .mobileNav button{color:#244753}
+.leasingAppShell .nav button.active,.leasingAppShell .mobileNav button.active{background:rgba(11,100,114,.11);color:#075866}
+.leasingAppShell .panel,.leasingAppShell .card,.leasingAppShell .section{background:#fff;border-color:rgba(20,72,88,.15);box-shadow:0 14px 42px rgba(35,72,84,.08)}
+.leasingAppShell .heroIntroPanel,.leasingAppShell .inputPanel{border-color:rgba(11,100,114,.20)}
+.leasingAppShell .eyebrow,.leasingAppShell .categoryStep{border-color:rgba(201,137,22,.38);background:#fff8e9;color:#9a650b}
+.leasingAppShell .heroSubtitle{color:#087f8c}
+.leasingAppShell .heroBody,.leasingAppShell .heroCta{color:#405e69}
+.leasingAppShell .heroCta,.leasingAppShell .leasingUploadStage{border-color:rgba(11,100,114,.25);background:#f3fafb}
+.leasingAppShell .tab,.leasingAppShell .ghost,.leasingAppShell .iconBtn{background:#f7fafb;color:#244753;border-color:rgba(20,72,88,.16)}
+.leasingAppShell .tab.active{border-color:rgba(11,100,114,.50);background:#e8f5f6;color:#075866}
+.leasingAppShell .urlInput,.leasingAppShell textarea,.leasingAppShell input,.leasingAppShell select{background:#fff;color:#163844;border-color:rgba(20,72,88,.22)}
+.leasingAppShell .leasingJurisdictionPicker{border-color:rgba(11,100,114,.25);background:#f4fafb}
+.leasingAppShell .leasingScoreCard{border-color:rgba(201,137,22,.34);box-shadow:0 20px 55px rgba(35,72,84,.10)}
+.leasingAppShell .chamuyoDisclaimer{background:#edf8f9;border-left-color:#168a96;color:#315863}
+.leasingAppShell .leasingResultSection summary{color:#8b5b0a}
+.leasingAppShell .leasingComparisonTable thead th{background:#0b6472;color:#fff}
+.leasingAppShell .leasingComparisonTable tbody th{background:#eaf4f5;color:#775008}
+.leasingAppShell .proBox,.leasingAppShell .mobileTopbar,.leasingAppShell .mobileNav{background:#f7fafb;color:#244753;border-color:rgba(20,72,88,.15)}
+.leasingAppShell .proBox p,.leasingAppShell .heroHighlights span{color:#58717b}
+.leasingAppShell .proBox button{background:#e7f3f4;color:#075866;border-color:rgba(11,100,114,.28)}
+.leasingAppShell .heroHighlights div{background:#f7fafb}.leasingAppShell .heroHighlights strong{color:#173b47}
+.leasingAppShell .avatar{background:#dcebed;color:#164653}
+.leasingAppShell .legalFooter{background:rgba(245,249,250,.96);border-top-color:rgba(20,72,88,.15);color:#627984}
+.leasingAppShell .legalFooter summary,.leasingAppShell .legalFooter p{color:#627984}
 .sidebar{position:sticky;top:0;height:100vh;background:linear-gradient(180deg,rgba(7,16,29,.98),rgba(4,8,15,.98));border-right:1px solid var(--border);padding:28px 20px;display:flex;flex-direction:column;gap:22px}
 .brand{display:flex;gap:12px;align-items:center}
 .shield{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--violet),#111827);display:grid;place-items:center;border:1px solid rgba(39,239,189,.35);font-size:24px}
