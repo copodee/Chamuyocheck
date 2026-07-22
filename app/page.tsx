@@ -9,6 +9,9 @@ import { getSupabaseClient } from '../src/lib/supabase/client';
 import { buildLeasingTransparencyEvidence, calculateLeasingTransparencyScore } from '../src/lib/leasing/leasingTransparencyScore';
 import type { Session } from '@supabase/supabase-js';
 
+const IS_LEASING_SITE = process.env.NEXT_PUBLIC_SITE_MODE === 'leasing';
+const LEASING_SITE_URL = process.env.NEXT_PUBLIC_LEASING_SITE_URL || 'https://leasingscoring.com';
+
 type Cat = { name: string; score: number; explanation: string };
 type Analysis = {
   selectedCategory?: AnalysisCategoryId;
@@ -577,9 +580,9 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [templatesItems, setTemplatesItems] = useState<SavedTemplate[]>([]);
   const [compareLeft, setCompareLeft] = useState('');
   const [compareRight, setCompareRight] = useState('');
-  const [compareCategory, setCompareCategory] = useState<AnalysisCategoryId>('finance-credit');
+  const [compareCategory, setCompareCategory] = useState<AnalysisCategoryId>(leasingPage ? 'leasing-specialist' : 'finance-credit');
   const [improveDraft, setImproveDraft] = useState('');
-  const [improveCategory, setImproveCategory] = useState<AnalysisCategoryId>('argentina-legal-documents');
+  const [improveCategory, setImproveCategory] = useState<AnalysisCategoryId>(leasingPage ? 'leasing-specialist' : 'argentina-legal-documents');
   const [showDetailedResults, setShowDetailedResults] = useState(true);
   const [leasingHubProvinceA, setLeasingHubProvinceA] = useState('Ciudad Autónoma de Buenos Aires');
   const [leasingHubProvinceB, setLeasingHubProvinceB] = useState('Buenos Aires');
@@ -633,12 +636,13 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   }, []);
   useEffect(() => {
     if (!leasingPage || typeof window === 'undefined') return;
-    const prefill = sessionStorage.getItem('cc_leasing_prefill');
+    const query = new URLSearchParams(window.location.search);
+    const prefill = query.get('question') || sessionStorage.getItem('cc_leasing_prefill');
     if (prefill) {
       setText(prefill);
       sessionStorage.removeItem('cc_leasing_prefill');
     }
-    if (sessionStorage.getItem('cc_leasing_autorun') === 'true') {
+    if (query.get('autorun') === '1' || sessionStorage.getItem('cc_leasing_autorun') === 'true') {
       setPendingLeasingAutoRun(true);
       sessionStorage.removeItem('cc_leasing_autorun');
     }
@@ -818,9 +822,10 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
 
   function updateAnalysisText(value: string) {
     if (!leasingPage && /\bleasing\b/i.test(value) && typeof window !== 'undefined') {
-      sessionStorage.setItem('cc_leasing_prefill', value);
-      sessionStorage.setItem('cc_leasing_autorun', 'true');
-      window.location.assign('/leasing');
+      const destination = new URL(LEASING_SITE_URL);
+      destination.searchParams.set('question', value);
+      destination.searchParams.set('autorun', '1');
+      window.location.assign(destination.toString());
       return;
     }
     setText(value);
@@ -1201,7 +1206,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   };
   const openLeasingHub = () => {
     if (!leasingPage && typeof window !== 'undefined') {
-      window.location.assign('/leasing');
+      window.location.assign(LEASING_SITE_URL);
       return;
     }
     setActiveView('leasing');
@@ -1318,16 +1323,19 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const sectionHint = activeView === 'leasing' ? 'Aprendé el instrumento, compará alternativas y prepará una consulta experta.' : activeView === 'historial' ? 'Se muestra el historial local guardado en este navegador.' : activeView === 'favoritos' ? 'Resultados importantes guardados en este navegador.' : activeView === 'plantillas' ? 'Consultas preparadas para iniciar análisis frecuentes.' : activeView === 'comparar' ? 'Compará dos textos antes de pedir un análisis especializado.' : activeView === 'mejorar' ? 'Prepará un documento para una revisión de claridad, respaldo y riesgos.' : activeView === 'ajustes' ? 'Preferencias locales y control de los datos guardados.' : activeView === 'ayuda' ? 'Guía rápida para obtener respuestas útiles y verificables.' : 'Volvé al formulario principal para cargar un nuevo contenido.';
   const userName = String(session?.user.user_metadata?.full_name || session?.user.email || 'Usuario');
   const userInitial = userName.slice(0, 1).toUpperCase();
+  const availableCategories = leasingPage
+    ? ANALYSIS_CATEGORIES.filter((category) => category.id === 'leasing-specialist')
+    : ANALYSIS_CATEGORIES.filter((category) => category.id !== 'leasing-specialist');
 
   return <div className={`appShell ${leasingPage ? 'leasingAppShell' : ''}`}>
-    {showTerms && <div className="termsBackdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowTerms(false); }}><section className="termsModal" role="dialog" aria-modal="true" aria-labelledby="terms-title"><div className="termsHeader"><div><h2 id="terms-title">Términos y Condiciones</h2><span>Versión {TERMS_VERSION}</span></div><button type="button" className="iconBtn" aria-label="Cerrar términos" onClick={() => setShowTerms(false)}>×</button></div><div className="termsBody"><p>Leé estos términos antes de usar ChamuyoCheck. La aceptación es obligatoria para realizar análisis.</p>{TERMS_SECTIONS.map((section) => <section key={section.title}><h3>{section.title}</h3><p>{section.body}</p></section>)}<p className="legalDisclaimerSubtle">Este texto establece condiciones operativas iniciales y debe ser revisado por asesoría jurídica argentina antes del lanzamiento comercial definitivo.</p></div><div className="termsActions"><button type="button" className="ghost" onClick={() => setShowTerms(false)}>Cerrar</button><button type="button" className="primary" onClick={acceptCurrentTerms}>Acepto los Términos y Condiciones</button></div></section></div>}
+    {showTerms && <div className="termsBackdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowTerms(false); }}><section className="termsModal" role="dialog" aria-modal="true" aria-labelledby="terms-title"><div className="termsHeader"><div><h2 id="terms-title">Términos y Condiciones</h2><span>Versión {TERMS_VERSION}</span></div><button type="button" className="iconBtn" aria-label="Cerrar términos" onClick={() => setShowTerms(false)}>×</button></div><div className="termsBody"><p>Leé estos términos antes de usar {leasingPage ? 'LeasingScoring' : 'ChamuyoCheck'}. La aceptación es obligatoria para realizar análisis.</p>{TERMS_SECTIONS.map((section) => <section key={section.title}><h3>{section.title}</h3><p>{section.body}</p></section>)}<p className="legalDisclaimerSubtle">Este texto establece condiciones operativas iniciales y debe ser revisado por asesoría jurídica argentina antes del lanzamiento comercial definitivo.</p></div><div className="termsActions"><button type="button" className="ghost" onClick={() => setShowTerms(false)}>Cerrar</button><button type="button" className="primary" onClick={acceptCurrentTerms}>Acepto los Términos y Condiciones</button></div></section></div>}
     <input ref={fileRef} type="file" accept=".pdf,image/*,.txt,.doc,.docx" hidden onChange={(e) => onFile(e.target.files?.[0])} />
     <aside className="sidebar">
       <div className="brand"><div className="shield">✓</div><div><div className="logo">{leasingPage ? <>LEASING<span>SCORING</span></> : <>CHAMUYO<span>CHECK</span></>}</div><div className="tag">{leasingPage ? 'Transparencia financiera del leasing' : 'Finanzas · Estafas · Derecho'}</div></div></div>
       <button type="button" className="newBtn" onClick={startNewAnalysis}>＋ {leasingPage ? 'Nuevo leasing' : 'Nuevo análisis'}</button>
       <div className="nav">
         <button type="button" className={activeView === 'inicio' ? 'active' : ''} onClick={openHome}>⌂ Inicio</button>
-        <button type="button" className={activeView === 'leasing' ? 'active' : ''} onClick={openLeasingHub}>🏗 Leasing</button>
+        {leasingPage && <button type="button" className={activeView === 'leasing' ? 'active' : ''} onClick={openLeasingHub}>🏗 Leasing</button>}
         <button type="button" className={activeView === 'historial' ? 'active' : ''} onClick={openHistory}>◴ Historial</button>
         <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>
         <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>
@@ -1344,7 +1352,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         <div className="mobileTopbarBrand">
           <div className="shield">✓</div>
           <div>
-            <div className="logo">{leasingPage ? <>LEASING<span>SCORE</span></> : <>CHAMUYO<span>CHECK</span></>}</div>
+            <div className="logo">{leasingPage ? <>LEASING<span>SCORING</span></> : <>CHAMUYO<span>CHECK</span></>}</div>
             <div className="tag">{leasingPage ? 'Transparencia financiera' : 'Finanzas · Estafas · Derecho'}</div>
           </div>
         </div>
@@ -1355,7 +1363,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       </div>
       {mobileMenuOpen && <div className="mobileNav">
         <button type="button" className={activeView === 'inicio' ? 'active' : ''} onClick={openHome}>⌂ Inicio</button>
-        <button type="button" className={activeView === 'leasing' ? 'active' : ''} onClick={openLeasingHub}>🏗 Leasing</button>
+        {leasingPage && <button type="button" className={activeView === 'leasing' ? 'active' : ''} onClick={openLeasingHub}>🏗 Leasing</button>}
         <button type="button" className={activeView === 'historial' ? 'active' : ''} onClick={openHistory}>◴ Historial</button>
         <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>
         <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>
@@ -1372,7 +1380,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         {!session && !sessionLoading && <section id="registro" className="panel authPanel" aria-labelledby="auth-title">
           <div>
             <div className="eyebrow">REGISTRO OBLIGATORIO</div>
-            <h2 id="auth-title">{authMode === 'signup' ? 'Creá tu cuenta para usar ChamuyoCheck' : 'Ingresá a tu cuenta'}</h2>
+            <h2 id="auth-title">{authMode === 'signup' ? `Creá tu cuenta para usar ${leasingPage ? 'LeasingScoring' : 'ChamuyoCheck'}` : 'Ingresá a tu cuenta'}</h2>
             <p>Durante la beta, todo usuario registrado tiene acceso completo a textos, enlaces, imágenes y documentos. No se realizan cobros.</p>
           </div>
           <form className="authForm" onSubmit={submitEmailAuth}>
@@ -1393,7 +1401,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             <div className="eyebrow">{leasingPage ? 'ESPECIALISTA EN LEASING' : 'ANÁLISIS ESPECIALIZADO'}</div>
             <h1>{leasingPage ? 'Leasing transparente, comparable y bien explicado' : 'Antes de pagar, endeudarte o firmar'}</h1>
             <p className="heroSubtitle">{leasingPage ? 'Medí la transparencia financiera de la propuesta, calculá el flujo y entendé sus ventajas contractuales, fiscales y registrales.' : 'Descubrí cuánto terminás pagando, qué información falta y qué riesgos deberías verificar.'}</p>
-            {!leasingPage && <button type="button" className="leasingModuleBadge" onClick={() => window.location.assign('/leasing')}>MÓDULO ESPECIAL LEASING</button>}
+            {!leasingPage && <button type="button" className="leasingModuleBadge" onClick={() => window.location.assign(LEASING_SITE_URL)}>MÓDULO ESPECIAL LEASING</button>}
             <p className="heroBody">{leasingPage ? 'El leasing es un instrumento regulado. Este espacio no lo califica como chamuyo: ordena la información, muestra lo informado, detecta lo que falta y permite comparar alternativas.' : 'Subí una captura, una oferta, un enlace o un documento. ChamuyoCheck responde tu pregunta con cálculos reproducibles, señales observables y próximos pasos.'}</p>
             {leasingPage
               ? <button type="button" className="heroCta leasingUploadCta" onClick={openLeasingQuoteUpload}>Subí una cotización o completá el caso. LeasingScoring evaluará si informa tasas, costo total, cánones, opción, gastos, impuestos y condiciones esenciales.</button>
@@ -1409,7 +1417,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
               <h2 id="category-picker-title">{leasingPage ? 'Configurá tu análisis de leasing' : 'Elegí la categoría'}</h2>
               <p>{leasingPage ? 'Indicá jurisdicciones y datos conocidos, o subí directamente una cotización.' : 'La categoría define el tipo de análisis y las fuentes que corresponden.'}</p>
               {!leasingPage && <div className="categoryGrid" role="radiogroup" aria-required="true">
-                {ANALYSIS_CATEGORIES.map((category) => <button key={category.id} type="button" role="radio" aria-checked={selectedCategory === category.id} className={`categoryOption ${category.id === 'leasing-specialist' ? 'leasingCategoryOption' : ''} ${selectedCategory === category.id ? 'selected' : ''}`} onClick={() => { if (category.id === 'leasing-specialist') { window.location.assign('/leasing'); return; } setSelectedCategory(category.id); setLegalBranch(null); setLegalJurisdiction(''); setCategoryError(''); setAnalysis(null); setFile(null); setUrl(''); setText(''); setActiveInput('Texto'); }}>
+                {availableCategories.map((category) => <button key={category.id} type="button" role="radio" aria-checked={selectedCategory === category.id} className={`categoryOption ${selectedCategory === category.id ? 'selected' : ''}`} onClick={() => { setSelectedCategory(category.id); setLegalBranch(null); setLegalJurisdiction(''); setCategoryError(''); setAnalysis(null); setFile(null); setUrl(''); setText(''); setActiveInput('Texto'); }}>
                   <span className="categoryOptionIcon" aria-hidden="true">{category.icon}</span>
                   <span><strong>{category.label}</strong><span>{category.description}</span></span>
                 </button>)}
@@ -1514,7 +1522,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             <div className="reportActions"><button type="button" className="ghost" onClick={downloadAnalysisReport}>Descargar informe</button><button type="button" className="ghost" onClick={startNewAnalysis}>Nuevo análisis</button></div>
             <p>{analysis.summary}</p>
             <p><b>Motivo:</b> {analysis.scopeReason}</p>
-            <h3>ChamuyoCheck analiza actualmente</h3>
+            <h3>{leasingPage ? 'LeasingScoring analiza actualmente' : 'ChamuyoCheck analiza actualmente'}</h3>
             <ul>{analysis.supportedAreas?.map((area, index) => <li key={index}>{area}</li>)}</ul>
             <p className="legalDisclaimerSubtle">No se calculó ChamuyoScore ni se simuló una búsqueda externa. Esta limitación evita presentar como confiable un análisis para el que el producto todavía no tiene cobertura especializada.</p>
           </div>
@@ -1697,32 +1705,36 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         </>}
         {activeView === 'plantillas' && <>
           <div className="cards" style={{ marginTop: '14px' }}>
+            {leasingPage && <>
             <div className="card"><h3>Leasing: gastos y exenciones</h3><p>Detalla bien, tomador, provincias, cánones y opción.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Quiero analizar un leasing de [TIPO DE BIEN]. El tomador es [EMPRESA / PERSONA HUMANA / MONOTRIBUTISTA]. Su domicilio de uso es [PROVINCIA] y la jurisdicción legal de quien financia es [PROVINCIA]. Informá gastos, porcentajes, exenciones, beneficios fiscales y costo de la opción de compra.')}>Usar plantilla</button></div>
             <div className="card"><h3>Comparar leasing y préstamo</h3><p>Compara el mismo activo y plazo después de impuestos.</p><button type="button" className="primary" onClick={() => useTemplate('leasing-specialist', 'Compará este leasing con un préstamo para comprar el mismo bien. Separá anticipo o maxi canon, cánones/cuotas, tasa, IVA, Sellos, comisiones, seguros, mantenimiento, opción, valor residual y beneficios impositivos realmente utilizables.')}>Usar plantilla</button></div>
+            </>}
+            {!leasingPage &&
             <div className="card"><h3>Revisar un contrato</h3><p>Busca obligaciones, costos, riesgos y cláusulas ambiguas.</p><button type="button" className="primary" onClick={() => useTemplate('argentina-legal-documents', 'Revisá este contrato argentino. Explicá obligaciones, costos, plazos, mora, garantías, rescisión, jurisdicción, cláusulas ambiguas y datos que faltan verificar.')}>Usar plantilla</button></div>
+            }
           </div>
           {templatesItems.length > 0 && <div className="savedTemplates"><h3>Mis plantillas</h3>{templatesItems.map((item) => <div className="historyItem" key={item.id}><div>{item.label}<small>{ANALYSIS_CATEGORIES.find((category) => category.id === item.category)?.label}</small></div><div className="savedItemActions"><button type="button" className="ghost" onClick={() => useTemplate(item.category, item.prompt)}>Usar</button><button type="button" className="ghost" onClick={() => removeTemplate(item.id)}>Quitar</button></div></div>)}</div>}
         </>}
         {activeView === 'comparar' && <>
-          <label className="menuCategoryPicker"><b>Tipo de comparación</b><select value={compareCategory} onChange={(event) => setCompareCategory(event.target.value as AnalysisCategoryId)}>{ANALYSIS_CATEGORIES.map((category) => <option key={`compare-${category.id}`} value={category.id}>{category.label}</option>)}</select><small>La categoría elegida determina qué cálculos, normas y riesgos se aplican.</small></label>
+          <label className="menuCategoryPicker"><b>Tipo de comparación</b><select value={compareCategory} onChange={(event) => setCompareCategory(event.target.value as AnalysisCategoryId)}>{availableCategories.map((category) => <option key={`compare-${category.id}`} value={category.id}>{category.label}</option>)}</select><small>La categoría elegida determina qué cálculos, normas y riesgos se aplican.</small></label>
           <div className="cards" style={{ marginTop: '14px' }}><div className="card"><h3>Texto A</h3><textarea value={compareLeft} onChange={(event) => setCompareLeft(event.target.value)} placeholder="Pegá la primera oferta o contrato" /></div><div className="card"><h3>Texto B</h3><textarea value={compareRight} onChange={(event) => setCompareRight(event.target.value)} placeholder="Pegá la segunda oferta o contrato" /></div></div>
           {comparisonReady ? <div className="panel legalResultPanel" style={{ marginTop: '14px' }}><h3>Comparación preliminar</h3><p>Texto A: {compareLeft.length} caracteres. Texto B: {compareRight.length} caracteres.</p><p>Coincidencias relevantes: {sharedWords.slice(0, 20).join(', ') || 'no se detectaron coincidencias claras'}.</p><button type="button" className="primary" onClick={analyzeComparison}>Analizar en {ANALYSIS_CATEGORIES.find((item) => item.id === compareCategory)?.label}</button></div> : <div className="paywall" style={{ marginTop: '14px' }}>Pegá al menos 20 caracteres en cada texto.</div>}
         </>}
         {activeView === 'mejorar' && <>
-          <label className="menuCategoryPicker"><b>Contexto del documento</b><select value={improveCategory} onChange={(event) => setImproveCategory(event.target.value as AnalysisCategoryId)}>{ANALYSIS_CATEGORIES.map((category) => <option key={`improve-${category.id}`} value={category.id}>{category.label}</option>)}</select><small>Se conservará el sentido, pero la revisión usará criterios propios de esta categoría.</small></label>
+          <label className="menuCategoryPicker"><b>Contexto del documento</b><select value={improveCategory} onChange={(event) => setImproveCategory(event.target.value as AnalysisCategoryId)}>{availableCategories.map((category) => <option key={`improve-${category.id}`} value={category.id}>{category.label}</option>)}</select><small>Se conservará el sentido, pero la revisión usará criterios propios de esta categoría.</small></label>
           <textarea style={{ marginTop: '14px', width: '100%', minHeight: '240px' }} value={improveDraft} onChange={(event) => setImproveDraft(event.target.value)} placeholder="Pegá el documento que querés mejorar" />
           <button type="button" className="primary" style={{ marginTop: '12px' }} disabled={!improveDraft.trim()} onClick={sendImprovementToAnalysis}>Revisar y mejorar</button>
         </>}
         {activeView === 'ajustes' && <>
           <div className="panel legalResultPanel settingsPanel" style={{ marginTop: '14px' }}><label><input type="checkbox" checked={showDetailedResults} onChange={(event) => { setShowDetailedResults(event.target.checked); localStorage.setItem('cc_detailed_results', String(event.target.checked)); }} /> Mostrar explicaciones detalladas</label><p className="hint">Idioma: español · Jurisdicción legal predeterminada: Argentina</p><div className="settingsSummary"><span><b>{historyItems.length}</b> análisis en el historial</span><span><b>{favoritesItems.length}</b> favoritos</span><span><b>{templatesItems.length}</b> plantillas propias</span></div><div className="settingsActions"><button type="button" className="ghost" disabled={!historyItems.length} onClick={() => { if (window.confirm('¿Borrar todo el historial guardado en este navegador?')) { localStorage.removeItem('cc_history'); setHistoryItems([]); } }}>Borrar historial local</button><button type="button" className="ghost" disabled={!favoritesItems.length} onClick={() => { if (window.confirm('¿Borrar todos los favoritos guardados en este navegador?')) { localStorage.removeItem('cc_favorites'); setFavoritesItems([]); } }}>Borrar favoritos</button><button type="button" className="ghost" disabled={!templatesItems.length} onClick={() => { if (window.confirm('¿Borrar todas tus plantillas guardadas en este navegador?')) { localStorage.removeItem('cc_templates'); setTemplatesItems([]); } }}>Borrar mis plantillas</button></div></div>
         </>}
-        {activeView === 'ayuda' && <div className="panel legalResultPanel" style={{ marginTop: '14px' }}><h3>Cómo obtener una respuesta útil</h3><ol><li>Elegí la categoría correcta.</li><li>Explicá qué decisión necesitás tomar.</li><li>Incluí documento, importes, tasas, fechas y jurisdicción.</li><li>En leasing indicá tipo de bien, tomador, provincia del contrato, provincia de uso/registro, cánones y opción.</li></ol><h3>Qué hace ChamuyoCheck</h3><p>Separa hechos, cálculos, riesgos, gastos, beneficios condicionados y puntos que necesitan una fuente oficial. No inventa una exención cuando faltan datos.</p></div>}
+        {activeView === 'ayuda' && <div className="panel legalResultPanel" style={{ marginTop: '14px' }}><h3>Cómo obtener una respuesta útil</h3><ol>{!leasingPage && <li>Elegí la categoría correcta.</li>}<li>Explicá qué decisión necesitás tomar.</li><li>Incluí documento, importes, tasas, fechas y jurisdicción.</li>{leasingPage && <li>Indicá tipo de bien, tomador, jurisdicción de quien financia, domicilio de uso, cánones y opción.</li>}</ol><h3>Qué hace {leasingPage ? 'LeasingScoring' : 'ChamuyoCheck'}</h3><p>Separa hechos, cálculos, riesgos, gastos, beneficios condicionados y puntos que necesitan una fuente oficial. No inventa una exención cuando faltan datos.</p></div>}
       </section>}
     </main>
-    <div className="legalFooter"><details><summary>🔒 Aviso legal</summary><p>{analysis?.legalSafeguard || 'ChamuyoCheck genera una evaluación automatizada y orientativa. No afirma veracidad, falsedad, autoría, plagio, uso de IA ni ilegalidad; no reemplaza asesoramiento profesional.'}</p></details><span>Resultado automatizado, orientativo y sujeto a revisión humana.</span></div>
+    <div className="legalFooter"><details><summary>🔒 Aviso legal</summary><p>{analysis?.legalSafeguard || `${leasingPage ? 'LeasingScoring' : 'ChamuyoCheck'} genera una evaluación automatizada y orientativa. No afirma veracidad, falsedad, autoría, plagio, uso de IA ni ilegalidad; no reemplaza asesoramiento profesional.`}</p></details><span>Resultado automatizado, orientativo y sujeto a revisión humana.</span></div>
   </div>;
 }
 
 export default function Page() {
-  return <ChamuyoCheckApp />;
+  return <ChamuyoCheckApp leasingPage={IS_LEASING_SITE} />;
 }

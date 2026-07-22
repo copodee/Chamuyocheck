@@ -1,5 +1,5 @@
-import { ChamuyoCheckApp } from '../page';
+import { redirect } from 'next/navigation';
 
 export default function LeasingPage() {
-  return <ChamuyoCheckApp leasingPage />;
+  redirect(process.env.NEXT_PUBLIC_SITE_MODE === 'leasing' ? '/' : 'https://leasingscoring.com');
 }

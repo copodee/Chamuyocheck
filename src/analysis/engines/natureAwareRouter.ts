@@ -76,7 +76,7 @@ function extractSignals(text: string): Partial<NatureAwareRoutingContext> {
   // Numeric values
   const numeric: Array<{ value: number; unit?: string }> = [];
   const numberMatches = text.match(/(\d+(?:[.,]\d+)?)\s*(?:pesos|dólares|euros|%|por ciento)?/gi) || [];
-  numberMatches.forEach(match => {
+  numberMatches.forEach((match: string) => {
     const numStr = match.replace(/[^0-9.,]/g, '').replace(',', '.');
     const num = parseFloat(numStr);
     if (!isNaN(num)) numeric.push({ value: num });
