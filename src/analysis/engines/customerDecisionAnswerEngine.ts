@@ -1109,7 +1109,7 @@ export function enrichDecisionAnswerWithExternalEvidence(
 ): CustomerDecisionAnswer | undefined {
   if (!answer || answer.kind !== 'scam-prevention') return answer;
   const relevant = records
-    .filter((record) => ['url-threat-intelligence', 'domain-registration-data', 'domain-reputation', 'security-research', 'consumer-protection-agencies', 'securities-regulator-cnv', 'company-registries', 'independent-news'].includes(record.sourceType) && record.excerpt)
+    .filter((record) => ['url-threat-intelligence', 'url-threat-intelligence-status', 'domain-registration-data', 'domain-reputation', 'security-research', 'consumer-protection-agencies', 'securities-regulator-cnv', 'company-registries', 'independent-news'].includes(record.sourceType) && record.excerpt)
     .slice(0, 5)
     .map((record) => `${record.title}: ${record.excerpt}`);
   if (!relevant.length && !verificationRationale) return answer;

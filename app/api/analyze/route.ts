@@ -687,6 +687,7 @@ export function buildLocalAnalysis(
     externalVerificationPerformed: false,
   });
   return {
+    selectedCategory,
     documentIcon: domain.icon,
     documentType: domain.label,
     documentFocus: domain.focus,
@@ -846,7 +847,9 @@ function applyVerificationResult(
   normalized: ReturnType<typeof normalizeAI> | ReturnType<typeof buildLocalAnalysis>,
   fallback: ReturnType<typeof buildLocalAnalysis>,
   verification: Awaited<ReturnType<typeof runHybridExternalVerification>>,
-  retrievedSource?: { url: string; title: string; institution: string | null }
+  retrievedSource?: { url: string; title: string; institution: string | null },
+  selectedCategory?: SupportedProductArea,
+  preflightRecords: ExternalVerificationSourceRecord[] = []
 ) {
   const primarySourceRead = Boolean(retrievedSource?.url);
   const verified = verification.execution.externalVerificationPerformed;
@@ -855,7 +858,7 @@ function applyVerificationResult(
   const financialEvidenceScore = normalized.decisionAnswer?.kind === 'loan-cost' && financial
     ? financial.warnings.length > 0 || financial.missingFields.length > 0 ? 42 : 24
     : null;
-  const adjustedScore = financialEvidenceScore !== null
+  const genericAdjustedScore = financialEvidenceScore !== null
     ? Math.max(safetyFloor, normalized.scamRiskAnalysis?.score || 0, financialEvidenceScore)
     : verified && verification.assessment === 'corroborated'
     ? Math.max(safetyFloor, Math.min(normalized.score, 35))
@@ -888,9 +891,19 @@ function applyVerificationResult(
     claimIndexes: fallback.claimAnalysis.claims.map((_: unknown, index: number) => index),
     official: false,
   } : null;
-  const executionRecords = retrievedRecord
-    ? [...verification.execution.records, retrievedRecord]
-    : verification.execution.records;
+  const executionRecords = [...verification.execution.records, ...preflightRecords, ...(retrievedRecord ? [retrievedRecord] : [])]
+    .filter((record, index, records) => records.findIndex((candidate) => candidate.sourceType === record.sourceType && candidate.url === record.url && candidate.excerpt === record.excerpt) === index);
+  const unsafeUrlMatch = hasKnownUnsafeUrlMatch(executionRecords);
+  const scamSignalsScore = normalized.scamRiskAnalysis?.signals?.length ? normalized.scamRiskAnalysis.score : 0;
+  const safeBrowsingCompleted = executionRecords.some((record) => record.sourceType === 'url-threat-intelligence');
+  const scamScore = unsafeUrlMatch
+    ? 95
+    : scamSignalsScore > 0
+      ? scamSignalsScore
+      : safeBrowsingCompleted ? 35 : 45;
+  // En posibles estafas, el puntaje mide señales observadas. La ausencia de
+  // información se comunica como verificación pendiente y nunca fabrica un 95.
+  const adjustedScore = selectedCategory === 'scam-risk' ? scamScore : genericAdjustedScore;
   const externallyEnrichedDecision = enrichDecisionAnswerWithExternalEvidence(
     normalized.decisionAnswer,
     executionRecords,
@@ -926,7 +939,7 @@ function applyVerificationResult(
     verificationSummary: sourceVerificationText,
   });
   return {
-    ...normalized, ...presentation, score: adjustedScore, decisionAnswer,
+    ...normalized, ...presentation, selectedCategory: selectedCategory || normalized.selectedCategory, score: adjustedScore, decisionAnswer,
     externalVerification: {
       ...normalized.externalVerification,
       externalVerificationPerformed: verified,
@@ -1145,7 +1158,7 @@ export async function handleAnalyzeRequest(req: Request) {
       false,
       webPreflightEvidence
     );
-    if (!openai) return NextResponse.json(applyVerificationResult(fallback, fallback, webVerification, retrievedSource));
+    if (!openai) return NextResponse.json(applyVerificationResult(fallback, fallback, webVerification, retrievedSource, selectedCategory, webPreflightEvidence));
     const prompt = `Actuá como ChamuyoCheck, auditor documental prudente. La instrucción del usuario define la pregunta que debés responder y tiene prioridad para seleccionar el dato, plazo, alternativa o aspecto del documento que corresponda. Usá el contenido extraído como evidencia y no confundas la instrucción con parte del documento. Identificá el tipo de documento/contenido antes del score. Si el PDF no tiene texto extraíble, indicá que necesita OCR. Si el usuario pregunta si fue hecho con IA, respondé como estimación no concluyente: nunca acuses ni afirmes uso de IA/plagio. Respondé SOLO JSON con estas claves: documentIcon, documentType, documentFocus, extractionStatus, extractedChars, extractedPreview, score, risk, confidence, detectedTheme, detectedInput, centralQuestion, summary, prudentConclusion, verdict, categoryScores, modules, flaggedPhrases, issues, questions, missingInformation, worstCase, improved, evidenceFound, scoreExplanation, refutationPoints, improvementPlan, topic, topicLabel, topicHint.
 
 INSTRUCCIÓN DEL USUARIO (define el foco; no pertenece al documento):
@@ -1182,7 +1195,7 @@ No confundas seguridad técnica con legitimidad comercial. Primero informá domi
     });
 
     const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
-    return NextResponse.json(applyVerificationResult(normalizeAI(parsed, fallback), fallback, webVerification, retrievedSource));
+    return NextResponse.json(applyVerificationResult(normalizeAI(parsed, fallback), fallback, webVerification, retrievedSource, selectedCategory, webPreflightEvidence));
   } catch (error) {
     console.error('Route.ts error:', error instanceof Error ? error.message : String(error));
     return NextResponse.json({ error: 'No se pudo analizar el contenido.' }, { status: 500 });

@@ -100,7 +100,8 @@ test('free local endpoint returns a prudent scam-risk conclusion without externa
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.match(body.prudentConclusion, /Confirmar identidad, CUIT, dominio/i);
-    assert.ok(body.score >= 50);
+    assert.ok(body.score > 0 && body.score <= 45);
+    assert.equal(body.selectedCategory, 'scam-risk');
     assert.equal(body.externalVerification.externalVerificationPerformed, false);
     const publicPayload = JSON.stringify(body);
     assert.doesNotMatch(publicPayload, /búsqueda paga|fuentes gratuitas|paidSearchUsed|"route"|"inconclusive"/i);
@@ -144,8 +145,8 @@ test('a Banco Provincia loan URL pasted as text is read and routed to finance', 
     assert.match(body.extractionStatus, /página pública leída/i);
     assert.equal(body.externalVerification.externalVerificationPerformed, false);
     assert.equal(body.externalVerification.execution.status, 'partial');
-    assert.equal(body.externalVerification.execution.records.length, 1);
-    assert.equal(body.externalVerification.execution.records[0].url, 'https://www.bancoprovincia.com.ar/mvc/productos/creditos/BipPreca/condiciones_bip_preca');
+    assert.ok(body.externalVerification.execution.records.length >= 1);
+    assert.equal(body.externalVerification.execution.records.some((record: any) => record.url === 'https://www.bancoprovincia.com.ar/mvc/productos/creditos/BipPreca/condiciones_bip_preca'), true);
     assert.match(body.summary, /se leyó la página de Banco Provincia/i);
     assert.match(body.externalVerification.conclusion, /fuente primaria.*verificación independiente/i);
     assert.doesNotMatch(body.summary, /no puede ser validada con las fuentes disponibles/i);
@@ -202,8 +203,8 @@ test('web analysis audits the real redirect destination without exposing trackin
     assert.notEqual(body.scopeStatus, 'out-of-scope');
     assert.equal(body.detectedInput, 'Web');
     assert.equal(body.externalVerification.externalVerificationPerformed, false);
-    assert.equal(body.externalVerification.execution.records.length, 1);
-    assert.equal(body.externalVerification.execution.records[0].url, 'https://operador.example/inversion');
+    assert.ok(body.externalVerification.execution.records.length >= 1);
+    assert.equal(body.externalVerification.execution.records.some((record: any) => record.url === 'https://operador.example/inversion'), true);
     assert.equal(body.scamRiskAnalysis.signals.some((signal: any) => signal.id === 'cross-domain-redirect'), true);
     assert.match(publicPayload, /operador\.example/);
     assert.match(publicPayload, /taboolanews\.com.*No se consideran el operador financiero ni el destino final/i);

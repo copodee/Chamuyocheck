@@ -11,6 +11,7 @@ import type { Session } from '@supabase/supabase-js';
 
 type Cat = { name: string; score: number; explanation: string };
 type Analysis = {
+  selectedCategory?: AnalysisCategoryId;
   scopeStatus?: 'supported' | 'out-of-scope';
   scopeReason?: string;
   supportedAreas?: string[];
@@ -1032,7 +1033,16 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const getChamuyoColor = (s: number) => s > 80 ? '#8b0000' : s > 60 ? 'var(--red)' : s > 40 ? 'var(--yellow)' : 'var(--green)';
   const getChamuyoLabel = (s: number) => s > 80 ? 'Chamuyo extremo' : s > 60 ? 'Alto chamuyo' : s > 40 ? 'Requiere verificación' : s > 20 ? 'Bajo chamuyo' : 'Muy poco chamuyo';
   const getChamuyoAdvice = (s: number) => s > 80 ? { txt: 'Contenido muy dudoso, no recomendado', color: '#8b0000' } : s > 60 ? { txt: 'Hay se\u00f1ales de manipulaci\u00f3n', color: 'var(--red)' } : s > 40 ? { txt: 'Conviene verificar algunos puntos', color: 'var(--yellow)' } : s > 20 ? { txt: 'Bajo riesgo de manipulaci\u00f3n', color: 'var(--green)' } : { txt: 'Contenido s\u00f3lido y confiable', color: 'var(--green)' };
-  const semaforo = getChamuyoAdvice(score);
+  const getScamAdvice = (s: number) => s >= 90
+    ? { txt: 'Amenaza conocida o riesgo crítico', color: '#b00000' }
+    : s >= 70 ? { txt: 'Riesgo alto: no avances sin verificar', color: 'var(--red)' }
+    : s >= 45 ? { txt: 'Identidad u oferta todavía no verificada', color: 'var(--yellow)' }
+    : s >= 25 ? { txt: 'Sin alerta técnica conocida; faltan controles', color: 'var(--yellow)' }
+    : { txt: 'Sin señales observadas; no equivale a validación', color: 'var(--green)' };
+  const isScamAnalysis = analysis?.selectedCategory === 'scam-risk';
+  const semaforo = isScamAnalysis ? getScamAdvice(score) : getChamuyoAdvice(score);
+  const scoreColor = isScamAnalysis ? semaforo.color : getChamuyoColor(score);
+  const scoreLabel = isScamAnalysis ? semaforo.txt : getChamuyoLabel(score);
   const reportSections = analysis ? buildReportSections(analysis, detected, text, Boolean(file)) : null;
   const scoreExplanationItems = analysis ? getScoreExplanationItems(analysis, analysis.detectedInput || detected, text, Boolean(file)) : [];
   const shouldShowScoreExplanationPanel = showScoreExplanation && scoreExplanationItems.length > 0;
@@ -1476,7 +1486,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         {analysis.decisionAnswer && <div className="panel legalResultPanel decisionAnswerPanel">
           <div className="eyebrow">RESPUESTA A TU CONSULTA</div>
           <h2>{analysis.decisionAnswer.title}</h2>
-          {analysis.argentinaLegalAnalysis?.detectedBranch && analysis.argentinaLegalAnalysis.detectedBranch !== 'general' ? (
+          {analysis.selectedCategory === 'argentina-legal-documents' && analysis.argentinaLegalAnalysis?.detectedBranch && analysis.argentinaLegalAnalysis.detectedBranch !== 'general' ? (
             <div className="legalClassification" aria-label="Clasificación jurídica detectada">
               <strong>Especialidad detectada: {analysis.argentinaLegalAnalysis.detectedBranchLabel || analysis.argentinaLegalAnalysis.areaLabel}</strong>
               {analysis.argentinaLegalAnalysis.alternativeBranches?.length ? <span>También puede involucrar: {analysis.argentinaLegalAnalysis.alternativeBranches.map((item) => item.label).join(', ')}.</span> : null}
@@ -1506,8 +1516,8 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         <div className="heroGrid">
           <div className={`panel scoreCard ${isLeasingAnalysis ? 'leasingScoreCard' : ''}`}>
             <div className="scoreWrap">
-              <div className="circleScore" style={{ ['--p' as any]: isLeasingAnalysis ? leasingScore.score : score, background: `conic-gradient(${isLeasingAnalysis ? leasingScore.color : getChamuyoColor(score)} calc(${isLeasingAnalysis ? leasingScore.score : score}*1%), #293241 0)` }}><div><span style={{ color: isLeasingAnalysis ? leasingScore.color : getChamuyoColor(score) }}>{isLeasingAnalysis ? leasingScore.score : score}</span><small>/100</small></div></div>
-              <div className="scoreText"><h2>{isLeasingAnalysis ? 'LeasingScore™' : 'ChamuyoScore™'}</h2><h3 style={isLeasingAnalysis ? { color: leasingScore.color } : undefined}>{isLeasingAnalysis ? leasingScore.label : getChamuyoLabel(score)}</h3><p className="chamuyoDisclaimer">{isLeasingAnalysis ? 'LeasingScore mide la transparencia financiera y la completitud de la información aportada. Un puntaje mayor significa que la propuesta informa mejor sus costos y condiciones.' : 'El ChamuyoScore mide el nivel de señales de manipulación, falta de evidencia o contenido dudoso. No representa un porcentaje de verdad.'}</p><p>{isLeasingAnalysis ? 'La puntuación considera identificación de partes y bien, valor neto e IVA, financiación, plazo, cánones, TNA, TEA, CFTEA, opción, comisiones, seguro, garantías, impuestos y registración.' : analysis.summary}</p><button type="button" className="ghost" onClick={toggleScoreExplanation} aria-expanded={showScoreExplanation}>{showScoreExplanation ? 'Ocultar explicación del puntaje' : 'Ver explicación del puntaje'}</button>{showScoreExplanation && <div className="scoreExplanationPanel" role="region" aria-live="polite"><ul>{(isLeasingAnalysis ? leasingScoreExplanationItems : scoreExplanationItems).map((item, i) => <li key={i}>{item}</li>)}</ul></div>}</div>
+              <div className="circleScore" style={{ ['--p' as any]: isLeasingAnalysis ? leasingScore.score : score, background: `conic-gradient(${isLeasingAnalysis ? leasingScore.color : scoreColor} calc(${isLeasingAnalysis ? leasingScore.score : score}*1%), #293241 0)` }}><div><span style={{ color: isLeasingAnalysis ? leasingScore.color : scoreColor }}>{isLeasingAnalysis ? leasingScore.score : score}</span><small>/100</small></div></div>
+              <div className="scoreText"><h2>{isLeasingAnalysis ? 'LeasingScore™' : isScamAnalysis ? 'Indicador de riesgo observado' : 'ChamuyoScore™'}</h2><h3 style={{ color: isLeasingAnalysis ? leasingScore.color : scoreColor }}>{isLeasingAnalysis ? leasingScore.label : scoreLabel}</h3><p className="chamuyoDisclaimer">{isLeasingAnalysis ? 'LeasingScore mide la transparencia financiera y la completitud de la información aportada. Un puntaje mayor significa que la propuesta informa mejor sus costos y condiciones.' : isScamAnalysis ? 'Este indicador mide señales concretas observadas. La falta de datos se informa como verificación pendiente y no se convierte por sí sola en una acusación o riesgo crítico.' : 'El ChamuyoScore mide el nivel de señales de manipulación, falta de evidencia o contenido dudoso. No representa un porcentaje de verdad.'}</p><p>{isLeasingAnalysis ? 'La puntuación considera identificación de partes y bien, valor neto e IVA, financiación, plazo, cánones, TNA, TEA, CFTEA, opción, comisiones, seguro, garantías, impuestos y registración.' : analysis.summary}</p><button type="button" className="ghost" onClick={toggleScoreExplanation} aria-expanded={showScoreExplanation}>{showScoreExplanation ? 'Ocultar explicación del puntaje' : 'Ver explicación del puntaje'}</button>{showScoreExplanation && <div className="scoreExplanationPanel" role="region" aria-live="polite"><ul>{(isLeasingAnalysis ? leasingScoreExplanationItems : scoreExplanationItems).map((item, i) => <li key={i}>{item}</li>)}</ul></div>}</div>
             </div>
           </div>
           <div className="panel decisionCard"><div className="light" style={{ background: isLeasingAnalysis ? leasingScore.color : semaforo.color }}></div><div><h2>{isLeasingAnalysis ? 'Estado de la información' : 'Semáforo de decisiones'}</h2><h3 style={{ color: isLeasingAnalysis ? leasingScore.color : semaforo.color }}>{isLeasingAnalysis ? leasingScore.label : semaforo.txt}</h3><p>{isLeasingAnalysis ? `${leasingScore.missing.length} de ${leasingScore.present.length + leasingScore.missing.length} datos de transparencia todavía no aparecen informados.` : analysis.prudentConclusion}</p></div></div>

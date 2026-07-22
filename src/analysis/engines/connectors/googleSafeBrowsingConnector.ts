@@ -17,7 +17,17 @@ export async function checkGoogleSafeBrowsing(
   fetchImpl: FetchLike = fetch,
   apiKey = process.env.GOOGLE_SAFE_BROWSING_API_KEY || ''
 ): Promise<ExternalVerificationSourceRecord[]> {
-  if (!apiKey || !claimIndexes.length) return [];
+  if (!claimIndexes.length) return [];
+  const statusRecord = (excerpt: string): ExternalVerificationSourceRecord => ({
+    sourceType: 'url-threat-intelligence-status',
+    url: 'https://developers.google.com/safe-browsing/v4/lookup-api',
+    title: 'Google Safe Browsing — estado de la comprobación',
+    retrievedAt: new Date().toISOString(),
+    claimIndexes,
+    official: true,
+    excerpt,
+  });
+  if (!apiKey) return [statusRecord('Google Safe Browsing no se ejecutó porque la clave del servicio no está configurada.')];
   let target: URL;
   try { target = new URL(url); } catch { return []; }
   if (!['http:', 'https:'].includes(target.protocol)) return [];
@@ -36,7 +46,7 @@ export async function checkGoogleSafeBrowsing(
       }),
       signal: AbortSignal.timeout(8_000),
     });
-    if (!response.ok) return [];
+    if (!response.ok) return [statusRecord(`Google Safe Browsing no pudo completar la comprobación (respuesta HTTP ${response.status}). No debe interpretarse como enlace seguro ni como enlace malicioso.`)];
     const payload = await response.json() as { matches?: ThreatMatch[] };
     const matches = payload.matches || [];
     const retrievedAt = new Date().toISOString();
@@ -49,5 +59,7 @@ export async function checkGoogleSafeBrowsing(
         ? `Google Safe Browsing informó ${matches.length} coincidencia(s) para la URL consultada: ${[...new Set(matches.map((item) => item.threatType || 'amenaza no especificada'))].join(', ')}. La navegación debe bloquearse.`
         : 'La URL no produjo coincidencias en las listas consultadas de Google Safe Browsing. Esto sólo significa que no estaba listada en ese momento; no acredita identidad, autorización, solvencia ni legitimidad de la oferta.',
     }];
-  } catch { return []; }
+  } catch {
+    return [statusRecord('Google Safe Browsing no respondió dentro del tiempo disponible. La seguridad técnica del enlace quedó sin comprobar.')];
+  }
 }

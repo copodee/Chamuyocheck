@@ -21,5 +21,14 @@ test('informa una coincidencia de ingeniería social como bloqueo', async () => 
 
 test('sin clave configurada no simula la comprobación', async () => {
   const records = await checkGoogleSafeBrowsing('https://ejemplo.com', [0], fetch, '');
-  assert.deepEqual(records, []);
+  assert.equal(records.length, 1);
+  assert.equal(records[0].sourceType, 'url-threat-intelligence-status');
+  assert.match(records[0].excerpt || '', /no se ejecutó.*clave/is);
+});
+
+test('expone el fallo del proveedor en lugar de ocultarlo como falta de fuentes', async () => {
+  const fetchMock = async () => new Response('temporarily unavailable', { status: 503 });
+  const records = await checkGoogleSafeBrowsing('https://ejemplo.com', [0], fetchMock, 'test-key');
+  assert.equal(records[0].sourceType, 'url-threat-intelligence-status');
+  assert.match(records[0].excerpt || '', /HTTP 503.*no debe interpretarse/is);
 });
