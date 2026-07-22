@@ -1,6 +1,6 @@
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { calculateFinancialLeasing } from '../leasingFinanceMath';
+import { calculateFinancialLeasing, calculateQuotedLeasingCashflow } from '../leasingFinanceMath';
 
 test('calcula canon francés con opción residual y porcentaje financiado', () => {
   const result = calculateFinancialLeasing({ assetValue: 100_000, financedPercent: 80, months: 24, annualNominalRatePercent: 36, optionPercent: 10, guaranteeCanons: 0, structuringFeePercent: 0 });
@@ -16,4 +16,40 @@ test('los cánones de garantía y el gasto inicial elevan la TIR del dador sin d
   assert.ok(enhanced.guaranteeDeposit > 0);
   assert.equal(enhanced.structuringFee, 3_000);
   assert.ok((enhanced.lessorEffectiveAnnualIrrPercent || 0) > (base.lessorEffectiveAnnualIrrPercent || 0));
+});
+
+test('calcula el flujo completo de una cotización sin duplicar cánones de garantía', () => {
+  const result = calculateQuotedLeasingCashflow({
+    assetValueNet: 125_826_000,
+    months: 36,
+    regularCanonCount: 34,
+    regularCanonAmount: 6_060_000,
+    optionAmount: 6_060_000,
+    guaranteeCanons: 2,
+    guaranteeAmount: 12_120_000,
+    structuringFeePercent: 3,
+  });
+
+  assert.equal(result.regularCanonsTotal, 206_040_000);
+  assert.equal(result.guaranteeDeposit, 12_120_000);
+  assert.equal(result.structuringFee, 3_774_780);
+  assert.equal(result.totalNominalOutflow, 227_994_780);
+  assert.equal(result.nominalFinancingCost, 102_168_780);
+  assert.ok(result.monthlyIrrPercent !== null && result.monthlyIrrPercent > 0);
+  assert.ok(result.effectiveAnnualRatePercent !== null && result.effectiveAnnualRatePercent > 0);
+});
+
+test('no inventa una garantía económica cuando los cánones informados ya cubren todo el plazo', () => {
+  const result = calculateQuotedLeasingCashflow({
+    assetValueNet: 10_000_000,
+    months: 12,
+    regularCanonCount: 12,
+    regularCanonAmount: 1_000_000,
+    guaranteeCanons: 2,
+    guaranteeAmount: 2_000_000,
+    optionAmount: 500_000,
+  });
+
+  assert.equal(result.guaranteeDeposit, 0);
+  assert.equal(result.totalNominalOutflow, 12_500_000);
 });

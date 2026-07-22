@@ -19,6 +19,33 @@ export type LeasingFinanceResult = {
   lessorEffectiveAnnualIrrPercent: number | null;
 };
 
+export type QuotedLeasingCashflowInput = {
+  assetValueNet: number;
+  months: number;
+  regularCanonCount: number;
+  regularCanonAmount: number;
+  optionAmount?: number;
+  maxiCanonAmount?: number;
+  guaranteeCanons?: number;
+  guaranteeAmount?: number;
+  structuringFeePercent?: number;
+};
+
+export type QuotedLeasingCashflowResult = {
+  regularCanonsTotal: number;
+  guaranteeDeposit: number;
+  optionAmount: number;
+  maxiCanonAmount: number;
+  structuringFee: number;
+  initialOutflow: number;
+  totalNominalOutflow: number;
+  nominalFinancingCost: number;
+  nominalFinancingCostPercent: number;
+  monthlyIrrPercent: number | null;
+  implicitTnaPercent: number | null;
+  effectiveAnnualRatePercent: number | null;
+};
+
 function monthlyIrr(cashflows: number[]) {
   const npv = (rate: number) => cashflows.reduce((sum, cashflow, index) => sum + cashflow / ((1 + rate) ** index), 0);
   let low = -0.9999;
@@ -61,5 +88,42 @@ export function calculateFinancialLeasing(input: LeasingFinanceInput): LeasingFi
     structuringFee,
     lessorMonthlyIrrPercent: irr === null ? null : irr * 100,
     lessorEffectiveAnnualIrrPercent: irr === null ? null : (((1 + irr) ** 12) - 1) * 100,
+  };
+}
+
+export function calculateQuotedLeasingCashflow(input: QuotedLeasingCashflowInput): QuotedLeasingCashflowResult {
+  const months = Math.max(1, Math.floor(input.months));
+  const regularCanonCount = Math.max(0, Math.floor(input.regularCanonCount));
+  const guaranteeCanons = Math.max(0, Math.floor(input.guaranteeCanons || 0));
+  const optionAmount = Math.max(0, input.optionAmount || 0);
+  const maxiCanonAmount = Math.max(0, input.maxiCanonAmount || 0);
+  const guaranteeDeposit = Math.max(0, input.guaranteeAmount ?? guaranteeCanons * Math.max(0, input.regularCanonAmount));
+  const structuringFee = Math.max(0, input.assetValueNet * Math.max(0, input.structuringFeePercent || 0) / 100);
+  const regularCanonsTotal = regularCanonCount * Math.max(0, input.regularCanonAmount);
+  // La garantía se incorpora como pago inicial sólo cuando completa exactamente
+  // los períodos que no aparecen entre los cánones regulares. Si la propuesta ya
+  // informa todos los cánones del plazo, sumarla otra vez duplicaría el flujo.
+  const guaranteeReplacesFinalCanons = guaranteeCanons > 0 && regularCanonCount + guaranteeCanons === months;
+  const guaranteeEconomicOutflow = guaranteeReplacesFinalCanons ? guaranteeDeposit : 0;
+  const totalNominalOutflow = maxiCanonAmount + regularCanonsTotal + guaranteeEconomicOutflow + optionAmount + structuringFee;
+  const nominalFinancingCost = totalNominalOutflow - input.assetValueNet;
+  const cashflows = [-(input.assetValueNet - maxiCanonAmount - guaranteeEconomicOutflow - structuringFee)];
+  for (let month = 1; month <= months; month += 1) {
+    cashflows.push((month <= regularCanonCount ? input.regularCanonAmount : 0) + (month === months ? optionAmount : 0));
+  }
+  const irr = monthlyIrr(cashflows);
+  return {
+    regularCanonsTotal,
+    guaranteeDeposit: guaranteeEconomicOutflow,
+    optionAmount,
+    maxiCanonAmount,
+    structuringFee,
+    initialOutflow: maxiCanonAmount + guaranteeEconomicOutflow + structuringFee,
+    totalNominalOutflow,
+    nominalFinancingCost,
+    nominalFinancingCostPercent: input.assetValueNet > 0 ? nominalFinancingCost / input.assetValueNet * 100 : 0,
+    monthlyIrrPercent: irr === null ? null : irr * 100,
+    implicitTnaPercent: irr === null ? null : irr * 12 * 100,
+    effectiveAnnualRatePercent: irr === null ? null : (((1 + irr) ** 12) - 1) * 100,
   };
 }

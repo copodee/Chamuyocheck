@@ -56,8 +56,25 @@ test('leasing conserva el contenido de la cotización aunque exista una pregunta
     argentinaLegalAnalysis: analyzeArgentinaLegal(''),
   });
   assert.match(answer.directAnswer, /125\.826\.000.*34 cánones de 6\.060\.000.*opción de 6\.060\.000/is);
+  assert.match(answer.directAnswer, /costo total visible.*TIR mensual.*CFTEA/is);
+  assert.match(answer.sections?.[0]?.items.join(' ') || '', /salida nominal total visible.*costo financiero nominal.*TIR mensual/is);
   assert.doesNotMatch(answer.findings.join(' '), /Robbie Williams/i);
+  assert.doesNotMatch(answer.sections?.flatMap((section) => section.items).join(' ') || '', /La cotización indica:/i);
   assert.doesNotMatch(answer.sections?.map((section) => section.title).join(' ') || '', /Sector público/i);
+  assert.doesNotMatch(answer.sections?.map((section) => section.title).join(' ') || '', /Comparación internacional/i);
+});
+
+test('leasing sólo agrega comparación internacional cuando el usuario la solicita', () => {
+  const answer = buildCustomerDecisionAnswer({
+    documentText: 'Leasing financiero de una maquinaria por 36 meses.',
+    userInstruction: 'Compará este leasing con Estados Unidos y Europa.',
+    selectedCategory: 'leasing-specialist',
+    financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(''),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(''),
+  });
+
+  assert.match(answer.sections?.map((section) => section.title).join(' ') || '', /Comparación internacional/i);
 });
 
 test('inversiones responde una consulta de existencia de fintech como verificación de entidades', () => {

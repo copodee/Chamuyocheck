@@ -6,7 +6,7 @@ import type { InvestmentProjectAnalysis } from '../../lib/investments/investment
 import { leasingKnowledge } from '../../lib/leasing/argentinaLeasingKnowledge';
 import { buildInternationalLeasingFindings } from '../../lib/leasing/internationalLeasingComparison';
 import { LEASING_TAXPAYER_PROFILES, PROVINCIAL_LEASING_STAMP_MATRIX } from '../../lib/leasing/argentinaLeasingTaxMatrix';
-import { calculateFinancialLeasing } from '../../lib/leasing/leasingFinanceMath';
+import { calculateFinancialLeasing, calculateQuotedLeasingCashflow } from '../../lib/leasing/leasingFinanceMath';
 import { extractLeasingQuoteData } from '../../lib/leasing/leasingQuoteExtraction';
 import { classifyUserDecisionIntent } from './userDecisionIntent';
 
@@ -719,8 +719,9 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
   const normalizedQuestion = question.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const asksPublicSector = /sector\s+publico|estado\b|municipi|licitaci|coparticipaci|presupuesto\s+publico/i.test(normalizedQuestion);
   const asksImport = /importaci|importar|mulc|proveedor\s+extranjero|pago\s+al\s+exterior/i.test(normalizedQuestion);
+  const asksInternational = /compar(?:ar|acion).*internacional|otros\s+paises|estados\s+unidos|europa|ee\.?\s*uu\.?|internacional/i.test(normalizedQuestion);
   const publicSectorRules = asksPublicSector ? leasingKnowledge('public-sector').map((item) => item.statement) : [];
-  const internationalFindings = buildInternationalLeasingFindings(question);
+  const internationalFindings = asksInternational ? buildInternationalLeasingFindings(question) : [];
   const isLeaseBack = /lease[ -]?back|retro(?:leasing|arrendamiento)|venta\s+(?:y|con)\s+(?:posterior\s+)?leasing/i.test(question);
   const numericField = (label: string) => {
     const match = question.match(new RegExp(`${label}:\\s*([\\d.,]+)`, 'i'));
@@ -748,16 +749,34 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     : null;
   const amount = (value: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(value);
   const decimal = (value: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 4 }).format(value);
+  const quotedCashflow = quoteData?.assetValueNet !== undefined
+    && quoteData.months !== undefined
+    && quoteData.regularCanonCount !== undefined
+    && quoteData.regularCanonAmount !== undefined
+    ? calculateQuotedLeasingCashflow({
+        assetValueNet: quoteData.assetValueNet,
+        months: quoteData.months,
+        regularCanonCount: quoteData.regularCanonCount,
+        regularCanonAmount: quoteData.regularCanonAmount,
+        optionAmount: quoteData.optionAmount,
+        maxiCanonAmount: quoteData.maxiCanonAmount,
+        guaranteeCanons: quoteData.guaranteeCanons,
+        guaranteeAmount: quoteData.guaranteeAmount,
+        structuringFeePercent: quoteData.structuringFeePercent,
+      })
+    : null;
   const quoteFindings = quoteData ? [
-    `Cotización detectada${quoteData.assetDescription ? ` para ${quoteData.assetDescription}` : ''}: los datos económicos se tomaron del archivo y prevalecen sobre los valores iniciales del formulario.`,
-    quoteData.assetValueNet !== undefined ? `Valor del bien sin IVA: ${amount(quoteData.assetValueNet)}.${quoteData.vatAmount !== undefined ? ` IVA informado por separado: ${amount(quoteData.vatAmount)}.` : ''}${quoteData.assetValueVatIncluded !== undefined ? ` Total con IVA: ${amount(quoteData.assetValueVatIncluded)}.` : ''}` : '',
-    quoteData.regularCanonCount !== undefined && quoteData.regularCanonAmount !== undefined ? `Flujo cotizado: ${quoteData.regularCanonCount} cánones de ${amount(quoteData.regularCanonAmount)}${quoteData.months ? ` dentro de un plazo contractual de ${quoteData.months} meses` : ''}.` : '',
-    quoteData.optionAmount !== undefined ? `Opción de compra cotizada: ${amount(quoteData.optionAmount)} al final del contrato.` : '',
-    quoteData.maxiCanonAmount !== undefined ? `Maxi canon o adelanto informado: ${amount(quoteData.maxiCanonAmount)}.` : '',
-    quoteData.guaranteeCanons !== undefined ? `Cánones de garantía: ${quoteData.guaranteeCanons}${quoteData.guaranteeAmount !== undefined ? `, por un depósito total informado de ${amount(quoteData.guaranteeAmount)}` : ''}. Si se aplican a los últimos cánones, no deben contarse dos veces en el flujo.` : '',
-    quoteData.structuringFeePercent !== undefined ? `Comisión de estructuración: ${decimal(quoteData.structuringFeePercent)}% más los impuestos que correspondan. Debe confirmarse la base exacta antes de convertirla en un monto.` : '',
-    `Seguro: se modela por defecto como contratado y pagado por el dador, que lo refactura mensualmente al tomador como concepto separado del canon financiero.${quoteData.insuranceText ? ` La cotización indica: “${quoteData.insuranceText}”.` : ''} Si el contrato establece otra mecánica, prevalece el contrato.`,
-    'La cotización permite omitir el formulario económico. Sólo deben completarse los datos que el archivo no informe, especialmente perfil fiscal del tomador, uso del bien, jurisdicciones y condiciones especiales.',
+    quoteData.assetValueNet !== undefined ? `Valor neto del bien: $ ${amount(quoteData.assetValueNet)}${quoteData.vatAmount !== undefined ? ` | IVA informado: $ ${amount(quoteData.vatAmount)}` : ''}${quoteData.assetValueVatIncluded !== undefined ? ` | Total con IVA: $ ${amount(quoteData.assetValueVatIncluded)}` : ''}.` : '',
+    quoteData.regularCanonCount !== undefined && quoteData.regularCanonAmount !== undefined ? `Cánones periódicos: ${quoteData.regularCanonCount} × $ ${amount(quoteData.regularCanonAmount)}${quotedCashflow ? ` = $ ${amount(quotedCashflow.regularCanonsTotal)}` : ''}.` : '',
+    quotedCashflow?.guaranteeDeposit ? `Garantía inicial: $ ${amount(quotedCashflow.guaranteeDeposit)}; se imputa a los últimos cánones y no se duplica.` : '',
+    quotedCashflow?.maxiCanonAmount ? `Maxi canon o adelanto: $ ${amount(quotedCashflow.maxiCanonAmount)}.` : '',
+    quoteData.optionAmount !== undefined ? `Opción de compra: $ ${amount(quoteData.optionAmount)}${quoteData.assetValueNet ? ` (${decimal(quoteData.optionAmount / quoteData.assetValueNet * 100)}% del valor neto)` : ''}.` : '',
+    quotedCashflow?.structuringFee ? `Comisión de estructuración: $ ${amount(quotedCashflow.structuringFee)} (${decimal(quoteData.structuringFeePercent || 0)}% sobre el valor neto), antes de IVA.` : '',
+    quotedCashflow ? `Desembolso inicial visible: $ ${amount(quotedCashflow.initialOutflow)}.` : '',
+    quotedCashflow ? `Salida nominal total visible: $ ${amount(quotedCashflow.totalNominalOutflow)}.` : '',
+    quotedCashflow ? `Costo financiero nominal visible: $ ${amount(quotedCashflow.nominalFinancingCost)} (${decimal(quotedCashflow.nominalFinancingCostPercent)}% sobre el valor neto).` : '',
+    quotedCashflow?.monthlyIrrPercent !== null && quotedCashflow?.monthlyIrrPercent !== undefined ? `TIR mensual implícita: ${decimal(quotedCashflow.monthlyIrrPercent)}% | TNA implícita: ${decimal(quotedCashflow.implicitTnaPercent || 0)}% | TEA/CFTEA visible estimado: ${decimal(quotedCashflow.effectiveAnnualRatePercent || 0)}%.` : '',
+    'El CFTEA visible es una estimación del flujo informado antes de seguro, IVA recuperable y tributos o cargos no cuantificados; no reemplaza el CFTEA contractual.',
   ].filter(Boolean) : [];
   const financialCaseFindings = quoteData ? quoteFindings : financeResult ? [
     'Caso práctico: leasing financiero calculado con sistema francés (canon periódico constante antes de impuestos y servicios), descontando del capital el valor presente de la opción.',
@@ -774,6 +793,16 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       ? normalizedQuestion.replaceAll('ciudad autonoma de buenos aires', '').includes('buenos aires')
       : normalizedQuestion.includes(item.jurisdiction.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase())
   );
+  if (quotedCashflow && profilesToReport.length) {
+    const taxableContractBase = quotedCashflow.regularCanonsTotal + quotedCashflow.guaranteeDeposit
+      + quotedCashflow.maxiCanonAmount + quotedCashflow.optionAmount;
+    for (const profile of profilesToReport) {
+      if (profile.stampRatePercent !== undefined) {
+        const stampAmount = taxableContractBase * profile.stampRatePercent / 100;
+        financialCaseFindings.push(`${profile.jurisdiction} — Sellos estimado a cargo o trasladable al tomador: $ ${amount(stampAmount)} (${decimal(profile.stampRatePercent)}% sobre una base visible de $ ${amount(taxableContractBase)}). Confirmar la base legal y cualquier exención antes de contratar.`);
+      }
+    }
+  }
   const assetKind = /auto|veh[ií]cul|camion|pickup|utilitario/i.test(question)
     ? 'automotor'
     : /maquinaria|equipo|industrial|agr[ií]col/i.test(question)
@@ -950,7 +979,9 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     'Sellos es provincial: no existe una única alícuota argentina. Para las demás jurisdicciones debe verificarse la ley anual vigente antes de informar tasa o exención; el sistema no presume que el leasing esté exento.',
   ];
   const financialHeadline = quoteData
-    ? `La cotización fue leída directamente: ${quoteData.assetValueNet !== undefined ? `valor neto ${amount(quoteData.assetValueNet)}` : 'valor pendiente'}${quoteData.regularCanonCount !== undefined && quoteData.regularCanonAmount !== undefined ? `, ${quoteData.regularCanonCount} cánones de ${amount(quoteData.regularCanonAmount)}` : ''}${quoteData.optionAmount !== undefined ? ` y opción de ${amount(quoteData.optionAmount)}` : ''}. Los importes del archivo no se reemplazan por una simulación del formulario.`
+    ? quotedCashflow
+      ? `Valor neto $ ${amount(quoteData.assetValueNet || 0)}; ${quoteData.regularCanonCount} cánones de ${amount(quoteData.regularCanonAmount || 0)} pesos; opción de ${amount(quoteData.optionAmount || 0)} pesos. Costo total visible: $ ${amount(quotedCashflow.totalNominalOutflow)}. TIR mensual implícita: ${decimal(quotedCashflow.monthlyIrrPercent || 0)}%; TEA/CFTEA visible estimado: ${decimal(quotedCashflow.effectiveAnnualRatePercent || 0)}%.`
+      : 'La propuesta aporta información parcial. Se muestran los importes identificados y sólo se señalan los campos que realmente no pueden derivarse.'
     : financeResult
       ? `Resultado del caso: se financian ${amount(financeResult.financedAmount)} netos de IVA y el canon financiero estimado es ${amount(financeResult.monthlyCanon)} durante ${months} meses, con una opción de ${amount(financeResult.optionAmount)}.`
       : 'Todavía faltan datos para calcular el flujo financiero completo. La comparación debe llevar leasing y préstamo al mismo flujo después de impuestos.';
