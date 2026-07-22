@@ -100,7 +100,7 @@ test('free local endpoint returns a prudent scam-risk conclusion without externa
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.match(body.prudentConclusion, /Confirmar identidad, CUIT, dominio/i);
-    assert.ok(body.score > 0 && body.score <= 45);
+    assert.ok(body.score >= 45 && body.score < 70);
     assert.equal(body.selectedCategory, 'scam-risk');
     assert.equal(body.externalVerification.externalVerificationPerformed, false);
     const publicPayload = JSON.stringify(body);
@@ -108,6 +108,43 @@ test('free local endpoint returns a prudent scam-risk conclusion without externa
   } finally {
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = previousKey;
     if (previousEnabled === undefined) delete process.env.OPENAI_ANALYSIS_ENABLED; else process.env.OPENAI_ANALYSIS_ENABLED = previousEnabled;
+  }
+});
+
+test('un enlace limpio no produce semáforo favorable si identidad y oferta siguen sin corroborar', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.GOOGLE_SAFE_BROWSING_API_KEY;
+  process.env.GOOGLE_SAFE_BROWSING_API_KEY = 'test-key';
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const requested = String(input);
+    if (requested.startsWith('https://safebrowsing.googleapis.com/')) {
+      return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (requested === 'https://ejemplo.com/') {
+      return new Response('<html><head><title>Ejemplo</title></head><body><main>Plataforma de inversión.</main></body></html>', { status: 200, headers: { 'content-type': 'text/html' } });
+    }
+    if (requested.startsWith('https://rdap.org/domain/')) return new Response(JSON.stringify({ ldhName: 'EJEMPLO.COM' }), { status: 200 });
+    if (requested.includes('argentina.gob.ar/cnv/')) return new Response('<html>registro genérico</html>', { status: 200 });
+    return new Response('', { status: 404 });
+  }) as typeof fetch;
+  try {
+    const form = new FormData();
+    form.set('selectedCategory', 'scam-risk');
+    form.set('text', '¿Es confiable o una posible estafa?');
+    form.set('url', 'https://ejemplo.com/');
+    form.set('termsAccepted', 'true');
+    form.set('termsVersion', TERMS_VERSION);
+    const response = await handleAnalyzeRequest(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.ok(body.score >= 45 && body.score < 70);
+    assert.match(body.decisionAnswer.title, /enlace no figura como malicioso.*entidad.*oferta no est[aá]n verificadas/i);
+    assert.match(body.decisionAnswer.directAnswer, /no corresponde llamarla estafa ni considerarla confiable/i);
+    assert.equal(body.externalVerification.externalVerificationPerformed, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.GOOGLE_SAFE_BROWSING_API_KEY;
+    else process.env.GOOGLE_SAFE_BROWSING_API_KEY = originalKey;
   }
 });
 

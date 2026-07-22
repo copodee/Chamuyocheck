@@ -896,11 +896,26 @@ function applyVerificationResult(
   const unsafeUrlMatch = hasKnownUnsafeUrlMatch(executionRecords);
   const scamSignalsScore = normalized.scamRiskAnalysis?.signals?.length ? normalized.scamRiskAnalysis.score : 0;
   const safeBrowsingCompleted = executionRecords.some((record) => record.sourceType === 'url-threat-intelligence');
+  const identityCorroborated = verification.execution.externalVerificationPerformed
+    && verification.assessment === 'corroborated'
+    && executionRecords.some((record) =>
+      ['company-registries', 'securities-regulator-cnv', 'regulatory-records'].includes(record.sourceType)
+      && Boolean(record.excerpt)
+      && !/no puede|no permite|sin una raz[oó]n social|por s[ií] solo|permanece pendiente/i.test(record.excerpt || '')
+    );
+  const offerCorroborated = identityCorroborated && executionRecords.some((record) =>
+    ['independent-news', 'regulatory-records', 'company-disclosures'].includes(record.sourceType)
+    && Boolean(record.excerpt)
+  );
   const scamScore = unsafeUrlMatch
     ? 95
-    : scamSignalsScore > 0
+    : scamSignalsScore >= 70
       ? scamSignalsScore
-      : safeBrowsingCompleted ? 35 : 45;
+      : identityCorroborated && offerCorroborated
+        ? Math.min(scamSignalsScore || 24, 24)
+        : safeBrowsingCompleted
+          ? Math.max(scamSignalsScore, 50)
+          : Math.max(scamSignalsScore, 55);
   // En posibles estafas, el puntaje mide señales observadas. La ausencia de
   // información se comunica como verificación pendiente y nunca fabrica un 95.
   const adjustedScore = selectedCategory === 'scam-risk' ? scamScore : genericAdjustedScore;
@@ -909,11 +924,35 @@ function applyVerificationResult(
     executionRecords,
     verification.rationale
   );
-  const decisionAnswer = enrichDecisionAnswerWithEconomicEvidence(
+  let decisionAnswer = enrichDecisionAnswerWithEconomicEvidence(
     externallyEnrichedDecision,
     financial,
     executionRecords
   );
+  if (selectedCategory === 'scam-risk' && decisionAnswer?.kind === 'scam-prevention' && !unsafeUrlMatch && !identityCorroborated) {
+    decisionAnswer = {
+      ...decisionAnswer,
+      status: 'needs-verification',
+      title: safeBrowsingCompleted
+        ? 'El enlace no figura como malicioso, pero la entidad y la oferta no están verificadas'
+        : 'No pudo completarse la seguridad del enlace ni verificarse la entidad',
+      directAnswer: safeBrowsingCompleted
+        ? 'Google Safe Browsing no encontró una amenaza conocida para el enlace consultado. Eso sólo evalúa malware, phishing y otras amenazas técnicas conocidas: no demuestra quién opera el sitio ni que la empresa, su regulación, su solvencia o la propuesta sean auténticas. Con la evidencia disponible no corresponde llamarla estafa ni considerarla confiable.'
+        : 'No hay evidencia suficiente para afirmar que el sitio sea una estafa ni para considerarlo confiable. La seguridad técnica del enlace, la identidad del operador, su regulación y la viabilidad de la oferta siguen pendientes de comprobación.',
+      findings: [
+        safeBrowsingCompleted
+          ? 'Seguridad técnica: el enlace no produjo coincidencias en las listas consultadas de Google Safe Browsing.'
+          : 'Seguridad técnica: la comprobación del enlace no pudo completarse.',
+        'Identidad empresarial: todavía no existe una fuente independiente que vincule de manera concluyente el dominio con una razón social, CUIT, domicilio y responsables.',
+        'Regulación y oferta: no se corroboraron todavía la autorización aplicable, el custodio de fondos, las condiciones contractuales ni la posibilidad real de retiro o cumplimiento.',
+        ...decisionAnswer.findings,
+      ],
+      limitations: [...new Set([
+        ...decisionAnswer.limitations,
+        'Un resultado limpio de Safe Browsing no es una certificación comercial ni financiera.',
+      ])],
+    };
+  }
   const isLoanAnswer = decisionAnswer?.kind === 'loan-cost';
   const decisionSummary = decisionAnswer
     ? `${decisionAnswer.title}. ${decisionAnswer.directAnswer}`

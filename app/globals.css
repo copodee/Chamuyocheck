@@ -478,6 +478,15 @@ pre,code{white-space:pre-wrap}
 .decisionAnswerPanel h2{max-width:900px;margin-top:10px}
 .webSafetyStatus{display:grid;gap:.35rem;margin:0 0 1.1rem;padding:.85rem 1rem;border-left:4px solid var(--status-color);border-radius:0 12px 12px 0;background:color-mix(in srgb,var(--status-color) 10%,transparent)}
 .webSafetyStatus b{color:var(--status-color);font-size:1.02rem}.webSafetyStatus span{color:#d7d2ee;line-height:1.45}
+.scamVerificationSummary{display:grid;gap:.8rem;margin:1rem 0 1.35rem;padding:1rem;border:1px solid #334155;border-radius:16px;background:#0c1628}
+.scamVerificationSummary h3{margin:0;color:#f8fafc}
+.scamVerificationGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem}
+.scamVerificationRow{display:grid;grid-template-columns:auto 1fr;gap:.25rem .55rem;align-items:center;padding:.75rem;border:1px solid color-mix(in srgb,var(--status-color) 45%,#334155);border-radius:12px;background:color-mix(in srgb,var(--status-color) 7%,#0f172a)}
+.scamVerificationRow b{color:#f8fafc}.scamVerificationRow>span:last-child{grid-column:2;color:#d7d2ee;line-height:1.35}
+.scamVerificationDot{width:.7rem;height:.7rem;border-radius:999px;background:var(--status-color);box-shadow:0 0 0 4px color-mix(in srgb,var(--status-color) 15%,transparent)}
+.webSafetyDetail{color:#cbd5e1}.webSafetyDetail summary{cursor:pointer;font-weight:700}.webSafetyDetail p{margin:.6rem 0 0;line-height:1.45}
+.scamVerificationNotice{margin:0;color:#f7d774;line-height:1.45;font-weight:650}
+@media(max-width:800px){.scamVerificationGrid{grid-template-columns:1fr}}
 .reportActions{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0 18px}.reportActions .ghost{min-width:0}
 .savedItemActions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.savedItemActions .ghost{min-width:0}
 .settingsSummary,.settingsActions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.settingsSummary span{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.035);color:var(--muted)}.settingsSummary b{color:var(--text)}.settingsActions .ghost{min-width:0}

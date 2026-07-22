@@ -1036,9 +1036,9 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const getScamAdvice = (s: number) => s >= 90
     ? { txt: 'Amenaza conocida o riesgo crítico', color: '#b00000' }
     : s >= 70 ? { txt: 'Riesgo alto: no avances sin verificar', color: 'var(--red)' }
-    : s >= 45 ? { txt: 'Identidad u oferta todavía no verificada', color: 'var(--yellow)' }
+    : s >= 45 ? { txt: 'Verificación incompleta: no alcanza para confiar ni para acusar', color: 'var(--yellow)' }
     : s >= 25 ? { txt: 'Sin alerta técnica conocida; faltan controles', color: 'var(--yellow)' }
-    : { txt: 'Sin señales observadas; no equivale a validación', color: 'var(--green)' };
+    : { txt: 'Entidad y oferta corroboradas, sin señales críticas observadas', color: 'var(--green)' };
   const isScamAnalysis = analysis?.selectedCategory === 'scam-risk';
   const safeBrowsingRecord = analysis?.externalVerification?.execution?.records?.find((record) =>
     record.sourceType === 'url-threat-intelligence' || record.sourceType === 'url-threat-intelligence-status'
@@ -1048,10 +1048,33 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const safeBrowsingState = !safeBrowsingRecord
     ? null
     : safeBrowsingRecord.sourceType === 'url-threat-intelligence-status'
-      ? { label: 'ComprobaciÃ³n tÃ©cnica inconclusa', color: 'var(--yellow)' }
+      ? { label: 'Comprobación técnica inconclusa', color: 'var(--yellow)' }
       : safeBrowsingKnownThreat
-        ? { label: 'Google Safe Browsing detectÃ³ una amenaza conocida', color: 'var(--red)' }
+        ? { label: 'Google Safe Browsing detectó una amenaza conocida', color: 'var(--red)' }
         : { label: 'Google Safe Browsing: sin coincidencias conocidas', color: 'var(--green)' };
+  const identityCorroborated = Boolean(analysis?.externalVerification?.externalVerificationPerformed
+    && analysis.externalVerification.execution?.records?.some((record) =>
+      ['company-registries', 'securities-regulator-cnv', 'regulatory-records'].includes(record.sourceType)
+      && Boolean(record.excerpt)
+      && !/no puede|no permite|sin una raz[oó]n social|por s[ií] solo|permanece pendiente/i.test(record.excerpt || '')
+    ));
+  const scamVerificationRows = isScamAnalysis ? [
+    {
+      label: 'Seguridad técnica del enlace',
+      status: safeBrowsingKnownThreat ? 'Amenaza conocida detectada' : safeBrowsingState?.label || 'Comprobación no completada',
+      color: safeBrowsingKnownThreat ? 'var(--red)' : safeBrowsingRecord?.sourceType === 'url-threat-intelligence' ? 'var(--green)' : 'var(--yellow)',
+    },
+    {
+      label: 'Identidad y regulación',
+      status: identityCorroborated ? 'Corroboradas con fuentes independientes' : 'No corroboradas todavía',
+      color: identityCorroborated ? 'var(--green)' : 'var(--yellow)',
+    },
+    {
+      label: 'Oferta y operación',
+      status: identityCorroborated && score < 25 ? 'Sin señales críticas observadas' : 'Condiciones y cumplimiento pendientes',
+      color: identityCorroborated && score < 25 ? 'var(--green)' : 'var(--yellow)',
+    },
+  ] : [];
   const semaforo = isScamAnalysis ? getScamAdvice(score) : getChamuyoAdvice(score);
   const scoreColor = isScamAnalysis ? semaforo.color : getChamuyoColor(score);
   const scoreLabel = isScamAnalysis ? semaforo.txt : getChamuyoLabel(score);
@@ -1498,9 +1521,17 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         {analysis.decisionAnswer && <div className="panel legalResultPanel decisionAnswerPanel">
           <div className="eyebrow">RESPUESTA A TU CONSULTA</div>
           <h2>{analysis.decisionAnswer.title}</h2>
-          {isScamAnalysis && safeBrowsingState && <div className="webSafetyStatus" style={{ ['--status-color' as any]: safeBrowsingState.color }}>
-            <b>{safeBrowsingState.label}</b>
-            <span>{safeBrowsingRecord?.excerpt}</span>
+          {isScamAnalysis && <div className="scamVerificationSummary" aria-label="Estado separado de las verificaciones">
+            <h3>Qué se pudo verificar</h3>
+            <div className="scamVerificationGrid">
+              {scamVerificationRows.map((row) => <div className="scamVerificationRow" key={row.label} style={{ ['--status-color' as any]: row.color }}>
+                <span className="scamVerificationDot" aria-hidden="true"></span>
+                <b>{row.label}</b>
+                <span>{row.status}</span>
+              </div>)}
+            </div>
+            {safeBrowsingRecord?.excerpt && <details className="webSafetyDetail"><summary>Detalle de la comprobación técnica</summary><p>{safeBrowsingRecord.excerpt}</p></details>}
+            <p className="scamVerificationNotice">Un enlace sin alertas técnicas no valida a la empresa ni a su propuesta. El resultado general permanece pendiente hasta corroborar identidad, regulación y condiciones.</p>
           </div>}
           {analysis.selectedCategory === 'argentina-legal-documents' && analysis.argentinaLegalAnalysis?.detectedBranch && analysis.argentinaLegalAnalysis.detectedBranch !== 'general' ? (
             <div className="legalClassification" aria-label="Clasificación jurídica detectada">
