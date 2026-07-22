@@ -38,6 +38,8 @@ import { buildCustomerDecisionAnswer, enrichDecisionAnswerWithEconomicEvidence, 
 import type { ExternalVerificationSourceRecord } from '../../../src/analysis/types/externalVerification';
 import { analyzeInvestmentProject } from '../../../src/lib/investments/investmentProjectAnalysis';
 import { authenticateAnalysisRequest, recordSuccessfulAnalysis } from '../../../src/lib/auth/analysisAuth';
+import { discoverInvestmentScamEvidence } from '../../../src/analysis/engines/connectors/freeInvestmentScamConnector';
+import { checkGoogleSafeBrowsing, hasKnownUnsafeUrlMatch } from '../../../src/analysis/engines/connectors/googleSafeBrowsingConnector';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -847,7 +849,7 @@ function applyVerificationResult(
   retrievedSource?: { url: string; title: string; institution: string | null }
 ) {
   const primarySourceRead = Boolean(retrievedSource?.url);
-  const verified = verification.execution.externalVerificationPerformed || primarySourceRead;
+  const verified = verification.execution.externalVerificationPerformed;
   const safetyFloor = fallback.claimAnalysis.dominantClaim?.minimumScore || 0;
   const financial = normalized.financialAnalysis;
   const financialEvidenceScore = normalized.decisionAnswer?.kind === 'loan-cost' && financial
@@ -935,7 +937,7 @@ function applyVerificationResult(
         records: executionRecords,
         coveredClaimIndexes: retrievedRecord ? retrievedRecord.claimIndexes : verification.execution.coveredClaimIndexes,
       },
-      ...(verified ? { conclusion: primarySourceRead
+      ...(primarySourceRead || verified ? { conclusion: primarySourceRead
         ? 'La página aportada fue leída como fuente primaria. La verificación independiente de la entidad y de la vigencia permanece pendiente.'
         : verification.assessment === 'corroborated' ? 'La evidencia encontrada respalda la afirmación dentro de su alcance.' : verification.assessment === 'contradicted' ? 'La evidencia encontrada contradice la afirmación.' : 'La evidencia no permite responder con certeza.' } : {}),
       rationale: primarySourceRead ? sourceVerificationText : verification.rationale,
@@ -1057,6 +1059,7 @@ export async function handleAnalyzeRequest(req: Request) {
 
     let webText = '';
     let retrievedSource: { url: string; title: string; institution: string | null } | undefined;
+    let webPreflightEvidence: ExternalVerificationSourceRecord[] = [];
     const financialUrl = url ? describeFinancialUrl(url) : null;
     if (url) {
       if (/youtu\.be|youtube\.com/i.test(url)) {
@@ -1067,17 +1070,29 @@ export async function handleAnalyzeRequest(req: Request) {
         webText = `${youtube.title ? `Título: ${youtube.title}\n` : ''}Transcripción pública (${youtube.language || 'idioma no informado'}):\n${youtube.text}`;
         extraction = { ok: true, text: youtube.text, pages: null, chars: youtube.text.length, note: youtube.note };
       } else {
-        const web = await extractStructuredWebText(url);
-        const urlAudit = auditUrlIdentity(url, web.finalUrl, web.redirectChain);
-        webText = [
-          `Enlace analizado: ${summarizePublicUrl(url)}`,
-          urlAudit?.analysisText || '',
-          financialUrl?.contextText || '',
-          web.title ? `Título: ${web.title}` : '',
-          web.text || `Estado de lectura: ${web.note}`,
-        ].filter(Boolean).join('\n');
-        extraction = { ok: web.ok, text: web.text, pages: null, chars: web.text.length, note: web.note };
-        if (web.ok) retrievedSource = { url: web.finalUrl || url, title: web.title || financialUrl?.institution || 'Página consultada', institution: financialUrl?.institution || null };
+        const [safeBrowsingEvidence, domainEvidence] = await Promise.all([
+          checkGoogleSafeBrowsing(url, [0]),
+          discoverInvestmentScamEvidence(`${url}\n${userText}`, [0]),
+        ]);
+        webPreflightEvidence = [...safeBrowsingEvidence, ...domainEvidence];
+        if (hasKnownUnsafeUrlMatch(safeBrowsingEvidence)) {
+          const warning = safeBrowsingEvidence.map((record) => record.excerpt).filter(Boolean).join(' ');
+          webText = `Enlace analizado: ${summarizePublicUrl(url)}\nLectura bloqueada antes de abrir el contenido. ${warning}`;
+          extraction = { ok: false, text: '', pages: null, chars: 0, note: 'Lectura bloqueada por una coincidencia en inteligencia de amenazas.' };
+        } else {
+          const web = await extractStructuredWebText(url);
+          const urlAudit = auditUrlIdentity(url, web.finalUrl, web.redirectChain);
+          webText = [
+            `Enlace analizado: ${summarizePublicUrl(url)}`,
+            urlAudit?.analysisText || '',
+            financialUrl?.contextText || '',
+            `Verificación técnica previa del servidor: ${web.serverAssessment || 'no determinada'}. ${(web.serverChecks || []).join(' ')}`,
+            web.title ? `Título: ${web.title}` : '',
+            web.text || `Estado de lectura: ${web.note}`,
+          ].filter(Boolean).join('\n');
+          extraction = { ok: web.ok, text: web.text, pages: null, chars: web.text.length, note: web.note };
+          if (web.ok) retrievedSource = { url: web.finalUrl || url, title: web.title || financialUrl?.institution || 'Página consultada', institution: financialUrl?.institution || null };
+        }
       }
     }
 
@@ -1125,7 +1140,10 @@ export async function handleAnalyzeRequest(req: Request) {
       (openai || noPaidClient) as any,
       verificationText,
       fallback.claimAnalysis.documentExternalVerificationPlan,
-      fallback.externalVerification.planning.requests
+      fallback.externalVerification.planning.requests,
+      fetch,
+      false,
+      webPreflightEvidence
     );
     if (!openai) return NextResponse.json(applyVerificationResult(fallback, fallback, webVerification, retrievedSource));
     const prompt = `Actuá como ChamuyoCheck, auditor documental prudente. La instrucción del usuario define la pregunta que debés responder y tiene prioridad para seleccionar el dato, plazo, alternativa o aspecto del documento que corresponda. Usá el contenido extraído como evidencia y no confundas la instrucción con parte del documento. Identificá el tipo de documento/contenido antes del score. Si el PDF no tiene texto extraíble, indicá que necesita OCR. Si el usuario pregunta si fue hecho con IA, respondé como estimación no concluyente: nunca acuses ni afirmes uso de IA/plagio. Respondé SOLO JSON con estas claves: documentIcon, documentType, documentFocus, extractionStatus, extractedChars, extractedPreview, score, risk, confidence, detectedTheme, detectedInput, centralQuestion, summary, prudentConclusion, verdict, categoryScores, modules, flaggedPhrases, issues, questions, missingInformation, worstCase, improved, evidenceFound, scoreExplanation, refutationPoints, improvementPlan, topic, topicLabel, topicHint.
@@ -1146,7 +1164,10 @@ CONTENIDO DEL DOCUMENTO (único contenido que debe clasificarse y evaluarse):
 ${documentText.slice(0, 18000)}
 
 VERIFICACIÓN WEB REAL EJECUTADA ANTES DE RESPONDER:
-${JSON.stringify(webVerification)}`;
+${JSON.stringify(webVerification)}
+
+REGLA OBLIGATORIA PARA SITIOS, INVERSIONES Y POSIBLES ESTAFAS:
+No confundas seguridad técnica con legitimidad comercial. Primero informá dominio, redirecciones, HTTPS e inteligencia de amenazas. Después enumerá las afirmaciones materiales que publica la página: identidad del operador, activo subyacente, rendimiento, plazo, liquidez o retiro, custodia, garantías, regulación, costos y destinatario del dinero. Para cada afirmación indicá si quedó corroborada, contradicha o no verificada por una fuente independiente. Una nota, blog, red social, blockchain o la web del oferente no acreditan por sí solos titularidad, autorización, solvencia ni derecho sobre un inmueble. En tokenización distinguí token, derecho contractual y dominio registral; verificá sociedad o fideicomiso emisor, titular registral del inmueble, contrato, PSAV si corresponde, custodio, cuenta receptora, auditoría del contrato inteligente y mecanismo real de salida. Si faltan pruebas esenciales, explicá qué parte del modelo es posible en abstracto y qué parte de esta oferta sigue sin validar.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',

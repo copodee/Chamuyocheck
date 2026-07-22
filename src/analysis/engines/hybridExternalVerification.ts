@@ -5,6 +5,7 @@ import { runAutomaticWebVerification, type AutomaticWebVerificationResult } from
 import type {
   DocumentExternalVerificationPlan,
   ExternalVerificationRequest,
+  ExternalVerificationSourceRecord,
 } from '../types/externalVerification';
 import { discoverFreeNewsRss } from './connectors/freeNewsRssConnector';
 import { discoverFreeDrugLabel } from './connectors/freeDrugLabelConnector';
@@ -59,7 +60,8 @@ export async function runHybridExternalVerification(
   plan: DocumentExternalVerificationPlan,
   requests: ExternalVerificationRequest[],
   fetchImpl: FetchLike = fetch,
-  allowPaidSearch = paidWebVerificationEnabled()
+  allowPaidSearch = paidWebVerificationEnabled(),
+  initialRecords: ExternalVerificationSourceRecord[] = []
 ): Promise<HybridVerificationResult> {
   const none = registerExternalVerificationExecution(plan, []);
   if (!plan.externalVerificationRequired) return { attempted: false, assessment: 'inconclusive', rationale: 'No se requirió verificación externa.', execution: none, route: 'not-required', paidSearchUsed: false };
@@ -132,10 +134,11 @@ export async function runHybridExternalVerification(
   const investmentScamClaimIndexes = plan.workItems
     .filter((item) => item.suggestedSourceTypes.some((type) => ['securities-regulator-cnv', 'regulatory-records', 'company-registries', 'consumer-protection-agencies', 'domain-registration-data'].includes(type)))
     .flatMap((item) => item.claimIndexes);
-  const investmentScamRecords = investmentScamClaimIndexes.length
+  const alreadyHasDomainPreflight = initialRecords.some((record) => ['domain-registration-data', 'domain-reputation', 'security-research'].includes(record.sourceType));
+  const investmentScamRecords = investmentScamClaimIndexes.length && !alreadyHasDomainPreflight
     ? await discoverInvestmentScamEvidence(claimText, [...new Set(investmentScamClaimIndexes)], fetchImpl)
     : [];
-  const freeRecords = [...(free?.execution.records || []), ...rssRecords, ...labelRecords, ...wikidataRecords, ...researchRecords, ...legalRecords, ...inflationRecords, ...tradeRecords, ...productiveInputRecords, ...agricultureRecords, ...livestockRecords, ...miningRecords, ...hydrocarbonRecords, ...neuquenHousingRecords, ...investmentScamRecords];
+  const freeRecords = [...initialRecords, ...(free?.execution.records || []), ...rssRecords, ...labelRecords, ...wikidataRecords, ...researchRecords, ...legalRecords, ...inflationRecords, ...tradeRecords, ...productiveInputRecords, ...agricultureRecords, ...livestockRecords, ...miningRecords, ...hydrocarbonRecords, ...neuquenHousingRecords, ...investmentScamRecords];
   const freeExecution = registerExternalVerificationExecution(plan, freeRecords);
   if (freeExecution.externalVerificationPerformed) {
     const labelCorroborates = labelRecords.length > 0 && /\b(?:dolor\s+de\s+cabeza|cefalea)\b/i.test(claimText);

@@ -11,6 +11,17 @@ test('extrae condiciones visibles y JSON estructurado de una página bancaria', 
   assert.match(result.text, /Banco Ejemplo/);
   assert.equal(result.finalUrl, 'https://banco.example/prestamo');
   assert.deepEqual(result.redirectChain, ['https://banco.example/prestamo']);
+  assert.equal(result.serverAssessment, 'readable');
+  assert.match(result.serverChecks.join(' '), /dominio final coincide/i);
+});
+
+test('no lee el cuerpo si el servidor aportado no usa HTTPS', async () => {
+  let calls = 0;
+  const fetchMock = async () => { calls += 1; return new Response('<html><body>oferta</body></html>'); };
+  const result = await extractWebText('http://oferta.example', fetchMock as typeof fetch);
+  assert.equal(result.ok, false);
+  assert.equal(result.serverAssessment, 'blocked');
+  assert.equal(calls, 0);
 });
 
 test('bloquea URLs locales antes de acceder a la red', async () => {

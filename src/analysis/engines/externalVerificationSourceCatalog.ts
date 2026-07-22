@@ -24,6 +24,8 @@ export const EXTERNAL_VERIFICATION_SOURCE_CATALOG: ExternalVerificationProvider[
   { id: 'ema', name: 'European Medicines Agency', sourceTypes: ['drug-regulator-ema', 'pharmacovigilance'], domains: ['biology-health'], status: 'planned' },
   { id: 'cnv', name: 'Comisión Nacional de Valores', sourceTypes: ['securities-regulator-cnv', 'regulatory-records', 'consumer-protection-agencies', 'regulatory-filings'], domains: ['finance', 'legal'], status: 'implemented' },
   { id: 'rdap', name: 'RDAP — datos públicos de registro de dominios', sourceTypes: ['domain-registration-data'], domains: ['finance', 'technology'], status: 'implemented' },
+  { id: 'google-safe-browsing', name: 'Google Safe Browsing', sourceTypes: ['url-threat-intelligence'], domains: ['finance', 'technology'], status: 'implemented' },
+  { id: 'csirt-rd-phishing', name: 'CSIRT-RD — orientación oficial para verificar phishing', sourceTypes: ['phishing-response-guidance'], domains: ['technology', 'public-policy'], status: 'planned' },
   { id: 'company-registries', name: 'Registros públicos de sociedades según jurisdicción', sourceTypes: ['company-registries'], domains: ['finance', 'legal'], status: 'planned' },
   { id: 'byma', name: 'Bolsas y Mercados Argentinos', sourceTypes: ['market-operator-byma', 'official-market-data'], domains: ['finance'], status: 'planned' },
   { id: 'crypto-market', name: 'Independent crypto market data', sourceTypes: ['crypto-market-data'], domains: ['finance'], status: 'planned' },

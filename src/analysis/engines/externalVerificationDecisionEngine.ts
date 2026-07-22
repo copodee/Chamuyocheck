@@ -106,7 +106,7 @@ export function decideExternalVerification(
 
   if (AUTOMATED_INVESTMENT_OFFER.test(claimText)) {
     return finish(true, 'Una oferta de inversión automatizada o una consulta sobre posible scam exige verificar la identidad del operador, su autorización, las alertas regulatorias, la custodia y retiro de fondos y la evidencia del rendimiento. La publicidad o el dominio no bastan para declararla legítima ni fraudulenta.', {
-      suggestedSourceTypes: ['securities-regulator-cnv', 'regulatory-records', 'company-registries', 'consumer-protection-agencies', 'domain-registration-data'],
+      suggestedSourceTypes: ['url-threat-intelligence', 'securities-regulator-cnv', 'regulatory-records', 'company-registries', 'consumer-protection-agencies', 'domain-registration-data'],
       minimumIndependentSources: 2,
       recencyRequired: true,
       officialSourceRequired: true,

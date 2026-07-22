@@ -142,7 +142,7 @@ test('a Banco Provincia loan URL pasted as text is read and routed to finance', 
     assert.equal(body.financialAnalysis?.tnaPercent, 97.4);
     assert.equal(body.financialAnalysis?.cftPercent, 155.1);
     assert.match(body.extractionStatus, /página pública leída/i);
-    assert.equal(body.externalVerification.externalVerificationPerformed, true);
+    assert.equal(body.externalVerification.externalVerificationPerformed, false);
     assert.equal(body.externalVerification.execution.status, 'partial');
     assert.equal(body.externalVerification.execution.records.length, 1);
     assert.equal(body.externalVerification.execution.records[0].url, 'https://www.bancoprovincia.com.ar/mvc/productos/creditos/BipPreca/condiciones_bip_preca');
@@ -201,7 +201,7 @@ test('web analysis audits the real redirect destination without exposing trackin
     assert.equal(response.status, 200);
     assert.notEqual(body.scopeStatus, 'out-of-scope');
     assert.equal(body.detectedInput, 'Web');
-    assert.equal(body.externalVerification.externalVerificationPerformed, true);
+    assert.equal(body.externalVerification.externalVerificationPerformed, false);
     assert.equal(body.externalVerification.execution.records.length, 1);
     assert.equal(body.externalVerification.execution.records[0].url, 'https://operador.example/inversion');
     assert.equal(body.scamRiskAnalysis.signals.some((signal: any) => signal.id === 'cross-domain-redirect'), true);
@@ -210,6 +210,66 @@ test('web analysis audits the real redirect destination without exposing trackin
     assert.doesNotMatch(publicPayload, /campaign_id=48799180|utm_source=publicidad/);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test('una web de posible estafa se contrasta antes de leer el contenido ofrecido', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: string[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const requested = String(input);
+    calls.push(requested);
+    if (requested === 'https://oferta.com/invertir') return new Response('<html><head><title>Oferta</title></head><body><main>Invertí hoy con retorno asegurado y retiro inmediato. Información comercial suficiente para analizar la promesa publicada.</main></body></html>', { status: 200, headers: { 'content-type': 'text/html' } });
+    if (requested.startsWith('https://rdap.org/domain/')) return new Response(JSON.stringify({ ldhName: 'OFERTA.COM' }), { status: 200 });
+    if (requested.includes('argentina.gob.ar/cnv/')) return new Response('<html>registro</html>', { status: 200 });
+    return new Response('', { status: 404 });
+  }) as typeof fetch;
+  try {
+    const form = new FormData();
+    form.set('selectedCategory', 'scam-risk');
+    form.set('text', 'Verificá si esta plataforma es confiable. https://oferta.com/invertir');
+    form.set('termsAccepted', 'true');
+    form.set('termsVersion', TERMS_VERSION);
+    const response = await handleAnalyzeRequest(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+    assert.equal(response.status, 200);
+    const targetIndex = calls.indexOf('https://oferta.com/invertir');
+    assert.ok(targetIndex > calls.findIndex((url) => url.startsWith('https://rdap.org/domain/')));
+    assert.ok(targetIndex > calls.findIndex((url) => url.includes('argentina.gob.ar/cnv/')));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('una coincidencia maliciosa bloquea la lectura del sitio antes de abrirlo', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.GOOGLE_SAFE_BROWSING_API_KEY;
+  const calls: string[] = [];
+  process.env.GOOGLE_SAFE_BROWSING_API_KEY = 'test-key';
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const requested = String(input);
+    calls.push(requested);
+    if (requested.startsWith('https://safebrowsing.googleapis.com/')) {
+      return new Response(JSON.stringify({ matches: [{ threatType: 'SOCIAL_ENGINEERING' }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (requested.startsWith('https://rdap.org/domain/')) return new Response('{}', { status: 200 });
+    return new Response('', { status: 404 });
+  }) as typeof fetch;
+  try {
+    const form = new FormData();
+    form.set('selectedCategory', 'scam-risk');
+    form.set('text', 'Verificá si esta plataforma es confiable. https://sitio-malicioso.example/invertir');
+    form.set('termsAccepted', 'true');
+    form.set('termsVersion', TERMS_VERSION);
+    const response = await handleAnalyzeRequest(new Request('http://localhost/api/analyze', { method: 'POST', body: form }));
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(calls.includes('https://sitio-malicioso.example/invertir'), false);
+    assert.match(`${body.extractionStatus} ${body.extractedPreview}`, /bloquead/i);
+    assert.match(JSON.stringify(body.externalVerification), /SOCIAL_ENGINEERING/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.GOOGLE_SAFE_BROWSING_API_KEY;
+    else process.env.GOOGLE_SAFE_BROWSING_API_KEY = originalKey;
   }
 });
 

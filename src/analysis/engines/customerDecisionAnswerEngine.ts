@@ -287,6 +287,24 @@ function buildInvestmentFeasibilityAnswer(): CustomerDecisionAnswer {
 function buildEntityVerificationAnswer(input: DecisionAnswerInput, question: string): CustomerDecisionAnswer {
   const operators = extractNamedOperators(input.documentText);
   const sourceIsArticle = /\b(?:nota|artículo|blog|redacción|actualizado)\b/i.test(input.documentText);
+  const tokenizedRealEstate = /tokeniz|crowdfunding|fideicomiso|cripto|inmobili/i.test(`${question} ${input.documentText}`);
+  const verificationSteps = [
+    'Seguridad del enlace: protocolo, redirecciones, destino final, listas de amenazas y señales técnicas. Un resultado limpio no valida el negocio.',
+    'Identidad: razón social, CUIT, domicilio, autoridades, dominio oficial y coincidencia entre la cuenta receptora y la entidad identificada.',
+    'Autorización y estructura: registros CNV/BCRA/PSAV u organismo competente, contrato, vehículo legal, custodio y mecanismo de reclamo.',
+    'Promesas: contrastar rendimiento, plazos, liquidez, garantías, costos y antecedentes con documentos y fuentes independientes fechadas.',
+  ];
+  const beforePaying = tokenizedRealEstate
+    ? [
+      'Pedir informe de dominio del inmueble y comprobar titular, gravámenes y relación jurídica con el emisor.',
+      'Leer contrato o reglamento y confirmar qué derecho representa el token: no presumir que equivale a metros cuadrados ni dominio.',
+      'Verificar sociedad o fideicomiso, cuenta receptora, custodio, PSAV cuando corresponda, dirección del contrato inteligente y auditoría independiente.',
+      'Exigir un mecanismo documentado de renta, rescate o venta y evidencia de que existe una contraparte o mercado de salida.',
+    ]
+    : [
+      'No transferir hasta confirmar identidad, cuenta receptora, contrato, costos, retiros, jurisdicción y canal de reclamo.',
+      'Comparar la oferta con registros oficiales y al menos una fuente independiente; una publicación propia o de un afiliado no alcanza.',
+    ];
   return {
     kind: 'scam-prevention',
     status: 'needs-verification',
@@ -297,8 +315,9 @@ function buildEntityVerificationAnswer(input: DecisionAnswerInput, question: str
     findings: [
       operators.length ? `Entidades o plataformas mencionadas en el contenido: ${operators.join(', ')}.` : '',
       'Que una marca aparezca en una nota, publicidad o buscador demuestra únicamente que fue mencionada; no acredita CUIT, razón social, regulación, solvencia ni vigencia.',
-      /tokeniz|crowdfunding|fideicomiso|cripto|inmobili/i.test(`${question} ${input.documentText}`)
-        ? 'La factibilidad de una inversión tokenizada, colectiva o inmobiliaria depende además de la estructura jurídica, titularidad del activo, vehículo contractual, custodia y derechos de salida.'
+      'La revisión debe separar: seguridad técnica del enlace; identidad y autorización del operador; y veracidad económica y jurídica de cada promesa publicada.',
+      tokenizedRealEstate
+        ? 'Un token no transmite por sí solo el dominio del inmueble. Debe comprobarse qué derecho contractual representa, quién es titular registral, qué sociedad o fideicomiso lo respalda, quién custodia los fondos y cómo se concreta la salida.'
         : '',
     ].filter(Boolean),
     nextActions: [
@@ -306,6 +325,15 @@ function buildEntityVerificationAnswer(input: DecisionAnswerInput, question: str
       'Comprobar en CNV, BCRA u otro regulador competente qué actividad declara y si requiere autorización; una ausencia en un registro no prueba por sí sola fraude.',
       'Revisar quién recibe y custodia el dinero, qué derecho adquiere el usuario, cómo puede retirarlo o venderlo y qué contrato respalda la operación.',
       'Contrastar la información de la nota con el sitio oficial y documentación vigente de cada entidad, sin depositar a partir de un enlace publicitario.',
+      'Buscar antecedentes fechados en medios independientes y redes profesionales de responsables identificables; verificar que nombres, fechas, domicilios y proyectos coincidan. Las publicaciones propias no sustituyen registros ni contratos.',
+      tokenizedRealEstate
+        ? 'Antes de transferir: completar los controles de identidad, titularidad, estructura, custodia y salida detallados en esta respuesta.'
+        : 'Antes de transferir: confirmar que la cuenta receptora pertenece a la entidad verificada, leer contrato, costos, retiros, jurisdicción y mecanismos de reclamo, y realizar primero una operación mínima reversible cuando resulte apropiado.',
+    ],
+    sections: [
+      { title: 'Qué verificó ChamuyoCheck', items: verificationSteps },
+      { title: 'Medidas de precaución antes de pagar', items: beforePaying },
+      { title: 'Cómo usar redes y publicaciones', items: ['Buscar actividad histórica y responsables identificables; comparar nombres, proyectos, fechas y domicilios.', 'Tratar publicaciones propias, influenciadores y notas patrocinadas como declaraciones del oferente. Sólo una fuente independiente o un registro puede corroborarlas.'] },
     ],
     limitations: ['La lectura de una página permite auditar lo que afirma esa fuente, pero la existencia de las entidades y la vigencia de sus autorizaciones requieren fuentes independientes y actuales.'],
   };
@@ -1081,7 +1109,7 @@ export function enrichDecisionAnswerWithExternalEvidence(
 ): CustomerDecisionAnswer | undefined {
   if (!answer || answer.kind !== 'scam-prevention') return answer;
   const relevant = records
-    .filter((record) => ['domain-registration-data', 'domain-reputation', 'security-research', 'consumer-protection-agencies', 'securities-regulator-cnv'].includes(record.sourceType) && record.excerpt)
+    .filter((record) => ['url-threat-intelligence', 'domain-registration-data', 'domain-reputation', 'security-research', 'consumer-protection-agencies', 'securities-regulator-cnv', 'company-registries', 'independent-news'].includes(record.sourceType) && record.excerpt)
     .slice(0, 5)
     .map((record) => `${record.title}: ${record.excerpt}`);
   if (!relevant.length && !verificationRationale) return answer;
@@ -1093,6 +1121,7 @@ export function enrichDecisionAnswerWithExternalEvidence(
       ...answer.limitations,
       'Una reputación baja, un dominio reciente o un antecedente de malvertising son señales de riesgo; no demuestran por sí solos un delito.',
       'La ausencia de una coincidencia en un registro o listado de alertas no equivale a autorización ni garantiza seguridad.',
+      'Las redes y la web del oferente permiten revisar antigüedad y consistencia de sus dichos, pero no son fuentes independientes para validar el negocio.',
     ])],
   };
 }
