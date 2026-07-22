@@ -763,6 +763,12 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
         guaranteeCanons: quoteData.guaranteeCanons,
         guaranteeAmount: quoteData.guaranteeAmount,
         structuringFeePercent: quoteData.structuringFeePercent,
+        directInitialCosts: (quoteData.assetRegistrationCost || 0)
+          + (quoteData.contractRegistrationCost || 0)
+          + (quoteData.advanceDisbursementCost || 0),
+        vatRatePercent: quoteData.vatAmount && quoteData.assetValueNet
+          ? quoteData.vatAmount / quoteData.assetValueNet * 100
+          : undefined,
       })
     : null;
   const quoteFindings = quoteData ? [
@@ -772,11 +778,16 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     quotedCashflow?.maxiCanonAmount ? `Maxi canon o adelanto: $ ${amount(quotedCashflow.maxiCanonAmount)}.` : '',
     quoteData.optionAmount !== undefined ? `Opción de compra: $ ${amount(quoteData.optionAmount)}${quoteData.assetValueNet ? ` (${decimal(quoteData.optionAmount / quoteData.assetValueNet * 100)}% del valor neto)` : ''}.` : '',
     quotedCashflow?.structuringFee ? `Comisión de estructuración: $ ${amount(quotedCashflow.structuringFee)} (${decimal(quoteData.structuringFeePercent || 0)}% sobre el valor neto), antes de IVA.` : '',
+    quoteData.assetRegistrationCost ? `Patentamiento o inscripción del bien: $ ${amount(quoteData.assetRegistrationCost)}.` : '',
+    quoteData.contractRegistrationCost ? `Inscripción del contrato: $ ${amount(quoteData.contractRegistrationCost)}.` : '',
+    quoteData.advanceDisbursementCost ? `Desembolso anticipado: $ ${amount(quoteData.advanceDisbursementCost)}.` : '',
+    quoteData.cancellationAdministrativeFee ? `Cargo contingente por desistimiento: $ ${amount(quoteData.cancellationAdministrativeFee)} más IVA; no se suma al flujo normal porque sólo se activa si el tomador desiste.` : '',
     quotedCashflow ? `Desembolso inicial visible: $ ${amount(quotedCashflow.initialOutflow)}.` : '',
-    quotedCashflow ? `Salida nominal total visible: $ ${amount(quotedCashflow.totalNominalOutflow)}.` : '',
+    quotedCashflow ? `Costo total nominal sin IVA recuperable: $ ${amount(quotedCashflow.totalNominalOutflow)}.` : '',
+    quotedCashflow?.estimatedVatCashOutflow ? `Caja total estimada con IVA: $ ${amount(quotedCashflow.totalCashOutflowWithEstimatedVat)}; incluye IVA estimado por $ ${amount(quotedCashflow.estimatedVatCashOutflow)} sobre cánones, opción y comisión. Para un responsable inscripto sólo se descuenta como crédito fiscal si el bien se afecta a actividad gravada y la factura es computable.` : '',
     quotedCashflow ? `Costo financiero nominal visible: $ ${amount(quotedCashflow.nominalFinancingCost)} (${decimal(quotedCashflow.nominalFinancingCostPercent)}% sobre el valor neto).` : '',
     quotedCashflow?.monthlyIrrPercent !== null && quotedCashflow?.monthlyIrrPercent !== undefined ? `TIR mensual implícita: ${decimal(quotedCashflow.monthlyIrrPercent)}% | TNA implícita: ${decimal(quotedCashflow.implicitTnaPercent || 0)}% | TEA/CFTEA visible estimado: ${decimal(quotedCashflow.effectiveAnnualRatePercent || 0)}%.` : '',
-    'El CFTEA visible es una estimación del flujo informado antes de seguro, IVA recuperable y tributos o cargos no cuantificados; no reemplaza el CFTEA contractual.',
+    'El CFTEA visible incorpora los cargos cuantificados de la propuesta. Seguro, patente periódica y tributos no informados siguen pendientes; el IVA se muestra como caja y no como costo económico cuando puede recuperarse.',
   ].filter(Boolean) : [];
   const financialCaseFindings = quoteData ? quoteFindings : financeResult ? [
     'Caso práctico: leasing financiero calculado con sistema francés (canon periódico constante antes de impuestos y servicios), descontando del capital el valor presente de la opción.',

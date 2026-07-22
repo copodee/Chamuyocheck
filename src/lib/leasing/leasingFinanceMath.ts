@@ -29,6 +29,8 @@ export type QuotedLeasingCashflowInput = {
   guaranteeCanons?: number;
   guaranteeAmount?: number;
   structuringFeePercent?: number;
+  directInitialCosts?: number;
+  vatRatePercent?: number;
 };
 
 export type QuotedLeasingCashflowResult = {
@@ -37,6 +39,9 @@ export type QuotedLeasingCashflowResult = {
   optionAmount: number;
   maxiCanonAmount: number;
   structuringFee: number;
+  directInitialCosts: number;
+  estimatedVatCashOutflow: number;
+  totalCashOutflowWithEstimatedVat: number;
   initialOutflow: number;
   totalNominalOutflow: number;
   nominalFinancingCost: number;
@@ -99,15 +104,19 @@ export function calculateQuotedLeasingCashflow(input: QuotedLeasingCashflowInput
   const maxiCanonAmount = Math.max(0, input.maxiCanonAmount || 0);
   const guaranteeDeposit = Math.max(0, input.guaranteeAmount ?? guaranteeCanons * Math.max(0, input.regularCanonAmount));
   const structuringFee = Math.max(0, input.assetValueNet * Math.max(0, input.structuringFeePercent || 0) / 100);
+  const directInitialCosts = Math.max(0, input.directInitialCosts || 0);
   const regularCanonsTotal = regularCanonCount * Math.max(0, input.regularCanonAmount);
   // La garantía se incorpora como pago inicial sólo cuando completa exactamente
   // los períodos que no aparecen entre los cánones regulares. Si la propuesta ya
   // informa todos los cánones del plazo, sumarla otra vez duplicaría el flujo.
   const guaranteeReplacesFinalCanons = guaranteeCanons > 0 && regularCanonCount + guaranteeCanons === months;
   const guaranteeEconomicOutflow = guaranteeReplacesFinalCanons ? guaranteeDeposit : 0;
-  const totalNominalOutflow = maxiCanonAmount + regularCanonsTotal + guaranteeEconomicOutflow + optionAmount + structuringFee;
+  const totalNominalOutflow = maxiCanonAmount + regularCanonsTotal + guaranteeEconomicOutflow + optionAmount + structuringFee + directInitialCosts;
+  const vatRate = Math.max(0, input.vatRatePercent || 0) / 100;
+  const estimatedVatCashOutflow = (maxiCanonAmount + regularCanonsTotal + guaranteeEconomicOutflow + optionAmount + structuringFee) * vatRate;
+  const totalCashOutflowWithEstimatedVat = totalNominalOutflow + estimatedVatCashOutflow;
   const nominalFinancingCost = totalNominalOutflow - input.assetValueNet;
-  const cashflows = [-(input.assetValueNet - maxiCanonAmount - guaranteeEconomicOutflow - structuringFee)];
+  const cashflows = [-(input.assetValueNet - maxiCanonAmount - guaranteeEconomicOutflow - structuringFee - directInitialCosts)];
   for (let month = 1; month <= months; month += 1) {
     cashflows.push((month <= regularCanonCount ? input.regularCanonAmount : 0) + (month === months ? optionAmount : 0));
   }
@@ -118,7 +127,10 @@ export function calculateQuotedLeasingCashflow(input: QuotedLeasingCashflowInput
     optionAmount,
     maxiCanonAmount,
     structuringFee,
-    initialOutflow: maxiCanonAmount + guaranteeEconomicOutflow + structuringFee,
+    directInitialCosts,
+    estimatedVatCashOutflow,
+    totalCashOutflowWithEstimatedVat,
+    initialOutflow: maxiCanonAmount + guaranteeEconomicOutflow + structuringFee + directInitialCosts,
     totalNominalOutflow,
     nominalFinancingCost,
     nominalFinancingCostPercent: input.assetValueNet > 0 ? nominalFinancingCost / input.assetValueNet * 100 : 0,

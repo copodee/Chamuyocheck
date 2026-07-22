@@ -30,6 +30,10 @@ test('extracts the commercial fields from an Argentine leasing quote', () => {
     guaranteeAmount: 4_089_084,
     structuringFeePercent: 4.5,
     insuranceText: 'A cargo del Tomador, contratado por Finanlease S.A.',
+    assetRegistrationCost: undefined,
+    contractRegistrationCost: undefined,
+    advanceDisbursementCost: undefined,
+    cancellationAdministrativeFee: undefined,
   });
 });
 
@@ -81,4 +85,20 @@ test('extracts the Audi Q5 quotation used as a production regression case', () =
   assert.equal(result?.optionAmount, 6_060_000);
   assert.equal(result?.guaranteeAmount, 12_120_000);
   assert.equal(result?.structuringFeePercent, 3);
+});
+
+test('extracts quantified registration, disbursement and contingent costs', () => {
+  const result = extractLeasingQuoteData(`
+    Valor del bien (sin IVA): $ 125.826.000
+    Plazo del leasing: 36 meses
+    Inscripcion registral del bien - Patentamiento: $1.658.495
+    Inscripcion registral del contrato: $360.160
+    Costo financiero diario por desembolso anticipado: $138.022
+    cargo administrativo de $ 200.000 + IVA
+  `);
+
+  assert.equal(result?.assetRegistrationCost, 1_658_495);
+  assert.equal(result?.contractRegistrationCost, 360_160);
+  assert.equal(result?.advanceDisbursementCost, 138_022);
+  assert.equal(result?.cancellationAdministrativeFee, 200_000);
 });

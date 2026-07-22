@@ -53,3 +53,23 @@ test('no inventa una garantía económica cuando los cánones informados ya cubr
   assert.equal(result.guaranteeDeposit, 0);
   assert.equal(result.totalNominalOutflow, 12_500_000);
 });
+
+test('incorpora costos iniciales cuantificados y separa el IVA financiero estimado', () => {
+  const result = calculateQuotedLeasingCashflow({
+    assetValueNet: 125_826_000,
+    months: 36,
+    regularCanonCount: 34,
+    regularCanonAmount: 6_060_000,
+    optionAmount: 6_060_000,
+    guaranteeCanons: 2,
+    guaranteeAmount: 12_120_000,
+    structuringFeePercent: 3,
+    directInitialCosts: 2_156_677,
+    vatRatePercent: 21,
+  });
+
+  assert.equal(result.directInitialCosts, 2_156_677);
+  assert.equal(result.totalNominalOutflow, 230_151_457);
+  assert.equal(result.estimatedVatCashOutflow, 47_878_903.8);
+  assert.equal(result.totalCashOutflowWithEstimatedVat, 278_030_360.8);
+});
