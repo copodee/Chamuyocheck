@@ -194,7 +194,24 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     ],
     verifiedAt: '2026-07-23',
   },
-  researchedPending('Chubut', 'La base del leasing y el crédito del impuesto pagado sobre cánones están contemplados en la normativa provincial; falta confirmar la alícuota 2026 del contrato y de la opción en la ley tarifaria vigente.', 'https://www.dgrchubut.gov.ar/'),
+  {
+    jurisdiction: 'Chubut', fiscalYear: 2026, status: 'verified-current',
+    stampRatePercent: 0.6,
+    stampRateCondition: 'Contrato de leasing; la base imponible del contrato es la sumatoria de cánones.',
+    treatment: 'La Ley XXIV N.º 119 para 2026 grava el contrato de leasing al 0,6%. El Código Fiscal vigente establece como base imponible la sumatoria de las cuotas de canon, sin incorporar automáticamente el valor residual al sellado inicial. Si se ejerce la opción, la transferencia se liquida según el bien: para inmuebles se compara el valor total adjudicado —cánones más residual— con el valor inmobiliario de referencia y la valuación fiscal, computando el impuesto previo cuando corresponde; para automotores se compara el precio con la valuación registral.',
+    exemptions: [
+      'El 0,6% corresponde al contrato inicial y no cancela por anticipado el impuesto de la transferencia por opción.',
+      'En 2026 las transferencias e inscripciones automotor tienen alícuota general del 2%, reducida al 0,5% para híbridos y al 0,2% para eléctricos; debe verificarse que la operación concreta encuadre en esa categoría.',
+      'El impuesto es solidario según la normativa provincial; que el contrato lo traslade al tomador define la carga económica entre partes, no altera el sujeto legal frente al fisco.',
+    ],
+    sourceUrl: 'https://www.arech.gob.ar/pdfs/1769781883382-ley-pcial-xxiv-119-2025.pdf',
+    sourceUrls: [
+      'https://www.arech.gob.ar/pdfs/1769781883382-ley-pcial-xxiv-119-2025.pdf',
+      'https://www.arech.gob.ar/pdfs/1769776041585-ley-pcial-xxiv-102-2023.pdf',
+      'https://www.arech.gob.ar/pdfs/1769777447671-ley-pcial-xxiv-105-2023.pdf',
+    ],
+    verifiedAt: '2026-07-23',
+  },
   researchedPending('Corrientes', 'La jurisdicción instrumental, los efectos locales y la tasa aplicable al leasing deben confirmarse en el Código Fiscal y la Ley Tarifaria 2026; no se asigna una tasa general por analogía.', 'https://www.atp.corrientes.gob.ar/'),
   {
     jurisdiction: 'Formosa', fiscalYear: 2026, status: 'verified-current',
