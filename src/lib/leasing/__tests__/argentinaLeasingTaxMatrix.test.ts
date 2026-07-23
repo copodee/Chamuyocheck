@@ -12,7 +12,7 @@ test('includes every Argentine local stamp-tax jurisdiction without inventing ex
 
 test('keeps verified local leasing treatments distinct', () => {
   const verified = verifiedProvincialStampProfiles();
-  assert.equal(verified.length, 12);
+    assert.ok(verified.length >= 15);
   assert.match(verified.find((item) => item.jurisdiction === 'Ciudad Autónoma de Buenos Aires')?.treatment || '', /0,50%/);
   assert.match(verified.find((item) => item.jurisdiction === 'Buenos Aires')?.treatment || '', /10,5‰/);
   assert.match(verified.find((item) => item.jurisdiction === 'Córdoba')?.treatment || '', /exime/);
@@ -31,6 +31,23 @@ test('keeps verified local leasing treatments distinct', () => {
   const cabaRules = JSON.stringify(verified.find((item) => item.jurisdiction === 'Ciudad Autónoma de Buenos Aires'));
   assert.match(cabaRules, /Ley CABA 6\.926.*tomador.*guarda habitual.*uso o explotación/is);
   assert.doesNotMatch(cabaRules, /dador está domiciliado|dador se halle domiciliado/is);
+});
+
+test('keeps Formosa bases and La Rioja contract treatment distinct from option transfers', () => {
+  const formosa = PROVINCIAL_LEASING_STAMP_MATRIX.find((item) => item.jurisdiction === 'Formosa');
+  const laRioja = PROVINCIAL_LEASING_STAMP_MATRIX.find((item) => item.jurisdiction === 'La Rioja');
+  assert.equal(formosa?.status, 'verified-current');
+  assert.match(formosa?.treatment || '', /cánones.*pago a cuenta/is);
+  assert.equal(laRioja?.status, 'verified-current');
+  assert.equal(laRioja?.stampRatePercent, 0);
+  assert.match(laRioja?.stampRateCondition || '', /no instrumente una transferencia inmobiliaria/i);
+});
+
+test('applies Tucumán rate to the contract without hiding the option transfer', () => {
+  const tucuman = PROVINCIAL_LEASING_STAMP_MATRIX.find((item) => item.jurisdiction === 'Tucumán');
+  assert.equal(tucuman?.status, 'verified-current');
+  assert.equal(tucuman?.stampRatePercent, 2);
+  assert.match(tucuman?.treatment || '', /total de cánones.*valor residual/is);
 });
 
 test('does not promise company benefits to consumers or monotributistas', () => {
