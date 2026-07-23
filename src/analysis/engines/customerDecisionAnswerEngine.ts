@@ -8,6 +8,7 @@ import { buildInternationalLeasingFindings } from '../../lib/leasing/internation
 import { LEASING_TAXPAYER_PROFILES, PROVINCIAL_LEASING_STAMP_MATRIX } from '../../lib/leasing/argentinaLeasingTaxMatrix';
 import { calculateFinancialLeasing, calculateQuotedLeasingCashflow } from '../../lib/leasing/leasingFinanceMath';
 import { extractLeasingQuoteData } from '../../lib/leasing/leasingQuoteExtraction';
+import { LEASING_TYPE_GUIDE, MUNICIPAL_TAX_GUARDRAIL, NATIONAL_LEASING_RULES, minimumFinancialLeaseMonths } from '../../lib/leasing/argentinaLeasingSpecialist';
 import { classifyUserDecisionIntent } from './userDecisionIntent';
 
 export type CustomerDecisionAnswer = {
@@ -779,10 +780,15 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     quotedCashflow ? `Costo total nominal sin IVA recuperable: $ ${amount(quotedCashflow.totalNominalOutflow)}.` : '',
     quotedCashflow?.estimatedVatCashOutflow ? `Caja total estimada con IVA: $ ${amount(quotedCashflow.totalCashOutflowWithEstimatedVat)}; IVA estimado incluido $ ${amount(quotedCashflow.estimatedVatCashOutflow)}.` : '',
     quotedCashflow ? `Costo financiero nominal visible: $ ${amount(quotedCashflow.nominalFinancingCost)} (${decimal(quotedCashflow.nominalFinancingCostPercent)}% sobre el valor neto).` : '',
-    quotedCashflow?.monthlyIrrPercent !== null && quotedCashflow?.monthlyIrrPercent !== undefined ? `Tasas implícitas: TIR mensual ${decimal(quotedCashflow.monthlyIrrPercent)}% | TNA ${decimal(quotedCashflow.implicitTnaPercent || 0)}% | TEA/CFTEA visible ${decimal(quotedCashflow.effectiveAnnualRatePercent || 0)}%.` : '',
+    quotedCashflow?.monthlyIrrPercent !== null && quotedCashflow?.monthlyIrrPercent !== undefined ? `Tasas implícitas del flujo visible: TIR mensual ${decimal(quotedCashflow.monthlyIrrPercent)}% | TNA implícita ${decimal(quotedCashflow.implicitTnaPercent || 0)}% | TIR efectiva anual ${decimal(quotedCashflow.effectiveAnnualRatePercent || 0)}%.` : '',
   ].filter(Boolean) : [];
   const quoteDetailFindings = quoteData ? [
+    quoteData.customerName ? `Tomador: ${quoteData.customerName}${quoteData.customerTaxId ? ` (CUIT ${quoteData.customerTaxId})` : ''}.` : '',
+    quoteData.quoteDateText ? `Fecha informada en la cotización: ${quoteData.quoteDateText}.` : '',
+    quoteData.assetDescription ? `Bien cotizado: ${quoteData.assetDescription}.` : '',
+    quoteData.currency ? `Moneda contractual: ${quoteData.currency}${quoteData.exchangeRate !== undefined ? `; tipo de cambio de referencia $ ${amount(quoteData.exchangeRate)}` : ''}.` : '',
     quoteData.vatAmount !== undefined ? `IVA informado sobre el bien: $ ${amount(quoteData.vatAmount)}${quoteData.assetValueVatIncluded !== undefined ? `; valor total con IVA $ ${amount(quoteData.assetValueVatIncluded)}` : ''}.` : '',
+    quoteData.freightAmount !== undefined ? `Fletes y formularios: $ ${amount(quoteData.freightAmount)}; IVA asociado $ ${amount(quoteData.freightVatAmount || 0)}.` : '',
     quotedCashflow?.guaranteeDeposit ? `Garantía inicial: $ ${amount(quotedCashflow.guaranteeDeposit)}; se imputa a los últimos cánones y no se duplica.` : '',
     quotedCashflow?.maxiCanonAmount ? `Maxi canon o adelanto: $ ${amount(quotedCashflow.maxiCanonAmount)}.` : '',
     quotedCashflow?.structuringFee ? `Comisión de estructuración: $ ${amount(quotedCashflow.structuringFee)} (${decimal(quoteData.structuringFeePercent || 0)}% sobre el valor neto), antes de IVA.` : '',
@@ -790,6 +796,11 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     quoteData.contractRegistrationCost ? `Inscripción del contrato: $ ${amount(quoteData.contractRegistrationCost)}.` : '',
     quoteData.advanceDisbursementCost ? `Desembolso anticipado: $ ${amount(quoteData.advanceDisbursementCost)}.` : '',
     quoteData.cancellationAdministrativeFee ? `Cargo contingente por desistimiento: $ ${amount(quoteData.cancellationAdministrativeFee)} más IVA; se excluye del flujo normal porque sólo se activa si el tomador desiste.` : '',
+    quoteData.quoteValidityDays ? `Vigencia declarada de la propuesta: ${amount(quoteData.quoteValidityDays)} días corridos.` : '',
+    quoteData.quotedIncomeTaxSavingsLeasing !== undefined ? `Ahorro anual de Ganancias declarado por el proveedor para leasing: $ ${amount(quoteData.quotedIncomeTaxSavingsLeasing)}; es una afirmación comercial que debe validarse según el perfil fiscal y la utilización efectiva del beneficio.` : '',
+    quoteData.quotedVatInitialLeasing !== undefined ? `Inmovilización inicial de IVA declarada por el proveedor para leasing: $ ${amount(quoteData.quotedVatInitialLeasing)}.` : '',
+    quoteData.claimedStampPatentExempt ? 'La propuesta declara exento de Sellos el patentamiento del leasing; debe verificarse contra la jurisdicción y el acto concretos.' : '',
+    quoteData.claimedStampContractExempt ? 'La propuesta declara exento de Sellos el contrato de leasing; debe verificarse contra la jurisdicción y la normativa anual aplicable.' : '',
     'El CFTEA visible incorpora los cargos cuantificados. Seguro, patente periódica y tributos no informados quedan pendientes; el IVA es salida de caja, pero no costo económico cuando puede computarse como crédito fiscal.',
   ].filter(Boolean) : [];
   const financialCaseFindings = quoteData ? quoteSummaryFindings : financeResult ? [
@@ -828,6 +839,10 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
           : /avi[oó]n|aeronave/i.test(question)
             ? 'aeronave'
             : 'bien no informado';
+  const nationalSpecialistFindings = NATIONAL_LEASING_RULES.map((item) => `${item.topic}: ${item.rule} Fuente: ${item.source}.`);
+  const usefulLifeFinding = assetKind === 'automotor'
+    ? `Amortización y plazo fiscal: la tabla del Decreto 1038/2000 asigna 5 años a rodados; el umbral temporal del tratamiento financiero para contratos celebrados desde el 29/03/2022 es ${minimumFinancialLeaseMonths('vehicles')} meses, además de los requisitos sobre dador y opción.`
+    : '';
   const expenseMap = [
     'Precio financiero: maxi canon o anticipo, cánones, tasa o margen, comisiones y valor de la opción de compra. Deben mostrarse por separado y también como flujo total.',
     'IVA: revisar su incidencia en maxi canon, cánones, servicios y opción; el crédito fiscal sólo existe si el tomador está inscripto, el bien se afecta a actividad gravada y existe documentación válida.',
@@ -991,10 +1006,11 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     grossIncomeComparison,
     'Regla de comparación: mostrar todos los porcentajes, su base, momento y obligado legal. No sumar mecánicamente Sellos, Ingresos Brutos, patente y opción de compra porque pueden recaer sobre bases distintas, corresponder a sujetos diferentes o devengarse en etapas separadas. Un impuesto propio del dador sólo se agrega como cargo separado al flujo del tomador cuando la propuesta o el contrato así lo manifiestan; en caso contrario se trata como incluido en el precio financiero para evitar doble cómputo.',
     'Sellos es provincial: no existe una única alícuota argentina. Para las demás jurisdicciones debe verificarse la ley anual vigente antes de informar tasa o exención; el sistema no presume que el leasing esté exento.',
+    MUNICIPAL_TAX_GUARDRAIL,
   ];
   const financialHeadline = quoteData
     ? quotedCashflow
-      ? `Valor neto $ ${amount(quoteData.assetValueNet || 0)}; ${quoteData.regularCanonCount} cánones de ${amount(quoteData.regularCanonAmount || 0)} pesos; opción de ${amount(quoteData.optionAmount || 0)} pesos. Costo total visible: $ ${amount(quotedCashflow.totalNominalOutflow)}. TIR mensual implícita: ${decimal(quotedCashflow.monthlyIrrPercent || 0)}%; TEA/CFTEA visible estimado: ${decimal(quotedCashflow.effectiveAnnualRatePercent || 0)}%.`
+      ? `Valor neto $ ${amount(quoteData.assetValueNet || 0)}; ${quoteData.regularCanonCount} cánones de $ ${amount(quoteData.regularCanonAmount || 0)}; opción de $ ${amount(quoteData.optionAmount || 0)}. Costo total visible: $ ${amount(quotedCashflow.totalNominalOutflow)}. TIR mensual: ${decimal(quotedCashflow.monthlyIrrPercent || 0)}%; TIR efectiva anual: ${decimal(quotedCashflow.effectiveAnnualRatePercent || 0)}%.`
       : 'La propuesta aporta información parcial. Se muestran los importes identificados y sólo se señalan los campos que realmente no pueden derivarse.'
     : financeResult
       ? `Resultado del caso: se financian ${amount(financeResult.financedAmount)} netos de IVA y el canon financiero estimado es ${amount(financeResult.monthlyCanon)} durante ${months} meses, con una opción de ${amount(financeResult.optionAmount)}.`
@@ -1007,6 +1023,8 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     findings: [
       'Marco contractual: Código Civil y Comercial de la Nación, artículos 1227 y siguientes. El artículo 1238 regula el uso y goce del bien; no fija plazos fiscales de amortización.',
       `Marco tributario nacional vigente desde el 29/03/2022: ${currentTaxRule}`,
+      ...nationalSpecialistFindings,
+      usefulLifeFinding,
       'Modalidades económicas a distinguir: leasing financiero, leasing operativo o asimilado a locación y lease-back. La denominación comercial no reemplaza el análisis de las condiciones legales y tributarias.',
       'Tipo de leasing y efecto sobre la opción de compra:',
       ...leasingTypeAndOptionRules,
@@ -1024,6 +1042,8 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       ...(quoteDetailFindings.length ? [{ title: 'Detalle de cargos y supuestos', items: quoteDetailFindings }] : []),
       ...(leaseBackRules.length ? [{ title: 'Lease-back: aforo, plazo y efecto fiscal', items: leaseBackRules }] : []),
       { title: 'Modalidad y opción de compra', items: leasingTypeAndOptionRules },
+      { title: 'Tipos de leasing y calificación económica', items: Object.entries(LEASING_TYPE_GUIDE).map(([type, explanation]) => `${type}: ${explanation}`) },
+      { title: 'Normativa nacional, uso, registración y amortizaciones', items: [...nationalSpecialistFindings, usefulLifeFinding].filter(Boolean) },
       { title: 'Ventajas frente a préstamo y prenda', items: [...distinctiveAdvantages, ...humanPersonComparison] },
       { title: 'Ventajas impositivas y tratamiento del tomador', items: [
         `Persona jurídica: ${LEASING_TAXPAYER_PROFILES.company}`,

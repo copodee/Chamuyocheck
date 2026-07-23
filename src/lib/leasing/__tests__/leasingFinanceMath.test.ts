@@ -72,4 +72,6 @@ test('incorpora costos iniciales cuantificados y separa el IVA financiero estima
   assert.equal(result.totalNominalOutflow, 230_151_457);
   assert.equal(result.estimatedVatCashOutflow, 47_878_903.8);
   assert.equal(result.totalCashOutflowWithEstimatedVat, 278_030_360.8);
+  assert.ok(Math.abs((result.monthlyIrrPercent || 0) - 4.3564523608561) < 1e-9);
+  assert.ok(Math.abs((result.effectiveAnnualRatePercent || 0) - 66.8136864322971) < 1e-9);
 });

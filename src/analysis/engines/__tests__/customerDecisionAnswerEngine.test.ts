@@ -56,8 +56,8 @@ test('leasing conserva el contenido de la cotización aunque exista una pregunta
     scamRiskAnalysis: analyzeScamRisk(''),
     argentinaLegalAnalysis: analyzeArgentinaLegal(''),
   });
-  assert.match(answer.directAnswer, /125\.826\.000.*34 cánones de 6\.060\.000.*opción de 6\.060\.000/is);
-  assert.match(answer.directAnswer, /costo total visible.*TIR mensual.*CFTEA/is);
+  assert.match(answer.directAnswer, /125\.826\.000.*34 cánones de \$ 6\.060\.000.*opción de \$ 6\.060\.000/is);
+  assert.match(answer.directAnswer, /costo total visible.*TIR mensual.*TIR efectiva anual/is);
   assert.match(answer.sections?.[0]?.items.join(' ') || '', /costo total nominal.*costo financiero nominal.*TIR mensual/is);
   assert.match(answer.sections?.[0]?.items.join(' ') || '', /Sellos estimado.*2\.354\.310.*1,05%/is);
   assert.ok((answer.sections?.[0]?.items.length || 0) <= 9, 'el resumen financiero debe seguir siendo breve');

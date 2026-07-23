@@ -41,8 +41,8 @@ button,input,textarea{font:inherit}
   --soft:#78909a;
   --green:#087f8c;
   --cyan:#087f8c;
-  --violet:#0b6472;
-  --violet2:#168a96;
+  --violet:#5b21b6;
+  --violet2:#7c3aed;
   --yellow:#c98916;
   background:
     radial-gradient(circle at 82% 0%,rgba(224,171,68,.10),transparent 28%),
@@ -52,10 +52,10 @@ button,input,textarea{font:inherit}
 .leasingAppShell .sidebar{background:linear-gradient(180deg,#f1f7f8,#e8f1f3);border-right-color:rgba(11,100,114,.18)}
 .leasingAppShell .logo{color:#10333e;letter-spacing:-.025em}.leasingAppShell .logo span{color:#b8750c;text-shadow:none}
 .leasingAppShell .tag{color:#35717b}
-.leasingAppShell .shield{background:linear-gradient(145deg,#0b6472,#168a96);border-color:rgba(201,137,22,.55);color:#fff}
-.leasingAppShell .newBtn,.leasingAppShell .primary{background:linear-gradient(135deg,#0b7180,#075866);color:#fff;box-shadow:0 10px 28px rgba(11,100,114,.18)}
+.leasingAppShell .shield{background:linear-gradient(145deg,#6d28d9,#4c1d95);border-color:rgba(201,137,22,.55);color:#fff}
+.leasingAppShell .newBtn,.leasingAppShell .primary{background:linear-gradient(135deg,#6d28d9,#4c1d95);color:#fff;box-shadow:0 10px 28px rgba(91,33,182,.24)}
 .leasingAppShell .nav a,.leasingAppShell .nav button,.leasingAppShell .mobileNav button{color:#244753}
-.leasingAppShell .nav button.active,.leasingAppShell .mobileNav button.active{background:rgba(11,100,114,.11);color:#075866}
+.leasingAppShell .nav button.active,.leasingAppShell .mobileNav button.active{background:#ede9fe;color:#4c1d95}
 .leasingAppShell .panel,.leasingAppShell .card,.leasingAppShell .section{background:#fff;border-color:rgba(20,72,88,.15);box-shadow:0 14px 42px rgba(35,72,84,.08)}
 .leasingAppShell .heroIntroPanel,.leasingAppShell .inputPanel{border-color:rgba(11,100,114,.20)}
 .leasingAppShell .eyebrow,.leasingAppShell .categoryStep{border-color:rgba(201,137,22,.38);background:#fff8e9;color:#9a650b}
@@ -63,7 +63,7 @@ button,input,textarea{font:inherit}
 .leasingAppShell .heroBody,.leasingAppShell .heroCta{color:#405e69}
 .leasingAppShell .heroCta,.leasingAppShell .leasingUploadStage{border-color:rgba(11,100,114,.25);background:#f3fafb}
 .leasingAppShell .tab,.leasingAppShell .ghost,.leasingAppShell .iconBtn{background:#f7fafb;color:#244753;border-color:rgba(20,72,88,.16)}
-.leasingAppShell .tab.active{border-color:rgba(11,100,114,.50);background:#e8f5f6;color:#075866}
+.leasingAppShell .tab.active{border-color:#7c3aed;background:#f3e8ff;color:#4c1d95}
 .leasingAppShell .urlInput,.leasingAppShell textarea,.leasingAppShell input,.leasingAppShell select{background:#fff;color:#163844;border-color:rgba(20,72,88,.22)}
 .leasingAppShell .leasingJurisdictionPicker{border-color:rgba(11,100,114,.25);background:#f4fafb}
 .leasingAppShell .leasingScoreCard{border-color:rgba(201,137,22,.34);box-shadow:0 20px 55px rgba(35,72,84,.10)}
@@ -621,12 +621,12 @@ pre,code{white-space:pre-wrap}
   box-shadow:0 1px 0 rgba(11,100,114,.04);
 }
 .leasingAppShell .authForm input:focus{
-  outline:3px solid rgba(8,127,140,.15);
-  border-color:#087f8c;
+  outline:3px solid rgba(109,40,217,.18);
+  border-color:#6d28d9;
 }
 .leasingAppShell .authSwitch,
 .leasingAppShell .termsLink{
-  color:#0b6472;
+  color:#5b21b6;
 }
 .leasingAppShell .authMessage,
 .leasingAppShell .betaAccessNote{
@@ -657,7 +657,7 @@ pre,code{white-space:pre-wrap}
   color:#163844;
 }
 .leasingAppShell .leasingComparisonTable thead th{
-  background:#0b6472;
+  background:#5b21b6;
   color:#fff;
 }
 .leasingAppShell .leasingComparisonTable th,
@@ -668,7 +668,7 @@ pre,code{white-space:pre-wrap}
 .leasingAppShell .leasingComparisonTable tbody th,
 .leasingAppShell .leasingResultSection summary,
 .leasingAppShell .leasingNextActions summary{
-  color:#0b6472;
+  color:#5b21b6;
 }
 .leasingAppShell .leasingComparisonTable tbody tr:nth-child(even) td{background:#eef5f7}
 .leasingAppShell .leasingResultSection summary small{color:#647d86}
@@ -817,8 +817,8 @@ body:has(.leasingAppShell){
     color:#244753;
   }
   .leasingAppShell .mobileNav button.active{
-    background:#dfeff1;
-    color:#075866;
+    background:#ede9fe;
+    color:#4c1d95;
   }
   .leasingAppShell .heroIntroPanel h1,
   .leasingAppShell .categoryPicker h2,

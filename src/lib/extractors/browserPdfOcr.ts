@@ -12,6 +12,47 @@ export type BrowserPdfOcrResult = BrowserOcrResult & {
   pages: number;
 };
 
+type PdfTextItem = {
+  str?: string;
+  transform?: number[];
+  width?: number;
+  height?: number;
+};
+
+export function reconstructPdfText(items: PdfTextItem[]): string {
+  const positioned = items
+    .filter((item) => typeof item.str === 'string' && item.str.trim())
+    .map((item) => ({
+      text: item.str!.trim(),
+      x: Number(item.transform?.[4] || 0),
+      y: Number(item.transform?.[5] || 0),
+      height: Math.max(1, Number(item.height || item.transform?.[3] || 10)),
+    }))
+    .sort((left, right) => right.y - left.y || left.x - right.x);
+
+  const lines: Array<{ y: number; height: number; items: typeof positioned }> = [];
+  for (const item of positioned) {
+    const line = lines.find((candidate) =>
+      Math.abs(candidate.y - item.y) <= Math.max(2, Math.min(candidate.height, item.height) * 0.35)
+    );
+    if (line) {
+      line.items.push(item);
+      line.y = (line.y + item.y) / 2;
+      line.height = Math.max(line.height, item.height);
+    } else {
+      lines.push({ y: item.y, height: item.height, items: [item] });
+    }
+  }
+
+  return lines
+    .sort((left, right) => right.y - left.y)
+    .map((line) => line.items.sort((left, right) => left.x - right.x).map((item) => item.text).join(' '))
+    .join('\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export async function extractPdfTextInBrowser(
   file: File,
   onProgress?: (progress: PdfOcrProgress) => void,
@@ -49,11 +90,7 @@ export async function extractPdfTextInBrowser(
       onProgress?.({ page: pageNumber, totalPages });
       const page = await document.getPage(pageNumber);
       const content = await page.getTextContent();
-      const nativeText = content.items
-        .map((item: any) => typeof item?.str === 'string' ? item.str : '')
-        .join(' ')
-        .replace(/[ \t]+/g, ' ')
-        .trim();
+      const nativeText = reconstructPdfText(content.items);
       if (nativeText.length >= 30) {
         texts.push(`[Página ${pageNumber}]\n${nativeText}`);
         confidences.push(100);
