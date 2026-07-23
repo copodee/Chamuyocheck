@@ -784,3 +784,54 @@ pre,code{white-space:pre-wrap}
 }
 .leasingAppShell .heroHighlights strong,
 .leasingAppShell .heroHighlights span{color:#294e59}
+
+/* LeasingScoring owns the complete viewport, including the space exposed by
+   mobile browser chrome and short pages. Keep the ChamuyoCheck dark canvas
+   from showing through around the light application shell. */
+html:has(.leasingAppShell){
+  color-scheme:light;
+  background:#f4f8fa;
+}
+body:has(.leasingAppShell){
+  color:#102f3b;
+  background:
+    radial-gradient(circle at 82% 0%,rgba(224,171,68,.10),transparent 28%),
+    radial-gradient(circle at 12% 8%,rgba(30,139,151,.09),transparent 32%),
+    linear-gradient(180deg,#ffffff,#f4f8fa);
+}
+
+@media(max-width:720px){
+  .leasingAppShell,
+  .leasingAppShell .main{
+    color:#102f3b;
+    background:linear-gradient(180deg,#ffffff,#f4f8fa);
+  }
+  .leasingAppShell .mobileTopbar,
+  .leasingAppShell .mobileNav{
+    background:#f7fafb;
+    color:#244753;
+    border-color:rgba(20,72,88,.18);
+  }
+  .leasingAppShell .mobileNav button{
+    background:#ffffff;
+    color:#244753;
+  }
+  .leasingAppShell .mobileNav button.active{
+    background:#dfeff1;
+    color:#075866;
+  }
+  .leasingAppShell .heroIntroPanel h1,
+  .leasingAppShell .categoryPicker h2,
+  .leasingAppShell .categoryPicker h3,
+  .leasingAppShell .analysisStepTitle,
+  .leasingAppShell .drop h3,
+  .leasingAppShell .userBox b{
+    color:#102f3b;
+    text-shadow:none;
+  }
+  .leasingAppShell .drop p,
+  .leasingAppShell .drop .uploadLimits,
+  .leasingAppShell .userBox .hint{
+    color:#405e69;
+  }
+}
