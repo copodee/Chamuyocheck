@@ -9,6 +9,7 @@ export type ProvincialStampProfile = {
   exemptions: string[];
   stampRatePercent?: number;
   stampRateCondition?: string;
+  contractStampBaseKind?: 'canons-only' | 'visible-contract-total';
   grossIncomeRatePercent?: number;
   sourceUrl?: string;
   sourceUrls?: string[];
@@ -27,6 +28,7 @@ const researchedPending = (
   treatment: string,
   sourceUrl: string,
   exemptions: string[] = [],
+  sourceUrls: string[] = [sourceUrl],
 ): ProvincialStampProfile => ({
   jurisdiction,
   fiscalYear: 2026,
@@ -34,7 +36,8 @@ const researchedPending = (
   treatment,
   exemptions,
   sourceUrl,
-  verifiedAt: '2026-07-18',
+  sourceUrls,
+  verifiedAt: '2026-07-23',
 });
 
 // A jurisdiction is promoted to verified-current only after checking its current
@@ -198,6 +201,7 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     jurisdiction: 'Chubut', fiscalYear: 2026, status: 'verified-current',
     stampRatePercent: 0.6,
     stampRateCondition: 'Contrato de leasing; la base imponible del contrato es la sumatoria de cánones.',
+    contractStampBaseKind: 'canons-only',
     treatment: 'La Ley XXIV N.º 119 para 2026 grava el contrato de leasing al 0,6%. El Código Fiscal vigente establece como base imponible la sumatoria de las cuotas de canon, sin incorporar automáticamente el valor residual al sellado inicial. Si se ejerce la opción, la transferencia se liquida según el bien: para inmuebles se compara el valor total adjudicado —cánones más residual— con el valor inmobiliario de referencia y la valuación fiscal, computando el impuesto previo cuando corresponde; para automotores se compara el precio con la valuación registral.',
     exemptions: [
       'El 0,6% corresponde al contrato inicial y no cancela por anticipado el impuesto de la transferencia por opción.',
@@ -212,7 +216,12 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     ],
     verifiedAt: '2026-07-23',
   },
-  researchedPending('Corrientes', 'La jurisdicción instrumental, los efectos locales y la tasa aplicable al leasing deben confirmarse en el Código Fiscal y la Ley Tarifaria 2026; no se asigna una tasa general por analogía.', 'https://www.atp.corrientes.gob.ar/'),
+  researchedPending(
+    'Corrientes',
+    'La jurisdicción instrumental, los efectos locales y la tasa aplicable al leasing deben confirmarse en el Código Fiscal y la Ley Tarifaria 2026. Hasta contar con el texto oficial anual completo, no se asigna la tasa general por analogía ni se presume que el contrato, la garantía y la transferencia por opción constituyan un único hecho imponible.',
+    'https://www.atp.corrientes.gob.ar/',
+    ['Debe identificarse lugar de instrumentación, domicilio y radicación o ubicación del bien antes de concluir que Corrientes puede gravar el instrumento.'],
+  ),
   {
     jurisdiction: 'Formosa', fiscalYear: 2026, status: 'verified-current',
     treatment: 'El Código Fiscal provincial, art. 168, fija como base de Sellos los cánones del plazo contractual. Si se ejerce la opción sobre un inmueble o mueble registrable, la base es el mayor entre el valor total adjudicado —cánones más residual— y la valuación fiscal, computando como pago a cuenta el impuesto abonado durante el contrato. La Ley Impositiva vigente grava al 5,50% las operaciones de leasing de entidades financieras y al 7,50% el arrendamiento financiero de prestadores no comprendidos en la Ley de Entidades Financieras.',
@@ -228,7 +237,19 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     ],
     verifiedAt: '2026-07-23',
   },
-  researchedPending('La Pampa', 'Debe completarse la lectura conjunta del Código Fiscal y la Ley Impositiva 2026 para determinar base, territorialidad y tasa del leasing, sin presumir que locación, financiación y opción tienen el mismo tratamiento.', 'https://dgr.lapampa.gob.ar/'),
+  researchedPending(
+    'La Pampa',
+    'El Código Fiscal grava instrumentos otorgados en la Provincia y también los celebrados fuera cuando los bienes están radicados o producen efectos locales bajo sus condiciones. El convenio registral oficial para leasing automotor toma como base del contrato los cánones mensuales por todo el plazo y trata la opción separadamente; la transferencia permite computar el Sellado abonado por el boleto u opción. Falta revalidar la alícuota y el importe fijo contra el Anexo G de la Ley Impositiva 2026.',
+    'https://dgr.lapampa.gob.ar/images/Archivos/Normativa/Convenios/Anexo3.pdf',
+    [
+      'No se reutiliza automáticamente el 10‰ de anexos de ejercicios anteriores hasta confirmar el Anexo G 2026.',
+      'Para bienes registrables importa la radicación; para otros instrumentos deben verificarse otorgamiento y efectos locales.',
+    ],
+    [
+      'https://dgr.lapampa.gob.ar/images/Archivos/Normativa/Convenios/Anexo3.pdf',
+      'https://dgr.lapampa.gob.ar/images/Archivos/Normativa/Decretos/Anexo_I_Dec_3817_23.pdf',
+    ],
+  ),
   {
     jurisdiction: 'La Rioja', fiscalYear: 2026, status: 'verified-current',
     stampRatePercent: 0,
@@ -246,8 +267,33 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     ],
     verifiedAt: '2026-07-23',
   },
-  researchedPending('Misiones', 'ATM identifica un trámite específico para contratos de leasing o sus prórrogas, pero la alícuota y la base 2026 deben confirmarse en la Ley XXII Nº 35 y su ley tarifaria antes de comparar.', 'https://www.dgr.misiones.gov.ar/preguntas-frecuentes/'),
-  researchedPending('San Juan', 'La normativa provincial distingue la primera etapa del leasing, los cánones, la opción y los bienes registrables; falta validar la alícuota anual 2026 antes de mostrar un porcentaje.', 'https://rentas.dgrsj.gob.ar/'),
+  researchedPending(
+    'Misiones',
+    'ATM identifica al contrato de leasing con el código de liquidación 2235060 y a su prórroga con el 2235061, con intervención del arrendador y arrendatario. La transferencia automotor, la transferencia inmobiliaria y las garantías tienen códigos separados, por lo que no deben fusionarse con el contrato inicial. La alícuota y la base 2026 todavía deben confirmarse en la Ley XXII N.º 35 y la ley de alícuotas antes de comparar costos.',
+    'https://atmisiones.gob.ar/wp-content/uploads/2024/09/Codigo-de-Actos_2.pdf',
+    [
+      'Las exenciones objetivas y subjetivas requieren encuadre en el artículo 205; el código de trámite no prueba por sí solo una exención.',
+      'La venta posterior de un bien de uso tiene tratamiento propio en Ingresos Brutos y no determina automáticamente el costo del contrato de leasing.',
+    ],
+    [
+      'https://atmisiones.gob.ar/wp-content/uploads/2024/09/Codigo-de-Actos_2.pdf',
+      'https://www.dgr.misiones.gov.ar/preguntas-frecuentes/',
+    ],
+  ),
+  researchedPending(
+    'San Juan',
+    'La normativa provincial divide el leasing en dos etapas. Para bienes no registrables, la primera toma los cánones de todo el plazo y la segunda el valor de la opción. Para registrables, la primera también usa los cánones y la transferencia posterior compara cánones más residual con el valor fiscal asignado por Rentas. La Ley Impositiva 2024 aplicaba 0,44% a locación, mutuo y este tratamiento de leasing, pero no se reutiliza ese porcentaje hasta validar la Ley Impositiva 2026.',
+    'https://www.argentina.gob.ar/normativa/provincial/ley-2645-123456789-0abc-defg-546-2090jvorpyel/actualizacion',
+    [
+      'El impuesto anual automotor nace por la radicación y debe presupuestarse aparte del contrato y de la transferencia.',
+      'La inscripción inicial y la transferencia automotor tienen reglas registrales propias; las referencias históricas no sustituyen la ley anual vigente.',
+    ],
+    [
+      'https://www.argentina.gob.ar/normativa/provincial/ley-2645-123456789-0abc-defg-546-2090jvorpyel/actualizacion',
+      'https://www.argentina.gob.ar/normativa/provincial/ley-2731-123456789-0abc-defg-137-2090jvorpyel/actualizacion',
+      'https://www.dnrpa.gov.ar/include/publicaciones/rentas/sellos-sanjuan.pdf',
+    ],
+  ),
   {
     jurisdiction: 'San Luis', fiscalYear: 2026, status: 'verified-current',
     stampRatePercent: 1.2,
@@ -266,11 +312,36 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     ],
     verifiedAt: '2026-07-23',
   },
-  researchedPending('Santa Cruz', 'ASIP confirma que Sellos alcanza instrumentos formalizados en Santa Cruz y también los otorgados fuera que produzcan efectos allí; la tasa específica del leasing debe obtenerse de la Ley Impositiva vigente.', 'https://www.asip.gob.ar/sellos-2/'),
-  researchedPending('Santiago del Estero', 'La liquidación requiere identificar el tratamiento específico del leasing en el Código Fiscal y la Ley Impositiva 2026; no se usa la tasa general hasta verificar base y opción.', 'https://www.dgrsantiago.gov.ar/'),
+  researchedPending(
+    'Santa Cruz',
+    'ASIP confirma que Sellos alcanza instrumentos formalizados en Santa Cruz y los otorgados fuera que produzcan efectos allí. El artículo 225 bis toma como base del contrato los cánones hasta la opción; al transferirse el dominio compara cánones más residual con la valuación fiscal aplicable y permite computar como pago a cuenta el impuesto abonado durante el leasing. La tasa específica debe obtenerse de la Ley Impositiva vigente antes de cuantificar.',
+    'https://www.asip.gob.ar/sellos-2/',
+    [
+      'Las líneas de financiamiento otorgadas por organismos provinciales, municipales o el CFI pueden tener exención sujeta a encuadre y trámite.',
+      'Contrato y transferencia son etapas distintas aun cuando exista pago a cuenta del impuesto anterior.',
+    ],
+    [
+      'https://www.asip.gob.ar/sellos-2/',
+      'https://boletinoficial.santacruz.gob.ar/boletin/21/Noviembre21/B.O.%205615%2025-11-21.pdf',
+    ],
+  ),
+  researchedPending(
+    'Santiago del Estero',
+    'El Código Fiscal distingue en Ingresos Brutos los cánones —devengados durante cada período— del valor residual, que se devenga al ejercerse la opción, salvo el régimen aplicable a entidades financieras o sociedades cuyo objeto sea celebrar leasing. Para Sellos, los actos onerosos no previstos siguen alcanzados y las prórrogas expresas se consideran nuevas operaciones, pero no se muestra una alícuota hasta verificar la Ley Impositiva 2026.',
+    'https://www.dgrsantiago.gov.ar/wp-content/uploads/2023/10/CODIGO-FISCAL-MODIF-05-10-2023.pdf',
+    [
+      'La tasa de Ingresos Brutos del dador y el Sellado del instrumento son tributos distintos.',
+      'La prórroga expresa puede generar un nuevo hecho de Sellos y no debe agregarse silenciosamente al contrato original.',
+    ],
+    [
+      'https://www.dgrsantiago.gov.ar/wp-content/uploads/2023/10/CODIGO-FISCAL-MODIF-05-10-2023.pdf',
+      'https://www.dgrsantiago.gov.ar/?page_id=811',
+    ],
+  ),
   {
     jurisdiction: 'Tucumán', fiscalYear: 2026, status: 'verified-current',
     stampRatePercent: 2,
+    contractStampBaseKind: 'canons-only',
     treatment: 'La Ley Impositiva vigente fija Sellos del 2% para contratos de leasing sobre bienes muebles y para leasing inmobiliario. El Código Tributario, art. 252, establece como base el total de cánones del plazo. Al ejercer la opción, el instrumento de transferencia tributa separadamente sobre el valor residual con la alícuota correspondiente al tipo de bien.',
     exemptions: [
       'La alícuota del 2% del contrato no cubre automáticamente la transferencia por opción; esa segunda etapa se liquida sobre el residual según el bien.',
@@ -288,4 +359,26 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
 
 export function verifiedProvincialStampProfiles() {
   return PROVINCIAL_LEASING_STAMP_MATRIX.filter((item) => item.status === 'verified-current');
+}
+
+export function estimateProvincialContractStamp(
+  profile: ProvincialStampProfile,
+  cashflow: {
+    canonsTotal: number;
+    guaranteeDeposit?: number;
+    maxiCanonAmount?: number;
+    optionAmount?: number;
+  },
+) {
+  if (profile.stampRatePercent === undefined) return null;
+  const base = profile.contractStampBaseKind === 'canons-only'
+    ? cashflow.canonsTotal
+    : cashflow.canonsTotal
+      + (cashflow.guaranteeDeposit || 0)
+      + (cashflow.maxiCanonAmount || 0)
+      + (cashflow.optionAmount || 0);
+  return {
+    base,
+    amount: base * profile.stampRatePercent / 100,
+  };
 }

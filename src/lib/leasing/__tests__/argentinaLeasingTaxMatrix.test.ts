@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { LEASING_TAXPAYER_PROFILES, PROVINCIAL_LEASING_STAMP_MATRIX, verifiedProvincialStampProfiles } from '../argentinaLeasingTaxMatrix';
+import { estimateProvincialContractStamp, LEASING_TAXPAYER_PROFILES, PROVINCIAL_LEASING_STAMP_MATRIX, verifiedProvincialStampProfiles } from '../argentinaLeasingTaxMatrix';
 
 test('includes every Argentine local stamp-tax jurisdiction without inventing exemptions', () => {
   assert.equal(PROVINCIAL_LEASING_STAMP_MATRIX.length, 24);
@@ -79,4 +79,28 @@ test('does not promise company benefits to consumers or monotributistas', () => 
   assert.match(LEASING_TAXPAYER_PROFILES.company, /No corresponde prometer/);
   assert.match(LEASING_TAXPAYER_PROFILES.monotributista, /no computa separadamente crédito fiscal/);
   assert.match(LEASING_TAXPAYER_PROFILES.consumer, /consumo personal/);
+});
+
+test('pending provinces expose verified structure without inventing the missing annual rate', () => {
+  const pending = Object.fromEntries(PROVINCIAL_LEASING_STAMP_MATRIX
+    .filter((item) => item.status === 'verification-required')
+    .map((item) => [item.jurisdiction, item]));
+  assert.match(pending['La Pampa']?.treatment || '', /cánones mensuales.*opción.*Anexo G.*2026/is);
+  assert.match(pending.Misiones?.treatment || '', /2235060.*2235061.*transferencia/is);
+  assert.match(pending['San Juan']?.treatment || '', /dos etapas.*cánones.*residual.*2026/is);
+  assert.match(pending['Santa Cruz']?.treatment || '', /cánones.*residual.*pago a cuenta/is);
+  assert.match(pending['Santiago del Estero']?.treatment || '', /cánones.*valor residual.*prórrogas/is);
+  for (const profile of Object.values(pending)) {
+    assert.equal(profile.stampRatePercent, undefined);
+  }
+});
+
+test('does not add the purchase option to provinces whose contract base is canons only', () => {
+  const chubut = PROVINCIAL_LEASING_STAMP_MATRIX.find((item) => item.jurisdiction === 'Chubut');
+  const tucuman = PROVINCIAL_LEASING_STAMP_MATRIX.find((item) => item.jurisdiction === 'Tucumán');
+  const cashflow = { canonsTotal: 206_040_000, guaranteeDeposit: 12_120_000, maxiCanonAmount: 0, optionAmount: 6_060_000 };
+  const chubutEstimate = estimateProvincialContractStamp(chubut!, cashflow);
+  const tucumanEstimate = estimateProvincialContractStamp(tucuman!, cashflow);
+  assert.deepEqual(chubutEstimate, { base: 206_040_000, amount: 1_236_240 });
+  assert.deepEqual(tucumanEstimate, { base: 206_040_000, amount: 4_120_800 });
 });

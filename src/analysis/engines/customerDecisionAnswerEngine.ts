@@ -5,7 +5,7 @@ import type { ExternalVerificationSourceRecord } from '../types/externalVerifica
 import type { InvestmentProjectAnalysis } from '../../lib/investments/investmentProjectAnalysis';
 import { leasingKnowledge } from '../../lib/leasing/argentinaLeasingKnowledge';
 import { buildInternationalLeasingFindings } from '../../lib/leasing/internationalLeasingComparison';
-import { LEASING_TAXPAYER_PROFILES, PROVINCIAL_LEASING_STAMP_MATRIX } from '../../lib/leasing/argentinaLeasingTaxMatrix';
+import { estimateProvincialContractStamp, LEASING_TAXPAYER_PROFILES, PROVINCIAL_LEASING_STAMP_MATRIX } from '../../lib/leasing/argentinaLeasingTaxMatrix';
 import { calculateFinancialLeasing, calculateQuotedLeasingCashflow } from '../../lib/leasing/leasingFinanceMath';
 import { extractLeasingQuoteData } from '../../lib/leasing/leasingQuoteExtraction';
 import { LEASING_TYPE_GUIDE, MUNICIPAL_TAX_GUARDRAIL, NATIONAL_LEASING_RULES, minimumFinancialLeaseMonths } from '../../lib/leasing/argentinaLeasingSpecialist';
@@ -819,12 +819,15 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       : normalizedQuestion.includes(item.jurisdiction.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase())
   );
   if (quotedCashflow && profilesToReport.length) {
-    const taxableContractBase = quotedCashflow.regularCanonsTotal + quotedCashflow.guaranteeDeposit
-      + quotedCashflow.maxiCanonAmount + quotedCashflow.optionAmount;
     for (const profile of profilesToReport) {
-      if (profile.stampRatePercent !== undefined) {
-        const stampAmount = taxableContractBase * profile.stampRatePercent / 100;
-        financialCaseFindings.push(`${profile.jurisdiction} — Sellos estimado a cargo o trasladable al tomador: $ ${amount(stampAmount)} (${decimal(profile.stampRatePercent)}% sobre una base visible de $ ${amount(taxableContractBase)}). Confirmar la base legal y cualquier exención antes de contratar.`);
+      const stampEstimate = estimateProvincialContractStamp(profile, {
+        canonsTotal: quotedCashflow.regularCanonsTotal,
+        guaranteeDeposit: quotedCashflow.guaranteeDeposit,
+        maxiCanonAmount: quotedCashflow.maxiCanonAmount,
+        optionAmount: quotedCashflow.optionAmount,
+      });
+      if (stampEstimate && profile.stampRatePercent !== undefined) {
+        financialCaseFindings.push(`${profile.jurisdiction} — Sellos estimado a cargo o trasladable al tomador: $ ${amount(stampEstimate.amount)} (${decimal(profile.stampRatePercent)}% sobre una base visible de $ ${amount(stampEstimate.base)}). Confirmar la base legal y cualquier exención antes de contratar.`);
       }
     }
   }
