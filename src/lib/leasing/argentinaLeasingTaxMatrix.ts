@@ -177,12 +177,23 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
     sourceUrls: ['https://www.aref.gob.ar/impuesto-de-sellos-2/', 'https://www.aref.gob.ar/wp-content/uploads/2022/10/DP-2408-22-Codigo-Fiscal-texto-ordenado.pdf'],
     verifiedAt: '2026-07-18',
   },
-  researchedPending(
-    'Catamarca',
-    'La guía oficial registral informa 1% para leasing automotor, pero debe revalidarse contra la Ley Impositiva 2026 antes de usarlo en una comparación contractual general.',
-    'https://www.dnrpa.gov.ar/include/publicaciones/rentas/sellos-catamarca.pdf',
-    ['La referencia disponible es registral y no autoriza a extender el 1% a inmuebles, aeronaves, embarcaciones ni a la opción de compra.'],
-  ),
+  {
+    jurisdiction: 'Catamarca', fiscalYear: 2026, status: 'verified-current',
+    stampRatePercent: 0,
+    stampRateCondition: 'Contrato civil o comercial de leasing, sin incluir el acto posterior que transfiera el dominio del bien.',
+    treatment: 'La Ley Impositiva 2026 fija 0% para contratos civiles y comerciales, locación de bienes muebles, mutuos, garantías y prendas. La transferencia de un automotor se analiza separadamente: la ley fija 1% para usados y 1% para actos que transmiten automotores 0 km, sobre la base legal aplicable. Para la tenencia anual, los automóviles, 4x4 y camionetas de la categoría general tributan 2% sobre la valuación fiscal; los vehículos productivos de la categoría B y los de motorización alternativa tributan 1,5%.',
+    exemptions: [
+      'El 0% del contrato no se traslada a la transferencia de dominio producida por el ejercicio de la opción.',
+      'La patente es periódica y distinta de Sellos: debe presupuestarse según categoría, radicación, valuación y descuentos por cumplimiento.',
+      'La exención MiPyME de Sellos tiene requisitos y excepciones, entre ellas operaciones financieras y transferencias de automotores; no debe prometerse por la sola condición de empresa.',
+    ],
+    sourceUrl: 'https://digesto.catamarca.gob.ar/ley/ley_detail/4586',
+    sourceUrls: [
+      'https://digesto.catamarca.gob.ar/ley/ley_detail/4586',
+      'https://digesto.catamarca.gob.ar/digesto/crearpdf/ley/4586',
+    ],
+    verifiedAt: '2026-07-23',
+  },
   researchedPending('Chubut', 'La base del leasing y el crédito del impuesto pagado sobre cánones están contemplados en la normativa provincial; falta confirmar la alícuota 2026 del contrato y de la opción en la ley tarifaria vigente.', 'https://www.dgrchubut.gov.ar/'),
   researchedPending('Corrientes', 'La jurisdicción instrumental, los efectos locales y la tasa aplicable al leasing deben confirmarse en el Código Fiscal y la Ley Tarifaria 2026; no se asigna una tasa general por analogía.', 'https://www.atp.corrientes.gob.ar/'),
   {
@@ -220,7 +231,24 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
   },
   researchedPending('Misiones', 'ATM identifica un trámite específico para contratos de leasing o sus prórrogas, pero la alícuota y la base 2026 deben confirmarse en la Ley XXII Nº 35 y su ley tarifaria antes de comparar.', 'https://www.dgr.misiones.gov.ar/preguntas-frecuentes/'),
   researchedPending('San Juan', 'La normativa provincial distingue la primera etapa del leasing, los cánones, la opción y los bienes registrables; falta validar la alícuota anual 2026 antes de mostrar un porcentaje.', 'https://rentas.dgrsj.gob.ar/'),
-  researchedPending('San Luis', 'No se encontró todavía una publicación oficial 2026 que permita sostener una tasa específica de leasing; deben verificarse contrato, efectos, radicación y opción en forma separada.', 'https://dpip.sanluis.gov.ar/'),
+  {
+    jurisdiction: 'San Luis', fiscalYear: 2026, status: 'verified-current',
+    stampRatePercent: 1.2,
+    stampRateCondition: 'Alícuota residual para actos, contratos u operaciones onerosas del artículo 216 que no tengan una tasa específica.',
+    grossIncomeRatePercent: 6.5,
+    treatment: 'La Ley Impositiva 2026 establece Sellos del 12‰ para los actos, contratos u operaciones onerosas no previstos específicamente. El nomenclador provincial identifica “Arrendamiento financiero, leasing” —código 649100— con alícuota de Ingresos Brutos del 6,50% y sin el descuento general del 20%. Deben liquidarse aparte la transferencia por opción, los actos sobre inmuebles o registrables y los gastos de registración que tengan tratamiento específico.',
+    exemptions: [
+      'El 6,50% es Ingresos Brutos de quien desarrolla la actividad; sólo integra el costo del tomador si el contrato permite y efectivamente realiza su traslado económico.',
+      'El 12‰ es una regla residual: no reemplaza una alícuota especial aplicable por la naturaleza del bien, la transferencia o una garantía instrumentada por separado.',
+      'Para inmuebles, la DPIP determina un valor económico que no puede ser inferior a la valuación fiscal y que debe revisarse al ejercer una opción de compra.',
+    ],
+    sourceUrl: 'https://dpip.sanluis.gov.ar/rentas_sanluis/Normativas/Leyes/2025/LEY%20IMPOSITIVA%20N%C2%BA%20VIII-0254-2025.pdf',
+    sourceUrls: [
+      'https://dpip.sanluis.gov.ar/rentas_sanluis/Normativas/Leyes/2025/LEY%20IMPOSITIVA%20N%C2%BA%20VIII-0254-2025.pdf',
+      'https://dpip.sanluis.gov.ar/rentas_sanluis/Normativas/Resoluciones/2026/RG%20N%C2%B0002-DPIP-2026-VALOR%20ECONOMICO.pdf',
+    ],
+    verifiedAt: '2026-07-23',
+  },
   researchedPending('Santa Cruz', 'ASIP confirma que Sellos alcanza instrumentos formalizados en Santa Cruz y también los otorgados fuera que produzcan efectos allí; la tasa específica del leasing debe obtenerse de la Ley Impositiva vigente.', 'https://www.asip.gob.ar/sellos-2/'),
   researchedPending('Santiago del Estero', 'La liquidación requiere identificar el tratamiento específico del leasing en el Código Fiscal y la Ley Impositiva 2026; no se usa la tasa general hasta verificar base y opción.', 'https://www.dgrsantiago.gov.ar/'),
   {

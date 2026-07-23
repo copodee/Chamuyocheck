@@ -12,7 +12,7 @@ test('includes every Argentine local stamp-tax jurisdiction without inventing ex
 
 test('keeps verified local leasing treatments distinct', () => {
   const verified = verifiedProvincialStampProfiles();
-    assert.ok(verified.length >= 15);
+  assert.ok(verified.length >= 17);
   assert.match(verified.find((item) => item.jurisdiction === 'Ciudad Autónoma de Buenos Aires')?.treatment || '', /0,50%/);
   assert.match(verified.find((item) => item.jurisdiction === 'Buenos Aires')?.treatment || '', /10,5‰/);
   assert.match(verified.find((item) => item.jurisdiction === 'Córdoba')?.treatment || '', /exime/);
@@ -48,6 +48,21 @@ test('applies Tucumán rate to the contract without hiding the option transfer',
   assert.equal(tucuman?.status, 'verified-current');
   assert.equal(tucuman?.stampRatePercent, 2);
   assert.match(tucuman?.treatment || '', /total de cánones.*valor residual/is);
+});
+
+test('separates Catamarca contract, transfer and annual vehicle tax', () => {
+  const catamarca = PROVINCIAL_LEASING_STAMP_MATRIX.find((item) => item.jurisdiction === 'Catamarca');
+  assert.equal(catamarca?.status, 'verified-current');
+  assert.equal(catamarca?.stampRatePercent, 0);
+  assert.match(catamarca?.treatment || '', /0%.*transferencia.*1%.*2%/is);
+});
+
+test('separates San Luis stamp tax from the lessor gross income rate', () => {
+  const sanLuis = PROVINCIAL_LEASING_STAMP_MATRIX.find((item) => item.jurisdiction === 'San Luis');
+  assert.equal(sanLuis?.status, 'verified-current');
+  assert.equal(sanLuis?.stampRatePercent, 1.2);
+  assert.equal(sanLuis?.grossIncomeRatePercent, 6.5);
+  assert.match(sanLuis?.treatment || '', /12‰.*649100.*6,50%/is);
 });
 
 test('does not promise company benefits to consumers or monotributistas', () => {
