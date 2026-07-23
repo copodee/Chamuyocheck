@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
+import { getSupabasePublicConfig } from '../supabase/config';
 
 type AuthenticationResult =
   | { ok: true; accessToken: string; user: User; client: SupabaseClient }
@@ -11,20 +12,18 @@ function bearerToken(request: Request): string {
 }
 
 export async function authenticateAnalysisRequest(request: Request): Promise<AuthenticationResult> {
+  const config = getSupabasePublicConfig();
+  const productName = process.env.NEXT_PUBLIC_SITE_MODE === 'leasing' ? 'LeasingScoring' : 'ChamuyoCheck';
   const accessToken = bearerToken(request);
   if (!accessToken) {
-    return { ok: false, status: 401, error: 'Iniciá sesión para utilizar ChamuyoCheck.' };
+    return { ok: false, status: 401, error: `Iniciá sesión para utilizar ${productName}.` };
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const publicKey =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !publicKey) {
+  if (!config) {
     return { ok: false, status: 503, error: 'El registro de usuarios todavía no está configurado en este entorno.' };
   }
 
-  const client = createClient(url, publicKey, {
+  const client = createClient(config.url, config.publicKey, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
   });

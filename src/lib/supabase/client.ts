@@ -1,19 +1,16 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { getSupabasePublicConfig } from './config';
 
 let browserClient: SupabaseClient<any> | null = null;
 
 export function getSupabaseClient(): SupabaseClient<any> | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !key) {
+  const config = getSupabasePublicConfig();
+  if (!config) {
     return null;
   }
 
   if (!browserClient) {
-    browserClient = createClient(url, key);
+    browserClient = createClient(config.url, config.publicKey);
   }
 
   return browserClient;

@@ -732,3 +732,55 @@ pre,code{white-space:pre-wrap}
   .leasingAppShell .authIntro,.leasingAppShell .authCard{padding:22px}
   .leasingAppShell .authPanel h2{font-size:clamp(1.85rem,8vw,2.55rem)}
 }
+
+/* LeasingScoring: readable light workspace.
+   These explicit colors prevent legacy dark-mode declarations from leaking in. */
+.leasingAppShell .heroIntroPanel h1,
+.leasingAppShell .categoryPicker h2,
+.leasingAppShell .categoryPicker h3,
+.leasingAppShell .analysisStepTitle,
+.leasingAppShell .drop h3,
+.leasingAppShell .userBox b{
+  color:#102f3b;
+}
+.leasingAppShell .analysisStepTitle span{color:#087f8c}
+.leasingAppShell .categoryPicker>p,
+.leasingAppShell .leasingUploadStage>p,
+.leasingAppShell .drop p,
+.leasingAppShell .userBox .hint{
+  color:#516b76;
+}
+.leasingAppShell .drop{
+  background:#fff;
+  border-color:rgba(11,100,114,.35);
+  color:#163844;
+}
+.leasingAppShell .drop:hover,
+.leasingAppShell .drop.drag{
+  background:#eef8f9;
+  border-color:#087f8c;
+}
+.leasingAppShell .drop .uploadLimits{color:#0b6472}
+.leasingAppShell .filePill{
+  background:#e8f4f5;
+  border-color:rgba(11,100,114,.22);
+  color:#164653;
+}
+.leasingAppShell .leasingManualReplaced{
+  background:#e7f7f5;
+  border-color:rgba(8,127,140,.30);
+  color:#164653;
+}
+.leasingAppShell .leasingProvinceGrid label{color:#173b47}
+.leasingAppShell .leasingProvinceGrid select{
+  background:#fff;
+  color:#163844;
+  border-color:rgba(20,72,88,.22);
+}
+.leasingAppShell .betaBadge{
+  background:#fff7df;
+  border-color:rgba(201,137,22,.48);
+  color:#805400;
+}
+.leasingAppShell .heroHighlights strong,
+.leasingAppShell .heroHighlights span{color:#294e59}
