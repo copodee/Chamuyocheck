@@ -3,7 +3,7 @@ import { authenticatePrequalificationRequest } from '../../../../src/modules/pre
 import { prequalRest } from '../../../../src/modules/prequalification/infrastructure/supabase/rest';
 import { evaluateEconomicCapacity } from '../../../../src/modules/prequalification/scoring/economicEngine';
 import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicInputs, ExtractedBalance } from '../../../../src/modules/prequalification/domain/dossier';
-import { adminNotificationHtml, applicantResponseHtml, getPrequalificationEmailConfig, sendPrequalificationEmail } from '../../../../src/modules/prequalification/infrastructure/email/resendProvider';
+import { adminNotificationHtml, applicantResponseHtml, getPrequalificationEmailConfig, sendPrequalificationEmail, stage2NotificationHtml } from '../../../../src/modules/prequalification/infrastructure/email/resendProvider';
 
 export const runtime = 'nodejs';
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -27,8 +27,25 @@ export async function POST(request: Request) {
         /salary-slip|monotributo-invoices|balance-|vat-|income-detail|post-balance-sales/.test(document.kind),
       ).length;
       const assessment = evaluateEconomicCapacity(inputs, incomeDocumentCount, body.balance as ExtractedBalance | undefined);
-      await update(auth.token, body.caseId, { stage: 2, contact, economic_inputs: inputs, economic_assessment: assessment, documents: documents.map(({ extractedText: _text, ...document }) => document), updated_at: new Date().toISOString() });
-      return NextResponse.json({ assessment });
+      const emailConfig = getPrequalificationEmailConfig();
+      const notification = await sendPrequalificationEmail({
+        to: emailConfig.administratorEmail, replyTo: contact.email,
+        subject: `Precalificación 2 · ${body.caseNumber || body.caseId}`,
+        html: stage2NotificationHtml({
+          caseNumber: body.caseNumber || body.caseId, subject: body.subject || contact.fullName,
+          responseEmail: contact.email, economicStatus: assessment.status,
+          economicScore: assessment.score, confidence: assessment.confidence,
+        }),
+        idempotencyKey: `prequal-stage2-${body.caseId}`,
+      }).catch(() => ({ sent: false as const, reason: 'provider-error' as const }));
+      await update(auth.token, body.caseId, {
+        stage: 2, contact, economic_inputs: inputs, economic_assessment: assessment,
+        documents: documents.map(({ extractedText: _text, ...document }) => document),
+        administrator_email: emailConfig.administratorEmail, email_provider: 'resend',
+        notification_status: notification.sent ? 'stage2-administrator-notified' : 'email-configuration-required',
+        updated_at: new Date().toISOString(),
+      });
+      return NextResponse.json({ assessment, notification });
     }
     if (body.action === 'stage3') {
       const compliance = body.compliance as ComplianceDeclarations;

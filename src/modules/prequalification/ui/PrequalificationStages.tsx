@@ -172,8 +172,14 @@ export function PrequalificationStages(props: Props) {
     }
     setBusy(true); setMessage('');
     try {
-      const data = await api({ action: 'stage2', contact, economicInputs: economic, documents, balance });
+      const data = await api({
+        action: 'stage2', contact, economicInputs: economic, documents, balance,
+        caseNumber: props.caseNumber, subject: props.subject.denomination,
+      });
       setAssessment(data.assessment); setStage(3); setResponseEmail(contact.email);
+      setMessage(data.notification?.sent
+        ? `Expediente ${props.caseNumber} generado y enviado a contacto@leasingscoring.com.`
+        : `Expediente ${props.caseNumber} generado. No se pudo enviar la notificación.`);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Error'); }
     setBusy(false);
   };
@@ -201,7 +207,7 @@ export function PrequalificationStages(props: Props) {
   };
 
   return <section className="prequalCard prequalResult">
-    <h2>Expediente {props.caseNumber || 'pendiente'}</h2>
+    <h2>{stage === 1 || stage === 2 ? 'Evaluación preliminar' : `Expediente ${props.caseNumber || 'pendiente'}`}</h2>
     <div className="prequalNotice">Precalificación {stage > 3 ? 3 : stage} de 3 · El respaldo costoso sólo se solicita cuando el administrador lo considera necesario.</div>
     {stage === 1 && <div>
       <h3>Precalificación 1 completa</h3>
@@ -262,7 +268,7 @@ export function PrequalificationStages(props: Props) {
       <label><input type="checkbox" checked={contact.dataConsent} onChange={e => setContact({ ...contact, dataConsent: e.target.checked })} /> Autorizo el tratamiento de datos para esta evaluación.</label>
       <label><input type="checkbox" checked={contact.contactConsent} onChange={e => setContact({ ...contact, contactConsent: e.target.checked })} /> Autorizo el contacto sobre este expediente.</label>
       <label><input type="checkbox" checked={contact.accuracyDeclaration} onChange={e => setContact({ ...contact, accuracyDeclaration: e.target.checked })} /> Declaro que los datos son completos y veraces.</label>
-      <button className="prequalPrimary" disabled={busy} onClick={saveStage2}>Calcular Precalificación 2</button>
+      <button className="prequalPrimary" disabled={busy} onClick={saveStage2}>Finalizar Precalificación 2 y generar expediente</button>
     </div>}
     {stage === 3 && <div className="prequalForm">
       <h3>Precalificación 3 · Validación y cumplimiento UIF</h3>

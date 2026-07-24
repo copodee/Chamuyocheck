@@ -59,6 +59,27 @@ export function adminNotificationHtml(input: {
   </div>`;
 }
 
+export function stage2NotificationHtml(input: {
+  caseNumber: string;
+  subject: string;
+  responseEmail: string;
+  economicStatus: string;
+  economicScore: number;
+  confidence: string;
+}) {
+  return `<div style="font-family:Arial,sans-serif;color:#10212b;max-width:620px">
+    <div style="font-size:22px;font-weight:700;color:#6d28d9">LeasingScoring</div>
+    <h1 style="font-size:24px">Precalificación 2 completada</h1>
+    <p><b>Expediente:</b> ${escapeHtml(input.caseNumber)}</p>
+    <p><b>Solicitante:</b> ${escapeHtml(input.subject)}</p>
+    <p><b>Resultado económico:</b> ${escapeHtml(input.economicStatus)} · ${input.economicScore}/100</p>
+    <p><b>Respaldo de ingresos:</b> ${escapeHtml(input.confidence)}</p>
+    <p><b>Correo del solicitante:</b> ${escapeHtml(input.responseEmail)}</p>
+    <p>El expediente quedó generado y puede continuar a Precalificación 3.</p>
+    <p style="font-size:12px;color:#64748b">No se adjuntan documentos sensibles al correo.</p>
+  </div>`;
+}
+
 export function applicantResponseHtml(input: { caseNumber: string; decision: string; message?: string }) {
   return `<div style="font-family:Arial,sans-serif;color:#10212b;max-width:620px">
     <div style="font-size:22px;font-weight:700;color:#6d28d9">LeasingScoring</div>

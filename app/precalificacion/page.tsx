@@ -88,21 +88,6 @@ export default function PrequalificationPage() {
     setResult(payload);
   };
 
-  const createDemo = async () => {
-    if (!session) return;
-    setBusy(true);
-    setError('');
-    const response = await fetch('/api/prequalification/demo', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const payload = await response.json();
-    setBusy(false);
-    if (!response.ok) return setError(payload.error || 'No se pudo crear el caso de demostración.');
-    setForm({ ...form, clientType: 'persona-juridica', assetValue: '40000000', advance: '10000000', termMonths: '36', assetType: 'automotor-0km' });
-    setResult(payload);
-  };
-
   if (loadingSession) return <main className="prequalPage"><div className="prequalCard">Verificando acceso…</div></main>;
 
   if (!supabase) {
@@ -153,7 +138,6 @@ export default function PrequalificationPage() {
       </div>
       {error && <div className="prequalError" role="alert">{error}</div>}
       <button className="prequalPrimary" disabled={busy}>{busy ? 'Consultando BCRA…' : 'Precalificar'}</button>
-      <button type="button" className="prequalSecondary" disabled={busy} onClick={createDemo}>Crear expediente de demostración</button>
     </form>
     {result && <section className="prequalCard prequalResult">
       <div className={`prequalStatus status-${result.result.status}`}>{statusLabels[result.result.status]}</div>
