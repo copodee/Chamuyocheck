@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { getPrequalificationSupabaseClient } from '../../src/modules/prequalification/infrastructure/supabase/client';
 import type { PrequalificationResult } from '../../src/modules/prequalification/domain/types';
+import { PrequalificationStages } from '../../src/modules/prequalification/ui/PrequalificationStages';
 
 const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
 const statusLabels = {
@@ -14,6 +15,8 @@ const statusLabels = {
 };
 
 type ApiResponse = {
+  caseId?: string;
+  caseNumber?: string;
   subject: { denomination: string | null; cuitMasked: string };
   result: PrequalificationResult;
   disclaimer: string;
@@ -161,5 +164,6 @@ export default function PrequalificationPage() {
       <div className="prequalColumns"><div><h3>Fundamentos</h3><ul>{result.result.reasons.map((item) => <li key={item}>{item}</li>)}</ul></div><div><h3>Condiciones y próximos pasos</h3><ul>{result.result.conditions.map((item) => <li key={item}>{item}</li>)}</ul></div></div>
       <small>{result.disclaimer} · Modelo {result.result.modelVersion}</small>
     </section>}
+    {result && <PrequalificationStages session={session} caseId={result.caseId} caseNumber={result.caseNumber} subject={result.subject} stage1={result.result} clientType={form.clientType} />}
   </div></main>;
 }

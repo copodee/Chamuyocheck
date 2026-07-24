@@ -13,6 +13,7 @@
     "mammoth": "latest",
     "next": "latest",
     "openai": "latest",
+    "pdf-lib": "^1.17.1",
     "pdf-parse": "latest",
     "pdfjs-dist": "5.4.296",
     "react": "latest",

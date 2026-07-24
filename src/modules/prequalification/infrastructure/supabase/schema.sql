@@ -2,9 +2,18 @@
 -- Auth > Providers > Email: desactivar "Allow new users to sign up".
 
 create extension if not exists pgcrypto;
+create sequence if not exists public.prequal_case_number_seq;
+
+create or replace function public.next_prequal_case_number()
+returns text language sql volatile set search_path = ''
+as $$
+  select 'LS-' || to_char(current_date, 'YYYY') || '-' ||
+    lpad(nextval('public.prequal_case_number_seq')::text, 6, '0');
+$$;
 
 create table if not exists public.prequal_organizations (
   id uuid primary key default gen_random_uuid(),
+  case_number text not null unique default public.next_prequal_case_number(),
   name text not null,
   active boolean not null default true,
   created_at timestamptz not null default now()
@@ -34,8 +43,36 @@ create table if not exists public.prequal_cases (
   model_version text not null,
   provider text not null,
   result jsonb not null,
-  created_at timestamptz not null default now()
+  stage integer not null default 1 check (stage between 1 and 3),
+  contact jsonb,
+  economic_inputs jsonb,
+  economic_assessment jsonb,
+  documents jsonb not null default '[]'::jsonb,
+  compliance jsonb,
+  stage3_decision text,
+  response_email text,
+  administrator_email text,
+  email_provider text not null default 'pending',
+  notification_status text not null default 'not-configured',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
+
+alter table public.prequal_cases add column if not exists case_number text;
+alter table public.prequal_cases add column if not exists stage integer not null default 1;
+alter table public.prequal_cases add column if not exists contact jsonb;
+alter table public.prequal_cases add column if not exists economic_inputs jsonb;
+alter table public.prequal_cases add column if not exists economic_assessment jsonb;
+alter table public.prequal_cases add column if not exists documents jsonb not null default '[]'::jsonb;
+alter table public.prequal_cases add column if not exists compliance jsonb;
+alter table public.prequal_cases add column if not exists stage3_decision text;
+alter table public.prequal_cases add column if not exists response_email text;
+alter table public.prequal_cases add column if not exists administrator_email text;
+alter table public.prequal_cases add column if not exists email_provider text not null default 'pending';
+alter table public.prequal_cases add column if not exists notification_status text not null default 'not-configured';
+alter table public.prequal_cases add column if not exists updated_at timestamptz not null default now();
+update public.prequal_cases set case_number = public.next_prequal_case_number() where case_number is null;
+create unique index if not exists prequal_cases_case_number_key on public.prequal_cases(case_number);
 
 create table if not exists public.prequal_audit_events (
   id bigint generated always as identity primary key,
@@ -109,6 +146,11 @@ drop policy if exists "members read prequalifications" on public.prequal_cases;
 create policy "members read prequalifications" on public.prequal_cases
 for select using (public.is_active_member(organization_id));
 
+drop policy if exists "members update prequalifications" on public.prequal_cases;
+create policy "members update prequalifications" on public.prequal_cases
+for update using (public.is_active_member(organization_id))
+with check (public.is_active_member(organization_id));
+
 drop policy if exists "members read audit" on public.prequal_audit_events;
 create policy "members read audit" on public.prequal_audit_events
 for select using (public.is_active_member(organization_id));
@@ -125,6 +167,7 @@ revoke all on function public.get_prequal_access() from public, anon;
 grant execute on function public.is_active_member(uuid) to authenticated;
 grant execute on function public.is_administrator(uuid) to authenticated;
 grant execute on function public.get_prequal_access() to authenticated;
+grant usage, select on sequence public.prequal_case_number_seq to authenticated;
 
 -- Tras crear el primer usuario desde Authentication > Users:
 -- insert into public.prequal_organizations (name) values ('LeasingScoring Administración') returning id;
