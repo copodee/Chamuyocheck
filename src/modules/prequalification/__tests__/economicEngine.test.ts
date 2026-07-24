@@ -44,3 +44,12 @@ test('estima ingreso monotributista por actividad sin pedir margen', () => {
   assert.equal(result.installmentToIncomeRatio, 0.3);
   assert.match(result.reasons.join(' '), /25%/);
 });
+
+test('marca el ingreso como declarativo cuando no hay comprobantes', () => {
+  const result = evaluateEconomicCapacity({
+    profile: 'employee', activity: 'Administración', activitySeniorityMonths: 24,
+    declaredMonthlyDebtService: 0, proposedMonthlyCanon: 300_000, employeeNetIncome: 1_500_000,
+  }, 0);
+  assert.equal(result.confidence, 'declarativa');
+  assert.match(result.conditions.join(' '), /solicitar facturas o recibos/i);
+});

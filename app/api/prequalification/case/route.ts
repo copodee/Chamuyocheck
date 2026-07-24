@@ -23,7 +23,10 @@ export async function POST(request: Request) {
       const documents = (body.documents || []) as DossierDocument[];
       if (!contact?.fullName || !contact.address || !contact.city || !contact.province || !emailPattern.test(contact.email || '') || !contact.mobile) return NextResponse.json({ error: 'Completá nombre, domicilio, localidad, provincia, correo y celular.' }, { status: 400 });
       if (!contact.dataConsent || !contact.contactConsent || !contact.accuracyDeclaration) return NextResponse.json({ error: 'Se necesitan las tres declaraciones de consentimiento.' }, { status: 400 });
-      const assessment = evaluateEconomicCapacity(inputs, documents.length, body.balance as ExtractedBalance | undefined);
+      const incomeDocumentCount = documents.filter(document =>
+        /salary-slip|monotributo-invoices|balance-|vat-|income-detail|post-balance-sales/.test(document.kind),
+      ).length;
+      const assessment = evaluateEconomicCapacity(inputs, incomeDocumentCount, body.balance as ExtractedBalance | undefined);
       await update(auth.token, body.caseId, { stage: 2, contact, economic_inputs: inputs, economic_assessment: assessment, documents: documents.map(({ extractedText: _text, ...document }) => document), updated_at: new Date().toISOString() });
       return NextResponse.json({ assessment });
     }

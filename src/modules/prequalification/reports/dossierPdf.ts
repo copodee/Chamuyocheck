@@ -72,8 +72,12 @@ export async function buildDossierPdf(data: PdfData) {
     row('Domicilio declarado', `${data.contact.address}, ${data.contact.city}, ${data.contact.province}`);
     row('Capacidad', ({ compatible: 'Compatible', conditional: 'Condicional', 'manual-review': 'Revisión manual', 'not-compatible': 'No compatible' } as Record<string, string>)[data.economic?.status] || data.economic?.status);
     row('Score económico', data.economic?.score);
+    row('Respaldo de ingresos', data.economic?.confidence);
     row('Ingreso mensual normalizado', money(data.economic?.normalizedMonthlyIncome));
     row('Relación compromisos / ingreso', data.economic?.installmentToIncomeRatio == null ? 'No estimable' : `${(data.economic.installmentToIncomeRatio * 100).toFixed(1)}%`);
+    if (data.economic?.confidence === 'declarativa') {
+      text('ADVERTENCIA: los ingresos son declarativos y deben solicitarse comprobantes antes de una decisión definitiva.', 9, bold, violet);
+    }
   }
   if (data.compliance) {
     section('Precalificación 3 · Declaraciones y decisión');

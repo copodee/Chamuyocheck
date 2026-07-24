@@ -32,19 +32,19 @@ const decisions = [
 
 const stage2Requirements: Record<EconomicProfile, Array<[string, string, boolean]>> = {
   employee: [
-    ['salary-slip-1', 'Recibo de sueldo 1', true], ['salary-slip-2', 'Recibo de sueldo 2', true],
-    ['salary-slip-3', 'Recibo de sueldo 3', true], ['salary-slip-4', 'Recibo de sueldo 4', true],
-    ['salary-slip-5', 'Recibo de sueldo 5', true], ['salary-slip-6', 'Recibo de sueldo 6', true],
+    ['salary-slip-1', 'Recibo de sueldo 1', false], ['salary-slip-2', 'Recibo de sueldo 2', false],
+    ['salary-slip-3', 'Recibo de sueldo 3', false], ['salary-slip-4', 'Recibo de sueldo 4', false],
+    ['salary-slip-5', 'Recibo de sueldo 5', false], ['salary-slip-6', 'Recibo de sueldo 6', false],
     ['income-tax', 'Última DDJJ de Ganancias disponible', false], ['personal-assets', 'Manifestación de bienes o DDJJ de Bienes Personales disponible', false],
   ],
   monotributista: [
     ['monotributo-proof', 'Constancia de monotributo', true],
-    ['monotributo-invoices-1', 'Facturas del mes 1', true],
-    ['monotributo-invoices-2', 'Facturas del mes 2', true],
-    ['monotributo-invoices-3', 'Facturas del mes 3', true],
-    ['monotributo-invoices-4', 'Facturas del mes 4', true],
-    ['monotributo-invoices-5', 'Facturas del mes 5', true],
-    ['monotributo-invoices-6', 'Facturas del mes 6', true],
+    ['monotributo-invoices-1', 'Facturas del mes 1', false],
+    ['monotributo-invoices-2', 'Facturas del mes 2', false],
+    ['monotributo-invoices-3', 'Facturas del mes 3', false],
+    ['monotributo-invoices-4', 'Facturas del mes 4', false],
+    ['monotributo-invoices-5', 'Facturas del mes 5', false],
+    ['monotributo-invoices-6', 'Facturas del mes 6', false],
     ['asset-statement', 'Manifestación de bienes disponible', false],
   ],
   'responsable-inscripto': [
@@ -80,12 +80,12 @@ const stage3Requirements: Record<EconomicProfile, Array<[string, string, boolean
 };
 
 const employmentSlipRequirements: Array<[string, string, boolean]> = [
-  ['additional-salary-slip-1', 'Recibo de sueldo adicional 1', true],
-  ['additional-salary-slip-2', 'Recibo de sueldo adicional 2', true],
-  ['additional-salary-slip-3', 'Recibo de sueldo adicional 3', true],
-  ['additional-salary-slip-4', 'Recibo de sueldo adicional 4', true],
-  ['additional-salary-slip-5', 'Recibo de sueldo adicional 5', true],
-  ['additional-salary-slip-6', 'Recibo de sueldo adicional 6', true],
+  ['additional-salary-slip-1', 'Recibo de sueldo adicional 1', false],
+  ['additional-salary-slip-2', 'Recibo de sueldo adicional 2', false],
+  ['additional-salary-slip-3', 'Recibo de sueldo adicional 3', false],
+  ['additional-salary-slip-4', 'Recibo de sueldo adicional 4', false],
+  ['additional-salary-slip-5', 'Recibo de sueldo adicional 5', false],
+  ['additional-salary-slip-6', 'Recibo de sueldo adicional 6', false],
 ];
 
 export function PrequalificationStages(props: Props) {
@@ -223,8 +223,8 @@ export function PrequalificationStages(props: Props) {
         <label>Servicio mensual de deudas declarado<input type="number" value={economic.declaredMonthlyDebtService} onChange={e => setEconomic({ ...economic, declaredMonthlyDebtService: Number(e.target.value) })} /></label>
         <label>Canon mensual propuesto<input type="text" inputMode="numeric" value={economic.proposedMonthlyCanon || ''} onChange={e => setEconomic({ ...economic, proposedMonthlyCanon: Number(e.target.value.replace(/\D/g, '')) })} /></label>
         {economic.profile === 'employee'
-          ? <label>Ingreso neto mensual<input type="number" value={economic.employeeNetIncome} onChange={e => setEconomic({ ...economic, employeeNetIncome: Number(e.target.value) })} /></label>
-          : <><label>Promedio ventas/facturación últimos 6 meses<input type="number" onChange={e => setEconomic({ ...economic, monthlySales: Array(6).fill(Number(e.target.value)) })} /></label>
+          ? <label>Ingreso neto mensual declarado<input type="number" value={economic.employeeNetIncome} onChange={e => setEconomic({ ...economic, employeeNetIncome: Number(e.target.value) })} /><small>Podés informarlo ahora y adjuntar recibos voluntariamente.</small></label>
+          : <><label>Facturación promedio mensual declarada<input type="number" onChange={e => setEconomic({ ...economic, monthlySales: Array(6).fill(Number(e.target.value)) })} /><small>Podés ingresar un promedio o adjuntar las facturas de cada mes, o ambas cosas.</small></label>
             {economic.profile === 'monotributista'
               ? <label>Tipo de actividad<select value={economic.activityCategory} onChange={e => setEconomic({ ...economic, activityCategory: e.target.value as EconomicInputs['activityCategory'] })}>
                 <option value="professional-services">Servicios profesionales</option>
@@ -246,7 +246,7 @@ export function PrequalificationStages(props: Props) {
       </div>
       <div className="prequalEntityDetail">
         <h3>Documentación económica</h3>
-        <p>Cada requisito tiene su propio selector. No se solicitan certificaciones nuevas en esta etapa.</p>
+        <p>Los comprobantes de ingresos son voluntarios en esta etapa. Sin ellos, el resultado se identificará como declarativo y recomendará pedir respaldo antes de avanzar.</p>
         {[
           ...stage2Requirements[economic.profile],
           ...(economic.profile !== 'employee' && economic.hasEmploymentIncome ? employmentSlipRequirements : []),
@@ -266,7 +266,7 @@ export function PrequalificationStages(props: Props) {
     </div>}
     {stage === 3 && <div className="prequalForm">
       <h3>Precalificación 3 · Validación y cumplimiento UIF</h3>
-      {assessment && <div className="prequalCapacity"><b>Resultado económico: {assessment.status} · {assessment.score}/100</b><p>Relación cuota/ingreso: {assessment.installmentToIncomeRatio == null ? 'no estimable' : `${(assessment.installmentToIncomeRatio * 100).toFixed(1)}%`} (política de referencia: 30%).</p></div>}
+      {assessment && <div className="prequalCapacity"><b>Resultado económico: {assessment.status} · {assessment.score}/100</b><p>Relación cuota/ingreso: {assessment.installmentToIncomeRatio == null ? 'no estimable' : `${(assessment.installmentToIncomeRatio * 100).toFixed(1)}%`} (política de referencia: 30%).</p><p>Respaldo de ingresos: <b>{assessment.confidence}</b>.</p>{assessment.confidence === 'declarativa' && <p>Los ingresos no tienen comprobantes adjuntos. Deben solicitarse antes de una decisión definitiva.</p>}</div>}
       <p>Estas declaraciones son preliminares. El administrador podrá pedir formularios firmados, certificaciones, identidad, estatuto, autoridades, poderes o garantías antes de enviar a una entidad.</p>
       <label>Condición PEP<select value={compliance.pepStatus} onChange={e => setCompliance({ ...compliance, pepStatus: e.target.value as ComplianceDeclarations['pepStatus'] })}><option value="no">No soy PEP</option><option value="yes">Soy PEP</option><option value="related">Soy familiar/allegado de PEP</option></select></label>
       {compliance.pepStatus !== 'no' && <label>Detalle PEP<textarea value={compliance.pepDetail || ''} onChange={e => setCompliance({ ...compliance, pepDetail: e.target.value })} /></label>}

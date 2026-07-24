@@ -88,6 +88,9 @@ export function evaluateEconomicCapacity(
     score -= 10;
     conditions.push('Antigüedad menor a 12 meses: requiere revisión de política.');
   }
+  if (documentCount === 0) {
+    conditions.push('Ingresos declarativos sin comprobantes adjuntos: solicitar facturas o recibos de sueldo antes de una decisión definitiva.');
+  }
   if (balance && balance.extractionConfidence < 60) {
     score -= 8;
     conditions.push('El balance requiere revisión manual de campos no extraídos.');
