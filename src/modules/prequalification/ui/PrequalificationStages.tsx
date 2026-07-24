@@ -52,8 +52,9 @@ export function PrequalificationStages(props: Props) {
   });
   const [decision, setDecision] = useState('ready');
   const [responseEmail, setResponseEmail] = useState('');
-  const [administratorEmail, setAdministratorEmail] = useState('');
-  const [emailProvider, setEmailProvider] = useState('pending');
+  const [administratorEmail, setAdministratorEmail] = useState('contacto@leasingscoring.com');
+  const [emailProvider] = useState('resend');
+  const [responseMessage, setResponseMessage] = useState('');
 
   const api = async (payload: object) => {
     const response = await fetch('/api/prequalification/case', {
@@ -102,7 +103,11 @@ export function PrequalificationStages(props: Props) {
   };
   const saveStage3 = async () => {
     setBusy(true); setMessage('');
-    try { await api({ action: 'stage3', compliance, decision, responseEmail, documents }); setStage(4); }
+    try {
+      const data = await api({ action: 'stage3', compliance, decision, responseEmail, documents, caseNumber: props.caseNumber, subject: props.subject.denomination });
+      setMessage(data.notification?.sent ? 'El administrador fue notificado.' : 'Expediente guardado. Falta conectar la clave de Resend para enviar correos.');
+      setStage(4);
+    }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Error'); }
     setBusy(false);
   };
@@ -177,8 +182,11 @@ export function PrequalificationStages(props: Props) {
       <button className="prequalPrimary" disabled={busy} onClick={downloadPdf}>Descargar expediente PDF</button>
       <h3>Configuración del administrador</h3>
       <label>Correo que recibirá los expedientes<input type="email" value={administratorEmail} onChange={e => setAdministratorEmail(e.target.value)} /></label>
-      <label>Proveedor de correo<select value={emailProvider} onChange={e => setEmailProvider(e.target.value)}><option value="pending">Seleccionar más adelante</option><option value="resend">Resend</option><option value="amazon-ses">Amazon SES</option><option value="smtp">SMTP propio</option></select></label>
+      <label>Proveedor de correo<select value={emailProvider} disabled><option value="resend">Resend</option></select></label>
       <button className="prequalSecondary" onClick={async () => { try { await api({ action: 'configuration', administratorEmail, emailProvider }); setMessage('Configuración guardada. Falta conectar las credenciales del proveedor para enviar.'); } catch (error) { setMessage(error instanceof Error ? error.message : 'Error'); } }}>Guardar selección</button>
+      <h3>Responder al solicitante</h3>
+      <label>Mensaje del administrador<textarea value={responseMessage} onChange={e => setResponseMessage(e.target.value)} placeholder="Condiciones o próximos pasos para avanzar." /></label>
+      <button className="prequalPrimary" onClick={async () => { try { await api({ action: 'send-result', responseEmail, decision, message: responseMessage, caseNumber: props.caseNumber }); setMessage(`Resultado enviado a ${responseEmail}.`); } catch (error) { setMessage(error instanceof Error ? error.message : 'Error'); } }}>Enviar resultado</button>
     </div>}
     {message && <div className="prequalNotice">{message}</div>}
   </section>;
