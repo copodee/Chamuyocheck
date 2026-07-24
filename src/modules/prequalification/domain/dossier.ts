@@ -28,6 +28,8 @@ export type EconomicInputs = {
   declaredMonthlyDebtService: number;
   proposedMonthlyCanon: number;
   employeeNetIncome?: number;
+  hasEmploymentIncome?: boolean;
+  additionalEmploymentNetIncome?: number;
   monthlySales?: number[];
   declaredOperatingMargin?: number;
 };

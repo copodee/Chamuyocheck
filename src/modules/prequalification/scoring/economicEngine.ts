@@ -36,6 +36,13 @@ export function evaluateEconomicCapacity(
     normalizedMonthlyIncome = monthlySales && margin ? monthlySales * margin : null;
     reasons.push('La facturación se convirtió en ingreso estimado mediante el margen declarado.');
   }
+  if (inputs.profile !== 'employee' && inputs.hasEmploymentIncome) {
+    const employmentIncome = Math.max(0, Number(inputs.additionalEmploymentNetIncome || 0));
+    if (employmentIncome > 0) {
+      normalizedMonthlyIncome = (normalizedMonthlyIncome || 0) + employmentIncome;
+      reasons.push('Se sumó el ingreso neto formal en relación de dependencia declarado y respaldado separadamente.');
+    }
+  }
 
   const commitments = Math.max(0, inputs.declaredMonthlyDebtService) + Math.max(0, inputs.proposedMonthlyCanon);
   const ratio = normalizedMonthlyIncome ? commitments / normalizedMonthlyIncome : null;

@@ -21,3 +21,15 @@ test('extrae rubros centrales de un balance para revisión crediticia', () => {
   assert.equal(result.equity, 8_000_000);
   assert.ok(result.extractionConfidence > 0);
 });
+
+test('combina monotributo con ingreso en relación de dependencia', () => {
+  const result = evaluateEconomicCapacity({
+    profile: 'monotributista', activity: 'Servicios', activitySeniorityMonths: 30,
+    declaredMonthlyDebtService: 100_000, proposedMonthlyCanon: 350_000,
+    monthlySales: Array(6).fill(1_500_000), declaredOperatingMargin: 40,
+    hasEmploymentIncome: true, additionalEmploymentNetIncome: 900_000,
+  }, 8);
+  assert.equal(result.normalizedMonthlyIncome, 1_500_000);
+  assert.equal(result.installmentToIncomeRatio, 0.3);
+  assert.equal(result.status, 'compatible');
+});

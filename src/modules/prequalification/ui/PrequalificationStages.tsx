@@ -39,7 +39,12 @@ const stage2Requirements: Record<EconomicProfile, Array<[string, string, boolean
   ],
   monotributista: [
     ['monotributo-proof', 'Constancia de monotributo', true],
-    ['income-detail', 'Detalle de ingresos de los últimos 6 meses', true],
+    ['monotributo-invoices-1', 'Facturas del mes 1', true],
+    ['monotributo-invoices-2', 'Facturas del mes 2', true],
+    ['monotributo-invoices-3', 'Facturas del mes 3', true],
+    ['monotributo-invoices-4', 'Facturas del mes 4', true],
+    ['monotributo-invoices-5', 'Facturas del mes 5', true],
+    ['monotributo-invoices-6', 'Facturas del mes 6', true],
     ['asset-statement', 'Manifestación de bienes disponible', false],
   ],
   'responsable-inscripto': [
@@ -74,6 +79,15 @@ const stage3Requirements: Record<EconomicProfile, Array<[string, string, boolean
   ],
 };
 
+const employmentSlipRequirements: Array<[string, string, boolean]> = [
+  ['additional-salary-slip-1', 'Recibo de sueldo adicional 1', true],
+  ['additional-salary-slip-2', 'Recibo de sueldo adicional 2', true],
+  ['additional-salary-slip-3', 'Recibo de sueldo adicional 3', true],
+  ['additional-salary-slip-4', 'Recibo de sueldo adicional 4', true],
+  ['additional-salary-slip-5', 'Recibo de sueldo adicional 5', true],
+  ['additional-salary-slip-6', 'Recibo de sueldo adicional 6', true],
+];
+
 export function PrequalificationStages(props: Props) {
   const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
   const [busy, setBusy] = useState(false);
@@ -88,7 +102,8 @@ export function PrequalificationStages(props: Props) {
   const defaultProfile: EconomicProfile = props.clientType === 'persona-juridica' ? 'legal-entity' : 'employee';
   const [economic, setEconomic] = useState<EconomicInputs>({
     profile: defaultProfile, activity: '', activitySeniorityMonths: 0, declaredMonthlyDebtService: 0,
-    proposedMonthlyCanon: 0, employeeNetIncome: 0, monthlySales: [0, 0, 0, 0, 0, 0], declaredOperatingMargin: 0,
+    proposedMonthlyCanon: 0, employeeNetIncome: 0, hasEmploymentIncome: false,
+    additionalEmploymentNetIncome: 0, monthlySales: [0, 0, 0, 0, 0, 0], declaredOperatingMargin: 0,
   });
   const [compliance, setCompliance] = useState<ComplianceDeclarations>({
     pepStatus: 'no', obligedSubject: false, fundsLawfulOrigin: false, ownAccount: false,
@@ -130,10 +145,13 @@ export function PrequalificationStages(props: Props) {
         if (!uploadResponse.ok) throw new Error(uploadData.error || 'No se pudo guardar el documento.');
         added.push({ id: crypto.randomUUID(), stage: documentStage, kind: documentKind, name: file.name, size: file.size, extractedText, storagePath: uploadData.storagePath, status: extractedText ? 'read' : 'uploaded' });
       }
-      setDocuments((current) => [
-        ...current.filter(document => !added.some(next => next.stage === document.stage && next.kind === document.kind)),
-        ...added,
-      ]);
+      setDocuments((current) => {
+        const allowsSeveral = documentKind.startsWith('monotributo-invoices-');
+        return [
+          ...current.filter(document => allowsSeveral || !added.some(next => next.stage === document.stage && next.kind === document.kind)),
+          ...added,
+        ];
+      });
       if (balanceText) setBalance(extractBalanceData(balanceText));
       setMessage(`${added.length} documento(s) incorporado(s).`);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo leer el archivo.'); }
@@ -141,7 +159,11 @@ export function PrequalificationStages(props: Props) {
   };
   const saveStage2 = async () => {
     if (!props.caseId) return setMessage('No se generó el expediente. Repetí la consulta BCRA.');
-    const missingDocuments = stage2Requirements[economic.profile]
+    const applicableRequirements = [
+      ...stage2Requirements[economic.profile],
+      ...(economic.profile !== 'employee' && economic.hasEmploymentIncome ? employmentSlipRequirements : []),
+    ];
+    const missingDocuments = applicableRequirements
       .filter(([, , required]) => required)
       .filter(([kind]) => !documents.some(document => document.stage === 2 && document.kind === kind))
       .map(([, label]) => label);
@@ -197,21 +219,32 @@ export function PrequalificationStages(props: Props) {
         <label>Correo<input type="email" value={contact.email} onChange={e => setContact({ ...contact, email: e.target.value })} /></label>
         <label>Celular<input value={contact.mobile} onChange={e => setContact({ ...contact, mobile: e.target.value })} /></label>
         <label>Actividad<input value={economic.activity} onChange={e => setEconomic({ ...economic, activity: e.target.value })} /></label>
-        <label>Antigüedad (meses)<input type="number" value={economic.activitySeniorityMonths} onChange={e => setEconomic({ ...economic, activitySeniorityMonths: Number(e.target.value) })} /></label>
+        <label>Antigüedad (meses)<input type="text" inputMode="numeric" value={economic.activitySeniorityMonths || ''} onChange={e => setEconomic({ ...economic, activitySeniorityMonths: Number(e.target.value.replace(/\D/g, '')) })} /></label>
         <label>Servicio mensual de deudas declarado<input type="number" value={economic.declaredMonthlyDebtService} onChange={e => setEconomic({ ...economic, declaredMonthlyDebtService: Number(e.target.value) })} /></label>
-        <label>Canon mensual propuesto<input type="number" value={economic.proposedMonthlyCanon} onChange={e => setEconomic({ ...economic, proposedMonthlyCanon: Number(e.target.value) })} /></label>
+        <label>Canon mensual propuesto<input type="text" inputMode="numeric" value={economic.proposedMonthlyCanon || ''} onChange={e => setEconomic({ ...economic, proposedMonthlyCanon: Number(e.target.value.replace(/\D/g, '')) })} /></label>
         {economic.profile === 'employee'
           ? <label>Ingreso neto mensual<input type="number" value={economic.employeeNetIncome} onChange={e => setEconomic({ ...economic, employeeNetIncome: Number(e.target.value) })} /></label>
           : <><label>Promedio ventas/facturación últimos 6 meses<input type="number" onChange={e => setEconomic({ ...economic, monthlySales: Array(6).fill(Number(e.target.value)) })} /></label><label>Margen operativo estimado (%)<input type="number" value={economic.declaredOperatingMargin} onChange={e => setEconomic({ ...economic, declaredOperatingMargin: Number(e.target.value) })} /></label></>}
+        {economic.profile !== 'employee' && <label>
+          <input type="checkbox" checked={!!economic.hasEmploymentIncome} onChange={e => setEconomic({ ...economic, hasEmploymentIncome: e.target.checked, additionalEmploymentNetIncome: e.target.checked ? economic.additionalEmploymentNetIncome : 0 })} />
+          También trabaja en relación de dependencia
+        </label>}
+        {economic.profile !== 'employee' && economic.hasEmploymentIncome && <label>Ingreso neto mensual por relación de dependencia
+          <input type="text" inputMode="numeric" value={economic.additionalEmploymentNetIncome || ''} onChange={e => setEconomic({ ...economic, additionalEmploymentNetIncome: Number(e.target.value.replace(/\D/g, '')) })} />
+        </label>}
       </div>
       <div className="prequalEntityDetail">
         <h3>Documentación económica</h3>
         <p>Cada requisito tiene su propio selector. No se solicitan certificaciones nuevas en esta etapa.</p>
-        {stage2Requirements[economic.profile].map(([kind, label, required]) => {
-          const uploaded = documents.find(document => document.stage === 2 && document.kind === kind);
+        {[
+          ...stage2Requirements[economic.profile],
+          ...(economic.profile !== 'employee' && economic.hasEmploymentIncome ? employmentSlipRequirements : []),
+        ].map(([kind, label, required]) => {
+          const uploaded = documents.filter(document => document.stage === 2 && document.kind === kind);
+          const allowsSeveral = kind.startsWith('monotributo-invoices-');
           return <label key={kind}>{label} {required ? <b>· requerido</b> : <small>· opcional</small>}
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => readFiles(e.target.files, kind)} />
-            {uploaded && <small>✓ Agregado: {uploaded.name}</small>}
+            <input type="file" multiple={allowsSeveral} accept=".pdf,.jpg,.jpeg,.png" onChange={e => readFiles(e.target.files, kind)} />
+            {!!uploaded.length && <small>✓ {uploaded.length} archivo(s): {uploaded.map(document => document.name).join(', ')}</small>}
           </label>;
         })}
       </div>
