@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { isValidCuit, normalizeCuit } from '../../../src/modules/prequalification/domain/cuit';
 import type { PrequalificationRequest } from '../../../src/modules/prequalification/domain/types';
 import { authenticatePrequalificationRequest } from '../../../src/modules/prequalification/infrastructure/supabase/auth';
+import { getPrequalificationSupabaseConfig } from '../../../src/modules/prequalification/infrastructure/supabase/config';
 import { BcraCreditProvider } from '../../../src/modules/prequalification/providers/bcraProvider';
 import { CreditProviderError } from '../../../src/modules/prequalification/providers/creditProvider';
 import { evaluatePrequalification } from '../../../src/modules/prequalification/scoring/riskEngine';
@@ -38,6 +40,45 @@ export async function POST(request: Request) {
   try {
     const report = await new BcraCreditProvider().getCreditReport(cuit);
     const result = evaluatePrequalification({ ...body, cuit, assetValue, advance, termMonths }, report);
+    const config = getPrequalificationSupabaseConfig();
+    if (config) {
+      const persistenceClient = createClient(config.url, config.publicKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: { Authorization: `Bearer ${authentication.token}` } },
+      });
+      const subjectHash = Buffer.from(
+        await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cuit)),
+      ).toString('hex');
+      const { data: savedCase, error: saveError } = await persistenceClient
+        .from('prequal_cases')
+        .insert({
+          organization_id: authentication.organizationId,
+          created_by: authentication.user.id,
+          subject_hash: subjectHash,
+          client_type: body.clientType,
+          asset_type: body.assetType,
+          asset_value: assetValue,
+          advance,
+          term_months: termMonths,
+          status: result.status,
+          score: result.score,
+          model_version: result.modelVersion,
+          provider: result.provider,
+          result,
+        })
+        .select('id')
+        .single();
+      if (saveError) console.warn('No se pudo guardar la precalificación.', saveError.message);
+      if (savedCase?.id) {
+        await persistenceClient.from('prequal_audit_events').insert({
+          organization_id: authentication.organizationId,
+          actor_id: authentication.user.id,
+          event_type: 'prequalification.created',
+          entity_id: savedCase.id,
+          metadata: { status: result.status, score: result.score, modelVersion: result.modelVersion },
+        });
+      }
+    }
     return NextResponse.json({
       subject: { denomination: report.denomination, cuitMasked: `**-${cuit.slice(2, 9)}-*` },
       result,
