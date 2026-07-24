@@ -245,3 +245,13 @@ test('leasing calcula patente CABA cuando recibe la valuación fiscal', () => {
   assert.match(findings, /Patente CABA 2026 estimada: \$ 698\.692,5 anual/is);
   assert.match(findings, /Fondo Subte.*tope efectivo del 6%.*IPCBA 2025/is);
 });
+
+test('leasing aplica el límite IPCBA CABA con la patente anterior', () => {
+  const result = buildLocalAnalysis(
+    'Domicilio de uso del cliente: Ciudad Autónoma de Buenos Aires. Valuación fiscal: 20000000. Patente total 2025: 400000. Calculá patente.',
+    'Texto', '', null, '', '', 'leasing-specialist',
+  );
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Patente CABA 2026 estimada: \$ 527\.200 anual/is);
+  assert.match(findings, /se aplicó el límite extraordinario IPCBA 2025.*698\.692,5/is);
+});

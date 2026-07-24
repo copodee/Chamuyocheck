@@ -8,8 +8,10 @@ export type BuenosAiresPatentEstimate = {
 export type CabaPatentEstimate = {
   valuation: number;
   taxBeforeSubwayFund: number;
+  annualTaxBeforeTransitionCap: number;
   annualTax: number;
   effectiveRatePercent: number;
+  transitionCapApplied: boolean;
 };
 
 // Ley Impositiva bonaerense 2026, escala de automóviles modelo-año 2016 a 2026.
@@ -47,17 +49,24 @@ const CABA_2026_SCALE = [
   { over: 73_100_000, fixed: 3_965_000, rate: 8 },
 ] as const;
 
-export function estimateCabaVehiclePatent2026(valuation: number): CabaPatentEstimate | null {
+export function estimateCabaVehiclePatent2026(
+  valuation: number,
+  { priorYearTax }: { priorYearTax?: number } = {},
+): CabaPatentEstimate | null {
   if (!Number.isFinite(valuation) || valuation <= 0) return null;
   const bracket = [...CABA_2026_SCALE].reverse().find((item) => valuation > item.over)
     || CABA_2026_SCALE[0];
   const taxBeforeSubwayFund = bracket.fixed + (valuation - bracket.over) * bracket.rate / 100;
   const withSubwayFund = taxBeforeSubwayFund * 1.10;
-  const annualTax = Math.max(13_300, Math.min(withSubwayFund, valuation * 0.06));
+  const annualTaxBeforeTransitionCap = Math.max(13_300, Math.min(withSubwayFund, valuation * 0.06));
+  const transitionCap = priorYearTax && priorYearTax > 0 ? priorYearTax * 1.318 : null;
+  const annualTax = transitionCap === null ? annualTaxBeforeTransitionCap : Math.min(annualTaxBeforeTransitionCap, transitionCap);
   return {
     valuation,
     taxBeforeSubwayFund,
+    annualTaxBeforeTransitionCap,
     annualTax,
     effectiveRatePercent: Math.round(annualTax / valuation * 100 * 1_000_000) / 1_000_000,
+    transitionCapApplied: transitionCap !== null && transitionCap < annualTaxBeforeTransitionCap,
   };
 }

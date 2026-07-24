@@ -1022,6 +1022,10 @@ export async function handleAnalyzeRequest(req: Request) {
     const leasingContractProvince = String(form.get('leasingContractProvince') || '').trim();
     const leasingAssetType = String(form.get('leasingAssetType') || '').trim();
     const leasingAssetValue = String(form.get('leasingAssetValue') || '').trim();
+    const leasingVehicleDescription = String(form.get('leasingVehicleDescription') || '').trim();
+    const leasingVehicleYear = String(form.get('leasingVehicleYear') || '').trim();
+    const leasingFiscalValuation = String(form.get('leasingFiscalValuation') || '').trim();
+    const leasingPriorYearPatent = String(form.get('leasingPriorYearPatent') || '').trim();
     const leasingFinancedPercent = String(form.get('leasingFinancedPercent') || '').trim();
     const leasingMonths = String(form.get('leasingMonths') || '').trim();
     const leasingTna = String(form.get('leasingTna') || '').trim();
@@ -1153,9 +1157,13 @@ export async function handleAnalyzeRequest(req: Request) {
     const leasingJurisdictionContext = selectedCategory === 'leasing-specialist'
       ? `Domicilio de uso del cliente: ${leasingProvince}. Jurisdicción legal de quien financia: ${leasingFinancierJurisdiction || 'no indicada'}.${leasingComparisonProvince ? ` Provincia alternativa de uso para comparar: ${leasingComparisonProvince}.` : ''} ${leasingQuoteUploaded ? 'Se adjuntó una cotización: extraer del documento valor neto e IVA, plazo, cantidad e importe de cánones, maxi canon, opción de compra, cánones de garantía, comisión, seguro y gastos. Esos datos prevalecen y no deben reemplazarse por valores predeterminados del formulario. Pedir sólo la información que realmente falte.' : `Caso práctico: leasing financiero con sistema francés. Tipo de bien: ${leasingAssetType || 'no indicado'}. Valor del bien sin IVA: ${leasingAssetValue || 'no indicado'}. Porcentaje financiado: ${leasingFinancedPercent || 'no indicado'}%. Plazo: ${leasingMonths || 'no indicado'} meses. TNA: ${leasingTna || 'no indicada'}%. Modalidad de opción: ${leasingOptionMode === 'amount' ? 'importe fijo' : 'porcentaje del valor del bien'}. Opción de compra porcentual: ${leasingOptionMode === 'percent' ? (leasingOptionPercent || 'no indicada') : 'no aplica'}%. Opción de compra importe fijo: ${leasingOptionMode === 'amount' ? (leasingOptionAmount || 'no indicado') : 'no aplica'}. Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas: ${leasingGuaranteeCanons || '0'}. Gasto de estructuración: ${leasingStructuringFeePercent || 'no indicado'}% del valor financiado.`} El valor base se trata como neto de IVA; calcular y explicar IVA por separado sin incorporarlo dos veces al capital. El seguro se modela por defecto como contratado y pagado por el dador, quien lo refactura mensualmente al tomador como concepto separado del canon financiero; si la cotización o el contrato indican otra mecánica, prevalece el documento. Determinar territorialidad y pago de Sellos considerando el domicilio de uso del cliente, la jurisdicción legal de quien financia, los efectos del instrumento y las reglas que eviten doble imposición. Comparar únicamente porcentajes, bases y condiciones —sin calcular montos— de Sellos, Ingresos Brutos, inscripción inicial, patentamiento, patente anual y opción de compra. Para el flujo financiero sí calcular monto financiado, aporte inicial, canon, opción, garantía, gasto y TIR del dador cuando existan datos suficientes. La garantía se recibe al inicio y se imputa contra las últimas cuotas: no duplicar esos cobros; impuestos y facturación se reconocen cuando corresponda según contrato y norma. Clasificar el cambio provincial como posible, condicionado a una conexión real o no justificable. Para Patentes CABA 2026 aplicar la Ley 6.926: domicilio del tomador, guarda habitual o uso/explotación; no usar el domicilio del dador. No se presume libre elección fiscal.`
       : '';
-    const userInstruction = hasExternalContent ? [userText, leasingJurisdictionContext].filter(Boolean).join('\n') : '';
-    const contextualDocumentText = !hasExternalContent && leasingJurisdictionContext
-      ? `${documentText}\n${leasingJurisdictionContext}`
+    const leasingVehicleContext = selectedCategory === 'leasing-specialist' && [leasingVehicleDescription, leasingVehicleYear, leasingFiscalValuation, leasingPriorYearPatent].some(Boolean)
+      ? `Datos del automotor informados por el usuario: marca, modelo y versión: ${leasingVehicleDescription || 'no indicados'}. Año modelo: ${leasingVehicleYear || 'no indicado'}. Valuación fiscal: ${leasingFiscalValuation || 'no indicada'}. Patente total 2025: ${leasingPriorYearPatent || 'no indicada'}.`
+      : '';
+    const leasingCompleteContext = [leasingJurisdictionContext, leasingVehicleContext].filter(Boolean).join('\n');
+    const userInstruction = hasExternalContent ? [userText, leasingCompleteContext].filter(Boolean).join('\n') : '';
+    const contextualDocumentText = !hasExternalContent && leasingCompleteContext
+      ? `${documentText}\n${leasingCompleteContext}`
       : documentText;
 
     if (userInstruction.length > MAX_USER_INSTRUCTION_LENGTH) {

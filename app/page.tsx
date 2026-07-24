@@ -602,6 +602,10 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [leasingProvinceError, setLeasingProvinceError] = useState('');
   const [leasingAssetType, setLeasingAssetType] = useState('Maquinaria o equipo');
   const [leasingAssetValue, setLeasingAssetValue] = useState('');
+  const [leasingVehicleDescription, setLeasingVehicleDescription] = useState('');
+  const [leasingVehicleYear, setLeasingVehicleYear] = useState('');
+  const [leasingFiscalValuation, setLeasingFiscalValuation] = useState('');
+  const [leasingPriorYearPatent, setLeasingPriorYearPatent] = useState('');
   const [leasingFinancedPercent, setLeasingFinancedPercent] = useState('100');
   const [leasingMonths, setLeasingMonths] = useState('36');
   const [leasingTna, setLeasingTna] = useState('');
@@ -890,6 +894,10 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         if (!file) {
           if (leasingConfirmedFields.has('assetType')) form.append('leasingAssetType', leasingAssetType);
           if (leasingAssetValue.trim()) form.append('leasingAssetValue', leasingAssetValue);
+          if (leasingVehicleDescription.trim()) form.append('leasingVehicleDescription', leasingVehicleDescription);
+          if (leasingVehicleYear.trim()) form.append('leasingVehicleYear', leasingVehicleYear);
+          if (leasingFiscalValuation.trim()) form.append('leasingFiscalValuation', leasingFiscalValuation);
+          if (leasingPriorYearPatent.trim()) form.append('leasingPriorYearPatent', leasingPriorYearPatent);
           if (leasingConfirmedFields.has('financedPercent')) form.append('leasingFinancedPercent', leasingFinancedPercent);
           if (leasingConfirmedFields.has('months')) form.append('leasingMonths', leasingMonths);
           if (leasingTna.trim()) form.append('leasingTna', leasingTna);
@@ -1476,6 +1484,12 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                 <div className="leasingProvinceGrid">
                   <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => { setLeasingAssetType(event.target.value); confirmLeasingField('assetType'); }}><option>Maquinaria o equipo</option><option>Automotor</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
                   <label>Valor del bien sin IVA<input inputMode="decimal" value={leasingAssetValue} onChange={(event) => setLeasingAssetValue(event.target.value)} placeholder="Ej.: 100000000" /><small>Ingresá el precio neto. El IVA se calcula y analiza por separado.</small></label>
+                  {leasingAssetType === 'Automotor' && <>
+                    <label>Marca, modelo y versión<input value={leasingVehicleDescription} onChange={(event) => setLeasingVehicleDescription(event.target.value)} placeholder="Ej.: Audi Q5 45 TFSI Advanced" /><small>La versión exacta evita usar una valuación fiscal incorrecta.</small></label>
+                    <label>Año modelo<input type="number" min="1900" max="2030" value={leasingVehicleYear} onChange={(event) => setLeasingVehicleYear(event.target.value)} placeholder="Ej.: 2023" /></label>
+                    <label>Valuación fiscal 2026<input inputMode="decimal" value={leasingFiscalValuation} onChange={(event) => setLeasingFiscalValuation(event.target.value.replace(/[^\d.,]/g, ''))} placeholder="Ej.: 79916000" /><small>Usá la valuación de AGIP, ARBA o DNRPA aplicable; no necesariamente coincide con el precio de compra.</small></label>
+                    <label>Patente total 2025 (opcional)<input inputMode="decimal" value={leasingPriorYearPatent} onChange={(event) => setLeasingPriorYearPatent(event.target.value.replace(/[^\d.,]/g, ''))} placeholder="Necesaria para el tope CABA 2026" /><small>Permite controlar la bonificación extraordinaria que limita el aumento por IPCBA.</small></label>
+                  </>}
                   <label>Porcentaje a financiar<input type="number" min="1" max="100" value={leasingFinancedPercent} onChange={(event) => { setLeasingFinancedPercent(event.target.value); confirmLeasingField('financedPercent'); }} /><small>100% financia todo; 80% implica 20% de aporte inicial.</small></label>
                   <label>Plazo en meses<input type="number" min="1" max="240" value={leasingMonths} onChange={(event) => { setLeasingMonths(event.target.value); confirmLeasingField('months'); }} /></label>
                   <label>TNA estimada (opcional)<input type="number" min="0" step="0.01" value={leasingTna} onChange={(event) => setLeasingTna(event.target.value)} placeholder="Ej.: 42" /></label>
