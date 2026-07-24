@@ -46,7 +46,7 @@ const stage2Requirements: Record<EconomicProfile, Array<[string, string, boolean
     ['income-tax', 'Última DDJJ de Ganancias disponible', false], ['personal-assets', 'Manifestación de bienes o DDJJ de Bienes Personales disponible', false],
   ],
   monotributista: [
-    ['monotributo-proof', 'Constancia de monotributo', true],
+    ['monotributo-proof', 'Constancia de monotributo', false],
     ['monotributo-invoices-1', 'Facturas del mes 1', false],
     ['monotributo-invoices-2', 'Facturas del mes 2', false],
     ['monotributo-invoices-3', 'Facturas del mes 3', false],
