@@ -4,6 +4,7 @@ import { prequalRest } from '../../../../src/modules/prequalification/infrastruc
 import { evaluateEconomicCapacity } from '../../../../src/modules/prequalification/scoring/economicEngine';
 import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicInputs, ExtractedBalance } from '../../../../src/modules/prequalification/domain/dossier';
 import { adminNotificationHtml, applicantResponseHtml, getPrequalificationEmailConfig, sendPrequalificationEmail, stage2NotificationHtml } from '../../../../src/modules/prequalification/infrastructure/email/resendProvider';
+import { isValidCuit, normalizeCuit } from '../../../../src/modules/prequalification/domain/cuit';
 
 export const runtime = 'nodejs';
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -15,8 +16,36 @@ export async function POST(request: Request) {
   const auth = await authenticatePrequalificationRequest(request);
   if (auth.ok === false) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const body = await request.json().catch(() => null);
-  if (!body?.caseId || !['stage2', 'stage3', 'configuration', 'send-result'].includes(body.action)) return NextResponse.json({ error: 'Solicitud incompleta.' }, { status: 400 });
+  if (!body?.action || !['recover', 'stage2', 'stage3', 'configuration', 'send-result'].includes(body.action)) return NextResponse.json({ error: 'Solicitud incompleta.' }, { status: 400 });
+  if (body.action !== 'recover' && !body.caseId) return NextResponse.json({ error: 'Falta el identificador del expediente.' }, { status: 400 });
   try {
+    if (body.action === 'recover') {
+      const requestData = body.requestData || {};
+      const cuit = normalizeCuit(requestData.cuit || '');
+      if (!isValidCuit(cuit) || !body.stage1) return NextResponse.json({ error: 'No se pudo recuperar la consulta inicial.' }, { status: 400 });
+      const subjectHash = Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cuit))).toString('hex');
+      const [saved] = await prequalRest<Array<{ id: string; case_number: string }>>(auth.token, 'prequal_cases?select=id,case_number', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({
+          organization_id: auth.organizationId,
+          created_by: auth.user.id,
+          subject_hash: subjectHash,
+          client_type: requestData.clientType,
+          asset_type: requestData.assetType,
+          asset_value: Number(requestData.assetValue),
+          advance: Number(requestData.advance || 0),
+          term_months: Number(requestData.termMonths),
+          status: body.stage1.status,
+          score: body.stage1.score,
+          model_version: body.stage1.modelVersion,
+          provider: body.stage1.provider,
+          result: body.stage1,
+        }),
+      });
+      if (!saved?.id) throw new Error('Supabase no devolvió el expediente recuperado.');
+      return NextResponse.json({ caseId: saved.id, caseNumber: saved.case_number });
+    }
     if (body.action === 'stage2') {
       const contact = body.contact as ContactData;
       const inputs = body.economicInputs as EconomicInputs;

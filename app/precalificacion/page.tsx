@@ -69,23 +69,29 @@ export default function PrequalificationPage() {
     setBusy(true);
     setError('');
     setResult(null);
-    const response = await fetch('/api/prequalification', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({
-        ...form,
-        assetValue: Number(form.assetValue),
-        advance: Number(form.advance || 0),
-        termMonths: Number(form.termMonths),
-      }),
-    });
-    const payload = await response.json();
-    setBusy(false);
-    if (!response.ok) {
-      setError(payload.error || 'No se pudo completar la consulta.');
-      return;
+    try {
+      const response = await fetch('/api/prequalification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          ...form,
+          assetValue: Number(form.assetValue),
+          advance: Number(form.advance || 0),
+          termMonths: Number(form.termMonths),
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error || 'No se pudo completar la consulta.');
+        return;
+      }
+      setResult(payload);
+    } catch {
+      setError('La consulta demoró demasiado o se interrumpió. Podés volver a intentar.');
+    } finally {
+      setBusy(false);
     }
-    setResult(payload);
   };
 
   if (loadingSession) return <main className="prequalPage"><div className="prequalCard">Verificando acceso…</div></main>;
@@ -164,6 +170,21 @@ export default function PrequalificationPage() {
       <div className="prequalColumns"><div><h3>Fundamentos</h3><ul>{result.result.reasons.map((item) => <li key={item}>{item}</li>)}</ul></div><div><h3>Condiciones y próximos pasos</h3><ul>{result.result.conditions.map((item) => <li key={item}>{item}</li>)}</ul></div></div>
       <small>{result.disclaimer} · Modelo {result.result.modelVersion}</small>
     </section>}
-    {result && <PrequalificationStages session={session} caseId={result.caseId} caseNumber={result.caseNumber} subject={result.subject} stage1={result.result} clientType={form.clientType} />}
+    {result && <PrequalificationStages
+      session={session}
+      caseId={result.caseId}
+      caseNumber={result.caseNumber}
+      subject={result.subject}
+      stage1={result.result}
+      clientType={form.clientType}
+      requestData={{
+        cuit: form.cuit,
+        clientType: form.clientType,
+        assetValue: Number(form.assetValue),
+        advance: Number(form.advance || 0),
+        termMonths: Number(form.termMonths),
+        assetType: form.assetType,
+      }}
+    />}
   </div></main>;
 }

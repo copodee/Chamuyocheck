@@ -168,6 +168,11 @@ grant execute on function public.is_active_member(uuid) to authenticated;
 grant execute on function public.is_administrator(uuid) to authenticated;
 grant execute on function public.get_prequal_access() to authenticated;
 grant usage, select on sequence public.prequal_case_number_seq to authenticated;
+grant select, insert, update on table public.prequal_cases to authenticated;
+grant select on table public.prequal_organization_members to authenticated;
+grant select on table public.prequal_organizations to authenticated;
+alter table public.prequal_cases alter column case_number set default public.next_prequal_case_number();
+alter table public.prequal_cases alter column case_number set not null;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (

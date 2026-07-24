@@ -11,6 +11,14 @@ type Props = {
   session: Session;
   caseId?: string;
   caseNumber?: string;
+  requestData: {
+    cuit: string;
+    clientType: string;
+    assetValue: number;
+    advance: number;
+    termMonths: number;
+    assetType: string;
+  };
   subject: { denomination: string | null; cuitMasked: string };
   stage1: PrequalificationResult;
   clientType: string;
@@ -114,11 +122,13 @@ export function PrequalificationStages(props: Props) {
   const [administratorEmail, setAdministratorEmail] = useState('contacto@leasingscoring.com');
   const [emailProvider] = useState('resend');
   const [responseMessage, setResponseMessage] = useState('');
+  const [effectiveCaseId, setEffectiveCaseId] = useState(props.caseId);
+  const [effectiveCaseNumber, setEffectiveCaseNumber] = useState(props.caseNumber);
 
-  const api = async (payload: object) => {
+  const api = async (payload: object, caseId = effectiveCaseId) => {
     const response = await fetch('/api/prequalification/case', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${props.session.access_token}` },
-      body: JSON.stringify({ caseId: props.caseId, ...payload }),
+      body: JSON.stringify({ caseId, ...payload }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'No se pudo actualizar el expediente.');
@@ -130,6 +140,7 @@ export function PrequalificationStages(props: Props) {
     const added: DossierDocument[] = [];
     let balanceText = '';
     try {
+      const recovered = await recoverCase();
       for (const file of Array.from(files)) {
         let extractedText = '';
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
@@ -139,7 +150,7 @@ export function PrequalificationStages(props: Props) {
         }
         const documentStage = stage === 3 ? 3 : 2;
         const upload = new FormData();
-        upload.append('file', file); upload.append('caseId', props.caseId || ''); upload.append('stage', String(documentStage));
+        upload.append('file', file); upload.append('caseId', recovered.caseId); upload.append('stage', String(documentStage));
         const uploadResponse = await fetch('/api/prequalification/document', { method: 'POST', headers: { Authorization: `Bearer ${props.session.access_token}` }, body: upload });
         const uploadData = await uploadResponse.json();
         if (!uploadResponse.ok) throw new Error(uploadData.error || 'No se pudo guardar el documento.');
@@ -157,8 +168,18 @@ export function PrequalificationStages(props: Props) {
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo leer el archivo.'); }
     setBusy(false);
   };
+  async function recoverCase() {
+    if (effectiveCaseId) return { caseId: effectiveCaseId, caseNumber: effectiveCaseNumber };
+    const recovered = await api({
+      action: 'recover',
+      requestData: props.requestData,
+      stage1: props.stage1,
+    }, undefined);
+    setEffectiveCaseId(recovered.caseId);
+    setEffectiveCaseNumber(recovered.caseNumber);
+    return recovered as { caseId: string; caseNumber: string };
+  }
   const saveStage2 = async () => {
-    if (!props.caseId) return setMessage('No se generó el expediente. Repetí la consulta BCRA.');
     const applicableRequirements = [
       ...stage2Requirements[economic.profile],
       ...(economic.profile !== 'employee' && economic.hasEmploymentIncome ? employmentSlipRequirements : []),
@@ -167,26 +188,27 @@ export function PrequalificationStages(props: Props) {
       .filter(([, , required]) => required)
       .filter(([kind]) => !documents.some(document => document.stage === 2 && document.kind === kind))
       .map(([, label]) => label);
-    if (missingDocuments.length && !props.caseNumber?.startsWith('DEMO-')) {
+    if (missingDocuments.length && !effectiveCaseNumber?.startsWith('DEMO-')) {
       return setMessage(`Falta agregar: ${missingDocuments.join(', ')}.`);
     }
     setBusy(true); setMessage('');
     try {
+      const recovered = await recoverCase();
       const data = await api({
         action: 'stage2', contact, economicInputs: economic, documents, balance,
-        caseNumber: props.caseNumber, subject: props.subject.denomination,
-      });
+        caseNumber: recovered.caseNumber, subject: props.subject.denomination,
+      }, recovered.caseId);
       setAssessment(data.assessment); setStage(3); setResponseEmail(contact.email);
       setMessage(data.notification?.sent
-        ? `Expediente ${props.caseNumber} generado y enviado a contacto@leasingscoring.com.`
-        : `Expediente ${props.caseNumber} generado. No se pudo enviar la notificación.`);
+        ? `Expediente ${recovered.caseNumber} generado y enviado a contacto@leasingscoring.com.`
+        : `Expediente ${recovered.caseNumber} generado. No se pudo enviar la notificación.`);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Error'); }
     setBusy(false);
   };
   const saveStage3 = async () => {
     setBusy(true); setMessage('');
     try {
-      const data = await api({ action: 'stage3', compliance, decision, responseEmail, documents, caseNumber: props.caseNumber, subject: props.subject.denomination });
+      const data = await api({ action: 'stage3', compliance, decision, responseEmail, documents, caseNumber: effectiveCaseNumber, subject: props.subject.denomination });
       setMessage(data.notification?.sent ? 'El administrador fue notificado.' : 'Expediente guardado. Falta conectar la clave de Resend para enviar correos.');
       setStage(4);
     }
@@ -197,17 +219,17 @@ export function PrequalificationStages(props: Props) {
     setBusy(true);
     const response = await fetch('/api/prequalification/pdf', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${props.session.access_token}` },
-      body: JSON.stringify({ caseNumber: props.caseNumber, subject: props.subject.denomination, cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact, economic: assessment, compliance, decision, responseEmail }),
+      body: JSON.stringify({ caseNumber: effectiveCaseNumber, subject: props.subject.denomination, cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact, economic: assessment, compliance, decision, responseEmail }),
     });
     if (response.ok) {
       const url = URL.createObjectURL(await response.blob());
-      const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${props.caseNumber}.pdf`; anchor.click(); URL.revokeObjectURL(url);
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${effectiveCaseNumber}.pdf`; anchor.click(); URL.revokeObjectURL(url);
     } else setMessage('No se pudo generar el PDF.');
     setBusy(false);
   };
 
   return <section className="prequalCard prequalResult">
-    <h2>{stage === 1 || stage === 2 ? 'Evaluación preliminar' : `Expediente ${props.caseNumber || 'pendiente'}`}</h2>
+    <h2>{stage === 1 || stage === 2 ? 'Evaluación preliminar' : `Expediente ${effectiveCaseNumber || 'pendiente'}`}</h2>
     <div className="prequalNotice">Precalificación {stage > 3 ? 3 : stage} de 3 · El respaldo costoso sólo se solicita cuando el administrador lo considera necesario.</div>
     {stage === 1 && <div>
       <h3>Precalificación 1 completa</h3>
@@ -230,7 +252,7 @@ export function PrequalificationStages(props: Props) {
         <label>Canon mensual propuesto<input type="text" inputMode="numeric" value={economic.proposedMonthlyCanon || ''} onChange={e => setEconomic({ ...economic, proposedMonthlyCanon: Number(e.target.value.replace(/\D/g, '')) })} /></label>
         {economic.profile === 'employee'
           ? <label>Ingreso neto mensual declarado<input type="number" value={economic.employeeNetIncome} onChange={e => setEconomic({ ...economic, employeeNetIncome: Number(e.target.value) })} /><small>Podés informarlo ahora y adjuntar recibos voluntariamente.</small></label>
-          : <><label>Facturación promedio mensual declarada<input type="number" onChange={e => setEconomic({ ...economic, monthlySales: Array(6).fill(Number(e.target.value)) })} /><small>Podés ingresar un promedio o adjuntar las facturas de cada mes, o ambas cosas.</small></label>
+          : <><label>Facturación promedio mensual declarada<input type="text" inputMode="numeric" onChange={e => setEconomic({ ...economic, monthlySales: Array(6).fill(Number(e.target.value.replace(/\D/g, ''))) })} /><small>Podés ingresar un promedio o adjuntar las facturas de cada mes, o ambas cosas.</small></label>
             {economic.profile === 'monotributista'
               ? <label>Tipo de actividad<select value={economic.activityCategory} onChange={e => setEconomic({ ...economic, activityCategory: e.target.value as EconomicInputs['activityCategory'] })}>
                 <option value="professional-services">Servicios profesionales</option>
@@ -242,9 +264,9 @@ export function PrequalificationStages(props: Props) {
               </select><small>LeasingScoring aplicará automáticamente un coeficiente prudencial; no necesitás conocer tu margen.</small></label>
               : <label>Margen operativo estimado (%)<input type="number" value={economic.declaredOperatingMargin} onChange={e => setEconomic({ ...economic, declaredOperatingMargin: Number(e.target.value) })} /></label>}
           </>}
-        {economic.profile !== 'employee' && <label>
+        {economic.profile !== 'employee' && <label className="prequalCheckRow">
           <input type="checkbox" checked={!!economic.hasEmploymentIncome} onChange={e => setEconomic({ ...economic, hasEmploymentIncome: e.target.checked, additionalEmploymentNetIncome: e.target.checked ? economic.additionalEmploymentNetIncome : 0 })} />
-          También trabaja en relación de dependencia
+          <span><b>También trabaja en relación de dependencia</b><small>Marcá esta opción para sumar el sueldo mensual a los ingresos de la actividad.</small></span>
         </label>}
         {economic.profile !== 'employee' && economic.hasEmploymentIncome && <label>Ingreso neto mensual por relación de dependencia
           <input type="text" inputMode="numeric" value={economic.additionalEmploymentNetIncome || ''} onChange={e => setEconomic({ ...economic, additionalEmploymentNetIncome: Number(e.target.value.replace(/\D/g, '')) })} />
@@ -306,7 +328,7 @@ export function PrequalificationStages(props: Props) {
       <button className="prequalSecondary" onClick={async () => { try { await api({ action: 'configuration', administratorEmail, emailProvider }); setMessage('Configuración guardada. Falta conectar las credenciales del proveedor para enviar.'); } catch (error) { setMessage(error instanceof Error ? error.message : 'Error'); } }}>Guardar selección</button>
       <h3>Responder al solicitante</h3>
       <label>Mensaje del administrador<textarea value={responseMessage} onChange={e => setResponseMessage(e.target.value)} placeholder="Condiciones o próximos pasos para avanzar." /></label>
-      <button className="prequalPrimary" onClick={async () => { try { await api({ action: 'send-result', responseEmail, decision, message: responseMessage, caseNumber: props.caseNumber }); setMessage(`Resultado enviado a ${responseEmail}.`); } catch (error) { setMessage(error instanceof Error ? error.message : 'Error'); } }}>Enviar resultado</button>
+      <button className="prequalPrimary" onClick={async () => { try { await api({ action: 'send-result', responseEmail, decision, message: responseMessage, caseNumber: effectiveCaseNumber }); setMessage(`Resultado enviado a ${responseEmail}.`); } catch (error) { setMessage(error instanceof Error ? error.message : 'Error'); } }}>Enviar resultado</button>
     </div>}
     {message && <div className="prequalNotice">{message}</div>}
   </section>;
