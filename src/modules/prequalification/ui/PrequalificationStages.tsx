@@ -30,6 +30,50 @@ const decisions = [
   ['not-compatible', 'No compatible'],
 ];
 
+const stage2Requirements: Record<EconomicProfile, Array<[string, string, boolean]>> = {
+  employee: [
+    ['salary-slip-1', 'Recibo de sueldo 1', true], ['salary-slip-2', 'Recibo de sueldo 2', true],
+    ['salary-slip-3', 'Recibo de sueldo 3', true], ['salary-slip-4', 'Recibo de sueldo 4', true],
+    ['salary-slip-5', 'Recibo de sueldo 5', true], ['salary-slip-6', 'Recibo de sueldo 6', true],
+    ['income-tax', 'Última DDJJ de Ganancias disponible', false], ['personal-assets', 'Manifestación de bienes o DDJJ de Bienes Personales disponible', false],
+  ],
+  monotributista: [
+    ['monotributo-proof', 'Constancia de monotributo', true],
+    ['income-detail', 'Detalle de ingresos de los últimos 6 meses', true],
+    ['asset-statement', 'Manifestación de bienes disponible', false],
+  ],
+  'responsable-inscripto': [
+    ['tax-proof', 'Constancia de inscripción', true],
+    ['vat-1', 'IVA mes 1', true], ['vat-2', 'IVA mes 2', true], ['vat-3', 'IVA mes 3', true],
+    ['vat-4', 'IVA mes 4', true], ['vat-5', 'IVA mes 5', true], ['vat-6', 'IVA mes 6', true],
+    ['income-tax', 'Última DDJJ de Ganancias disponible', false],
+  ],
+  'legal-entity': [
+    ['balance-1', 'Último balance', true], ['balance-2', 'Balance anterior', true],
+    ['post-balance-sales', 'Ventas netas de IVA posteriores al último balance', true],
+    ['financial-debt', 'Detalle de deuda bancaria y financiera', true],
+  ],
+};
+
+const stage3Requirements: Record<EconomicProfile, Array<[string, string, boolean]>> = {
+  employee: [
+    ['identity-front', 'DNI frente', false], ['identity-back', 'DNI dorso', false],
+    ['certified-income', 'Certificación de ingresos, si el administrador la solicita', false],
+  ],
+  monotributista: [
+    ['identity-front', 'DNI frente', false], ['identity-back', 'DNI dorso', false],
+    ['certified-income', 'Detalle de ingresos certificado, si se solicita', false],
+  ],
+  'responsable-inscripto': [
+    ['identity-front', 'DNI frente', false], ['identity-back', 'DNI dorso', false],
+    ['certified-income', 'Certificación contable, si se solicita', false],
+  ],
+  'legal-entity': [
+    ['statute', 'Estatuto o contrato social', false], ['authorities-act', 'Acta vigente de autoridades', false],
+    ['signer-power', 'Poder del firmante', false], ['partners-assets', 'Bienes Personales o manifestación de socios, si se solicita', false],
+  ],
+};
+
 export function PrequalificationStages(props: Props) {
   const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
   const [busy, setBusy] = useState(false);
@@ -65,7 +109,7 @@ export function PrequalificationStages(props: Props) {
     if (!response.ok) throw new Error(data.error || 'No se pudo actualizar el expediente.');
     return data;
   };
-  const readFiles = async (files: FileList | null) => {
+  const readFiles = async (files: FileList | null, documentKind: string) => {
     if (!files) return;
     setBusy(true); setMessage('Leyendo documentos…');
     const added: DossierDocument[] = [];
@@ -76,7 +120,7 @@ export function PrequalificationStages(props: Props) {
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
           const extraction = await extractPdfTextInBrowser(file, (progress) => setMessage(`Leyendo página ${progress.page} de ${progress.totalPages}…`));
           extractedText = extraction.text;
-          if (economic.profile === 'legal-entity') balanceText += `\n${extractedText}`;
+          if (economic.profile === 'legal-entity' && documentKind.startsWith('balance-')) balanceText += `\n${extractedText}`;
         }
         const documentStage = stage === 3 ? 3 : 2;
         const upload = new FormData();
@@ -84,9 +128,12 @@ export function PrequalificationStages(props: Props) {
         const uploadResponse = await fetch('/api/prequalification/document', { method: 'POST', headers: { Authorization: `Bearer ${props.session.access_token}` }, body: upload });
         const uploadData = await uploadResponse.json();
         if (!uploadResponse.ok) throw new Error(uploadData.error || 'No se pudo guardar el documento.');
-        added.push({ id: crypto.randomUUID(), stage: documentStage, kind: economic.profile, name: file.name, size: file.size, extractedText, storagePath: uploadData.storagePath, status: extractedText ? 'read' : 'uploaded' });
+        added.push({ id: crypto.randomUUID(), stage: documentStage, kind: documentKind, name: file.name, size: file.size, extractedText, storagePath: uploadData.storagePath, status: extractedText ? 'read' : 'uploaded' });
       }
-      setDocuments((current) => [...current, ...added]);
+      setDocuments((current) => [
+        ...current.filter(document => !added.some(next => next.stage === document.stage && next.kind === document.kind)),
+        ...added,
+      ]);
       if (balanceText) setBalance(extractBalanceData(balanceText));
       setMessage(`${added.length} documento(s) incorporado(s).`);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo leer el archivo.'); }
@@ -94,6 +141,13 @@ export function PrequalificationStages(props: Props) {
   };
   const saveStage2 = async () => {
     if (!props.caseId) return setMessage('No se generó el expediente. Repetí la consulta BCRA.');
+    const missingDocuments = stage2Requirements[economic.profile]
+      .filter(([, , required]) => required)
+      .filter(([kind]) => !documents.some(document => document.stage === 2 && document.kind === kind))
+      .map(([, label]) => label);
+    if (missingDocuments.length && !props.caseNumber?.startsWith('DEMO-')) {
+      return setMessage(`Falta agregar: ${missingDocuments.join(', ')}.`);
+    }
     setBusy(true); setMessage('');
     try {
       const data = await api({ action: 'stage2', contact, economicInputs: economic, documents, balance });
@@ -150,11 +204,17 @@ export function PrequalificationStages(props: Props) {
           ? <label>Ingreso neto mensual<input type="number" value={economic.employeeNetIncome} onChange={e => setEconomic({ ...economic, employeeNetIncome: Number(e.target.value) })} /></label>
           : <><label>Promedio ventas/facturación últimos 6 meses<input type="number" onChange={e => setEconomic({ ...economic, monthlySales: Array(6).fill(Number(e.target.value)) })} /></label><label>Margen operativo estimado (%)<input type="number" value={economic.declaredOperatingMargin} onChange={e => setEconomic({ ...economic, declaredOperatingMargin: Number(e.target.value) })} /></label></>}
       </div>
-      <label>Documentos útiles
-        <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => readFiles(e.target.files)} />
-        <small>{economic.profile === 'employee' ? 'Últimos 6 recibos de sueldo.' : economic.profile === 'legal-entity' ? 'Últimos 2 balances y detalle de ventas posteriores/deuda. Los balances PDF se leen automáticamente.' : 'Constancia fiscal, facturación de 6 meses y DDJJ ya disponibles. Sin certificaciones nuevas.'}</small>
-      </label>
-      {!!documents.length && <p>{documents.length} archivo(s): {documents.map(d => d.name).join(', ')}</p>}
+      <div className="prequalEntityDetail">
+        <h3>Documentación económica</h3>
+        <p>Cada requisito tiene su propio selector. No se solicitan certificaciones nuevas en esta etapa.</p>
+        {stage2Requirements[economic.profile].map(([kind, label, required]) => {
+          const uploaded = documents.find(document => document.stage === 2 && document.kind === kind);
+          return <label key={kind}>{label} {required ? <b>· requerido</b> : <small>· opcional</small>}
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => readFiles(e.target.files, kind)} />
+            {uploaded && <small>✓ Agregado: {uploaded.name}</small>}
+          </label>;
+        })}
+      </div>
       <label><input type="checkbox" checked={contact.dataConsent} onChange={e => setContact({ ...contact, dataConsent: e.target.checked })} /> Autorizo el tratamiento de datos para esta evaluación.</label>
       <label><input type="checkbox" checked={contact.contactConsent} onChange={e => setContact({ ...contact, contactConsent: e.target.checked })} /> Autorizo el contacto sobre este expediente.</label>
       <label><input type="checkbox" checked={contact.accuracyDeclaration} onChange={e => setContact({ ...contact, accuracyDeclaration: e.target.checked })} /> Declaro que los datos son completos y veraces.</label>
@@ -171,7 +231,17 @@ export function PrequalificationStages(props: Props) {
       <label><input type="checkbox" checked={compliance.ownAccount} onChange={e => setCompliance({ ...compliance, ownAccount: e.target.checked })} /> Actúo por cuenta propia; si no, informaré al beneficiario final.</label>
       <label><input type="checkbox" checked={compliance.taxResidenceArgentina} onChange={e => setCompliance({ ...compliance, taxResidenceArgentina: e.target.checked })} /> Residencia fiscal exclusivamente argentina.</label>
       <label><input type="checkbox" checked={compliance.administratorMayRequestEvidence} onChange={e => setCompliance({ ...compliance, administratorMayRequestEvidence: e.target.checked })} /> Acepto que el administrador solicite respaldo si lo considera necesario.</label>
-      <label>Documentos de validación opcionales en esta instancia<input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => readFiles(e.target.files)} /></label>
+      <div className="prequalEntityDetail">
+        <h3>Documentos de validación</h3>
+        <p>Son opcionales en esta instancia y el administrador puede solicitarlos cuando corresponda.</p>
+        {stage3Requirements[economic.profile].map(([kind, label]) => {
+          const uploaded = documents.find(document => document.stage === 3 && document.kind === kind);
+          return <label key={kind}>{label}
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => readFiles(e.target.files, kind)} />
+            {uploaded && <small>✓ Agregado: {uploaded.name}</small>}
+          </label>;
+        })}
+      </div>
       <label>Decisión<select value={decision} onChange={e => setDecision(e.target.value)}>{decisions.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
       <label>Correo donde desea recibir la calificación<input type="email" required value={responseEmail} onChange={e => setResponseEmail(e.target.value)} /></label>
       <button className="prequalPrimary" disabled={busy} onClick={saveStage3}>Cerrar Precalificación 3</button>
