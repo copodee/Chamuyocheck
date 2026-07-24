@@ -101,7 +101,7 @@ export function PrequalificationStages(props: Props) {
   });
   const defaultProfile: EconomicProfile = props.clientType === 'persona-juridica' ? 'legal-entity' : 'employee';
   const [economic, setEconomic] = useState<EconomicInputs>({
-    profile: defaultProfile, activity: '', activitySeniorityMonths: 0, declaredMonthlyDebtService: 0,
+    profile: defaultProfile, activity: '', activityCategory: 'other', activitySeniorityMonths: 0, declaredMonthlyDebtService: 0,
     proposedMonthlyCanon: 0, employeeNetIncome: 0, hasEmploymentIncome: false,
     additionalEmploymentNetIncome: 0, monthlySales: [0, 0, 0, 0, 0, 0], declaredOperatingMargin: 0,
   });
@@ -224,7 +224,18 @@ export function PrequalificationStages(props: Props) {
         <label>Canon mensual propuesto<input type="text" inputMode="numeric" value={economic.proposedMonthlyCanon || ''} onChange={e => setEconomic({ ...economic, proposedMonthlyCanon: Number(e.target.value.replace(/\D/g, '')) })} /></label>
         {economic.profile === 'employee'
           ? <label>Ingreso neto mensual<input type="number" value={economic.employeeNetIncome} onChange={e => setEconomic({ ...economic, employeeNetIncome: Number(e.target.value) })} /></label>
-          : <><label>Promedio ventas/facturación últimos 6 meses<input type="number" onChange={e => setEconomic({ ...economic, monthlySales: Array(6).fill(Number(e.target.value)) })} /></label><label>Margen operativo estimado (%)<input type="number" value={economic.declaredOperatingMargin} onChange={e => setEconomic({ ...economic, declaredOperatingMargin: Number(e.target.value) })} /></label></>}
+          : <><label>Promedio ventas/facturación últimos 6 meses<input type="number" onChange={e => setEconomic({ ...economic, monthlySales: Array(6).fill(Number(e.target.value)) })} /></label>
+            {economic.profile === 'monotributista'
+              ? <label>Tipo de actividad<select value={economic.activityCategory} onChange={e => setEconomic({ ...economic, activityCategory: e.target.value as EconomicInputs['activityCategory'] })}>
+                <option value="professional-services">Servicios profesionales</option>
+                <option value="other-services">Otros servicios</option>
+                <option value="commerce">Comercio</option>
+                <option value="production">Producción / elaboración</option>
+                <option value="transport">Transporte</option>
+                <option value="other">Otra actividad</option>
+              </select><small>LeasingScoring aplicará automáticamente un coeficiente prudencial; no necesitás conocer tu margen.</small></label>
+              : <label>Margen operativo estimado (%)<input type="number" value={economic.declaredOperatingMargin} onChange={e => setEconomic({ ...economic, declaredOperatingMargin: Number(e.target.value) })} /></label>}
+          </>}
         {economic.profile !== 'employee' && <label>
           <input type="checkbox" checked={!!economic.hasEmploymentIncome} onChange={e => setEconomic({ ...economic, hasEmploymentIncome: e.target.checked, additionalEmploymentNetIncome: e.target.checked ? economic.additionalEmploymentNetIncome : 0 })} />
           También trabaja en relación de dependencia

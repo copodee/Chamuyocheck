@@ -1,6 +1,14 @@
 import type { EconomicAssessment, EconomicInputs, ExtractedBalance } from '../domain/dossier';
 
 const POLICY_RATIO = 0.3;
+const MONOTRIBUTO_INCOME_COEFFICIENTS: Record<string, number> = {
+  'professional-services': 0.55,
+  'other-services': 0.45,
+  commerce: 0.25,
+  production: 0.3,
+  transport: 0.35,
+  other: 0.3,
+};
 
 function average(values: number[]): number {
   const valid = values.filter((value) => Number.isFinite(value) && value >= 0);
@@ -32,9 +40,14 @@ export function evaluateEconomicCapacity(
     }
   } else {
     const monthlySales = average(inputs.monthlySales || []);
-    const margin = Math.max(0, Math.min(1, Number(inputs.declaredOperatingMargin || 0) / 100));
+    const policyCoefficient = inputs.profile === 'monotributista'
+      ? MONOTRIBUTO_INCOME_COEFFICIENTS[inputs.activityCategory || 'other']
+      : 0;
+    const margin = policyCoefficient || Math.max(0, Math.min(1, Number(inputs.declaredOperatingMargin || 0) / 100));
     normalizedMonthlyIncome = monthlySales && margin ? monthlySales * margin : null;
-    reasons.push('La facturación se convirtió en ingreso estimado mediante el margen declarado.');
+    reasons.push(inputs.profile === 'monotributista'
+      ? `La facturación se convirtió en ingreso computable mediante un coeficiente prudencial del ${(margin * 100).toFixed(0)}% según el tipo de actividad.`
+      : 'La facturación se convirtió en ingreso estimado mediante el margen declarado.');
   }
   if (inputs.profile !== 'employee' && inputs.hasEmploymentIncome) {
     const employmentIncome = Math.max(0, Number(inputs.additionalEmploymentNetIncome || 0));

@@ -24,6 +24,7 @@ export type ContactData = {
 export type EconomicInputs = {
   profile: EconomicProfile;
   activity: string;
+  activityCategory?: 'professional-services' | 'other-services' | 'commerce' | 'production' | 'transport' | 'other';
   activitySeniorityMonths: number;
   declaredMonthlyDebtService: number;
   proposedMonthlyCanon: number;
