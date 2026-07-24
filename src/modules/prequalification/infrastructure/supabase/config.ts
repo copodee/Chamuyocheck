@@ -1,0 +1,18 @@
+type Environment = Record<string, string | undefined>;
+
+const publicEnvironment: Environment = {
+  NEXT_PUBLIC_PREQUALIFICATION_SUPABASE_URL:
+    process.env.NEXT_PUBLIC_PREQUALIFICATION_SUPABASE_URL,
+  NEXT_PUBLIC_PREQUALIFICATION_SUPABASE_PUBLISHABLE_KEY:
+    process.env.NEXT_PUBLIC_PREQUALIFICATION_SUPABASE_PUBLISHABLE_KEY,
+  NEXT_PUBLIC_PREQUALIFICATION_SUPABASE_ANON_KEY:
+    process.env.NEXT_PUBLIC_PREQUALIFICATION_SUPABASE_ANON_KEY,
+};
+
+export function getPrequalificationSupabaseConfig(environment: Environment = publicEnvironment) {
+  const url = environment.NEXT_PUBLIC_PREQUALIFICATION_SUPABASE_URL;
+  const publicKey =
+    environment.NEXT_PUBLIC_PREQUALIFICATION_SUPABASE_PUBLISHABLE_KEY ||
+    environment.NEXT_PUBLIC_PREQUALIFICATION_SUPABASE_ANON_KEY;
+  return url && publicKey ? { url, publicKey } : null;
+}

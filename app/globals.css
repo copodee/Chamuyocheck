@@ -843,3 +843,24 @@ body:has(.leasingAppShell){
     color:#405e69;
   }
 }
+
+/* Precalificación Crediticia: módulo profesional de acceso restringido. */
+.prequalPage{min-height:100vh;background:radial-gradient(circle at 90% 0,rgba(109,40,217,.16),transparent 32%),linear-gradient(145deg,#07151d,#0d2630 55%,#12102b);color:#e8f7fb;padding:32px 18px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
+.prequalWorkspace{width:min(1120px,100%);margin:0 auto}
+.prequalHeader{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:34px;padding:14px 2px;border-bottom:1px solid rgba(146,220,229,.18)}
+.prequalHeader>div:first-child{display:flex;align-items:center;gap:18px}.prequalHeader span{color:#a8c8d0}
+.prequalBrand{font-size:1.15rem;font-weight:900;letter-spacing:.02em;color:#fff}.prequalBrand:first-letter{color:#c4a7ff}
+.prequalUser{display:flex;align-items:center;gap:14px}.prequalUser button,.prequalSecondary{border:1px solid rgba(213,194,255,.45);background:transparent;color:#e6d9ff;border-radius:11px;padding:10px 15px;text-decoration:none;font-weight:750;cursor:pointer}
+.prequalIntro{margin:24px 0 26px;max-width:800px}.prequalEyebrow{color:#c9a9ff;font-size:.78rem;font-weight:900;letter-spacing:.14em}.prequalIntro h1,.prequalAccess h1{font-size:clamp(2rem,5vw,3.55rem);line-height:1.03;margin:12px 0;color:#fff}.prequalIntro p,.prequalAccess p{font-size:1.08rem;color:#b8d0d6;line-height:1.65}
+.prequalNotice{display:inline-flex;margin-top:12px;padding:10px 14px;border-radius:9px;background:rgba(111,52,182,.24);border:1px solid rgba(196,167,255,.3);color:#e5d9ff}
+.prequalCard{background:rgba(11,29,38,.88);border:1px solid rgba(91,192,205,.24);box-shadow:0 24px 80px rgba(0,0,0,.24);border-radius:22px;padding:28px;backdrop-filter:blur(14px)}
+.prequalAccess{width:min(580px,100%);margin:7vh auto}.prequalAccess .prequalEyebrow{margin-top:30px}.prequalAccess .prequalSecondary{display:inline-block;margin-top:20px}
+.prequalForm{display:grid;gap:20px}.prequalGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.prequalForm label{display:grid;gap:8px;color:#d8edf1;font-weight:750}.prequalForm input,.prequalForm select{width:100%;border:1px solid rgba(141,202,211,.28);background:#102832;color:#f0fbfd;border-radius:12px;padding:14px;font:inherit;outline:none}.prequalForm input:focus,.prequalForm select:focus{border-color:#c4a7ff;box-shadow:0 0 0 3px rgba(124,58,237,.2)}
+.prequalPrimary{justify-self:start;border:0;border-radius:13px;padding:15px 24px;background:linear-gradient(135deg,#4c1d95,#7c3aed);color:#fff;font-size:1rem;font-weight:900;cursor:pointer;box-shadow:0 10px 30px rgba(76,29,149,.35)}.prequalPrimary:disabled{opacity:.65;cursor:wait}
+.prequalError{border:1px solid rgba(251,113,133,.48);background:rgba(136,19,55,.25);color:#fecdd3;border-radius:11px;padding:12px 14px}
+.prequalResult{margin-top:24px}.prequalResult>div:nth-child(2){margin:18px 0}.prequalResult h2{margin:0;color:#fff}.prequalStatus{display:inline-flex;border-radius:99px;padding:10px 15px;font-weight:900}.status-prequalified{background:rgba(21,128,61,.25);color:#86efac}.status-conditional{background:rgba(161,98,7,.28);color:#fde68a}.status-manual-review{background:rgba(194,65,12,.26);color:#fdba74}.status-not-prequalified{background:rgba(185,28,28,.26);color:#fda4af}
+.prequalMetrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.prequalMetrics>div{display:grid;gap:8px;background:#102832;border:1px solid rgba(141,202,211,.15);padding:16px;border-radius:14px}.prequalMetrics span{color:#9fbdc5;font-size:.82rem}.prequalMetrics b{color:#fff;font-size:1.08rem;text-transform:capitalize}
+.prequalCapacity{margin-top:16px;padding:18px;border-radius:14px;background:rgba(76,29,149,.22);border:1px solid rgba(196,167,255,.22)}.prequalCapacity h3{margin-top:0}.prequalCapacity p{color:#c6dce1;line-height:1.55}
+.prequalColumns{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}.prequalColumns>div{background:#0e232c;padding:18px;border-radius:14px}.prequalColumns h3{margin-top:0}.prequalColumns li{margin:8px 0;color:#c6dce1;line-height:1.5}.prequalResult small{color:#86a7af}
+@media(max-width:760px){.prequalPage{padding:18px 12px}.prequalHeader{align-items:flex-start}.prequalHeader>div:first-child{display:grid;gap:3px}.prequalUser span{display:none}.prequalCard{padding:20px}.prequalGrid,.prequalColumns{grid-template-columns:1fr}.prequalMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
