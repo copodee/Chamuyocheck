@@ -11,13 +11,28 @@ export async function authenticatePrequalificationRequest(request: Request): Pro
   const config = getPrequalificationSupabaseConfig();
   if (!config) return { ok: false, status: 503, error: 'El Supabase exclusivo de Precalificación todavía no está conectado.' };
   const client = createClient(config.url, config.publicKey, {
-    accessToken: async () => token,
     auth: { persistSession: false, autoRefreshToken: false },
-  } as any);
+  });
   const { data, error } = await client.auth.getUser(token);
   if (error || !data.user) return { ok: false, status: 401, error: 'La sesión venció o no es válida.' };
-  const { data: memberships, error: membershipError } = await client
-    .rpc('get_prequal_access');
+  let memberships: Array<{ organization_id: string; role: string }> = [];
+  let membershipError = false;
+  try {
+    const membershipResponse = await fetch(`${config.url}/rest/v1/rpc/get_prequal_access`, {
+      method: 'POST',
+      headers: {
+        apikey: config.publicKey,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+      signal: AbortSignal.timeout(8_000),
+    });
+    membershipError = !membershipResponse.ok;
+    if (membershipResponse.ok) memberships = await membershipResponse.json();
+  } catch {
+    membershipError = true;
+  }
   const membership = memberships?.[0];
   if (membershipError || !membership) {
     return { ok: false, status: 403, error: 'Tu cuenta existe, pero no está autorizada para Precalificación.' };
