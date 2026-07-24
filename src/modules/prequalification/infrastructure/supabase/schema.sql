@@ -75,6 +75,17 @@ as $$
   );
 $$;
 
+create or replace function public.get_prequal_access()
+returns table (organization_id uuid, role text)
+language sql stable security definer set search_path = ''
+as $$
+  select membership.organization_id, membership.role
+  from public.prequal_memberships as membership
+  where membership.user_id = auth.uid()
+    and membership.active = true
+  limit 1;
+$$;
+
 drop policy if exists "members read organizations" on public.prequal_organizations;
 create policy "members read organizations" on public.prequal_organizations
 for select using (public.is_active_member(id));
@@ -110,8 +121,10 @@ for insert with check (
 
 revoke all on function public.is_active_member(uuid) from public, anon;
 revoke all on function public.is_administrator(uuid) from public, anon;
+revoke all on function public.get_prequal_access() from public, anon;
 grant execute on function public.is_active_member(uuid) to authenticated;
 grant execute on function public.is_administrator(uuid) to authenticated;
+grant execute on function public.get_prequal_access() to authenticated;
 
 -- Tras crear el primer usuario desde Authentication > Users:
 -- insert into public.prequal_organizations (name) values ('LeasingScoring Administración') returning id;
