@@ -10,7 +10,14 @@ function resultOf(payload: JsonRecord): JsonRecord {
 }
 
 function positionsFrom(result: JsonRecord, historical = false): CreditPosition[] {
-  const periods = historical ? result?.periodos || [] : [result];
+  // Both the current and historical BCRA endpoints return a `periodos`
+  // collection. Older examples exposed current entities at the root, so keep
+  // that format as a backwards-compatible fallback.
+  const periods = Array.isArray(result?.periodos) && result.periodos.length
+    ? historical
+      ? result.periodos
+      : [result.periodos[0]]
+    : [result];
   return periods.flatMap((period: JsonRecord) =>
     (period?.entidades || []).map((item: JsonRecord) => ({
       entity: String(item.entidad || item.denominacion || 'Entidad no informada'),

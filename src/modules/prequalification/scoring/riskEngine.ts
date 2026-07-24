@@ -93,6 +93,14 @@ export function evaluatePrequalification(
     maximumSituation,
     currentSituation: currentMaximum,
     rejectedChecks: report.rejectedChecks.length,
+    currentPositions: report.current.map((item) => ({
+      entity: item.entity,
+      period: item.period,
+      situation: item.situation,
+      debtAmount: item.debtAmount,
+      daysPastDue: item.daysPastDue,
+      refinancedOrObserved: item.underReview || item.judicialProcess,
+    })),
     paymentCapacity: {
       status: 'not-estimable',
       explanation: 'El BCRA informa comportamiento y deuda, pero no ingresos ni flujo disponible. La capacidad de pago real se calculará en la segunda etapa o con un proveedor de ingresos autorizado.',

@@ -9,7 +9,7 @@ test('normaliza deuda BCRA expresada en miles de pesos', async () => {
       ? { periodos: [{ periodo: '202605', entidades: [{ entidad: 'Banco A', situacion: 2, monto: 12 }] }] }
       : path.includes('ChequesRechazados')
         ? { causales: [] }
-        : { identificacion: 30712345677, denominacion: 'Empresa', periodo: '202606', entidades: [{ entidad: 'Banco A', situacion: 1, monto: 10, diasAtrasoPago: 0 }] };
+        : { identificacion: 30712345677, denominacion: 'Empresa', periodos: [{ periodo: '202606', entidades: [{ entidad: 'Banco A', situacion: 1, monto: 10, diasAtrasoPago: 0 }] }] };
     return new Response(JSON.stringify({ results }), { status: 200 });
   };
   const result = await new BcraCreditProvider(fetcher as typeof fetch, 'https://test.local').getCreditReport('30712345671');

@@ -69,6 +69,14 @@ export type PrequalificationResult = {
   maximumSituation: number | null;
   currentSituation: number | null;
   rejectedChecks: number;
+  currentPositions: Array<{
+    entity: string;
+    period: string;
+    situation: number;
+    debtAmount: number;
+    daysPastDue: number;
+    refinancedOrObserved: boolean;
+  }>;
   paymentCapacity: PaymentCapacity;
   conditions: string[];
   reasons: string[];

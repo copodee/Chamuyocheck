@@ -150,6 +150,14 @@ export default function PrequalificationPage() {
         <div><span>Cheques rechazados</span><b>{result.result.rejectedChecks}</b></div>
       </div>
       <div className="prequalCapacity"><h3>Capacidad de pago</h3><p>{result.result.paymentCapacity.explanation}</p><b>Exposición solicitada: {money.format(result.result.paymentCapacity.requestedExposure)}</b></div>
+      <div className="prequalEntityDetail">
+        <h3>Detalle vigente informado por el BCRA</h3>
+        {result.result.currentPositions.length
+          ? <div className="prequalTableWrap"><table><thead><tr><th>Entidad</th><th>Período</th><th>Situación</th><th>Deuda informada</th><th>Días de atraso</th><th>Observaciones</th></tr></thead><tbody>
+            {result.result.currentPositions.map((position, index) => <tr key={`${position.entity}-${position.period}-${index}`}><td>{position.entity}</td><td>{position.period}</td><td>{position.situation}</td><td>{money.format(position.debtAmount)}</td><td>{position.daysPastDue}</td><td>{position.refinancedOrObserved ? 'Requiere revisión' : 'Sin observaciones críticas informadas'}</td></tr>)}
+          </tbody><tfoot><tr><th colSpan={3}>Total</th><th>{money.format(result.result.totalDebt)}</th><th colSpan={2}>{result.result.creditorCount} entidad(es)</th></tr></tfoot></table></div>
+          : <p>No se recibieron posiciones vigentes. El historial puede contener deudas de meses anteriores ya canceladas o no informadas en el último período.</p>}
+      </div>
       <div className="prequalColumns"><div><h3>Fundamentos</h3><ul>{result.result.reasons.map((item) => <li key={item}>{item}</li>)}</ul></div><div><h3>Condiciones y próximos pasos</h3><ul>{result.result.conditions.map((item) => <li key={item}>{item}</li>)}</ul></div></div>
       <small>{result.disclaimer} · Modelo {result.result.modelVersion}</small>
     </section>}
