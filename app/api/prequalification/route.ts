@@ -43,9 +43,9 @@ export async function POST(request: Request) {
     const config = getPrequalificationSupabaseConfig();
     if (config) {
       const persistenceClient = createClient(config.url, config.publicKey, {
+        accessToken: async () => authentication.token,
         auth: { persistSession: false, autoRefreshToken: false },
-        global: { headers: { Authorization: `Bearer ${authentication.token}` } },
-      });
+      } as any);
       const subjectHash = Buffer.from(
         await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cuit)),
       ).toString('hex');

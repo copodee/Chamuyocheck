@@ -11,8 +11,9 @@ export async function authenticatePrequalificationRequest(request: Request): Pro
   const config = getPrequalificationSupabaseConfig();
   if (!config) return { ok: false, status: 503, error: 'El Supabase exclusivo de Precalificación todavía no está conectado.' };
   const client = createClient(config.url, config.publicKey, {
+    accessToken: async () => token,
     auth: { persistSession: false, autoRefreshToken: false },
-  });
+  } as any);
   const { data, error } = await client.auth.getUser(token);
   if (error || !data.user) return { ok: false, status: 401, error: 'La sesión venció o no es válida.' };
   const { data: memberships, error: membershipError } = await client
