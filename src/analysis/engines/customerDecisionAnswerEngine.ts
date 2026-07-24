@@ -9,7 +9,7 @@ import { estimateProvincialContractStamp, LEASING_TAXPAYER_PROFILES, PROVINCIAL_
 import { calculateFinancialLeasing, calculateQuotedLeasingCashflow } from '../../lib/leasing/leasingFinanceMath';
 import { extractLeasingQuoteData } from '../../lib/leasing/leasingQuoteExtraction';
 import { extractLeasingNaturalLanguage } from '../../lib/leasing/leasingNaturalLanguage';
-import { estimateBuenosAiresVehiclePatent2026 } from '../../lib/leasing/vehiclePatent';
+import { estimateBuenosAiresVehiclePatent2026, estimateCabaVehiclePatent2026 } from '../../lib/leasing/vehiclePatent';
 import { LEASING_TYPE_GUIDE, MUNICIPAL_TAX_GUARDRAIL, NATIONAL_LEASING_RULES, minimumFinancialLeaseMonths } from '../../lib/leasing/argentinaLeasingSpecialist';
 import { classifyUserDecisionIntent } from './userDecisionIntent';
 
@@ -759,6 +759,9 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
   const buenosAiresPatent = fiscalValuation && asksBuenosAiresPatent
     ? estimateBuenosAiresVehiclePatent2026(fiscalValuation, { isNew: /\b0\s*km\b|\bnuevo\b/i.test(normalizedQuestion) })
     : null;
+  const asksCabaPatent = /(?:ciudad\s+autonoma\s+de\s+buenos\s+aires|\bcaba\b|\bagip\b)/i.test(normalizedQuestion)
+    && /patente|valuacion\s+fiscal/i.test(normalizedQuestion);
+  const cabaPatent = fiscalValuation && asksCabaPatent ? estimateCabaVehiclePatent2026(fiscalValuation) : null;
   const quotedCashflow = quoteData?.assetValueNet !== undefined
     && quoteData.months !== undefined
     && quoteData.regularCanonCount !== undefined
@@ -845,6 +848,11 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
   if (buenosAiresPatent) {
     financialCaseFindings.push(
       `Patente Provincia de Buenos Aires 2026 estimada: $ ${amount(buenosAiresPatent.annualTax)} anual sobre base imponible $ ${amount(buenosAiresPatent.taxableBase)}. Se partió de valuación fiscal $ ${amount(buenosAiresPatent.valuation)} y coeficiente ${buenosAiresPatent.isNew ? '1,00 para 0 km' : '0,95 para usado'}; no incluye actualizaciones de cuotas impagas, bonificaciones ni exenciones.`,
+    );
+  }
+  if (cabaPatent) {
+    financialCaseFindings.push(
+      `Patente CABA 2026 estimada: $ ${amount(cabaPatent.annualTax)} anual sobre valuación fiscal $ ${amount(cabaPatent.valuation)} (tasa efectiva ${decimal(cabaPatent.effectiveRatePercent)}%). Incluye el incremento del 10% destinado al Fondo Subte y respeta el tope efectivo del 6% y el mínimo anual de $ 13.300. La liquidación real puede ser menor por el límite transitorio ligado al IPCBA 2025, bonificaciones, pagos previos o exenciones; para aplicar ese límite hace falta la patente 2025 del mismo vehículo.`,
     );
   }
   const profilesToReport = PROVINCIAL_LEASING_STAMP_MATRIX.filter((item) =>

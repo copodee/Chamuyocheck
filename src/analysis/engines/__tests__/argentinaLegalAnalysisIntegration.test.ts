@@ -235,3 +235,13 @@ test('leasing analiza texto móvil, estima lo conocido y reclama la opción falt
   assert.match(findings, /importe o porcentaje de la opción de compra/is);
   assert.match(findings, /provincia de radicación.*valuación fiscal DNRPA/is);
 });
+
+test('leasing calcula patente CABA cuando recibe la valuación fiscal', () => {
+  const result = buildLocalAnalysis(
+    'Calculá la patente en CABA. Valuación fiscal: 20000000.',
+    'Texto', '', null, '', '', 'leasing-specialist',
+  );
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /Patente CABA 2026 estimada: \$ 698\.692,5 anual/is);
+  assert.match(findings, /Fondo Subte.*tope efectivo del 6%.*IPCBA 2025/is);
+});
