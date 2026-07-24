@@ -8,6 +8,8 @@ import { buildInternationalLeasingFindings } from '../../lib/leasing/internation
 import { estimateProvincialContractStamp, LEASING_TAXPAYER_PROFILES, PROVINCIAL_LEASING_STAMP_MATRIX } from '../../lib/leasing/argentinaLeasingTaxMatrix';
 import { calculateFinancialLeasing, calculateQuotedLeasingCashflow } from '../../lib/leasing/leasingFinanceMath';
 import { extractLeasingQuoteData } from '../../lib/leasing/leasingQuoteExtraction';
+import { extractLeasingNaturalLanguage } from '../../lib/leasing/leasingNaturalLanguage';
+import { estimateBuenosAiresVehiclePatent2026 } from '../../lib/leasing/vehiclePatent';
 import { LEASING_TYPE_GUIDE, MUNICIPAL_TAX_GUARDRAIL, NATIONAL_LEASING_RULES, minimumFinancialLeaseMonths } from '../../lib/leasing/argentinaLeasingSpecialist';
 import { classifyUserDecisionIntent } from './userDecisionIntent';
 
@@ -731,17 +733,18 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     const value = Number(normalized);
     return Number.isFinite(value) ? value : null;
   };
-  const assetValue = numericField('Valor del bien sin IVA') ?? numericField('Valor del bien');
-  const financedPercent = numericField('Porcentaje financiado');
-  const months = numericField('Plazo');
-  const tna = numericField('TNA');
+  const naturalData = extractLeasingNaturalLanguage(question);
+  const assetValue = numericField('Valor del bien sin IVA') ?? numericField('Valor del bien') ?? naturalData.assetValue ?? null;
+  const financedPercent = numericField('Porcentaje financiado') ?? naturalData.financedPercent ?? null;
+  const months = numericField('Plazo') ?? naturalData.months ?? null;
+  const tna = numericField('TNA') ?? naturalData.annualNominalRatePercent ?? null;
   const optionPercentField = numericField('Opción de compra porcentual');
   const optionAmountField = numericField('Opción de compra importe fijo');
   const optionPercent = optionPercentField !== null
     ? optionPercentField
     : assetValue && optionAmountField !== null
       ? optionAmountField / assetValue * 100
-      : null;
+      : naturalData.optionPercent ?? (assetValue && naturalData.optionAmount !== undefined ? naturalData.optionAmount / assetValue * 100 : null);
   const guaranteeCanons = numericField('Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas');
   const structuringFeePercent = numericField('Gasto de estructuración');
   const quoteData = extractLeasingQuoteData(question);
@@ -750,6 +753,12 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     : null;
   const amount = (value: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(value);
   const decimal = (value: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 4 }).format(value);
+  const fiscalValuation = numericField('Valuación fiscal DNRPA') ?? numericField('Valuación fiscal');
+  const asksBuenosAiresPatent = /(?:provincia\s+de\s+buenos\s+aires|\bpba\b|\barba\b)/i.test(normalizedQuestion)
+    && /patente|valuacion\s+fiscal/i.test(normalizedQuestion);
+  const buenosAiresPatent = fiscalValuation && asksBuenosAiresPatent
+    ? estimateBuenosAiresVehiclePatent2026(fiscalValuation, { isNew: /\b0\s*km\b|\bnuevo\b/i.test(normalizedQuestion) })
+    : null;
   const quotedCashflow = quoteData?.assetValueNet !== undefined
     && quoteData.months !== undefined
     && quoteData.regularCanonCount !== undefined
@@ -811,8 +820,33 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     `Gasto de estructuración: ${decimal(structuringFeePercent)}% del valor financiado, equivalente a ${amount(financeResult.structuringFee)}. Debe confirmarse si se paga aparte, se financia o lleva IVA.`,
     financeResult.lessorEffectiveAnnualIrrPercent === null ? 'No pudo determinarse una TIR única del dador con este flujo.' : `TIR estimada del dador incorporando garantía y gasto inicial: ${financeResult.lessorMonthlyIrrPercent?.toFixed(3)}% mensual; ${(financeResult.lessorEffectiveAnnualIrrPercent).toFixed(3)}% efectiva anual. No incluye IVA ni impuestos no cuantificados.`,
   ] : [
-    'Para calcular el caso práctico faltan uno o más datos: valor del bien, porcentaje financiado, plazo, TNA, opción, cánones de garantía o gasto de estructuración. El sistema usa leasing financiero y sistema francés sólo cuando esos campos están completos.',
+    ...(assetValue && financedPercent !== null && months && tna !== null ? (() => {
+      const monthlyRate = tna / 100 / 12;
+      const financedAmount = assetValue * financedPercent / 100;
+      const preliminaryCanon = monthlyRate === 0
+        ? financedAmount / months
+        : financedAmount * monthlyRate / (1 - ((1 + monthlyRate) ** -months));
+      const maxiCanon = naturalData.maxiCanonPercent !== undefined ? assetValue * naturalData.maxiCanonPercent / 100 : assetValue - financedAmount;
+      return [
+        `Datos reconocidos del texto: bien $ ${amount(assetValue)}, maxi canon $ ${amount(maxiCanon)}${naturalData.maxiCanonPercent !== undefined ? ` (${decimal(naturalData.maxiCanonPercent)}%)` : ''}, saldo financiado $ ${amount(financedAmount)}, ${months} cuotas y TNA ${decimal(tna)}%.`,
+        `Estimación parcial sin opción de compra: canon mensual $ ${amount(preliminaryCanon)} y desembolso acumulado $ ${amount(maxiCanon + preliminaryCanon * months)}. No es el total final porque todavía faltan la opción de compra y los cargos o impuestos aplicables.`,
+      ];
+    })() : []),
+    `Para cerrar el cálculo faltan: ${[
+      !assetValue ? 'valor del bien' : '',
+      financedPercent === null ? 'porcentaje financiado o maxi canon' : '',
+      !months ? 'cantidad de cuotas' : '',
+      tna === null ? 'TNA' : '',
+      optionPercent === null ? 'importe o porcentaje de la opción de compra' : '',
+      guaranteeCanons === null ? 'cánones de garantía (si existen)' : '',
+      structuringFeePercent === null ? 'gasto de estructuración (si existe)' : '',
+    ].filter(Boolean).join(', ')}. Indicá también provincia de radicación, marca/modelo/año o valuación fiscal DNRPA para calcular patente, más IVA, seguro y gastos registrales.`,
   ];
+  if (buenosAiresPatent) {
+    financialCaseFindings.push(
+      `Patente Provincia de Buenos Aires 2026 estimada: $ ${amount(buenosAiresPatent.annualTax)} anual sobre base imponible $ ${amount(buenosAiresPatent.taxableBase)}. Se partió de valuación fiscal $ ${amount(buenosAiresPatent.valuation)} y coeficiente ${buenosAiresPatent.isNew ? '1,00 para 0 km' : '0,95 para usado'}; no incluye actualizaciones de cuotas impagas, bonificaciones ni exenciones.`,
+    );
+  }
   const profilesToReport = PROVINCIAL_LEASING_STAMP_MATRIX.filter((item) =>
     item.jurisdiction === 'Buenos Aires'
       ? normalizedQuestion.replaceAll('ciudad autonoma de buenos aires', '').includes('buenos aires')
@@ -858,7 +892,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       else jurisdictionLines.push(`${item.jurisdiction} — Exenciones: no hay una exención confirmada para aplicar automáticamente al caso.`);
       return jurisdictionLines;
     }),
-    `Registración de ${assetKind}: arancel registral, certificaciones, informes, alta o radicación y gestoría. Para automotores corresponde DNRPA; embarcaciones, Prefectura Naval; aeronaves, Registro Nacional de Aeronaves.`,
+    `Registración de ${assetKind}: arancel registral, certificaciones, informes, alta o radicación y gestoría. Para automotores corresponde consultar la Tabla de Valuación DNRPA vigente por marca, modelo, tipo y año; esa valuación sirve de referencia registral, mientras la patente anual se determina con la base, escala, uso y beneficios de la jurisdicción de radicación. Embarcaciones: Prefectura Naval; aeronaves: Registro Nacional de Aeronaves.`,
     'Uso durante el contrato: patente o tributo de radicación, seguro, mantenimiento, reparaciones, inspecciones, guarda, multas y tasas locales según el bien y la cláusula contractual.',
     'Finalización: gastos de cancelación o inscripción, ejercicio de la opción, transferencia de dominio y tributos propios de esa transferencia. El impuesto pagado sobre cánones sólo se toma a cuenta cuando la norma provincial lo permite.',
   ];

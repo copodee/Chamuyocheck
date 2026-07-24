@@ -224,3 +224,14 @@ test('leasing acepta gasto de estructuración decimal escrito con coma', () => {
   const findings = result.decisionAnswer?.findings.join(' ') || '';
   assert.match(findings, /Gasto de estructuración: 4,5%.*3\.600\.000/is);
 });
+
+test('leasing analiza texto móvil, estima lo conocido y reclama la opción faltante', () => {
+  const prompt = 'Me ofrecen comprar un auto de 5000000 me piden un maxicanon de 10% y 36 cuotas por el resto al 38% tna mas la opción de compra. Cuanto termino pagando?';
+  const result = buildLocalAnalysis(prompt, 'Texto', '', null, '', '', 'leasing-specialist');
+  const findings = result.decisionAnswer?.findings.join(' ') || '';
+  assert.match(findings, /bien \$ 5\.000\.000.*maxi canon \$ 500\.000.*saldo financiado \$ 4\.500\.000/is);
+  assert.match(findings, /36 cuotas.*TNA 38%/is);
+  assert.match(findings, /Estimación parcial sin opción de compra.*canon mensual/is);
+  assert.match(findings, /importe o porcentaje de la opción de compra/is);
+  assert.match(findings, /provincia de radicación.*valuación fiscal DNRPA/is);
+});

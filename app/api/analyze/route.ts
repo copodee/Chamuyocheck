@@ -1057,10 +1057,6 @@ export async function handleAnalyzeRequest(req: Request) {
     const legalBranch: LegalBranchPreference = ['civil', 'commercial', 'family', 'succession', 'criminal', 'administrative', 'labor', 'tax'].includes(legalBranchRaw)
       ? legalBranchRaw as LegalBranchPreference
       : 'auto';
-    if (selectedCategory === 'leasing-specialist' && !leasingProvince) {
-      return NextResponse.json({ error: 'Elegí la provincia principal del leasing antes de analizar.' }, { status: 400 });
-    }
-
     let fileName = '';
     let fileType = '';
     let extracted = '';

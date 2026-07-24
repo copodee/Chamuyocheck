@@ -832,7 +832,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setInstructionError('');
   }
 
-  async function analyze({ allowMissingLeasingProvince = false }: { allowMissingLeasingProvince?: boolean } = {}) {
+  async function analyze() {
     if (!session) {
       setAuthError('Registrate o iniciá sesión para realizar el análisis.');
       document.getElementById('registro')?.scrollIntoView({ behavior: 'smooth' });
@@ -858,10 +858,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       legalJurisdictionRef.current?.focus();
       return;
     }
-    if (selectedCategory === 'leasing-specialist' && !leasingProvince && !allowMissingLeasingProvince) {
-      setLeasingProvinceError('Elegí la provincia principal del leasing antes de analizar.');
-      return;
-    }
+    setLeasingProvinceError('');
     setCategoryError('');
     setInstructionError('');
     if (!termsAccepted) {
@@ -891,16 +888,18 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         if (leasingComparisonProvince) form.append('leasingComparisonProvince', leasingComparisonProvince);
         form.append('leasingQuoteUploaded', file ? 'true' : 'false');
         if (!file) {
-          form.append('leasingAssetType', leasingAssetType);
-          form.append('leasingAssetValue', leasingAssetValue);
-          form.append('leasingFinancedPercent', leasingFinancedPercent);
-          form.append('leasingMonths', leasingMonths);
-          form.append('leasingTna', leasingTna);
-          form.append('leasingOptionPercent', leasingOptionPercent);
-          form.append('leasingOptionMode', leasingOptionMode);
-          form.append('leasingOptionAmount', leasingOptionAmount);
-          form.append('leasingGuaranteeCanons', leasingGuaranteeCanons);
-          form.append('leasingStructuringFeePercent', leasingStructuringFeePercent);
+          if (leasingConfirmedFields.has('assetType')) form.append('leasingAssetType', leasingAssetType);
+          if (leasingAssetValue.trim()) form.append('leasingAssetValue', leasingAssetValue);
+          if (leasingConfirmedFields.has('financedPercent')) form.append('leasingFinancedPercent', leasingFinancedPercent);
+          if (leasingConfirmedFields.has('months')) form.append('leasingMonths', leasingMonths);
+          if (leasingTna.trim()) form.append('leasingTna', leasingTna);
+          if (leasingConfirmedFields.has('option')) {
+            form.append('leasingOptionMode', leasingOptionMode);
+            if (leasingOptionMode === 'percent') form.append('leasingOptionPercent', leasingOptionPercent);
+            else form.append('leasingOptionAmount', leasingOptionAmount);
+          }
+          if (leasingConfirmedFields.has('guaranteeCanons')) form.append('leasingGuaranteeCanons', leasingGuaranteeCanons);
+          if (leasingConfirmedFields.has('structuringFee')) form.append('leasingStructuringFeePercent', leasingStructuringFeePercent);
         }
       }
       form.append('termsAccepted', 'true');
@@ -1010,7 +1009,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     }
     leasingAutoRunStartedRef.current = true;
     setPendingLeasingAutoRun(false);
-    void analyze({ allowMissingLeasingProvince: true });
+    void analyze();
   }, [leasingPage, pendingLeasingAutoRun, sessionLoading, termsReady, session, termsAccepted, text]);
 
   const score = analysis?.score ?? 35;
@@ -1510,7 +1509,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             {instructionError && <div className="termsError" role="alert">{instructionError}</div>}
             <div className="termsConsent"><input id="terms-consent" type="checkbox" checked={termsAccepted} onChange={(e) => e.target.checked ? acceptCurrentTerms() : revokeTermsAcceptance()} /><label htmlFor="terms-consent">Leí y acepto los <button type="button" className="termsLink" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>Términos y Condiciones</button> (versión {TERMS_VERSION}).</label></div>
             {termsError && <div className="termsError" role="alert">{termsError}</div>}
-            <div className="ctaRow"><button type="button" className="primary" onClick={() => void analyze()} disabled={loading || sessionLoading || !selectedCategory || !text.trim() || (selectedCategory === 'leasing-specialist' && !leasingProvince)}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">{session ? `Entrada: ${getInputLabel(detected, Boolean(file))}` : 'Registrate para analizar'}</span></div>
+            <div className="ctaRow"><button type="button" className="primary" onClick={() => void analyze()} disabled={loading || sessionLoading || !selectedCategory || !text.trim()}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">{session ? `Entrada: ${getInputLabel(detected, Boolean(file))}` : 'Registrate para analizar'}</span></div>
             {session && <div className="betaAccessNote">Beta completa activa: sin límites ni cobros.</div>}
             {loading && <div className="loading">{steps.map((s, i) => <p key={i}>{s}</p>)}</div>}
             </div>
