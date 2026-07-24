@@ -169,6 +169,40 @@ grant execute on function public.is_administrator(uuid) to authenticated;
 grant execute on function public.get_prequal_access() to authenticated;
 grant usage, select on sequence public.prequal_case_number_seq to authenticated;
 
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'prequalification-documents',
+  'prequalification-documents',
+  false,
+  20971520,
+  array['application/pdf', 'image/jpeg', 'image/png']
+)
+on conflict (id) do update set
+  public = false,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "members upload prequalification documents" on storage.objects;
+create policy "members upload prequalification documents" on storage.objects
+for insert to authenticated with check (
+  bucket_id = 'prequalification-documents'
+  and public.is_active_member(((storage.foldername(name))[1])::uuid)
+);
+
+drop policy if exists "members read prequalification documents" on storage.objects;
+create policy "members read prequalification documents" on storage.objects
+for select to authenticated using (
+  bucket_id = 'prequalification-documents'
+  and public.is_active_member(((storage.foldername(name))[1])::uuid)
+);
+
+drop policy if exists "members delete prequalification documents" on storage.objects;
+create policy "members delete prequalification documents" on storage.objects
+for delete to authenticated using (
+  bucket_id = 'prequalification-documents'
+  and public.is_active_member(((storage.foldername(name))[1])::uuid)
+);
+
 -- Tras crear el primer usuario desde Authentication > Users:
 -- insert into public.prequal_organizations (name) values ('LeasingScoring Administración') returning id;
 -- insert into public.prequal_memberships (user_id, organization_id, role)

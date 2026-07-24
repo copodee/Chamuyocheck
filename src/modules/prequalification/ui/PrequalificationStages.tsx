@@ -77,7 +77,13 @@ export function PrequalificationStages(props: Props) {
           extractedText = extraction.text;
           if (economic.profile === 'legal-entity') balanceText += `\n${extractedText}`;
         }
-        added.push({ id: crypto.randomUUID(), stage: stage === 3 ? 3 : 2, kind: economic.profile, name: file.name, size: file.size, extractedText, status: extractedText ? 'read' : 'uploaded' });
+        const documentStage = stage === 3 ? 3 : 2;
+        const upload = new FormData();
+        upload.append('file', file); upload.append('caseId', props.caseId || ''); upload.append('stage', String(documentStage));
+        const uploadResponse = await fetch('/api/prequalification/document', { method: 'POST', headers: { Authorization: `Bearer ${props.session.access_token}` }, body: upload });
+        const uploadData = await uploadResponse.json();
+        if (!uploadResponse.ok) throw new Error(uploadData.error || 'No se pudo guardar el documento.');
+        added.push({ id: crypto.randomUUID(), stage: documentStage, kind: economic.profile, name: file.name, size: file.size, extractedText, storagePath: uploadData.storagePath, status: extractedText ? 'read' : 'uploaded' });
       }
       setDocuments((current) => [...current, ...added]);
       if (balanceText) setBalance(extractBalanceData(balanceText));
