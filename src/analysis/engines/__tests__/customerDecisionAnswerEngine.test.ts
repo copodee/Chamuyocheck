@@ -6,6 +6,23 @@ import { analyzeArgentinaLegal } from '../../../lib/legal/argentinaLegalAnalysis
 import { analyzeInvestmentProject } from '../../../lib/investments/investmentProjectAnalysis';
 import { buildCustomerDecisionAnswer, enrichDecisionAnswerWithExternalEvidence } from '../customerDecisionAnswerEngine';
 
+test('responde la consulta BYD con total y tasas implícitas sin exigir una TNA informada', () => {
+  const question = 'Voy a comprar un auto BYD Dolphin que vale 35000000 de pesos. Pongo 10$ de maxicanon y el resto en 36 cuotas de 1500000 de pesos. La 37 es la opción de compra de un 3%. ¿Cuál es la tasa que pago?';
+  const answer = buildCustomerDecisionAnswer({
+    documentText: question,
+    userInstruction: question,
+    selectedCategory: 'leasing-specialist',
+    financialAnalysis: null,
+    scamRiskAnalysis: analyzeScamRisk(''),
+    argentinaLegalAnalysis: analyzeArgentinaLegal(''),
+  });
+  const rendered = [answer.directAnswer, ...answer.findings].join(' ');
+  assert.match(answer.directAnswer, /Costo total visible: \$ 58\.550\.000/i);
+  assert.match(rendered, /TIR mensual.*TNA implícita.*TIR efectiva anual/is);
+  assert.match(rendered, /“10\$ de maxi canon” como 10%/i);
+  assert.doesNotMatch(answer.directAnswer, /faltan datos/i);
+});
+
 test('la categoría elegida gobierna el tipo de respuesta aunque la redacción sea genérica', () => {
   const baseText = 'Necesito analizar esta propuesta y saber qué información falta.';
   const legal = analyzeArgentinaLegal(baseText, true, baseText, 'civil', 'CABA');

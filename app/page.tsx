@@ -7,6 +7,7 @@ import { extractImageTextInBrowser } from '../src/lib/extractors/browserOcr';
 import { extractPdfTextInBrowser } from '../src/lib/extractors/browserPdfOcr';
 import { getSupabaseClient } from '../src/lib/supabase/client';
 import { buildLeasingTransparencyEvidence, calculateLeasingTransparencyScore } from '../src/lib/leasing/leasingTransparencyScore';
+import { PROVINCIAL_LEASING_STAMP_MATRIX } from '../src/lib/leasing/argentinaLeasingTaxMatrix';
 import type { Session } from '@supabase/supabase-js';
 
 const IS_LEASING_SITE = process.env.NEXT_PUBLIC_SITE_MODE === 'leasing';
@@ -586,6 +587,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [showDetailedResults, setShowDetailedResults] = useState(true);
   const [leasingHubProvinceA, setLeasingHubProvinceA] = useState('Ciudad Autónoma de Buenos Aires');
   const [leasingHubProvinceB, setLeasingHubProvinceB] = useState('Buenos Aires');
+  const [leasingCompareMode, setLeasingCompareMode] = useState<'provinces' | 'types' | 'pledge'>('provinces');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsReady, setTermsReady] = useState(false);
   const [pendingLeasingAutoRun, setPendingLeasingAutoRun] = useState(false);
@@ -1319,8 +1321,9 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   };
   const sendImprovementToAnalysis = () => {
     if (!improveDraft.trim()) return;
-    setSelectedCategory(improveCategory);
-    if (improveCategory !== 'argentina-legal-documents') {
+    const category = leasingPage ? 'leasing-specialist' : improveCategory;
+    setSelectedCategory(category);
+    if (category !== 'argentina-legal-documents') {
       setLegalBranch(null);
       setLegalJurisdiction('');
     }
@@ -1328,8 +1331,20 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setActiveInput('Texto');
     setActiveView('inicio');
   };
-  const sectionTitle = activeView === 'leasing' ? 'Centro de Leasing' : activeView === 'historial' ? 'Historial' : activeView === 'favoritos' ? 'Favoritos' : activeView === 'plantillas' ? 'Plantillas' : activeView === 'comparar' ? 'Comparar' : activeView === 'mejorar' ? 'Mejorar documento' : activeView === 'ajustes' ? 'Ajustes' : activeView === 'ayuda' ? 'Ayuda' : 'Inicio';
-  const sectionHint = activeView === 'leasing' ? 'Aprendé el instrumento, compará alternativas y prepará una consulta experta.' : activeView === 'historial' ? 'Se muestra el historial local guardado en este navegador.' : activeView === 'favoritos' ? 'Resultados importantes guardados en este navegador.' : activeView === 'plantillas' ? 'Consultas preparadas para iniciar análisis frecuentes.' : activeView === 'comparar' ? 'Compará dos textos antes de pedir un análisis especializado.' : activeView === 'mejorar' ? 'Prepará un documento para una revisión de claridad, respaldo y riesgos.' : activeView === 'ajustes' ? 'Preferencias locales y control de los datos guardados.' : activeView === 'ayuda' ? 'Guía rápida para obtener respuestas útiles y verificables.' : 'Volvé al formulario principal para cargar un nuevo contenido.';
+  const provinceProfileA = PROVINCIAL_LEASING_STAMP_MATRIX.find((item) => item.jurisdiction === leasingHubProvinceA);
+  const provinceProfileB = PROVINCIAL_LEASING_STAMP_MATRIX.find((item) => item.jurisdiction === leasingHubProvinceB);
+  const provincialRows = [
+    ['Sellos del contrato', provinceProfileA?.stampRatePercent === undefined ? 'Verificar tasa vigente' : `${provinceProfileA.stampRatePercent.toLocaleString('es-AR')}%`, provinceProfileB?.stampRatePercent === undefined ? 'Verificar tasa vigente' : `${provinceProfileB.stampRatePercent.toLocaleString('es-AR')}%`],
+    ['Base y tratamiento', provinceProfileA?.treatment || 'Sin ficha disponible', provinceProfileB?.treatment || 'Sin ficha disponible'],
+    ['Condición de la tasa', provinceProfileA?.stampRateCondition || 'Depende del acto, bien y sujeto', provinceProfileB?.stampRateCondition || 'Depende del acto, bien y sujeto'],
+    ['Ingresos Brutos del dador', provinceProfileA?.grossIncomeRatePercent === undefined ? 'No verificado como tasa específica de leasing' : `${provinceProfileA.grossIncomeRatePercent.toLocaleString('es-AR')}%`, provinceProfileB?.grossIncomeRatePercent === undefined ? 'No verificado como tasa específica de leasing' : `${provinceProfileB.grossIncomeRatePercent.toLocaleString('es-AR')}%`],
+    ['Opción y transferencia', 'Se liquida según el tipo de bien, base fiscal y reglas territoriales indicadas en la ficha.', 'Se liquida según el tipo de bien, base fiscal y reglas territoriales indicadas en la ficha.'],
+    ['Patente automotor', 'Depende de valuación fiscal, radicación, guarda/uso, modelo y año; no es un porcentaje nacional único.', 'Depende de valuación fiscal, radicación, guarda/uso, modelo y año; no es un porcentaje nacional único.'],
+    ['Exenciones y beneficios', provinceProfileA?.exemptions.join(' ') || 'No se verificó una exención general.', provinceProfileB?.exemptions.join(' ') || 'No se verificó una exención general.'],
+    ['Estado de fuente', provinceProfileA?.status === 'verified-current' ? `Verificada para ${provinceProfileA.fiscalYear || 'el período vigente'}` : 'Requiere verificación anual', provinceProfileB?.status === 'verified-current' ? `Verificada para ${provinceProfileB.fiscalYear || 'el período vigente'}` : 'Requiere verificación anual'],
+  ];
+  const sectionTitle = activeView === 'leasing' ? 'Centro de Leasing' : activeView === 'historial' ? 'Historial' : activeView === 'favoritos' ? 'Favoritos' : activeView === 'plantillas' ? 'Plantillas' : activeView === 'comparar' ? 'Comparaciones de leasing' : activeView === 'mejorar' ? 'Mejorar documento' : activeView === 'ajustes' ? 'Ajustes' : activeView === 'ayuda' ? 'Ayuda' : 'Inicio';
+  const sectionHint = activeView === 'leasing' ? 'Aprendé el instrumento, compará alternativas y prepará una consulta experta.' : activeView === 'historial' ? 'Se muestra el historial local guardado en este navegador.' : activeView === 'favoritos' ? 'Resultados importantes guardados en este navegador.' : activeView === 'plantillas' ? 'Consultas preparadas para iniciar análisis frecuentes.' : activeView === 'comparar' ? (leasingPage ? 'Compará jurisdicciones, modalidades y alternativas de financiación.' : 'Compará dos textos antes de pedir un análisis especializado.') : activeView === 'mejorar' ? 'Prepará un documento para una revisión de claridad, respaldo y riesgos.' : activeView === 'ajustes' ? 'Preferencias locales y control de los datos guardados.' : activeView === 'ayuda' ? 'Guía rápida para obtener respuestas útiles y verificables.' : 'Volvé al formulario principal para cargar un nuevo contenido.';
   const userName = String(session?.user.user_metadata?.full_name || session?.user.email || 'Usuario');
   const userInitial = userName.slice(0, 1).toUpperCase();
   const availableCategories = leasingPage
@@ -1344,10 +1359,9 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       <button type="button" className="newBtn" onClick={startNewAnalysis}>＋ {leasingPage ? 'Nuevo leasing' : 'Nuevo análisis'}</button>
       <div className="nav">
         <button type="button" className={activeView === 'inicio' ? 'active' : ''} onClick={openHome}>⌂ Inicio</button>
-        {leasingPage && <button type="button" className={activeView === 'leasing' ? 'active' : ''} onClick={openLeasingHub}>🏗 Leasing</button>}
         <button type="button" className={activeView === 'historial' ? 'active' : ''} onClick={openHistory}>◴ Historial</button>
         <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>
-        <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>
+        {!leasingPage && <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>}
         <button type="button" className={activeView === 'comparar' ? 'active' : ''} onClick={openCompare}>⚖ Comparar</button>
         <button type="button" className={activeView === 'mejorar' ? 'active' : ''} onClick={openImprove}>↑ Mejorar documento</button>
         <button type="button" className={activeView === 'ajustes' ? 'active' : ''} onClick={openSettings}>⚙ Ajustes</button>
@@ -1372,10 +1386,9 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       </div>
       {mobileMenuOpen && <div className="mobileNav">
         <button type="button" className={activeView === 'inicio' ? 'active' : ''} onClick={openHome}>⌂ Inicio</button>
-        {leasingPage && <button type="button" className={activeView === 'leasing' ? 'active' : ''} onClick={openLeasingHub}>🏗 Leasing</button>}
         <button type="button" className={activeView === 'historial' ? 'active' : ''} onClick={openHistory}>◴ Historial</button>
         <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>
-        <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>
+        {!leasingPage && <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>}
         <button type="button" className={activeView === 'comparar' ? 'active' : ''} onClick={openCompare}>⚖ Comparar</button>
         <button type="button" className={activeView === 'mejorar' ? 'active' : ''} onClick={openImprove}>↑ Mejorar documento</button>
         <button type="button" className={activeView === 'ajustes' ? 'active' : ''} onClick={openSettings}>⚙ Ajustes</button>
@@ -1565,7 +1578,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             </div>
           ) : null}
           {analysis.decisionAnswer.categoryWarning ? <div className="categoryWarning" role="alert">{analysis.decisionAnswer.categoryWarning}</div> : null}
-          <div className="reportActions"><button type="button" className="ghost" onClick={saveFavorite}>☆ Guardar en favoritos</button><button type="button" className="ghost" onClick={saveCurrentAsTemplate}>Guardar como plantilla</button><button type="button" className="ghost" onClick={downloadAnalysisReport}>Descargar informe</button><button type="button" className="ghost" onClick={startNewAnalysis}>Nuevo análisis</button></div>
+          <div className="reportActions"><button type="button" className="ghost" onClick={saveFavorite}>☆ Guardar en favoritos</button>{!leasingPage && <button type="button" className="ghost" onClick={saveCurrentAsTemplate}>Guardar como plantilla</button>}<button type="button" className="ghost" onClick={downloadAnalysisReport}>Descargar informe</button><button type="button" className="ghost" onClick={startNewAnalysis}>Nuevo análisis</button></div>
           <p className="decisionDirectAnswer">{analysis.decisionAnswer.directAnswer}</p>
           {analysis.decisionAnswer.comparisonTable && <section className="leasingComparisonSection">
             <h3>Comparación de jurisdicciones</h3>
@@ -1732,12 +1745,50 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
           {templatesItems.length > 0 && <div className="savedTemplates"><h3>Mis plantillas</h3>{templatesItems.map((item) => <div className="historyItem" key={item.id}><div>{item.label}<small>{ANALYSIS_CATEGORIES.find((category) => category.id === item.category)?.label}</small></div><div className="savedItemActions"><button type="button" className="ghost" onClick={() => useTemplate(item.category, item.prompt)}>Usar</button><button type="button" className="ghost" onClick={() => removeTemplate(item.id)}>Quitar</button></div></div>)}</div>}
         </>}
         {activeView === 'comparar' && <>
+          {leasingPage && <div className="leasingCompareTabs" role="tablist" aria-label="Tipo de comparación">
+            <button type="button" className={leasingCompareMode === 'provinces' ? 'active' : ''} onClick={() => setLeasingCompareMode('provinces')}>Ventajas por provincia</button>
+            <button type="button" className={leasingCompareMode === 'types' ? 'active' : ''} onClick={() => setLeasingCompareMode('types')}>Operativo vs. financiero</button>
+            <button type="button" className={leasingCompareMode === 'pledge' ? 'active' : ''} onClick={() => setLeasingCompareMode('pledge')}>Leasing vs. prenda</button>
+          </div>}
+          {leasingPage && leasingCompareMode === 'provinces' && <div className="panel legalResultPanel leasingMenuComparison">
+            <h3>Compará dos provincias</h3><p>Debe existir conexión territorial real. Las tasas tienen bases y obligados diferentes y no deben sumarse mecánicamente.</p>
+            <div className="leasingProvinceGrid">
+              <label>Provincia A<select value={leasingHubProvinceA} onChange={(event) => setLeasingHubProvinceA(event.target.value)}>{PROVINCIAL_LEASING_STAMP_MATRIX.map((item) => <option key={`province-a-${item.jurisdiction}`}>{item.jurisdiction}</option>)}</select></label>
+              <label>Provincia B<select value={leasingHubProvinceB} onChange={(event) => setLeasingHubProvinceB(event.target.value)}>{PROVINCIAL_LEASING_STAMP_MATRIX.map((item) => <option key={`province-b-${item.jurisdiction}`}>{item.jurisdiction}</option>)}</select></label>
+            </div>
+            <div className="leasingComparisonTableWrap"><table className="leasingComparisonTable"><thead><tr><th>Concepto</th><th>{leasingHubProvinceA}</th><th>{leasingHubProvinceB}</th></tr></thead><tbody>{provincialRows.map(([label, a, b]) => <tr key={label}><th>{label}</th><td>{a}</td><td>{b}</td></tr>)}</tbody></table></div>
+            <p className="hint">Patente, registración municipal y opción requieren vehículo, año/modelo, valuación fiscal, domicilio del tomador y lugar de guarda o uso.</p>
+          </div>}
+          {leasingPage && leasingCompareMode === 'types' && <div className="panel legalResultPanel leasingMenuComparison"><h3>Leasing operativo vs. leasing financiero</h3>
+            <div className="leasingComparisonTableWrap"><table className="leasingComparisonTable"><thead><tr><th>Aspecto</th><th>Leasing operativo</th><th>Leasing financiero</th></tr></thead><tbody>{[
+              ['Objetivo', 'Usar el bien y, frecuentemente, recibir servicios asociados.', 'Financiar el bien recuperando capital, rendimiento y valor residual.'],
+              ['Riesgo residual', 'Suele permanecer en mayor medida en el dador.', 'Suele trasladarse económicamente en mayor medida al tomador.'],
+              ['Servicios', 'Puede incluir mantenimiento, recambio y gestión.', 'Normalmente se separan o quedan a cargo del tomador.'],
+              ['Opción de compra', 'Puede no existir o no ser el objetivo principal.', 'Suele estar prevista, cierta y determinada.'],
+              ['Tratamiento fiscal', 'Puede encuadrar como locación; manda el contrato real.', 'Puede ser operación financiera si cumple dador, plazo y opción.'],
+              ['Final del plazo', 'Devolución, renovación o recambio.', 'Opción, devolución o renovación según contrato.'],
+            ].map(([label, a, b]) => <tr key={label}><th>{label}</th><td>{a}</td><td>{b}</td></tr>)}</tbody></table></div>
+          </div>}
+          {leasingPage && leasingCompareMode === 'pledge' && <div className="panel legalResultPanel leasingMenuComparison"><h3>Leasing vs. préstamo prendario</h3>
+            <div className="leasingComparisonTableWrap"><table className="leasingComparisonTable"><thead><tr><th>Aspecto</th><th>Leasing</th><th>Prenda</th></tr></thead><tbody>{[
+              ['Titularidad', 'El dominio queda en el dador mientras el tomador usa el bien.', 'El comprador es titular y el acreedor inscribe la prenda.'],
+              ['Inicio', 'Puede haber maxi canon, depósito, comisión y gastos.', 'Suele haber anticipo, otorgamiento e inscripción.'],
+              ['IVA', 'En muebles suele devengarse con cada canon y la opción.', 'Suele concentrarse en la compra inicial.'],
+              ['Ganancias', 'El canon puede deducirse si hay actividad gravada y se cumplen requisitos.', 'Se analizan intereses, amortización y límites; no la cuota completa.'],
+              ['Incumplimiento', 'El dador conserva el dominio y usa los remedios propios del leasing.', 'El acreedor ejecuta la garantía prendaria.'],
+              ['Final', 'Opción, devolución o renovación según contrato.', 'Cancelada la deuda, se levanta la prenda y el titular conserva el bien.'],
+              ['Ventaja central', 'Puede preservar liquidez, acompasar IVA al uso y permitir recambio.', 'Brinda propiedad inmediata y conservación definitiva del bien.'],
+            ].map(([label, a, b]) => <tr key={label}><th>{label}</th><td>{a}</td><td>{b}</td></tr>)}</tbody></table></div>
+            <h3>Ventajas posibles del leasing frente a la prenda</h3><ul><li>No obliga a comprar desde el inicio.</li><li>Puede distribuir el IVA de bienes muebles con los cánones.</li><li>Permite adaptar plazo, residual, servicios y recambio al uso económico.</li><li>Puede dar un perfil fiscal distinto cuando el tomador realmente puede aprovecharlo.</li></ul>
+          </div>}
+          {!leasingPage && <>
           <label className="menuCategoryPicker"><b>Tipo de comparación</b><select value={compareCategory} onChange={(event) => setCompareCategory(event.target.value as AnalysisCategoryId)}>{availableCategories.map((category) => <option key={`compare-${category.id}`} value={category.id}>{category.label}</option>)}</select><small>La categoría elegida determina qué cálculos, normas y riesgos se aplican.</small></label>
           <div className="cards" style={{ marginTop: '14px' }}><div className="card"><h3>Texto A</h3><textarea value={compareLeft} onChange={(event) => setCompareLeft(event.target.value)} placeholder="Pegá la primera oferta o contrato" /></div><div className="card"><h3>Texto B</h3><textarea value={compareRight} onChange={(event) => setCompareRight(event.target.value)} placeholder="Pegá la segunda oferta o contrato" /></div></div>
           {comparisonReady ? <div className="panel legalResultPanel" style={{ marginTop: '14px' }}><h3>Comparación preliminar</h3><p>Texto A: {compareLeft.length} caracteres. Texto B: {compareRight.length} caracteres.</p><p>Coincidencias relevantes: {sharedWords.slice(0, 20).join(', ') || 'no se detectaron coincidencias claras'}.</p><button type="button" className="primary" onClick={analyzeComparison}>Analizar en {ANALYSIS_CATEGORIES.find((item) => item.id === compareCategory)?.label}</button></div> : <div className="paywall" style={{ marginTop: '14px' }}>Pegá al menos 20 caracteres en cada texto.</div>}
+          </>}
         </>}
         {activeView === 'mejorar' && <>
-          <label className="menuCategoryPicker"><b>Contexto del documento</b><select value={improveCategory} onChange={(event) => setImproveCategory(event.target.value as AnalysisCategoryId)}>{availableCategories.map((category) => <option key={`improve-${category.id}`} value={category.id}>{category.label}</option>)}</select><small>Se conservará el sentido, pero la revisión usará criterios propios de esta categoría.</small></label>
+          {leasingPage ? <div className="paywall">La revisión aplica automáticamente criterios legales, financieros, fiscales y registrales de leasing.</div> : <label className="menuCategoryPicker"><b>Contexto del documento</b><select value={improveCategory} onChange={(event) => setImproveCategory(event.target.value as AnalysisCategoryId)}>{availableCategories.map((category) => <option key={`improve-${category.id}`} value={category.id}>{category.label}</option>)}</select><small>Se conservará el sentido, pero la revisión usará criterios propios de esta categoría.</small></label>}
           <textarea style={{ marginTop: '14px', width: '100%', minHeight: '240px' }} value={improveDraft} onChange={(event) => setImproveDraft(event.target.value)} placeholder="Pegá el documento que querés mejorar" />
           <button type="button" className="primary" style={{ marginTop: '12px' }} disabled={!improveDraft.trim()} onClick={sendImprovementToAnalysis}>Revisar y mejorar</button>
         </>}

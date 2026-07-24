@@ -28,6 +28,7 @@ export type LeasingQuoteData = {
   claimedStampPatentExempt?: boolean;
   claimedStampContractExempt?: boolean;
   quoteValidityDays?: number;
+  ambiguousMaxiCanonSymbol?: boolean;
 };
 
 function parseArgentineNumber(raw?: string): number | undefined {
@@ -67,8 +68,13 @@ export function extractLeasingQuoteData(rawText: string): LeasingQuoteData | nul
     .map((line) => line.trim())
     .join('\n');
   const searchable = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const assetValueNet = amountAfter(searchable, /Valor del bien[^\n\r]{0,90}\(sin IVA\)/i);
-  const regularCanons = searchable.match(/C.nones a pagar[^\n\r]{0,60}?(\d+)\s*(?:c.nones?)?[^\n\r$]{0,100}\$\s*([\d.]+(?:,\d+)?)/i);
+  const naturalAssetValue = parseArgentineNumber(searchable.match(
+    /(?:auto|automovil|vehiculo|camioneta|pickup|utilitario|bien)(?:\s+\w+){0,6}?\s+(?:vale|cuesta|por|de|valor(?:ado)?\s+en)\s*\$?\s*([\d.]+(?:,\d+)?)/i,
+  )?.[1]);
+  const structuredAssetValue = amountAfter(searchable, /Valor del bien[^\n\r]{0,90}\(sin IVA\)/i);
+  const assetValueNet = structuredAssetValue ?? naturalAssetValue;
+  const regularCanons = searchable.match(/C.nones a pagar[^\n\r]{0,60}?(\d+)\s*(?:c.nones?)?[^\n\r$]{0,100}\$\s*([\d.]+(?:,\d+)?)/i)
+    || searchable.match(/(\d{1,3})\s*cuotas?\s+(?:mensuales?\s+)?de\s*\$?\s*([\d.]+(?:,\d+)?)/i);
   const guarantee = searchable.match(/C.nones en garant.a[^\n\r]{0,80}?(\d+)\s*(?:c.nones?)?[^\n\r$]{0,100}\$\s*([\d.]+(?:,\d+)?)/i);
   const description = text.match(/Bien a dar en leasing\s*:\s*([^\n\r]+)/i)?.[1]?.trim();
   const insuranceText = text.match(/Seguro del bien\s*:\s*([^\n\r]+)/i)?.[1]?.trim();
@@ -76,6 +82,20 @@ export function extractLeasingQuoteData(rawText: string): LeasingQuoteData | nul
   const initialVatAmounts = amountsInLine(searchable, /^IVA\s*\(inmovilizacion por credito al inicio\)\s*:\s*([^\n\r]+)/im);
   const patentStampLine = lineValue(searchable, /^Patentamiento\s*:\s*([^\n\r]+)/im);
   const contractStampLine = lineValue(searchable, /^Contrato\s*:\s*([^\n\r]+)/im);
+  const naturalMaxiCanon = searchable.match(/([\d.,]+)\s*([%$])?\s+de\s+maxi\s*canon|maxi\s*canon(?:\s+\w+){0,3}?\s*(?:de|del)?\s*([\d.,]+)\s*([%$])/i);
+  const naturalMaxiPercent = parseArgentineNumber(naturalMaxiCanon?.[1] || naturalMaxiCanon?.[3]);
+  const naturalMaxiSymbol = naturalMaxiCanon?.[2] || naturalMaxiCanon?.[4];
+  const naturalOptionPercent = parseArgentineNumber(searchable.match(
+    /opci.n\s+de\s+compra(?:\s+\w+){0,5}?\s*([\d.,]+)\s*%/i,
+  )?.[1]);
+  const naturalMonths = parseArgentineNumber(searchable.match(/(\d{1,3})\s*cuotas?/i)?.[1]);
+  const structuredMonths = parseArgentineNumber(searchable.match(/Plazo del leasing\s*:\s*(\d+)\s*mes/i)?.[1]);
+  const naturalMaxiAmount = assetValueNet !== undefined && naturalMaxiPercent !== undefined && naturalMaxiPercent <= 100
+    ? assetValueNet * naturalMaxiPercent / 100
+    : undefined;
+  const naturalOptionAmount = assetValueNet !== undefined && naturalOptionPercent !== undefined
+    ? assetValueNet * naturalOptionPercent / 100
+    : undefined;
   const result: LeasingQuoteData = {
     quoteDateText: lineValue(text, /COTIZACIÓN DE OPERACIÓN DE LEASING FINANCIERO EN PESOS\s+(?:Beccar,\s*)?([^\n\r]+)/i),
     customerName: lineValue(text, /^Tomador del leasing\s*:\s*([^\n\r]+)/im),
@@ -88,11 +108,11 @@ export function extractLeasingQuoteData(rawText: string): LeasingQuoteData | nul
     assetValueVatIncluded: amountAfter(searchable, /Valor del bien[^\n\r]{0,60}\(IVA incluido\)/i),
     currency: lineValue(text, /^Moneda del leasing\s*:\s*([^\n\r]+)/im),
     exchangeRate: amountAfter(searchable, /Tipo de cambio/i),
-    months: parseArgentineNumber(searchable.match(/Plazo del leasing\s*:\s*(\d+)\s*mes/i)?.[1]),
+    months: structuredMonths ?? naturalMonths,
     regularCanonCount: parseArgentineNumber(regularCanons?.[1]),
     regularCanonAmount: parseArgentineNumber(regularCanons?.[2]),
-    optionAmount: amountAfter(searchable, /Opci.n de compra/i),
-    maxiCanonAmount: amountAfter(searchable, /Maxicanon\s*\/\s*Adelanto/i),
+    optionAmount: naturalOptionAmount ?? amountAfter(searchable, /Opci.n de compra/i),
+    maxiCanonAmount: amountAfter(searchable, /Maxicanon\s*\/\s*Adelanto/i) ?? naturalMaxiAmount,
     guaranteeCanons: parseArgentineNumber(guarantee?.[1]),
     guaranteeAmount: parseArgentineNumber(guarantee?.[2]),
     structuringFeePercent: parseArgentineNumber(searchable.match(/Comisi.n de estructuraci.n\s*:\s*([\d.,]+)\s*%/i)?.[1]),
@@ -106,7 +126,13 @@ export function extractLeasingQuoteData(rawText: string): LeasingQuoteData | nul
     claimedStampPatentExempt: patentStampLine ? /\bExento\b/i.test(patentStampLine) : undefined,
     claimedStampContractExempt: contractStampLine ? /\bExento\b/i.test(contractStampLine) : undefined,
     quoteValidityDays: parseArgentineNumber(searchable.match(/validez de\s+(\d+)\s+dias corridos/i)?.[1]),
+    ...(naturalMaxiSymbol === '$' && naturalMaxiPercent !== undefined && naturalMaxiPercent <= 100
+      ? { ambiguousMaxiCanonSymbol: true }
+      : {}),
   };
   const meaningfulValues = Object.values(result).filter((value) => value !== undefined && value !== '').length;
-  return assetValueNet !== undefined || meaningfulValues >= 3 ? result : null;
+  const completeNaturalFlow = naturalAssetValue !== undefined
+    && result.regularCanonCount !== undefined
+    && result.regularCanonAmount !== undefined;
+  return structuredAssetValue !== undefined || completeNaturalFlow || (naturalAssetValue === undefined && meaningfulValues >= 3) ? result : null;
 }

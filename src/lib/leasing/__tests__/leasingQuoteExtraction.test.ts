@@ -2,6 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { extractLeasingQuoteData } from '../leasingQuoteExtraction';
 
+test('extrae una consulta libre con precio, maxi canon ambiguo, cuotas y opción porcentual', () => {
+  const result = extractLeasingQuoteData('Voy a comprar un auto BYD Dolphin que vale 35000000 de pesos. Pongo 10$ de maxicanon y el resto en 36 cuotas de 1500000 de pesos. La 37 es la opción de compra de un 3%. ¿Cuál es la tasa que pago?');
+  assert.ok(result);
+  assert.equal(result.assetValueNet, 35_000_000);
+  assert.equal(result.months, 36);
+  assert.equal(result.regularCanonCount, 36);
+  assert.equal(result.regularCanonAmount, 1_500_000);
+  assert.equal(result.maxiCanonAmount, 3_500_000);
+  assert.equal(result.optionAmount, 1_050_000);
+  assert.equal(result.ambiguousMaxiCanonSymbol, true);
+});
+
 test('extracts the commercial fields from an Argentine leasing quote', () => {
   const quote = `
     Bien a dar en leasing: Honda HRV EXL

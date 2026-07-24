@@ -796,6 +796,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     quotedCashflow?.estimatedVatCashOutflow ? `Caja total estimada con IVA: $ ${amount(quotedCashflow.totalCashOutflowWithEstimatedVat)}; IVA estimado incluido $ ${amount(quotedCashflow.estimatedVatCashOutflow)}.` : '',
     quotedCashflow ? `Costo financiero nominal visible: $ ${amount(quotedCashflow.nominalFinancingCost)} (${decimal(quotedCashflow.nominalFinancingCostPercent)}% sobre el valor neto).` : '',
     quotedCashflow?.monthlyIrrPercent !== null && quotedCashflow?.monthlyIrrPercent !== undefined ? `Tasas implícitas del flujo visible: TIR mensual ${decimal(quotedCashflow.monthlyIrrPercent)}% | TNA implícita ${decimal(quotedCashflow.implicitTnaPercent || 0)}% | TIR efectiva anual ${decimal(quotedCashflow.effectiveAnnualRatePercent || 0)}%.` : '',
+    quoteData.ambiguousMaxiCanonSymbol ? 'Interpretación necesaria: se leyó “10$ de maxi canon” como 10% del valor del vehículo. Confirmá ese porcentaje; si eran $10, el cálculo cambia.' : '',
   ].filter(Boolean) : [];
   const quoteDetailFindings = quoteData ? [
     quoteData.customerName ? `Tomador: ${quoteData.customerName}${quoteData.customerTaxId ? ` (CUIT ${quoteData.customerTaxId})` : ''}.` : '',
@@ -816,6 +817,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     quoteData.quotedVatInitialLeasing !== undefined ? `Inmovilización inicial de IVA declarada por el proveedor para leasing: $ ${amount(quoteData.quotedVatInitialLeasing)}.` : '',
     quoteData.claimedStampPatentExempt ? 'La propuesta declara exento de Sellos el patentamiento del leasing; debe verificarse contra la jurisdicción y el acto concretos.' : '',
     quoteData.claimedStampContractExempt ? 'La propuesta declara exento de Sellos el contrato de leasing; debe verificarse contra la jurisdicción y la normativa anual aplicable.' : '',
+    quoteData.ambiguousMaxiCanonSymbol ? 'Interpretación necesaria: se leyó “10$ de maxi canon” como 10% del valor del vehículo. Confirmá ese porcentaje; si eran $10, el cálculo cambia.' : '',
     'El CFTEA visible incorpora los cargos cuantificados. Seguro, patente periódica y tributos no informados quedan pendientes; el IVA es salida de caja, pero no costo económico cuando puede computarse como crédito fiscal.',
   ].filter(Boolean) : [];
   const financialCaseFindings = quoteData ? quoteSummaryFindings : financeResult ? [
@@ -1090,7 +1092,14 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       ...(quoteDetailFindings.length ? [{ title: 'Detalle de cargos y supuestos', items: quoteDetailFindings }] : []),
       ...(leaseBackRules.length ? [{ title: 'Lease-back: aforo, plazo y efecto fiscal', items: leaseBackRules }] : []),
       { title: 'Modalidad y opción de compra', items: leasingTypeAndOptionRules },
-      { title: 'Tipos de leasing y calificación económica', items: Object.entries(LEASING_TYPE_GUIDE).map(([type, explanation]) => `${type}: ${explanation}`) },
+      { title: 'Tipos de leasing y calificación económica', items: Object.entries(LEASING_TYPE_GUIDE).map(([type, explanation]) => `${({
+        financial: 'financiero',
+        operating: 'operativo',
+        'lease-back': 'lease-back',
+        'sale-financed': 'venta financiada',
+        international: 'internacional',
+        'public-sector': 'sector público',
+      } as Record<string, string>)[type] || type}: ${explanation}`) },
       { title: 'Normativa nacional, uso, registración y amortizaciones', items: [...nationalSpecialistFindings, usefulLifeFinding].filter(Boolean) },
       { title: 'Ventajas frente a préstamo y prenda', items: [...distinctiveAdvantages, ...humanPersonComparison] },
       { title: 'Ventajas impositivas y tratamiento del tomador', items: [
