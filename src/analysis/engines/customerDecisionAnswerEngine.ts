@@ -755,7 +755,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
   const decimal = (value: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 4 }).format(value);
   const fiscalValuation = numericField('Valuación fiscal DNRPA') ?? numericField('Valuación fiscal');
   const priorYearPatent = numericField('Patente total 2025');
-  const asksBuenosAiresPatent = /(?:provincia\s+de\s+buenos\s+aires|\bpba\b|\barba\b)/i.test(normalizedQuestion)
+  const asksBuenosAiresPatent = /(?:provincia\s+de\s+buenos\s+aires|domicilio\s+de\s+uso\s+del\s+cliente:\s*buenos\s+aires|\bpba\b|\barba\b)/i.test(normalizedQuestion)
     && /patente|valuacion\s+fiscal/i.test(normalizedQuestion);
   const buenosAiresPatent = fiscalValuation && asksBuenosAiresPatent
     ? estimateBuenosAiresVehiclePatent2026(fiscalValuation, { isNew: /\b0\s*km\b|\bnuevo\b/i.test(normalizedQuestion) })

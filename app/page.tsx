@@ -604,6 +604,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [leasingAssetValue, setLeasingAssetValue] = useState('');
   const [leasingVehicleDescription, setLeasingVehicleDescription] = useState('');
   const [leasingVehicleYear, setLeasingVehicleYear] = useState('');
+  const [leasingVehicleCondition, setLeasingVehicleCondition] = useState<'new' | 'used'>('new');
   const [leasingFiscalValuation, setLeasingFiscalValuation] = useState('');
   const [leasingPriorYearPatent, setLeasingPriorYearPatent] = useState('');
   const [leasingFinancedPercent, setLeasingFinancedPercent] = useState('100');
@@ -896,6 +897,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
           if (leasingAssetValue.trim()) form.append('leasingAssetValue', leasingAssetValue);
           if (leasingVehicleDescription.trim()) form.append('leasingVehicleDescription', leasingVehicleDescription);
           if (leasingVehicleYear.trim()) form.append('leasingVehicleYear', leasingVehicleYear);
+          if (leasingAssetType === 'Automotor') form.append('leasingVehicleCondition', leasingVehicleCondition);
           if (leasingFiscalValuation.trim()) form.append('leasingFiscalValuation', leasingFiscalValuation);
           if (leasingPriorYearPatent.trim()) form.append('leasingPriorYearPatent', leasingPriorYearPatent);
           if (leasingConfirmedFields.has('financedPercent')) form.append('leasingFinancedPercent', leasingFinancedPercent);
@@ -1485,6 +1487,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                   <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => { setLeasingAssetType(event.target.value); confirmLeasingField('assetType'); }}><option>Maquinaria o equipo</option><option>Automotor</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
                   <label>Valor del bien sin IVA<input inputMode="decimal" value={leasingAssetValue} onChange={(event) => setLeasingAssetValue(event.target.value)} placeholder="Ej.: 100000000" /><small>Ingresá el precio neto. El IVA se calcula y analiza por separado.</small></label>
                   {leasingAssetType === 'Automotor' && <>
+                    <label>Condición del vehículo<select value={leasingVehicleCondition} onChange={(event) => setLeasingVehicleCondition(event.target.value as 'new' | 'used')}><option value="new">0 km</option><option value="used">Usado / rodado</option></select><small>En Provincia de Buenos Aires, el usado aplica el coeficiente 0,95; el 0 km toma la valuación completa.</small></label>
                     <label>Marca, modelo y versión<input value={leasingVehicleDescription} onChange={(event) => setLeasingVehicleDescription(event.target.value)} placeholder="Ej.: Audi Q5 45 TFSI Advanced" /><small>La versión exacta evita usar una valuación fiscal incorrecta.</small></label>
                     <label>Año modelo<input type="number" min="1900" max="2030" value={leasingVehicleYear} onChange={(event) => setLeasingVehicleYear(event.target.value)} placeholder="Ej.: 2023" /></label>
                     <label>Valuación fiscal 2026<input inputMode="decimal" value={leasingFiscalValuation} onChange={(event) => setLeasingFiscalValuation(event.target.value.replace(/[^\d.,]/g, ''))} placeholder="Ej.: 79916000" /><small>Usá la valuación de AGIP, ARBA o DNRPA aplicable; no necesariamente coincide con el precio de compra.</small></label>

@@ -255,3 +255,16 @@ test('leasing aplica el límite IPCBA CABA con la patente anterior', () => {
   assert.match(findings, /Patente CABA 2026 estimada: \$ 527\.200 anual/is);
   assert.match(findings, /se aplicó el límite extraordinario IPCBA 2025.*698\.692,5/is);
 });
+
+test('leasing distingue 0 km de usado para patente bonaerense', () => {
+  const zeroKm = buildLocalAnalysis(
+    'Domicilio de uso del cliente: Buenos Aires. Condición: 0 km. Valuación fiscal: 20000000. Calculá patente.',
+    'Texto', '', null, '', '', 'leasing-specialist',
+  );
+  const used = buildLocalAnalysis(
+    'Domicilio de uso del cliente: Buenos Aires. Condición: usado / rodado. Valuación fiscal: 20000000. Calculá patente.',
+    'Texto', '', null, '', '', 'leasing-specialist',
+  );
+  assert.match(zeroKm.decisionAnswer?.findings.join(' ') || '', /Patente Provincia de Buenos Aires 2026 estimada: \$ 272\.000.*coeficiente 1,00 para 0 km/is);
+  assert.match(used.decisionAnswer?.findings.join(' ') || '', /Patente Provincia de Buenos Aires 2026 estimada: \$ 242\.000.*coeficiente 0,95 para usado/is);
+});
