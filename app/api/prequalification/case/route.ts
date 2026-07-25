@@ -12,24 +12,49 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 async function update(token: string, id: string, values: Record<string, unknown>) {
   await prequalRest(token, `prequal_cases?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(values) });
 }
-async function loadAttachments(token: string, documents: DossierDocument[]) {
+const RESEND_SAFE_ENCODED_LIMIT = 35 * 1024 * 1024;
+const DOWNLOAD_LINK_EXPIRY_SECONDS = 7 * 24 * 60 * 60;
+
+async function createDownloadLink(token: string, storagePath: string) {
   const config = getPrequalificationSupabaseConfig();
   if (!config) throw new Error('Almacenamiento no configurado.');
-  const attachments: Array<{ filename: string; content: string }> = [];
+  const response = await fetch(`${config.url}/storage/v1/object/sign/prequalification-documents/${storagePath}`, {
+    method: 'POST',
+    headers: { apikey: config.publicKey, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expiresIn: DOWNLOAD_LINK_EXPIRY_SECONDS }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.signedURL) throw new Error('No se pudo generar un enlace privado de descarga.');
+  return payload.signedURL.startsWith('http') ? payload.signedURL : `${config.url}/storage/v1${payload.signedURL}`;
+}
+
+async function prepareDocumentDelivery(token: string, documents: DossierDocument[]) {
+  const config = getPrequalificationSupabaseConfig();
+  if (!config) throw new Error('Almacenamiento no configurado.');
+  const selected = documents.filter(item => item.storagePath);
+  const files: Array<{ document: DossierDocument; buffer: Buffer }> = [];
   let encodedBytes = 0;
-  for (const document of documents.filter(item => item.stage === 2 && item.storagePath)) {
+  for (const document of selected) {
     const response = await fetch(`${config.url}/storage/v1/object/prequalification-documents/${document.storagePath}`, {
       headers: { apikey: config.publicKey, Authorization: `Bearer ${token}` },
     });
     if (!response.ok) throw new Error(`No se pudo recuperar ${document.name} para adjuntarlo.`);
     const buffer = Buffer.from(await response.arrayBuffer());
     encodedBytes += Math.ceil(buffer.length / 3) * 4;
-    if (encodedBytes > 38 * 1024 * 1024) {
-      throw new Error('Los documentos superan el límite total del correo. Reducí el tamaño de los archivos y volvé a intentar.');
-    }
-    attachments.push({ filename: document.name, content: buffer.toString('base64') });
+    files.push({ document, buffer });
   }
-  return attachments;
+  if (encodedBytes <= RESEND_SAFE_ENCODED_LIMIT) {
+    return {
+      mode: 'attachments' as const,
+      attachments: files.map(({ document, buffer }) => ({ filename: document.name, content: buffer.toString('base64') })),
+      downloadLinks: [] as Array<{ name: string; url: string }>,
+    };
+  }
+  const downloadLinks = await Promise.all(selected.map(async document => ({
+    name: document.name,
+    url: await createDownloadLink(token, document.storagePath!),
+  })));
+  return { mode: 'links' as const, attachments: [], downloadLinks };
 }
 
 export async function POST(request: Request) {
@@ -84,7 +109,7 @@ export async function POST(request: Request) {
           assessment,
         }, { status: 422 });
       }
-      const attachments = await loadAttachments(auth.token, documents);
+      const delivery = await prepareDocumentDelivery(auth.token, documents.filter(document => document.stage === 2));
       const emailConfig = getPrequalificationEmailConfig();
       const notification = await sendPrequalificationEmail({
         to: emailConfig.administratorEmail, replyTo: contact.email,
@@ -102,9 +127,10 @@ export async function POST(request: Request) {
           conditions: assessment.conditions,
           regulatoryExposure: assessment.regulatoryExposure,
           documents: documents.filter(document => document.stage === 2).map(document => ({ name: document.name, kind: document.kind })),
+          downloadLinks: delivery.downloadLinks,
         }),
         idempotencyKey: `prequal-stage2-v2-${body.caseId}-${assessment.score}-${Math.round(inputs.proposedMonthlyCanon)}`,
-        attachments,
+        attachments: delivery.attachments,
       }).catch((error) => ({
         sent: false as const,
         reason: error instanceof Error ? error.message : 'provider-error',
@@ -127,6 +153,8 @@ export async function POST(request: Request) {
       if (!compliance?.fundsLawfulOrigin || !compliance.ownAccount || !compliance.administratorMayRequestEvidence) return NextResponse.json({ error: 'Completá las declaraciones UIF y aceptá que el administrador pueda pedir respaldo.' }, { status: 400 });
       if (compliance.pepStatus !== 'no' && !compliance.pepDetail?.trim()) return NextResponse.json({ error: 'Detallá la condición PEP declarada.' }, { status: 400 });
       const emailConfig = getPrequalificationEmailConfig();
+      const documents = (body.documents || []) as DossierDocument[];
+      const delivery = await prepareDocumentDelivery(auth.token, documents);
       const notification = await sendPrequalificationEmail({
         to: emailConfig.administratorEmail,
         replyTo: body.responseEmail,
@@ -134,12 +162,15 @@ export async function POST(request: Request) {
         html: adminNotificationHtml({
           caseNumber: body.caseNumber || body.caseId, subject: body.subject || 'Titular consultado',
           decision: body.decision, responseEmail: body.responseEmail,
+          documents: documents.map(document => ({ name: document.name, kind: document.kind })),
+          downloadLinks: delivery.downloadLinks,
         }),
         idempotencyKey: `prequal-admin-${body.caseId}`,
+        attachments: delivery.attachments,
       }).catch(() => ({ sent: false as const, reason: 'provider-error' as const }));
       await update(auth.token, body.caseId, {
         stage: 3, compliance, stage3_decision: body.decision, response_email: body.responseEmail,
-        documents: ((body.documents || []) as DossierDocument[]).map(({ extractedText: _text, ...document }) => document),
+        documents: documents.map(({ extractedText: _text, ...document }) => document),
         administrator_email: emailConfig.administratorEmail, email_provider: 'resend',
         notification_status: notification.sent ? 'administrator-notified' : 'email-configuration-required',
         updated_at: new Date().toISOString(),

@@ -48,6 +48,8 @@ export function adminNotificationHtml(input: {
   subject: string;
   decision: string;
   responseEmail: string;
+  documents: Array<{ name: string; kind: string }>;
+  downloadLinks: Array<{ name: string; url: string }>;
 }) {
   return `<div style="font-family:Arial,sans-serif;color:#10212b;max-width:620px">
     <div style="font-size:22px;font-weight:700;color:#6d28d9">LeasingScoring</div>
@@ -56,8 +58,11 @@ export function adminNotificationHtml(input: {
     <p><b>Solicitante:</b> ${escapeHtml(input.subject)}</p>
     <p><b>Decisión preliminar:</b> ${escapeHtml(input.decision)}</p>
     <p><b>Correo de respuesta:</b> ${escapeHtml(input.responseEmail)}</p>
+    <h2 style="font-size:18px">Documentación del expediente (${input.documents.length})</h2>
+    <ul>${input.documents.map(document => `<li>${escapeHtml(document.name)} · ${escapeHtml(document.kind)}</li>`).join('') || '<li>Sin documentos adjuntos.</li>'}</ul>
+    ${downloadLinksHtml(input.downloadLinks)}
     <p>Ingresá al módulo privado para revisar la información y decidir si corresponde avanzar con Nosis u otro proveedor.</p>
-    <p style="font-size:12px;color:#64748b">No se adjuntan documentos sensibles al correo.</p>
+    <p style="font-size:12px;color:#64748b">Los enlaces privados vencen a los 7 días. Si no aparecen enlaces, los documentos viajan adjuntos al correo.</p>
   </div>`;
 }
 
@@ -81,6 +86,7 @@ export function stage2NotificationHtml(input: {
     basicMarginAvailable: number | null;
   };
   documents: Array<{ name: string; kind: string }>;
+  downloadLinks: Array<{ name: string; url: string }>;
 }) {
   const money = (value: number | null) => value == null
     ? 'No estimable'
@@ -117,8 +123,18 @@ export function stage2NotificationHtml(input: {
     <ul>${input.conditions.map(condition => `<li>${escapeHtml(condition)}</li>`).join('') || '<li>Sin condiciones económicas adicionales.</li>'}</ul>
     <h2 style="font-size:18px">Documentación adjunta (${input.documents.length})</h2>
     <ul>${input.documents.map(document => `<li>${escapeHtml(document.name)} · ${escapeHtml(document.kind)}</li>`).join('') || '<li>Evaluación basada exclusivamente en datos declarativos.</li>'}</ul>
+    ${downloadLinksHtml(input.downloadLinks)}
     <p>La operación calificó por relación cuota/ingreso y puede continuar a Precalificación 3.</p>
     <p style="font-size:12px;color:#64748b">Evaluación preliminar. No constituye aprobación crediticia ni oferta de financiación.</p>
+  </div>`;
+}
+
+function downloadLinksHtml(links: Array<{ name: string; url: string }>) {
+  if (!links.length) return '';
+  return `<div style="padding:14px;border-radius:10px;background:#f5f3ff">
+    <h2 style="font-size:18px;margin-top:0">Descarga privada de documentos</h2>
+    <p>El conjunto supera el tamaño seguro admitido por el correo. Descargalo desde estos enlaces privados, vigentes durante 7 días:</p>
+    <ul>${links.map(link => `<li><a href="${escapeHtml(link.url)}">${escapeHtml(link.name)}</a></li>`).join('')}</ul>
   </div>`;
 }
 
