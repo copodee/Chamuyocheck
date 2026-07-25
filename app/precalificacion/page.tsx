@@ -39,6 +39,11 @@ export default function PrequalificationPage() {
     termMonths: '36',
     assetType: 'automotor-0km',
   });
+  const updateForm = (values: Partial<typeof form>) => {
+    setForm((current) => ({ ...current, ...values }));
+    setResult(null);
+    setError('');
+  };
 
   useEffect(() => {
     if (!supabase) {
@@ -135,12 +140,12 @@ export default function PrequalificationPage() {
     </section>
     <form onSubmit={prequalify} className="prequalCard prequalForm">
       <div className="prequalGrid">
-        <label>CUIT/CUIL<input required inputMode="numeric" placeholder="30-12345678-9" value={form.cuit} onChange={(e) => setForm({ ...form, cuit: e.target.value })} /></label>
-        <label>Tipo de cliente<select value={form.clientType} onChange={(e) => setForm({ ...form, clientType: e.target.value })}><option value="persona-juridica">Persona Jurídica</option><option value="persona-humana">Persona Humana</option></select></label>
-        <label>Valor del bien<input required min="1" type="number" inputMode="numeric" placeholder="35000000" value={form.assetValue} onChange={(e) => setForm({ ...form, assetValue: e.target.value })} /></label>
-        <label>Anticipo disponible (opcional)<input min="0" type="number" inputMode="numeric" placeholder="0" value={form.advance} onChange={(e) => setForm({ ...form, advance: e.target.value })} /></label>
-        <label>Plazo deseado<select value={form.termMonths} onChange={(e) => setForm({ ...form, termMonths: e.target.value })}>{[12, 18, 24, 36, 48, 60, 72, 84].map((value) => <option key={value} value={value}>{value} meses</option>)}</select></label>
-        <label>Tipo de bien<select value={form.assetType} onChange={(e) => setForm({ ...form, assetType: e.target.value })}><option value="automotor-0km">Automotor 0 km</option><option value="automotor-usado">Automotor usado / rodado</option><option value="maquinaria">Maquinaria</option><option value="equipo">Equipo</option><option value="inmueble">Inmueble</option><option value="otro">Otro</option></select></label>
+        <label>CUIT/CUIL<input required inputMode="numeric" placeholder="30-12345678-9" value={form.cuit} onChange={(e) => updateForm({ cuit: e.target.value })} /></label>
+        <label>Tipo de cliente<select value={form.clientType} onChange={(e) => updateForm({ clientType: e.target.value })}><option value="persona-juridica">Persona Jurídica</option><option value="persona-humana">Persona Humana</option></select></label>
+        <label>Valor del bien<input required min="1" type="number" inputMode="numeric" placeholder="35000000" value={form.assetValue} onChange={(e) => updateForm({ assetValue: e.target.value })} /></label>
+        <label>Anticipo disponible (opcional)<input min="0" type="number" inputMode="numeric" placeholder="0" value={form.advance} onChange={(e) => updateForm({ advance: e.target.value })} /></label>
+        <label>Plazo deseado<select value={form.termMonths} onChange={(e) => updateForm({ termMonths: e.target.value })}>{[12, 18, 24, 36, 48, 60, 72, 84].map((value) => <option key={value} value={value}>{value} meses</option>)}</select></label>
+        <label>Tipo de bien<select value={form.assetType} onChange={(e) => updateForm({ assetType: e.target.value })}><option value="automotor-0km">Automotor 0 km</option><option value="automotor-usado">Automotor usado / rodado</option><option value="maquinaria">Maquinaria</option><option value="equipo">Equipo</option><option value="inmueble">Inmueble</option><option value="otro">Otro</option></select></label>
       </div>
       {error && <div className="prequalError" role="alert">{error}</div>}
       <button className="prequalPrimary" disabled={busy}>{busy ? 'Consultando BCRA…' : 'Precalificar'}</button>
@@ -171,6 +176,7 @@ export default function PrequalificationPage() {
       <small>{result.disclaimer} · Modelo {result.result.modelVersion}</small>
     </section>}
     {result && <PrequalificationStages
+      key={result.caseId || `${form.cuit}-${result.subject.cuitMasked}`}
       session={session}
       caseId={result.caseId}
       caseNumber={result.caseNumber}
