@@ -51,7 +51,7 @@ button,input,textarea{font:inherit}
     linear-gradient(180deg,#ffffff,#f4f8fa);
 }
 .leasingAppShell .sidebar{background:linear-gradient(180deg,#f1f7f8,#e8f1f3);border-right-color:rgba(11,100,114,.18)}
-.leasingSidebarBrand{display:flex;align-items:center;gap:12px;color:#10333e;font-size:20px;font-weight:900;letter-spacing:.025em;white-space:nowrap}.leasingSidebarBrand img{width:62px;height:62px;object-fit:contain;flex:0 0 62px}
+.leasingSidebarBrand{display:flex;align-items:center;gap:2px;color:#10333e;font-size:20px;font-weight:900;letter-spacing:.025em;white-space:nowrap}.leasingSidebarBrand img{width:54px;height:54px;object-fit:contain;flex:0 0 54px;margin-right:-3px}
 .leasingAppShell .logo{color:#10333e;letter-spacing:-.025em}.leasingAppShell .logo span{color:#b8750c;text-shadow:none}
 .leasingAppShell .tag{color:#35717b}
 .leasingAppShell .shield{background:linear-gradient(145deg,#6d28d9,#4c1d95);border-color:rgba(201,137,22,.55);color:#fff}
@@ -886,8 +886,8 @@ body:has(.prequalPage){color:#102f3b;background:radial-gradient(circle at 82% 0%
 .prequalPage{background:transparent;color:#102f3b}
 .prequalHeader{border-bottom-color:rgba(20,72,88,.18)}
 .prequalHeader span,.prequalUser span{color:#496873}
-.prequalBrandLogo{display:flex;align-items:center;gap:10px;width:auto;color:#10333e;font-size:1.08rem;font-weight:900;letter-spacing:.025em;white-space:nowrap}
-.prequalBrandLogo img{display:block;width:48px;height:48px;object-fit:contain}
+.prequalBrandLogo{display:flex;align-items:center;gap:1px;width:auto;color:#10333e;font-size:1.08rem;font-weight:900;letter-spacing:.025em;white-space:nowrap}
+.prequalBrandLogo img{display:block;width:46px;height:46px;object-fit:contain;margin-right:-3px}
 .prequalUser button,.prequalSecondary{border-color:rgba(76,29,149,.32);color:#4c1d95;background:#fff}
 .prequalIntro h1,.prequalAccess h1,.prequalResult h2{color:#102f3b}
 .prequalIntro p,.prequalAccess p{color:#405e69}
