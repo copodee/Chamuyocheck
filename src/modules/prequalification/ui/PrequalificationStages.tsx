@@ -42,6 +42,13 @@ const decisions = [
   ['not-compatible', 'No compatible'],
 ];
 const pesos = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
+const formatChange = (value: number | null) => value == null ? 'No calculable' : `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
+const balanceDateValue = (value: string | null) => {
+  const match = value?.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
+  if (!match) return 0;
+  const year = Number(match[3]) < 100 ? 2000 + Number(match[3]) : Number(match[3]);
+  return new Date(year, Number(match[2]) - 1, Number(match[1])).getTime();
+};
 
 const stage2Requirements: Record<EconomicProfile, Array<[string, string, boolean]>> = {
   employee: [
@@ -119,6 +126,7 @@ export function PrequalificationStages(props: Props) {
   const [documents, setDocuments] = useState<DossierDocument[]>([]);
   const [excludedDocuments, setExcludedDocuments] = useState<Array<{ name: string; reason: string }>>([]);
   const [balance, setBalance] = useState<ExtractedBalance>();
+  const [previousBalance, setPreviousBalance] = useState<ExtractedBalance>();
   const [assessment, setAssessment] = useState<EconomicAssessment>();
   const [contact, setContact] = useState<ContactData>({
     fullName: props.subject.denomination || '', address: '', city: '', province: '', email: '', mobile: '',
@@ -147,7 +155,7 @@ export function PrequalificationStages(props: Props) {
   const incomeDocumentCount = documents.filter(document =>
     /salary-slip|monotributo-invoices|balance-|vat-|income-detail|post-balance-sales/.test(document.kind),
   ).length;
-  const previewAssessment = evaluateEconomicCapacity(economic, incomeDocumentCount, balance);
+  const previewAssessment = evaluateEconomicCapacity(economic, incomeDocumentCount, balance, previousBalance);
   const automaticBalanceMargin = balance?.sales && (balance.operatingProfit ?? balance.netProfit) != null
     ? Math.max(0, ((balance.operatingProfit ?? balance.netProfit) as number) / balance.sales) * 100
     : null;
@@ -175,7 +183,7 @@ export function PrequalificationStages(props: Props) {
     setBusy(true); setMessage('Leyendo documentos…');
     const added: DossierDocument[] = [];
     const usedKinds = new Set(documents.map(document => document.kind));
-    let balanceText = '';
+    const balanceTexts: Partial<Record<'balance-1' | 'balance-2', string>> = {};
     let monthlySalesFromDocuments: number[] = [];
     try {
       const recovered = await recoverCase();
@@ -201,7 +209,9 @@ export function PrequalificationStages(props: Props) {
           continue;
         }
         usedKinds.add(resolvedKind);
-        if (economic.profile === 'legal-entity' && resolvedKind.startsWith('balance-')) balanceText += `\n${extractedText}`;
+        if (economic.profile === 'legal-entity' && (resolvedKind === 'balance-1' || resolvedKind === 'balance-2')) {
+          balanceTexts[resolvedKind] = extractedText;
+        }
         if (resolvedKind === 'post-balance-sales') {
           const extractedSales = latestSixMonthlySales(extractedText);
           if (extractedSales.length === 6) monthlySalesFromDocuments = extractedSales;
@@ -226,8 +236,17 @@ export function PrequalificationStages(props: Props) {
         }
         return updated;
       });
-      if (balanceText) {
-        const extractedBalance = extractBalanceData(balanceText);
+      const newlyExtracted = {
+        current: balanceTexts['balance-1'] ? extractBalanceData(balanceTexts['balance-1']) : undefined,
+        previous: balanceTexts['balance-2'] ? extractBalanceData(balanceTexts['balance-2']) : undefined,
+      };
+      const extractedBalances = [newlyExtracted.current, newlyExtracted.previous]
+        .filter((item): item is ExtractedBalance => Boolean(item))
+        .sort((left, right) => balanceDateValue(right.closingDate) - balanceDateValue(left.closingDate));
+      const latestBalance = extractedBalances.length === 2 ? extractedBalances[0] : newlyExtracted.current;
+      const priorBalance = extractedBalances.length === 2 ? extractedBalances[1] : newlyExtracted.previous;
+      if (latestBalance) {
+        const extractedBalance = latestBalance;
         setBalance(extractedBalance);
         setEconomic(current => ({
           ...current,
@@ -235,6 +254,7 @@ export function PrequalificationStages(props: Props) {
           existingComputableFinancing: current.existingComputableFinancing || extractedBalance.financialDebt || 0,
         }));
       }
+      if (priorBalance) setPreviousBalance(priorBalance);
       if (monthlySalesFromDocuments.length === 6) {
         setEconomic(current => ({ ...current, monthlySales: monthlySalesFromDocuments }));
       }
@@ -278,7 +298,7 @@ export function PrequalificationStages(props: Props) {
     try {
       const recovered = await recoverCase();
       const data = await api({
-        action: 'stage2', contact, economicInputs: economic, documents, balance,
+        action: 'stage2', contact, economicInputs: economic, documents, balance, previousBalance,
         caseNumber: recovered.caseNumber, subject: props.subject.denomination,
       }, recovered.caseId);
       setAssessment(data.assessment); setStage(3); setResponseEmail(contact.email);
@@ -447,6 +467,16 @@ export function PrequalificationStages(props: Props) {
           <p>Margen operativo: <b>{previewAssessment.corporateFinancials.operatingMargin == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.operatingMargin * 100).toFixed(1)}%`}</b> · Margen neto: <b>{previewAssessment.corporateFinancials.netMargin == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.netMargin * 100).toFixed(1)}%`}</b></p>
           <p>ROA: <b>{previewAssessment.corporateFinancials.returnOnAssets == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.returnOnAssets * 100).toFixed(1)}%`}</b> · ROE: <b>{previewAssessment.corporateFinancials.returnOnEquity == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.returnOnEquity * 100).toFixed(1)}%`}</b></p>
           {previewAssessment.corporateFinancials.observations.map(observation => <small key={observation}>{observation}</small>)}
+        </div>}
+        {previewAssessment.corporateEvolution && <div className="prequalRegulatory">
+          <h3>Evolución entre balances</h3>
+          <p>Tendencia: <b>{({
+            improving: 'Favorable', stable: 'Estable', deteriorating: 'Desfavorable',
+            'insufficient-data': 'Datos insuficientes',
+          } as const)[previewAssessment.corporateEvolution.trend]}</b></p>
+          <p>Ventas: <b>{formatChange(previewAssessment.corporateEvolution.salesChange)}</b> · Patrimonio neto: <b>{formatChange(previewAssessment.corporateEvolution.equityChange)}</b> · Resultado neto: <b>{formatChange(previewAssessment.corporateEvolution.netProfitChange)}</b></p>
+          <p>Liquidez corriente: <b>{formatChange(previewAssessment.corporateEvolution.currentRatioChange)}</b> · Pasivo/patrimonio: <b>{formatChange(previewAssessment.corporateEvolution.liabilitiesToEquityChange)}</b></p>
+          {previewAssessment.corporateEvolution.observations.map(observation => <small key={observation}>{observation}</small>)}
         </div>}
         <small>{incomeDocumentCount ? `Respaldo: ${previewAssessment.confidence} (${incomeDocumentCount} documento(s) de ingresos).` : 'Ingresos declarativos: el informe recomendará solicitar comprobantes.'}</small>
       </div>

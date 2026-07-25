@@ -1,5 +1,5 @@
 import type { EconomicAssessment, EconomicInputs, ExtractedBalance, RegulatoryExposureAssessment } from '../domain/dossier';
-import { analyzeCorporateFinancials } from './corporateFinancialAnalysis';
+import { analyzeCorporateEvolution, analyzeCorporateFinancials } from './corporateFinancialAnalysis';
 
 const POLICY_RATIO = 0.3;
 
@@ -67,12 +67,14 @@ export function evaluateEconomicCapacity(
   inputs: EconomicInputs,
   documentCount: number,
   balance?: ExtractedBalance,
+  previousBalance?: ExtractedBalance,
 ): EconomicAssessment {
   const reasons: string[] = [];
   const conditions: string[] = [];
   let normalizedMonthlyIncome: number | null = null;
   const regulatoryExposure = evaluateRegulatoryExposure(inputs, balance);
   const corporateFinancials = inputs.profile === 'legal-entity' ? analyzeCorporateFinancials(balance) : undefined;
+  const corporateEvolution = inputs.profile === 'legal-entity' ? analyzeCorporateEvolution(balance, previousBalance) : undefined;
 
   if (inputs.profile === 'employee') {
     normalizedMonthlyIncome = Math.max(0, Number(inputs.employeeNetIncome || 0)) || null;
@@ -173,6 +175,11 @@ export function evaluateEconomicCapacity(
     score = Math.min(score, 45);
     conditions.push('Los indicadores del último balance requieren revisión crediticia antes de continuar.');
   }
+  if (corporateEvolution?.trend === 'deteriorating') {
+    status = status === 'not-compatible' ? status : 'conditional';
+    score = Math.min(score, 65);
+    conditions.push('La evolución entre los dos últimos balances es desfavorable y requiere revisión.');
+  }
   score = Math.max(0, Math.min(100, score));
 
   return {
@@ -188,6 +195,7 @@ export function evaluateEconomicCapacity(
     conditions,
     balance,
     corporateFinancials,
+    corporateEvolution,
     regulatoryExposure,
   };
 }

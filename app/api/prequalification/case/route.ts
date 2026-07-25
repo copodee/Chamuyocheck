@@ -100,7 +100,12 @@ export async function POST(request: Request) {
       const incomeDocumentCount = documents.filter(document =>
         /salary-slip|monotributo-invoices|balance-|vat-|income-detail|post-balance-sales/.test(document.kind),
       ).length;
-      const assessment = evaluateEconomicCapacity(inputs, incomeDocumentCount, body.balance as ExtractedBalance | undefined);
+      const assessment = evaluateEconomicCapacity(
+        inputs,
+        incomeDocumentCount,
+        body.balance as ExtractedBalance | undefined,
+        body.previousBalance as ExtractedBalance | undefined,
+      );
       if (assessment.status !== 'compatible') {
         return NextResponse.json({
           error: assessment.maximumPrudentCanon == null
@@ -127,6 +132,7 @@ export async function POST(request: Request) {
           conditions: assessment.conditions,
           regulatoryExposure: assessment.regulatoryExposure,
           corporateFinancials: assessment.corporateFinancials,
+          corporateEvolution: assessment.corporateEvolution,
           documents: documents.filter(document => document.stage === 2).map(document => ({ name: document.name, kind: document.kind })),
           downloadLinks: delivery.downloadLinks,
         }),

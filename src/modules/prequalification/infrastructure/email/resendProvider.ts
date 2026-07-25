@@ -96,6 +96,14 @@ export function stage2NotificationHtml(input: {
     returnOnAssets: number | null;
     returnOnEquity: number | null;
   };
+  corporateEvolution?: {
+    trend: string;
+    salesChange: number | null;
+    equityChange: number | null;
+    netProfitChange: number | null;
+    currentRatioChange: number | null;
+    liabilitiesToEquityChange: number | null;
+  };
   documents: Array<{ name: string; kind: string }>;
   downloadLinks: Array<{ name: string; url: string }>;
 }) {
@@ -133,6 +141,10 @@ export function stage2NotificationHtml(input: {
     <p><b>Pasivo / patrimonio:</b> ${input.corporateFinancials.liabilitiesToEquity == null ? 'No calculable' : `${(input.corporateFinancials.liabilitiesToEquity * 100).toFixed(1)}%`} · <b>Deuda financiera / patrimonio:</b> ${input.corporateFinancials.debtToEquity == null ? 'No calculable' : `${(input.corporateFinancials.debtToEquity * 100).toFixed(1)}%`}</p>
     <p><b>Margen operativo:</b> ${input.corporateFinancials.operatingMargin == null ? 'No calculable' : `${(input.corporateFinancials.operatingMargin * 100).toFixed(1)}%`} · <b>Margen neto:</b> ${input.corporateFinancials.netMargin == null ? 'No calculable' : `${(input.corporateFinancials.netMargin * 100).toFixed(1)}%`}</p>
     <p><b>ROA:</b> ${input.corporateFinancials.returnOnAssets == null ? 'No calculable' : `${(input.corporateFinancials.returnOnAssets * 100).toFixed(1)}%`} · <b>ROE:</b> ${input.corporateFinancials.returnOnEquity == null ? 'No calculable' : `${(input.corporateFinancials.returnOnEquity * 100).toFixed(1)}%`}</p>` : ''}
+    ${input.corporateEvolution ? `<h2 style="font-size:18px">Evolución entre balances</h2>
+    <p><b>Tendencia:</b> ${input.corporateEvolution.trend === 'improving' ? 'Favorable' : input.corporateEvolution.trend === 'stable' ? 'Estable' : input.corporateEvolution.trend === 'deteriorating' ? 'Desfavorable' : 'Datos insuficientes'}</p>
+    <p><b>Ventas:</b> ${percentChange(input.corporateEvolution.salesChange)} · <b>Patrimonio:</b> ${percentChange(input.corporateEvolution.equityChange)} · <b>Resultado neto:</b> ${percentChange(input.corporateEvolution.netProfitChange)}</p>
+    <p><b>Liquidez:</b> ${percentChange(input.corporateEvolution.currentRatioChange)} · <b>Pasivo/patrimonio:</b> ${percentChange(input.corporateEvolution.liabilitiesToEquityChange)}</p>` : ''}
     <p><b>Correo del solicitante:</b> ${escapeHtml(input.responseEmail)}</p>
     <h2 style="font-size:18px">Fundamentos</h2>
     <ul>${input.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>
@@ -170,4 +182,8 @@ function escapeHtml(value: string) {
   return String(value || '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
   }[character] || character));
+}
+
+function percentChange(value: number | null) {
+  return value == null ? 'No calculable' : `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
 }

@@ -92,6 +92,18 @@ export type CorporateFinancialAssessment = {
   observations: string[];
 };
 
+export type CorporateEvolutionAssessment = {
+  currentClosingDate: string | null;
+  previousClosingDate: string | null;
+  salesChange: number | null;
+  equityChange: number | null;
+  netProfitChange: number | null;
+  currentRatioChange: number | null;
+  liabilitiesToEquityChange: number | null;
+  trend: 'improving' | 'stable' | 'deteriorating' | 'insufficient-data';
+  observations: string[];
+};
+
 export type EconomicAssessment = {
   score: number;
   confidence: 'declarativa' | 'parcialmente respaldada' | 'documental';
@@ -105,6 +117,7 @@ export type EconomicAssessment = {
   conditions: string[];
   balance?: ExtractedBalance;
   corporateFinancials?: CorporateFinancialAssessment;
+  corporateEvolution?: CorporateEvolutionAssessment;
   regulatoryExposure: RegulatoryExposureAssessment;
 };
 

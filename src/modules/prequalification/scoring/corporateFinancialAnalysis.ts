@@ -1,4 +1,4 @@
-import type { CorporateFinancialAssessment, ExtractedBalance } from '../domain/dossier';
+import type { CorporateEvolutionAssessment, CorporateFinancialAssessment, ExtractedBalance } from '../domain/dossier';
 
 const ratio = (numerator: number | null | undefined, denominator: number | null | undefined) =>
   numerator != null && denominator != null && denominator !== 0 ? numerator / denominator : null;
@@ -60,5 +60,49 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance): Corporat
     workingCapital, currentRatio, cashRatio, debtToEquity, liabilitiesToEquity,
     netMargin, operatingMargin, returnOnAssets, returnOnEquity, financialDebtToSales,
     status, score, observations,
+  };
+}
+
+export function analyzeCorporateEvolution(current?: ExtractedBalance, previous?: ExtractedBalance): CorporateEvolutionAssessment {
+  const empty = {
+    currentClosingDate: current?.closingDate || null,
+    previousClosingDate: previous?.closingDate || null,
+    salesChange: null, equityChange: null, netProfitChange: null,
+    currentRatioChange: null, liabilitiesToEquityChange: null,
+  };
+  if (!current || !previous) {
+    return { ...empty, trend: 'insufficient-data', observations: ['Se necesitan dos balances separados para medir la evolución interanual.'] };
+  }
+  const currentMetrics = analyzeCorporateFinancials(current);
+  const previousMetrics = analyzeCorporateFinancials(previous);
+  const change = (latest: number | null | undefined, prior: number | null | undefined) =>
+    latest != null && prior != null && prior !== 0 ? (latest - prior) / Math.abs(prior) : null;
+  const salesChange = change(current.sales, previous.sales);
+  const equityChange = change(current.equity, previous.equity);
+  const netProfitChange = change(current.netProfit, previous.netProfit);
+  const currentRatioChange = change(currentMetrics.currentRatio, previousMetrics.currentRatio);
+  const liabilitiesToEquityChange = change(currentMetrics.liabilitiesToEquity, previousMetrics.liabilitiesToEquity);
+  const signals = [
+    salesChange == null ? null : salesChange >= 0 ? 1 : -1,
+    equityChange == null ? null : equityChange >= 0 ? 1 : -1,
+    netProfitChange == null ? null : netProfitChange >= 0 ? 1 : -1,
+    currentRatioChange == null ? null : currentRatioChange >= 0 ? 1 : -1,
+    liabilitiesToEquityChange == null ? null : liabilitiesToEquityChange <= 0 ? 1 : -1,
+  ].filter((value): value is number => value != null);
+  const total = signals.reduce((sum, value) => sum + value, 0);
+  const trend = signals.length < 3 ? 'insufficient-data'
+    : total >= 2 ? 'improving'
+      : total <= -2 ? 'deteriorating'
+        : 'stable';
+  const observations: string[] = [];
+  if (salesChange != null && salesChange < 0) observations.push('Las ventas disminuyeron frente al ejercicio anterior.');
+  if (equityChange != null && equityChange < 0) observations.push('El patrimonio neto disminuyó frente al ejercicio anterior.');
+  if (netProfitChange != null && netProfitChange < 0) observations.push('El resultado neto se deterioró frente al ejercicio anterior.');
+  if (currentRatioChange != null && currentRatioChange < 0) observations.push('La liquidez corriente se redujo.');
+  if (liabilitiesToEquityChange != null && liabilitiesToEquityChange > 0) observations.push('Aumentó el pasivo total respecto del patrimonio.');
+  return {
+    currentClosingDate: current.closingDate, previousClosingDate: previous.closingDate,
+    salesChange, equityChange, netProfitChange, currentRatioChange, liabilitiesToEquityChange,
+    trend, observations,
   };
 }

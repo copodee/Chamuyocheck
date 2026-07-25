@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeCorporateFinancials } from '../scoring/corporateFinancialAnalysis';
+import { analyzeCorporateEvolution, analyzeCorporateFinancials } from '../scoring/corporateFinancialAnalysis';
 
 test('calcula liquidez, capital de trabajo, endeudamiento y rentabilidad empresarial', () => {
   const result = analyzeCorporateFinancials({
@@ -47,4 +47,22 @@ test('no inventa ratios cuando faltan sus bases', () => {
   assert.equal(result.netMargin, null);
   assert.equal(result.score, null);
   assert.equal(result.status, 'insufficient-data');
+});
+
+test('compara dos ejercicios sin mezclar sus importes', () => {
+  const base = {
+    closingDate: '30/06/2024', currentAssets: 20_000_000, nonCurrentAssets: 40_000_000,
+    currentLiabilities: 10_000_000, nonCurrentLiabilities: 15_000_000, equity: 35_000_000,
+    sales: 180_000_000, grossProfit: 40_000_000, operatingProfit: 18_000_000,
+    netProfit: 9_000_000, financialDebt: 15_000_000, cash: 4_000_000,
+    extractionConfidence: 100, missingFields: [],
+  };
+  const result = analyzeCorporateEvolution({
+    ...base, closingDate: '30/06/2025', currentAssets: 30_000_000,
+    currentLiabilities: 10_000_000, equity: 50_000_000, sales: 225_000_000,
+    netProfit: 15_000_000, financialDebt: 12_000_000,
+  }, base);
+  assert.equal(result.salesChange, 0.25);
+  assert.equal(result.equityChange, 15_000_000 / 35_000_000);
+  assert.equal(result.trend, 'improving');
 });

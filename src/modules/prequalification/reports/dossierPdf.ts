@@ -96,6 +96,17 @@ export async function buildDossierPdf(data: PdfData) {
       row('ROA', corporate.returnOnAssets == null ? 'No calculable' : `${(corporate.returnOnAssets * 100).toFixed(1)}%`);
       row('ROE', corporate.returnOnEquity == null ? 'No calculable' : `${(corporate.returnOnEquity * 100).toFixed(1)}%`);
     }
+    if (data.economic?.corporateEvolution) {
+      const evolution = data.economic.corporateEvolution;
+      const change = (value: number | null) => value == null ? 'No calculable' : `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
+      section('Evolución entre balances');
+      row('Tendencia', evolution.trend === 'improving' ? 'Favorable' : evolution.trend === 'stable' ? 'Estable' : evolution.trend === 'deteriorating' ? 'Desfavorable' : 'Datos insuficientes');
+      row('Ventas', change(evolution.salesChange));
+      row('Patrimonio neto', change(evolution.equityChange));
+      row('Resultado neto', change(evolution.netProfitChange));
+      row('Liquidez corriente', change(evolution.currentRatioChange));
+      row('Pasivo / patrimonio', change(evolution.liabilitiesToEquityChange));
+    }
     if (data.economic?.confidence === 'declarativa') {
       text('ADVERTENCIA: los ingresos son declarativos y deben solicitarse comprobantes antes de una decisión definitiva.', 9, bold, violet);
     }
