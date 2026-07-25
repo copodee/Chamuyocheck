@@ -50,6 +50,18 @@ const balanceDateValue = (value: string | null) => {
   const year = Number(match[3]) < 100 ? 2000 + Number(match[3]) : Number(match[3]);
   return new Date(year, Number(match[2]) - 1, Number(match[1])).getTime();
 };
+const extractConstitutionAntiquity = (text: string) => {
+  const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const match = normalized.match(/(?:constitu(?:ida|ido|ye)|constitucion|contrato social)[\s\S]{0,180}?(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
+  if (!match) return null;
+  const year = Number(match[3]) < 100 ? 2000 + Number(match[3]) : Number(match[3]);
+  const date = new Date(year, Number(match[2]) - 1, Number(match[1]));
+  const now = new Date();
+  if (Number.isNaN(date.getTime()) || date > now) return null;
+  const months = (now.getFullYear() - date.getFullYear()) * 12 + now.getMonth() - date.getMonth()
+    - (now.getDate() < date.getDate() ? 1 : 0);
+  return { date: `${match[1].padStart(2, '0')}/${match[2].padStart(2, '0')}/${year}`, months: Math.max(0, months) };
+};
 
 const stage2Requirements: Record<EconomicProfile, Array<[string, string, boolean]>> = {
   employee: [
@@ -129,6 +141,7 @@ export function PrequalificationStages(props: Props) {
   const [balance, setBalance] = useState<ExtractedBalance>();
   const [previousBalance, setPreviousBalance] = useState<ExtractedBalance>();
   const [debtExtraction, setDebtExtraction] = useState<ExtractedFinancialDebt>();
+  const [constitutionDate, setConstitutionDate] = useState<string>();
   const [assessment, setAssessment] = useState<EconomicAssessment>();
   const [contact, setContact] = useState<ContactData>({
     fullName: props.subject.denomination || '', address: '', city: '', province: '', email: '', mobile: '',
@@ -188,6 +201,7 @@ export function PrequalificationStages(props: Props) {
     const balanceTexts: Partial<Record<'balance-1' | 'balance-2', string>> = {};
     let monthlySalesFromDocuments: number[] = [];
     let debtFromDocument: ExtractedFinancialDebt | undefined;
+    let societaryAntiquity: ReturnType<typeof extractConstitutionAntiquity>;
     try {
       const recovered = await recoverCase();
       for (const file of Array.from(files)) {
@@ -227,6 +241,9 @@ export function PrequalificationStages(props: Props) {
           if (extractedSales.length === 6) monthlySalesFromDocuments = extractedSales;
         }
         if (resolvedKind === 'financial-debt') debtFromDocument = extractFinancialDebt(extractedText);
+        if (economic.profile === 'legal-entity' && resolvedKind === 'statute') {
+          societaryAntiquity = extractConstitutionAntiquity(extractedText);
+        }
         const documentStage = documentKind === 'auto' ? admission.stage : stage === 3 ? 3 : 2;
         const upload = new FormData();
         upload.append('file', file); upload.append('caseId', recovered.caseId); upload.append('stage', String(documentStage));
@@ -276,6 +293,10 @@ export function PrequalificationStages(props: Props) {
           existingComputableFinancing: debtFromDocument?.totalOutstanding ?? current.existingComputableFinancing,
           declaredMonthlyDebtService: debtFromDocument?.monthlyDebtService ?? current.declaredMonthlyDebtService,
         }));
+      }
+      if (societaryAntiquity) {
+        setConstitutionDate(societaryAntiquity.date);
+        setEconomic(current => ({ ...current, activitySeniorityMonths: societaryAntiquity?.months ?? current.activitySeniorityMonths }));
       }
       const reviewCount = added.filter(document => document.status === 'needs-review').length;
       setMessage(`${added.length} documento(s) incorporado(s).${reviewCount ? ` ${reviewCount} requieren identificar su tipo manualmente.` : ' Todos fueron identificados automáticamente.'}`);
@@ -369,7 +390,10 @@ export function PrequalificationStages(props: Props) {
         <label>Correo<input type="email" value={contact.email} onChange={e => setContact({ ...contact, email: e.target.value })} /></label>
         <label>Celular<input value={contact.mobile} onChange={e => setContact({ ...contact, mobile: e.target.value })} /></label>
         <label>Actividad<input value={economic.activity} onChange={e => setEconomic({ ...economic, activity: e.target.value })} /></label>
-        <label>Antigüedad (meses)<input type="text" inputMode="numeric" value={economic.activitySeniorityMonths || ''} onChange={e => setEconomic({ ...economic, activitySeniorityMonths: Number(e.target.value.replace(/\D/g, '')) })} /></label>
+        <label>{economic.profile === 'legal-entity' ? 'Antigüedad societaria (meses)' : 'Antigüedad (meses)'}
+          <input type="text" inputMode="numeric" value={economic.activitySeniorityMonths || ''} onChange={e => setEconomic({ ...economic, activitySeniorityMonths: Number(e.target.value.replace(/\D/g, '')) })} />
+          {economic.profile === 'legal-entity' && <small>{constitutionDate ? `Calculada desde la fecha de constitución extraída del estatuto: ${constitutionDate}.` : 'Se calculará automáticamente si el estatuto o contrato social contiene una fecha de constitución legible.'}</small>}
+        </label>
         <label>Cuotas mensuales de financiaciones vigentes
           <input type="number" value={economic.declaredMonthlyDebtService} onChange={e => setEconomic({ ...economic, declaredMonthlyDebtService: Number(e.target.value) })} />
           <small>Suma mensual que actualmente paga por préstamos, leasing, descubiertos y otras financiaciones. No es el saldo total adeudado.</small>
@@ -392,7 +416,13 @@ export function PrequalificationStages(props: Props) {
             {economic.profile === 'legal-entity' && <div className="prequalCalculatedField"><b>Margen calculado automáticamente</b><span>{automaticBalanceMargin == null ? 'Se calculará al cargar el último balance.' : `${automaticBalanceMargin.toFixed(1)}% según ventas y resultado del balance.`}</span></div>}
           </>}
         {economic.profile === 'legal-entity' && <>
-          <label>Patrimonio neto al cierre del último balance<input type="text" inputMode="numeric" value={economic.computableNetWorth || ''} onChange={e => setEconomic({ ...economic, computableNetWorth: Number(e.target.value.replace(/\D/g, '')) })} /><small>Es la base preliminar para verificar el límite regulatorio. LeasingScoring podrá ajustarla si el balance contiene conceptos no computables.</small></label>
+          <label>Patrimonio neto al cierre del último balance
+            <input type="text" inputMode="numeric" value={economic.computableNetWorth || ''} onChange={e => setEconomic({ ...economic, computableNetWorth: Number(e.target.value.replace(/\D/g, '')) })} />
+            <small>{balance?.equity != null
+              ? `Extraído automáticamente del balance${balance.closingDate ? ` cerrado el ${balance.closingDate}` : ''}, con confianza ${Math.round(balance.extractionConfidence)}%. Podés corregirlo si la lectura no coincide.`
+              : 'Se completará automáticamente al cargar el último balance. También podés informarlo manualmente si el documento no permite una lectura confiable.'}</small>
+            <small>Es la base preliminar para verificar el límite regulatorio; puede requerir ajustes si existen conceptos no computables.</small>
+          </label>
           <label>Deuda bancaria y financiera vigente<input type="text" inputMode="numeric" value={economic.existingComputableFinancing || ''} onChange={e => setEconomic({ ...economic, existingComputableFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Saldo total actual de préstamos, descubiertos, leasing y otras financiaciones todavía pendientes.</small>{debtExtraction && <small>Extraído del documento con confianza {debtExtraction.confidence}%. {debtExtraction.creditorEntities.length ? `${debtExtraction.creditorEntities.length} entidad(es) identificada(s).` : ''} {debtExtraction.warnings.join(' ')}</small>}</label>
           <label>Monto neto solicitado<input type="text" inputMode="numeric" value={economic.requestedFinancing || ''} onChange={e => setEconomic({ ...economic, requestedFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Valor del bien menos anticipo; modificable si la estructura propuesta es distinta.</small></label>
           <label>Garantía regulatoria elegible<select value={economic.qualifyingGuarantee} onChange={e => setEconomic({ ...economic, qualifyingGuarantee: e.target.value as EconomicInputs['qualifyingGuarantee'] })}><option value="none">Sin SGR/fondo público informado</option><option value="sgr-public-fund">SGR o fondo público elegible</option></select></label>
