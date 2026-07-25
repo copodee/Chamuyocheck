@@ -114,7 +114,7 @@ export default function PrequalificationPage() {
 
   if (!supabase) {
     return <main className="prequalPage"><section className="prequalCard prequalAccess">
-      <div className="prequalBrand">✓ LeasingScoring</div>
+      <img className="prequalBrandLogo" src="/brand/leasing-scoring-logo.png" alt="Leasing Scoring" />
       <div className="prequalEyebrow">PRECALIFICACIÓN CREDITICIA · ACCESO RESTRINGIDO</div>
       <h1>Módulo en preparación</h1>
       <p>La aplicación ya está separada del acceso general. Falta conectar las credenciales del Supabase exclusivo para habilitar los usuarios autorizados por el administrador.</p>
@@ -124,7 +124,7 @@ export default function PrequalificationPage() {
 
   if (!session) {
     return <main className="prequalPage"><section className="prequalCard prequalAccess">
-      <div className="prequalBrand">✓ LeasingScoring</div>
+      <img className="prequalBrandLogo" src="/brand/leasing-scoring-logo.png" alt="Leasing Scoring" />
       <div className="prequalEyebrow">PRECALIFICACIÓN CREDITICIA · ACCESO RESTRINGIDO</div>
       <h1>Ingresá con tu usuario autorizado</h1>
       <p>No existe registro público. Cada acceso es creado o invitado exclusivamente por un administrador.</p>
@@ -140,7 +140,7 @@ export default function PrequalificationPage() {
 
   return <main className="prequalPage"><div className="prequalWorkspace">
     <header className="prequalHeader">
-      <div><div className="prequalBrand">✓ LeasingScoring</div><span>Precalificación Crediticia</span></div>
+      <div><img className="prequalBrandLogo" src="/brand/leasing-scoring-logo.png" alt="Leasing Scoring" /><span>Precalificación Crediticia</span></div>
       <div className="prequalUser"><span>{session.user.email}</span><button onClick={() => supabase.auth.signOut()}>Salir</button></div>
     </header>
     <section className="prequalIntro">
