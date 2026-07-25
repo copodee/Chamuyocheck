@@ -6,6 +6,7 @@ type EmailMessage = {
   html: string;
   idempotencyKey: string;
   replyTo?: string;
+  attachments?: Array<{ filename: string; content: string }>;
 };
 
 export function getPrequalificationEmailConfig() {
@@ -33,6 +34,7 @@ export async function sendPrequalificationEmail(message: EmailMessage) {
       reply_to: message.replyTo,
       subject: message.subject,
       html: message.html,
+      attachments: message.attachments,
     }),
     signal: AbortSignal.timeout(10_000),
   });
@@ -66,17 +68,46 @@ export function stage2NotificationHtml(input: {
   economicStatus: string;
   economicScore: number;
   confidence: string;
+  normalizedMonthlyIncome: number | null;
+  proposedMonthlyCanon: number;
+  declaredMonthlyDebtService: number;
+  maximumPrudentCanon: number | null;
+  installmentToIncomeRatio: number | null;
+  reasons: string[];
+  conditions: string[];
+  documents: Array<{ name: string; kind: string }>;
 }) {
+  const money = (value: number | null) => value == null
+    ? 'No estimable'
+    : new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(value);
+  const statusLabel = input.economicStatus === 'compatible'
+    ? 'CALIFICADO PARA CONTINUAR'
+    : input.economicStatus === 'conditional'
+      ? 'DEBE REDUCIR LA CUOTA'
+      : input.economicStatus === 'not-compatible'
+        ? 'NO CALIFICA CON LA CUOTA PROPUESTA'
+        : 'REVISIÓN MANUAL';
   return `<div style="font-family:Arial,sans-serif;color:#10212b;max-width:620px">
     <div style="font-size:22px;font-weight:700;color:#6d28d9">LeasingScoring</div>
     <h1 style="font-size:24px">Precalificación 2 completada</h1>
     <p><b>Expediente:</b> ${escapeHtml(input.caseNumber)}</p>
     <p><b>Solicitante:</b> ${escapeHtml(input.subject)}</p>
-    <p><b>Resultado económico:</b> ${escapeHtml(input.economicStatus)} · ${input.economicScore}/100</p>
+    <div style="padding:14px;border-radius:10px;background:#ede9fe"><b>${statusLabel}</b> · ${input.economicScore}/100</div>
     <p><b>Respaldo de ingresos:</b> ${escapeHtml(input.confidence)}</p>
+    <p><b>Ingreso mensual computable:</b> ${money(input.normalizedMonthlyIncome)}</p>
+    <p><b>Canon mensual propuesto:</b> ${money(input.proposedMonthlyCanon)}</p>
+    <p><b>Otros compromisos mensuales:</b> ${money(input.declaredMonthlyDebtService)}</p>
+    <p><b>Relación compromisos/ingreso:</b> ${input.installmentToIncomeRatio == null ? 'No estimable' : `${(input.installmentToIncomeRatio * 100).toFixed(1)}%`} · política máxima 30%</p>
+    <p><b>Canon máximo estimado:</b> ${money(input.maximumPrudentCanon)}</p>
     <p><b>Correo del solicitante:</b> ${escapeHtml(input.responseEmail)}</p>
-    <p>El expediente quedó generado y puede continuar a Precalificación 3.</p>
-    <p style="font-size:12px;color:#64748b">No se adjuntan documentos sensibles al correo.</p>
+    <h2 style="font-size:18px">Fundamentos</h2>
+    <ul>${input.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>
+    <h2 style="font-size:18px">Condiciones y observaciones</h2>
+    <ul>${input.conditions.map(condition => `<li>${escapeHtml(condition)}</li>`).join('') || '<li>Sin condiciones económicas adicionales.</li>'}</ul>
+    <h2 style="font-size:18px">Documentación adjunta (${input.documents.length})</h2>
+    <ul>${input.documents.map(document => `<li>${escapeHtml(document.name)} · ${escapeHtml(document.kind)}</li>`).join('') || '<li>Evaluación basada exclusivamente en datos declarativos.</li>'}</ul>
+    <p>La operación calificó por relación cuota/ingreso y puede continuar a Precalificación 3.</p>
+    <p style="font-size:12px;color:#64748b">Evaluación preliminar. No constituye aprobación crediticia ni oferta de financiación.</p>
   </div>`;
 }
 

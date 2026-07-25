@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { extractPdfTextInBrowser } from '../../../lib/extractors/browserPdfOcr';
 import { extractBalanceData } from '../scoring/balanceExtractor';
+import { evaluateEconomicCapacity } from '../scoring/economicEngine';
 import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicAssessment, EconomicInputs, EconomicProfile, ExtractedBalance } from '../domain/dossier';
 import type { PrequalificationResult } from '../domain/types';
 
@@ -37,6 +38,7 @@ const decisions = [
   ['more-information', 'Solicitar más información'],
   ['not-compatible', 'No compatible'],
 ];
+const pesos = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
 
 const stage2Requirements: Record<EconomicProfile, Array<[string, string, boolean]>> = {
   employee: [
@@ -124,6 +126,10 @@ export function PrequalificationStages(props: Props) {
   const [responseMessage, setResponseMessage] = useState('');
   const [effectiveCaseId, setEffectiveCaseId] = useState(props.caseId);
   const [effectiveCaseNumber, setEffectiveCaseNumber] = useState(props.caseNumber);
+  const incomeDocumentCount = documents.filter(document =>
+    /salary-slip|monotributo-invoices|balance-|vat-|income-detail|post-balance-sales/.test(document.kind),
+  ).length;
+  const previewAssessment = evaluateEconomicCapacity(economic, incomeDocumentCount, balance);
 
   const api = async (payload: object, caseId = effectiveCaseId) => {
     const response = await fetch('/api/prequalification/case', {
@@ -190,6 +196,13 @@ export function PrequalificationStages(props: Props) {
       .map(([, label]) => label);
     if (missingDocuments.length && !effectiveCaseNumber?.startsWith('DEMO-')) {
       return setMessage(`Falta agregar: ${missingDocuments.join(', ')}.`);
+    }
+    setAssessment(previewAssessment);
+    if (previewAssessment.status !== 'compatible') {
+      setMessage(previewAssessment.maximumPrudentCanon == null
+        ? 'No se enviará el expediente: faltan ingresos computables para evaluar la cuota.'
+        : `No se enviará el expediente con esta cuota. El canon máximo estimado es ${pesos.format(previewAssessment.maximumPrudentCanon)}.`);
+      return;
     }
     setBusy(true); setMessage('');
     try {
@@ -287,10 +300,23 @@ export function PrequalificationStages(props: Props) {
           </label>;
         })}
       </div>
+      <div className={`prequalCapacity prequalEconomic-${previewAssessment.status}`}>
+        <h3>Calificación económica antes del envío</h3>
+        {previewAssessment.status === 'compatible'
+          ? <p><b>La operación califica para continuar.</b> La relación total cuota/ingreso está dentro del máximo del 30%.</p>
+          : previewAssessment.maximumPrudentCanon == null
+            ? <p><b>Todavía no puede calificarse.</b> Ingresá un ingreso o facturación mensual computable.</p>
+            : <p><b>La cuota propuesta no califica.</b> Para continuar, reducí el canon hasta un máximo estimado de <b>{pesos.format(previewAssessment.maximumPrudentCanon)}</b>.</p>}
+        <p>Ingreso computable: <b>{previewAssessment.normalizedMonthlyIncome == null ? 'No estimable' : pesos.format(previewAssessment.normalizedMonthlyIncome)}</b> · Canon propuesto: <b>{pesos.format(economic.proposedMonthlyCanon)}</b></p>
+        <p>Relación compromisos/ingreso: <b>{previewAssessment.installmentToIncomeRatio == null ? 'No estimable' : `${(previewAssessment.installmentToIncomeRatio * 100).toFixed(1)}%`}</b> · Score económico: <b>{previewAssessment.score}/100</b></p>
+        <small>{incomeDocumentCount ? `Respaldo: ${previewAssessment.confidence} (${incomeDocumentCount} documento(s) de ingresos).` : 'Ingresos declarativos: el informe recomendará solicitar comprobantes.'}</small>
+      </div>
       <label><input type="checkbox" checked={contact.dataConsent} onChange={e => setContact({ ...contact, dataConsent: e.target.checked })} /> Autorizo el tratamiento de datos para esta evaluación.</label>
       <label><input type="checkbox" checked={contact.contactConsent} onChange={e => setContact({ ...contact, contactConsent: e.target.checked })} /> Autorizo el contacto sobre este expediente.</label>
       <label><input type="checkbox" checked={contact.accuracyDeclaration} onChange={e => setContact({ ...contact, accuracyDeclaration: e.target.checked })} /> Declaro que los datos son completos y veraces.</label>
-      <button className="prequalPrimary" disabled={busy} onClick={saveStage2}>Finalizar Precalificación 2 y generar expediente</button>
+      <button className="prequalPrimary" disabled={busy} onClick={saveStage2}>
+        {previewAssessment.status === 'compatible' ? 'Calificar y enviar expediente' : 'Recalcular capacidad de pago'}
+      </button>
     </div>}
     {stage === 3 && <div className="prequalForm">
       <h3>Precalificación 3 · Validación y cumplimiento UIF</h3>

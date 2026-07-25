@@ -5,11 +5,31 @@ import { evaluateEconomicCapacity } from '../../../../src/modules/prequalificati
 import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicInputs, ExtractedBalance } from '../../../../src/modules/prequalification/domain/dossier';
 import { adminNotificationHtml, applicantResponseHtml, getPrequalificationEmailConfig, sendPrequalificationEmail, stage2NotificationHtml } from '../../../../src/modules/prequalification/infrastructure/email/resendProvider';
 import { isValidCuit, normalizeCuit } from '../../../../src/modules/prequalification/domain/cuit';
+import { getPrequalificationSupabaseConfig } from '../../../../src/modules/prequalification/infrastructure/supabase/config';
 
 export const runtime = 'nodejs';
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 async function update(token: string, id: string, values: Record<string, unknown>) {
   await prequalRest(token, `prequal_cases?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(values) });
+}
+async function loadAttachments(token: string, documents: DossierDocument[]) {
+  const config = getPrequalificationSupabaseConfig();
+  if (!config) throw new Error('Almacenamiento no configurado.');
+  const attachments: Array<{ filename: string; content: string }> = [];
+  let encodedBytes = 0;
+  for (const document of documents.filter(item => item.stage === 2 && item.storagePath)) {
+    const response = await fetch(`${config.url}/storage/v1/object/prequalification-documents/${document.storagePath}`, {
+      headers: { apikey: config.publicKey, Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error(`No se pudo recuperar ${document.name} para adjuntarlo.`);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    encodedBytes += Math.ceil(buffer.length / 3) * 4;
+    if (encodedBytes > 38 * 1024 * 1024) {
+      throw new Error('Los documentos superan el límite total del correo. Reducí el tamaño de los archivos y volvé a intentar.');
+    }
+    attachments.push({ filename: document.name, content: buffer.toString('base64') });
+  }
+  return attachments;
 }
 
 export async function POST(request: Request) {
@@ -56,6 +76,15 @@ export async function POST(request: Request) {
         /salary-slip|monotributo-invoices|balance-|vat-|income-detail|post-balance-sales/.test(document.kind),
       ).length;
       const assessment = evaluateEconomicCapacity(inputs, incomeDocumentCount, body.balance as ExtractedBalance | undefined);
+      if (assessment.status !== 'compatible') {
+        return NextResponse.json({
+          error: assessment.maximumPrudentCanon == null
+            ? 'No hay ingresos suficientes para calificar la cuota propuesta.'
+            : `La cuota propuesta no califica. El canon máximo estimado es $ ${Math.round(assessment.maximumPrudentCanon).toLocaleString('es-AR')}.`,
+          assessment,
+        }, { status: 422 });
+      }
+      const attachments = await loadAttachments(auth.token, documents);
       const emailConfig = getPrequalificationEmailConfig();
       const notification = await sendPrequalificationEmail({
         to: emailConfig.administratorEmail, replyTo: contact.email,
@@ -64,9 +93,24 @@ export async function POST(request: Request) {
           caseNumber: body.caseNumber || body.caseId, subject: body.subject || contact.fullName,
           responseEmail: contact.email, economicStatus: assessment.status,
           economicScore: assessment.score, confidence: assessment.confidence,
+          normalizedMonthlyIncome: assessment.normalizedMonthlyIncome,
+          proposedMonthlyCanon: inputs.proposedMonthlyCanon,
+          declaredMonthlyDebtService: inputs.declaredMonthlyDebtService,
+          maximumPrudentCanon: assessment.maximumPrudentCanon,
+          installmentToIncomeRatio: assessment.installmentToIncomeRatio,
+          reasons: assessment.reasons,
+          conditions: assessment.conditions,
+          documents: documents.filter(document => document.stage === 2).map(document => ({ name: document.name, kind: document.kind })),
         }),
-        idempotencyKey: `prequal-stage2-${body.caseId}`,
-      }).catch(() => ({ sent: false as const, reason: 'provider-error' as const }));
+        idempotencyKey: `prequal-stage2-v2-${body.caseId}-${assessment.score}-${Math.round(inputs.proposedMonthlyCanon)}`,
+        attachments,
+      }).catch((error) => ({
+        sent: false as const,
+        reason: error instanceof Error ? error.message : 'provider-error',
+      }));
+      if (!notification.sent) {
+        return NextResponse.json({ error: `La operación calificó, pero el correo no pudo enviarse: ${notification.reason}` }, { status: 502 });
+      }
       await update(auth.token, body.caseId, {
         stage: 2, contact, economic_inputs: inputs, economic_assessment: assessment,
         documents: documents.map(({ extractedText: _text, ...document }) => document),

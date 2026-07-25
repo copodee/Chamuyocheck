@@ -68,7 +68,9 @@ export function evaluateEconomicCapacity(
 
   let status: EconomicAssessment['status'] = 'manual-review';
   let score = 50;
-  if (ratio !== null) {
+  if (!(inputs.proposedMonthlyCanon > 0)) {
+    conditions.push('Ingresá el canon mensual propuesto para evaluar la relación cuota/ingreso.');
+  } else if (ratio !== null) {
     if (ratio <= POLICY_RATIO) {
       status = 'compatible';
       score = 84;
