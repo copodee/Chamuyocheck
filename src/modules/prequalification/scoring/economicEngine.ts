@@ -1,18 +1,65 @@
-import type { EconomicAssessment, EconomicInputs, ExtractedBalance } from '../domain/dossier';
+import type { EconomicAssessment, EconomicInputs, ExtractedBalance, RegulatoryExposureAssessment } from '../domain/dossier';
 
 const POLICY_RATIO = 0.3;
-const MONOTRIBUTO_INCOME_COEFFICIENTS: Record<string, number> = {
-  'professional-services': 0.55,
-  'other-services': 0.45,
-  commerce: 0.25,
-  production: 0.3,
-  transport: 0.35,
-  other: 0.3,
-};
 
 function average(values: number[]): number {
   const valid = values.filter((value) => Number.isFinite(value) && value >= 0);
   return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : 0;
+}
+
+export function evaluateRegulatoryExposure(inputs: EconomicInputs, balance?: ExtractedBalance): RegulatoryExposureAssessment {
+  if (inputs.profile !== 'legal-entity') {
+    return {
+      applicable: false, computableNetWorth: null, existingComputableFinancing: 0,
+      requestedFinancing: 0, totalExposure: 0, exposureToNetWorthRatio: null,
+      basicMarginAvailable: null, status: 'not-applicable', label: 'No aplicable', conditions: [],
+    };
+  }
+  const computableNetWorth = Math.max(0, Number(inputs.computableNetWorth || balance?.equity || 0)) || null;
+  const existingComputableFinancing = Math.max(0, Number(inputs.existingComputableFinancing ?? balance?.financialDebt ?? 0));
+  const requestedFinancing = Math.max(0, Number(inputs.requestedFinancing || 0));
+  const totalExposure = existingComputableFinancing + requestedFinancing;
+  const basicMarginAvailable = computableNetWorth === null ? null : Math.max(0, computableNetWorth - existingComputableFinancing);
+
+  if (!computableNetWorth || !requestedFinancing) {
+    return {
+      applicable: true, computableNetWorth, existingComputableFinancing, requestedFinancing,
+      totalExposure, exposureToNetWorthRatio: null, basicMarginAvailable,
+      status: 'missing-data', label: 'No evaluable',
+      conditions: [
+        !computableNetWorth ? 'Informá el patrimonio computable para verificar la graduación del crédito.' : '',
+        !requestedFinancing ? 'Informá el monto neto que se solicita financiar.' : '',
+      ].filter(Boolean),
+    };
+  }
+  const ratio = totalExposure / computableNetWorth;
+  if (ratio <= 1) {
+    return { applicable: true, computableNetWorth, existingComputableFinancing, requestedFinancing, totalExposure, exposureToNetWorthRatio: ratio, basicMarginAvailable, status: 'basic-margin', label: 'Dentro del margen básico', conditions: [] };
+  }
+  if (ratio <= 2) {
+    return {
+      applicable: true, computableNetWorth, existingComputableFinancing, requestedFinancing, totalExposure,
+      exposureToNetWorthRatio: ratio, basicMarginAvailable, status: 'complementary-margin',
+      label: 'Sujeta a margen complementario',
+      conditions: ['Supera el 100% del patrimonio computable: requiere aprobación especial y verificar el límite respecto de la RPC de la entidad otorgante.'],
+    };
+  }
+  if (ratio <= 3 && inputs.qualifyingGuarantee === 'sgr-public-fund') {
+    return {
+      applicable: true, computableNetWorth, existingComputableFinancing, requestedFinancing, totalExposure,
+      exposureToNetWorthRatio: ratio, basicMarginAvailable, status: 'guaranteed-special-margin',
+      label: 'Sujeta a margen especial con garantía',
+      conditions: ['Solo puede encuadrar con garantía elegible de SGR o fondo público y verificando el límite respecto de la RPC de la entidad otorgante.'],
+    };
+  }
+  return {
+    applicable: true, computableNetWorth, existingComputableFinancing, requestedFinancing, totalExposure,
+    exposureToNetWorthRatio: ratio, basicMarginAvailable, status: 'outside-regulatory-margin',
+    label: 'Fuera del margen regulatorio informado',
+    conditions: [ratio <= 3
+      ? 'La exposición supera el 200% y no se informó una garantía elegible de SGR o fondo público.'
+      : 'La exposición supera el 300% del patrimonio computable.'],
+  };
 }
 
 export function evaluateEconomicCapacity(
@@ -23,10 +70,11 @@ export function evaluateEconomicCapacity(
   const reasons: string[] = [];
   const conditions: string[] = [];
   let normalizedMonthlyIncome: number | null = null;
+  const regulatoryExposure = evaluateRegulatoryExposure(inputs, balance);
 
   if (inputs.profile === 'employee') {
     normalizedMonthlyIncome = Math.max(0, Number(inputs.employeeNetIncome || 0)) || null;
-    reasons.push('Se utilizó el ingreso neto mensual informado o extraído de recibos.');
+    reasons.push('Se utilizó íntegramente el ingreso neto mensual declarado.');
   } else if (inputs.profile === 'legal-entity') {
     const monthlySales = average(inputs.monthlySales || []);
     const margin = Math.max(0, Math.min(1, Number(inputs.declaredOperatingMargin || 0) / 100));
@@ -38,22 +86,21 @@ export function evaluateEconomicCapacity(
         : balance.operatingProfit / 12;
       reasons.push('La capacidad se contrastó con ventas posteriores y margen operativo del balance.');
     }
+  } else if (inputs.profile === 'monotributista') {
+    normalizedMonthlyIncome = Math.max(0, Number(inputs.declaredMonthlyNetIncome || 0)) || average(inputs.monthlySales || []) || null;
+    reasons.push('Se utilizó íntegramente el ingreso mensual neto declarado. Los comprobantes solo determinan si el dato está respaldado.');
   } else {
     const monthlySales = average(inputs.monthlySales || []);
-    const policyCoefficient = inputs.profile === 'monotributista'
-      ? MONOTRIBUTO_INCOME_COEFFICIENTS[inputs.activityCategory || 'other']
-      : 0;
-    const margin = policyCoefficient || Math.max(0, Math.min(1, Number(inputs.declaredOperatingMargin || 0) / 100));
+    const margin = Math.max(0, Math.min(1, Number(inputs.declaredOperatingMargin || 0) / 100));
     normalizedMonthlyIncome = monthlySales && margin ? monthlySales * margin : null;
-    reasons.push(inputs.profile === 'monotributista'
-      ? `La facturación se convirtió en ingreso computable mediante un coeficiente prudencial del ${(margin * 100).toFixed(0)}% según el tipo de actividad.`
-      : 'La facturación se convirtió en ingreso estimado mediante el margen declarado.');
+    reasons.push('La facturación se convirtió en ingreso estimado mediante el margen declarado.');
   }
+
   if (inputs.profile !== 'employee' && inputs.hasEmploymentIncome) {
     const employmentIncome = Math.max(0, Number(inputs.additionalEmploymentNetIncome || 0));
     if (employmentIncome > 0) {
       normalizedMonthlyIncome = (normalizedMonthlyIncome || 0) + employmentIncome;
-      reasons.push('Se sumó el ingreso neto formal en relación de dependencia declarado y respaldado separadamente.');
+      reasons.push('Se sumó íntegramente el ingreso neto declarado en relación de dependencia.');
     }
   }
 
@@ -86,15 +133,28 @@ export function evaluateEconomicCapacity(
   } else {
     conditions.push('Falta información suficiente para estimar capacidad mensual.');
   }
+
+  if (regulatoryExposure.applicable) {
+    conditions.push(...regulatoryExposure.conditions);
+    if (regulatoryExposure.status === 'missing-data') {
+      status = 'manual-review';
+      score = Math.min(score, 50);
+    } else if (regulatoryExposure.status === 'complementary-margin' || regulatoryExposure.status === 'guaranteed-special-margin') {
+      status = 'conditional';
+      score = Math.min(score, 68);
+    } else if (regulatoryExposure.status === 'outside-regulatory-margin') {
+      status = 'not-compatible';
+      score = Math.min(score, 30);
+    }
+  }
   if (inputs.activitySeniorityMonths < 12) {
     score -= 10;
     conditions.push('Antigüedad menor a 12 meses: requiere revisión de política.');
   }
   if (documentCount === 0) {
-    conditions.push('Ingresos declarativos sin comprobantes adjuntos: solicitar facturas o recibos de sueldo antes de una decisión definitiva.');
+    conditions.push('Ingresos declarativos sin comprobantes adjuntos: solicitar respaldo antes de una decisión definitiva.');
   }
   if (balance && balance.extractionConfidence < 60) {
-    score -= 8;
     conditions.push('El balance requiere revisión manual de campos no extraídos.');
   }
   score = Math.max(0, Math.min(100, score));
@@ -111,5 +171,6 @@ export function evaluateEconomicCapacity(
     reasons,
     conditions,
     balance,
+    regulatoryExposure,
   };
 }

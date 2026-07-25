@@ -112,8 +112,10 @@ export function PrequalificationStages(props: Props) {
   const defaultProfile: EconomicProfile = props.clientType === 'persona-juridica' ? 'legal-entity' : 'employee';
   const [economic, setEconomic] = useState<EconomicInputs>({
     profile: defaultProfile, activity: '', activityCategory: 'other', activitySeniorityMonths: 0, declaredMonthlyDebtService: 0,
-    proposedMonthlyCanon: 0, employeeNetIncome: 0, hasEmploymentIncome: false,
+    proposedMonthlyCanon: 0, employeeNetIncome: 0, declaredMonthlyNetIncome: 0, hasEmploymentIncome: false,
     additionalEmploymentNetIncome: 0, monthlySales: [0, 0, 0, 0, 0, 0], declaredOperatingMargin: 0,
+    requestedFinancing: Math.max(0, props.requestData.assetValue - props.requestData.advance),
+    computableNetWorth: 0, existingComputableFinancing: 0, qualifyingGuarantee: 'none',
   });
   const [compliance, setCompliance] = useState<ComplianceDeclarations>({
     pepStatus: 'no', obligedSubject: false, fundsLawfulOrigin: false, ownAccount: false,
@@ -265,18 +267,25 @@ export function PrequalificationStages(props: Props) {
         <label>Canon mensual propuesto<input type="text" inputMode="numeric" value={economic.proposedMonthlyCanon || ''} onChange={e => setEconomic({ ...economic, proposedMonthlyCanon: Number(e.target.value.replace(/\D/g, '')) })} /></label>
         {economic.profile === 'employee'
           ? <label>Ingreso neto mensual declarado<input type="number" value={economic.employeeNetIncome} onChange={e => setEconomic({ ...economic, employeeNetIncome: Number(e.target.value) })} /><small>Podés informarlo ahora y adjuntar recibos voluntariamente.</small></label>
-          : <><label>Facturación promedio mensual declarada<input type="text" inputMode="numeric" onChange={e => setEconomic({ ...economic, monthlySales: Array(6).fill(Number(e.target.value.replace(/\D/g, ''))) })} /><small>Podés ingresar un promedio o adjuntar las facturas de cada mes, o ambas cosas.</small></label>
-            {economic.profile === 'monotributista'
-              ? <label>Tipo de actividad<select value={economic.activityCategory} onChange={e => setEconomic({ ...economic, activityCategory: e.target.value as EconomicInputs['activityCategory'] })}>
+          : economic.profile === 'monotributista'
+            ? <><label>Ingreso mensual neto declarado<input type="text" inputMode="numeric" value={economic.declaredMonthlyNetIncome || ''} onChange={e => setEconomic({ ...economic, declaredMonthlyNetIncome: Number(e.target.value.replace(/\D/g, '')) })} /><small>Se computará íntegramente. Las facturas son respaldo opcional y no alteran esta precalificación.</small></label>
+              <label>Tipo de actividad<select value={economic.activityCategory} onChange={e => setEconomic({ ...economic, activityCategory: e.target.value as EconomicInputs['activityCategory'] })}>
                 <option value="professional-services">Servicios profesionales</option>
                 <option value="other-services">Otros servicios</option>
                 <option value="commerce">Comercio</option>
                 <option value="production">Producción / elaboración</option>
                 <option value="transport">Transporte</option>
                 <option value="other">Otra actividad</option>
-              </select><small>LeasingScoring aplicará automáticamente un coeficiente prudencial; no necesitás conocer tu margen.</small></label>
-              : <label>Margen operativo estimado (%)<input type="number" value={economic.declaredOperatingMargin} onChange={e => setEconomic({ ...economic, declaredOperatingMargin: Number(e.target.value) })} /></label>}
+              </select><small>No se aplican quitas automáticas por actividad ni por falta de comprobantes.</small></label></>
+          : <><label>Facturación promedio mensual declarada<input type="text" inputMode="numeric" onChange={e => setEconomic({ ...economic, monthlySales: Array(6).fill(Number(e.target.value.replace(/\D/g, ''))) })} /><small>Podés ingresar un promedio o adjuntar las facturas de cada mes, o ambas cosas.</small></label>
+            <label>Margen operativo estimado (%)<input type="number" value={economic.declaredOperatingMargin} onChange={e => setEconomic({ ...economic, declaredOperatingMargin: Number(e.target.value) })} /></label>
           </>}
+        {economic.profile === 'legal-entity' && <>
+          <label>Patrimonio computable<input type="text" inputMode="numeric" value={economic.computableNetWorth || ''} onChange={e => setEconomic({ ...economic, computableNetWorth: Number(e.target.value.replace(/\D/g, '')) })} /><small>Podés declararlo; si se extrajo del balance, verificá y corregí el valor.</small></label>
+          <label>Financiaciones computables existentes<input type="text" inputMode="numeric" value={economic.existingComputableFinancing || ''} onChange={e => setEconomic({ ...economic, existingComputableFinancing: Number(e.target.value.replace(/\D/g, '')) })} /></label>
+          <label>Monto neto solicitado<input type="text" inputMode="numeric" value={economic.requestedFinancing || ''} onChange={e => setEconomic({ ...economic, requestedFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Valor del bien menos anticipo; modificable si la estructura propuesta es distinta.</small></label>
+          <label>Garantía regulatoria elegible<select value={economic.qualifyingGuarantee} onChange={e => setEconomic({ ...economic, qualifyingGuarantee: e.target.value as EconomicInputs['qualifyingGuarantee'] })}><option value="none">Sin SGR/fondo público informado</option><option value="sgr-public-fund">SGR o fondo público elegible</option></select></label>
+        </>}
         {economic.profile !== 'employee' && <label className="prequalCheckRow">
           <input type="checkbox" checked={!!economic.hasEmploymentIncome} onChange={e => setEconomic({ ...economic, hasEmploymentIncome: e.target.checked, additionalEmploymentNetIncome: e.target.checked ? economic.additionalEmploymentNetIncome : 0 })} />
           <span><b>También trabaja en relación de dependencia</b><small>Marcá esta opción para sumar el sueldo mensual a los ingresos de la actividad.</small></span>
@@ -309,6 +318,13 @@ export function PrequalificationStages(props: Props) {
             : <p><b>La cuota propuesta no califica.</b> Para continuar, reducí el canon hasta un máximo estimado de <b>{pesos.format(previewAssessment.maximumPrudentCanon)}</b>.</p>}
         <p>Ingreso computable: <b>{previewAssessment.normalizedMonthlyIncome == null ? 'No estimable' : pesos.format(previewAssessment.normalizedMonthlyIncome)}</b> · Canon propuesto: <b>{pesos.format(economic.proposedMonthlyCanon)}</b></p>
         <p>Relación compromisos/ingreso: <b>{previewAssessment.installmentToIncomeRatio == null ? 'No estimable' : `${(previewAssessment.installmentToIncomeRatio * 100).toFixed(1)}%`}</b> · Score económico: <b>{previewAssessment.score}/100</b></p>
+        {previewAssessment.regulatoryExposure.applicable && <div className="prequalRegulatory">
+          <h3>Encuadre patrimonial y regulatorio</h3>
+          <p><b>{previewAssessment.regulatoryExposure.label}</b></p>
+          <p>Exposición total: <b>{pesos.format(previewAssessment.regulatoryExposure.totalExposure)}</b> · Patrimonio computable: <b>{previewAssessment.regulatoryExposure.computableNetWorth == null ? 'No informado' : pesos.format(previewAssessment.regulatoryExposure.computableNetWorth)}</b></p>
+          <p>Exposición / patrimonio: <b>{previewAssessment.regulatoryExposure.exposureToNetWorthRatio == null ? 'No evaluable' : `${(previewAssessment.regulatoryExposure.exposureToNetWorthRatio * 100).toFixed(1)}%`}</b> · Nuevo financiamiento máximo dentro del margen básico: <b>{previewAssessment.regulatoryExposure.basicMarginAvailable == null ? 'No evaluable' : pesos.format(previewAssessment.regulatoryExposure.basicMarginAvailable)}</b></p>
+          {previewAssessment.regulatoryExposure.conditions.map((condition) => <small key={condition}>{condition}</small>)}
+        </div>}
         <small>{incomeDocumentCount ? `Respaldo: ${previewAssessment.confidence} (${incomeDocumentCount} documento(s) de ingresos).` : 'Ingresos declarativos: el informe recomendará solicitar comprobantes.'}</small>
       </div>
       <label><input type="checkbox" checked={contact.dataConsent} onChange={e => setContact({ ...contact, dataConsent: e.target.checked })} /> Autorizo el tratamiento de datos para esta evaluación.</label>

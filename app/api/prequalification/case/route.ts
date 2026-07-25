@@ -100,6 +100,7 @@ export async function POST(request: Request) {
           installmentToIncomeRatio: assessment.installmentToIncomeRatio,
           reasons: assessment.reasons,
           conditions: assessment.conditions,
+          regulatoryExposure: assessment.regulatoryExposure,
           documents: documents.filter(document => document.stage === 2).map(document => ({ name: document.name, kind: document.kind })),
         }),
         idempotencyKey: `prequal-stage2-v2-${body.caseId}-${assessment.score}-${Math.round(inputs.proposedMonthlyCanon)}`,

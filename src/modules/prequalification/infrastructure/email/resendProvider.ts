@@ -75,6 +75,11 @@ export function stage2NotificationHtml(input: {
   installmentToIncomeRatio: number | null;
   reasons: string[];
   conditions: string[];
+  regulatoryExposure: {
+    applicable: boolean; label: string; totalExposure: number;
+    computableNetWorth: number | null; exposureToNetWorthRatio: number | null;
+    basicMarginAvailable: number | null;
+  };
   documents: Array<{ name: string; kind: string }>;
 }) {
   const money = (value: number | null) => value == null
@@ -99,6 +104,12 @@ export function stage2NotificationHtml(input: {
     <p><b>Otros compromisos mensuales:</b> ${money(input.declaredMonthlyDebtService)}</p>
     <p><b>Relación compromisos/ingreso:</b> ${input.installmentToIncomeRatio == null ? 'No estimable' : `${(input.installmentToIncomeRatio * 100).toFixed(1)}%`} · política máxima 30%</p>
     <p><b>Canon máximo estimado:</b> ${money(input.maximumPrudentCanon)}</p>
+    ${input.regulatoryExposure.applicable ? `<h2 style="font-size:18px">Encuadre patrimonial y regulatorio</h2>
+    <p><b>Resultado:</b> ${escapeHtml(input.regulatoryExposure.label)}</p>
+    <p><b>Exposición total:</b> ${money(input.regulatoryExposure.totalExposure)}</p>
+    <p><b>Patrimonio computable:</b> ${money(input.regulatoryExposure.computableNetWorth)}</p>
+    <p><b>Exposición / patrimonio:</b> ${input.regulatoryExposure.exposureToNetWorthRatio == null ? 'No evaluable' : `${(input.regulatoryExposure.exposureToNetWorthRatio * 100).toFixed(1)}%`}</p>
+    <p><b>Nuevo financiamiento máximo dentro del margen básico:</b> ${money(input.regulatoryExposure.basicMarginAvailable)}</p>` : ''}
     <p><b>Correo del solicitante:</b> ${escapeHtml(input.responseEmail)}</p>
     <h2 style="font-size:18px">Fundamentos</h2>
     <ul>${input.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>

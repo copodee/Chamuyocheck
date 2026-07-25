@@ -75,6 +75,14 @@ export async function buildDossierPdf(data: PdfData) {
     row('Respaldo de ingresos', data.economic?.confidence);
     row('Ingreso mensual normalizado', money(data.economic?.normalizedMonthlyIncome));
     row('Relación compromisos / ingreso', data.economic?.installmentToIncomeRatio == null ? 'No estimable' : `${(data.economic.installmentToIncomeRatio * 100).toFixed(1)}%`);
+    if (data.economic?.regulatoryExposure?.applicable) {
+      section('Encuadre patrimonial y regulatorio');
+      row('Resultado', data.economic.regulatoryExposure.label);
+      row('Exposición total', money(data.economic.regulatoryExposure.totalExposure));
+      row('Patrimonio computable', money(data.economic.regulatoryExposure.computableNetWorth));
+      row('Exposición / patrimonio', data.economic.regulatoryExposure.exposureToNetWorthRatio == null ? 'No evaluable' : `${(data.economic.regulatoryExposure.exposureToNetWorthRatio * 100).toFixed(1)}%`);
+      row('Financiamiento disponible dentro del margen básico', money(data.economic.regulatoryExposure.basicMarginAvailable));
+    }
     if (data.economic?.confidence === 'declarativa') {
       text('ADVERTENCIA: los ingresos son declarativos y deben solicitarse comprobantes antes de una decisión definitiva.', 9, bold, violet);
     }

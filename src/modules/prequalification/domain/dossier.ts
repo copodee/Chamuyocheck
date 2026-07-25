@@ -29,10 +29,28 @@ export type EconomicInputs = {
   declaredMonthlyDebtService: number;
   proposedMonthlyCanon: number;
   employeeNetIncome?: number;
+  declaredMonthlyNetIncome?: number;
   hasEmploymentIncome?: boolean;
   additionalEmploymentNetIncome?: number;
   monthlySales?: number[];
   declaredOperatingMargin?: number;
+  requestedFinancing?: number;
+  computableNetWorth?: number;
+  existingComputableFinancing?: number;
+  qualifyingGuarantee?: 'none' | 'sgr-public-fund';
+};
+
+export type RegulatoryExposureAssessment = {
+  applicable: boolean;
+  computableNetWorth: number | null;
+  existingComputableFinancing: number;
+  requestedFinancing: number;
+  totalExposure: number;
+  exposureToNetWorthRatio: number | null;
+  basicMarginAvailable: number | null;
+  status: 'not-applicable' | 'basic-margin' | 'complementary-margin' | 'guaranteed-special-margin' | 'outside-regulatory-margin' | 'missing-data';
+  label: string;
+  conditions: string[];
 };
 
 export type ExtractedBalance = {
@@ -64,6 +82,7 @@ export type EconomicAssessment = {
   reasons: string[];
   conditions: string[];
   balance?: ExtractedBalance;
+  regulatoryExposure: RegulatoryExposureAssessment;
 };
 
 export type DossierDocument = {
