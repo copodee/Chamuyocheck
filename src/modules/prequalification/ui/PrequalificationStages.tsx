@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { extractPdfTextInBrowser } from '../../../lib/extractors/browserPdfOcr';
+import { extractImageTextInBrowser } from '../../../lib/extractors/browserOcr';
 import { extractBalanceData } from '../scoring/balanceExtractor';
 import { evaluateEconomicCapacity } from '../scoring/economicEngine';
 import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicAssessment, EconomicInputs, EconomicProfile, ExtractedBalance } from '../domain/dossier';
@@ -107,6 +108,44 @@ const monotributoSupplementRequirements: Array<[string, string, boolean]> = [
   ['additional-monotributo-invoices-6', 'Facturas de monotributo del mes 6', false],
 ];
 
+function normalizedDocumentText(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function nextAvailable(prefix: string, maximum: number, usedKinds: Set<string>) {
+  for (let index = 1; index <= maximum; index += 1) {
+    const kind = `${prefix}-${index}`;
+    if (!usedKinds.has(kind)) return kind;
+  }
+  return `${prefix}-${maximum}`;
+}
+
+function classifyDocument(profile: EconomicProfile, fileName: string, extractedText: string, usedKinds: Set<string>) {
+  const content = normalizedDocumentText(`${fileName} ${extractedText.slice(0, 18000)}`);
+  const has = (...patterns: string[]) => patterns.some(pattern => content.includes(pattern));
+  if (profile === 'legal-entity') {
+    if (has('deuda bancaria', 'deuda financiera', 'prestamos bancarios', 'entidades acreedoras')) return 'financial-debt';
+    if (has('ventas netas de iva', 'ventas posteriores', 'ventas post balance', 'detalle mensual de ventas')) return 'post-balance-sales';
+    if (has('estado de situacion patrimonial', 'patrimonio neto', 'estado de resultados', 'balance general', 'ejercicio economico')) return nextAvailable('balance', 2, usedKinds);
+  }
+  if (profile === 'responsable-inscripto') {
+    if (has('declaracion jurada de iva', 'f. 2002', 'formulario 2002', 'saldo tecnico iva')) return nextAvailable('vat', 6, usedKinds);
+    if (has('impuesto a las ganancias', 'declaracion jurada ganancias')) return 'income-tax';
+    if (has('constancia de inscripcion', 'sistema registral', 'datos registrales')) return 'tax-proof';
+  }
+  if (profile === 'monotributista') {
+    if (has('constancia de opcion', 'monotributo', 'categoria actual')) return 'monotributo-proof';
+    if (has('factura c', 'comprobante', 'punto de venta', 'cae')) return nextAvailable('monotributo-invoices', 6, usedKinds);
+    if (has('manifestacion de bienes', 'bienes personales')) return 'asset-statement';
+  }
+  if (profile === 'employee') {
+    if (has('recibo de sueldo', 'remuneracion neta', 'haberes', 'empleador', 'sueldo neto')) return nextAvailable('salary-slip', 6, usedKinds);
+    if (has('impuesto a las ganancias', 'declaracion jurada ganancias')) return 'income-tax';
+    if (has('manifestacion de bienes', 'bienes personales')) return 'personal-assets';
+  }
+  return 'unclassified';
+}
+
 export function PrequalificationStages(props: Props) {
   const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
   const [busy, setBusy] = useState(false);
@@ -155,10 +194,11 @@ export function PrequalificationStages(props: Props) {
     if (!response.ok) throw new Error(data.error || 'No se pudo actualizar el expediente.');
     return data;
   };
-  const readFiles = async (files: FileList | null, documentKind: string) => {
+  const readFiles = async (files: FileList | File[] | null, documentKind: string) => {
     if (!files) return;
     setBusy(true); setMessage('Leyendo documentos…');
     const added: DossierDocument[] = [];
+    const usedKinds = new Set(documents.map(document => document.kind));
     let balanceText = '';
     try {
       const recovered = await recoverCase();
@@ -167,22 +207,34 @@ export function PrequalificationStages(props: Props) {
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
           const extraction = await extractPdfTextInBrowser(file, (progress) => setMessage(`Leyendo página ${progress.page} de ${progress.totalPages}…`));
           extractedText = extraction.text;
-          if (economic.profile === 'legal-entity' && documentKind.startsWith('balance-')) balanceText += `\n${extractedText}`;
+        } else if (/^image\/(png|jpeg|jpg|webp)$/i.test(file.type)) {
+          setMessage(`Leyendo ${file.name} mediante OCR…`);
+          extractedText = (await extractImageTextInBrowser(file)).text;
         }
+        const resolvedKind = documentKind === 'auto'
+          ? classifyDocument(economic.profile, file.name, extractedText, usedKinds)
+          : documentKind;
+        usedKinds.add(resolvedKind);
+        if (economic.profile === 'legal-entity' && resolvedKind.startsWith('balance-')) balanceText += `\n${extractedText}`;
         const documentStage = stage === 3 ? 3 : 2;
         const upload = new FormData();
         upload.append('file', file); upload.append('caseId', recovered.caseId); upload.append('stage', String(documentStage));
         const uploadResponse = await fetch('/api/prequalification/document', { method: 'POST', headers: { Authorization: `Bearer ${props.session.access_token}` }, body: upload });
         const uploadData = await uploadResponse.json();
         if (!uploadResponse.ok) throw new Error(uploadData.error || 'No se pudo guardar el documento.');
-        added.push({ id: crypto.randomUUID(), stage: documentStage, kind: documentKind, name: file.name, size: file.size, extractedText, storagePath: uploadData.storagePath, status: extractedText ? 'read' : 'uploaded' });
+        added.push({ id: crypto.randomUUID(), stage: documentStage, kind: resolvedKind, name: file.name, size: file.size, extractedText, storagePath: uploadData.storagePath, status: resolvedKind === 'unclassified' ? 'needs-review' : extractedText ? 'read' : 'uploaded' });
       }
       setDocuments((current) => {
-        const allowsSeveral = documentKind.startsWith('monotributo-invoices-');
-        return [
-          ...current.filter(document => allowsSeveral || !added.some(next => next.stage === document.stage && next.kind === document.kind)),
-          ...added,
-        ];
+        const updated = [...current];
+        for (const next of added) {
+          const allowsSeveral = next.kind.includes('invoices-') || next.kind === 'unclassified';
+          if (!allowsSeveral) {
+            const existing = updated.findIndex(document => document.stage === next.stage && document.kind === next.kind);
+            if (existing >= 0) updated.splice(existing, 1);
+          }
+          updated.push(next);
+        }
+        return updated;
       });
       if (balanceText) {
         const extractedBalance = extractBalanceData(balanceText);
@@ -193,7 +245,8 @@ export function PrequalificationStages(props: Props) {
           existingComputableFinancing: current.existingComputableFinancing || extractedBalance.financialDebt || 0,
         }));
       }
-      setMessage(`${added.length} documento(s) incorporado(s).`);
+      const reviewCount = added.filter(document => document.status === 'needs-review').length;
+      setMessage(`${added.length} documento(s) incorporado(s).${reviewCount ? ` ${reviewCount} requieren identificar su tipo manualmente.` : ' Todos fueron identificados automáticamente.'}`);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo leer el archivo.'); }
     setBusy(false);
   };
@@ -327,6 +380,32 @@ export function PrequalificationStages(props: Props) {
       <div className="prequalEntityDetail">
         <h3>Documentación económica</h3>
         <p>Los comprobantes de ingresos son voluntarios en esta etapa. Sin ellos, el resultado se identificará como declarativo y recomendará pedir respaldo antes de avanzar.</p>
+        <div
+          className="prequalBulkUpload"
+          onDragOver={event => event.preventDefault()}
+          onDrop={event => { event.preventDefault(); void readFiles(event.dataTransfer.files, 'auto'); }}
+        >
+          <div><b>Carga automática de varios documentos</b><span>Seleccioná o arrastrá todos los PDF e imágenes juntos. LeasingScoring leerá y clasificará cada archivo.</span></div>
+          <label className="prequalUploadButton" htmlFor="stage-2-bulk-documents">Seleccionar varios archivos</label>
+          <input id="stage-2-bulk-documents" className="prequalFileInput" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={event => readFiles(event.target.files, 'auto')} />
+        </div>
+        {documents.filter(document => document.stage === 2 && document.kind === 'unclassified').map(document => <div className="prequalClassificationReview" key={document.id}>
+          <div><b>Revisar clasificación</b><span>{document.name}</span></div>
+          <label>Tipo de documento
+            <select value="" onChange={event => {
+              const kind = event.target.value;
+              if (!kind) return;
+              setDocuments(current => current.map(item => item.id === document.id ? { ...item, kind, status: item.extractedText ? 'read' : 'uploaded' } : item));
+            }}>
+              <option value="">Seleccionar tipo…</option>
+              {[
+                ...stage2Requirements[economic.profile],
+                ...(economic.profile === 'monotributista' && economic.hasEmploymentIncome ? employmentSlipRequirements : []),
+                ...(economic.profile === 'employee' && economic.hasMonotributoIncome ? monotributoSupplementRequirements : []),
+              ].map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}
+            </select>
+          </label>
+        </div>)}
         {[
           ...stage2Requirements[economic.profile],
           ...(economic.profile === 'monotributista' && economic.hasEmploymentIncome ? employmentSlipRequirements : []),

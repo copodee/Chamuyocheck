@@ -920,6 +920,8 @@ body:has(.prequalPage){color:#102f3b;background:radial-gradient(circle at 82% 0%
 .prequalEntityDetail>p,.prequalColumns li{color:#405e69}
 .prequalEntityDetail th{color:#496873}.prequalEntityDetail td,.prequalEntityDetail tfoot th{color:#102f3b}
 .prequalUploadedFile{color:#287568}
+.prequalBulkUpload{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;margin:18px 0;padding:20px;border:2px dashed rgba(109,40,217,.35);border-radius:14px;background:#f4efff}.prequalBulkUpload>div{display:grid;gap:5px}.prequalBulkUpload b{color:#3f1d80}.prequalBulkUpload span{color:#496873;line-height:1.45}
+.prequalClassificationReview{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,.7fr);gap:14px;align-items:end;margin:12px 0;padding:14px;border:1px solid #e3a922;border-radius:12px;background:#fff8df}.prequalClassificationReview>div{display:grid;gap:4px}.prequalClassificationReview>div b{color:#805400}.prequalClassificationReview>div span{color:#496873;overflow-wrap:anywhere}.prequalClassificationReview label{display:grid;gap:6px;color:#654300}.prequalClassificationReview select{width:100%;min-width:0;padding:11px;border:1px solid #d8b85e;border-radius:9px;background:#fff;color:#102f3b}
 .prequalResult small{color:#607b84}
 .prequalCapacity{box-shadow:0 12px 32px rgba(19,58,70,.10)}
 .prequalDocumentationGuide{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);gap:20px;margin-bottom:24px;align-items:start}
@@ -929,3 +931,4 @@ body:has(.prequalPage){color:#102f3b;background:radial-gradient(circle at 82% 0%
 .prequalDocumentationList h3{margin:0 0 10px;color:#102f3b}.prequalDocumentationList ul{margin:0;padding-left:22px}.prequalDocumentationList li{margin:7px 0;color:#294e59;line-height:1.45}
 @media(max-width:760px){.prequalBrandLogo{font-size:.95rem}.prequalBrandLogo img{width:40px;height:40px}}
 @media(max-width:760px){.prequalDocumentationGuide{grid-template-columns:1fr}.prequalDocumentationList{grid-column:auto}}
+@media(max-width:760px){.prequalBulkUpload,.prequalClassificationReview{grid-template-columns:1fr}.prequalBulkUpload .prequalUploadButton{width:100%}}
