@@ -77,14 +77,16 @@ export function evaluateEconomicCapacity(
     reasons.push('Se utilizó íntegramente el ingreso neto mensual declarado.');
   } else if (inputs.profile === 'legal-entity') {
     const monthlySales = average(inputs.monthlySales || []);
-    const margin = Math.max(0, Math.min(1, Number(inputs.declaredOperatingMargin || 0) / 100));
-    normalizedMonthlyIncome = monthlySales && margin ? monthlySales * margin : null;
-    if (balance?.operatingProfit && balance?.sales) {
-      const balanceMargin = Math.max(0, balance.operatingProfit / balance.sales);
+    const balanceResult = balance?.operatingProfit ?? balance?.netProfit;
+    if (balanceResult != null && balance?.sales) {
+      const balanceMargin = Math.max(0, balanceResult / balance.sales);
       normalizedMonthlyIncome = monthlySales
-        ? monthlySales * Math.min(balanceMargin, margin || balanceMargin)
-        : balance.operatingProfit / 12;
-      reasons.push('La capacidad se contrastó con ventas posteriores y margen operativo del balance.');
+        ? monthlySales * balanceMargin
+        : balanceResult / 12;
+      reasons.push(`El margen del ${(balanceMargin * 100).toFixed(1)}% se calculó automáticamente con el resultado y las ventas del último balance.`);
+    } else {
+      normalizedMonthlyIncome = null;
+      conditions.push('El balance debe informar ventas y resultado operativo o neto para calcular automáticamente el margen.');
     }
   } else if (inputs.profile === 'monotributista') {
     normalizedMonthlyIncome = Math.max(0, Number(inputs.declaredMonthlyNetIncome || 0)) || average(inputs.monthlySales || []) || null;
@@ -101,6 +103,13 @@ export function evaluateEconomicCapacity(
     if (employmentIncome > 0) {
       normalizedMonthlyIncome = (normalizedMonthlyIncome || 0) + employmentIncome;
       reasons.push('Se sumó íntegramente el ingreso neto declarado en relación de dependencia.');
+    }
+  }
+  if (inputs.profile === 'employee' && inputs.hasMonotributoIncome) {
+    const monotributoIncome = Math.max(0, Number(inputs.additionalMonotributoNetIncome || 0));
+    if (monotributoIncome > 0) {
+      normalizedMonthlyIncome = (normalizedMonthlyIncome || 0) + monotributoIncome;
+      reasons.push('Se sumó íntegramente el ingreso neto declarado de la actividad monotributista.');
     }
   }
 

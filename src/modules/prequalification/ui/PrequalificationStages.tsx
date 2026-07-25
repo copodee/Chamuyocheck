@@ -97,6 +97,15 @@ const employmentSlipRequirements: Array<[string, string, boolean]> = [
   ['additional-salary-slip-5', 'Recibo de sueldo adicional 5', false],
   ['additional-salary-slip-6', 'Recibo de sueldo adicional 6', false],
 ];
+const monotributoSupplementRequirements: Array<[string, string, boolean]> = [
+  ['additional-monotributo-proof', 'Constancia de monotributo adicional', false],
+  ['additional-monotributo-invoices-1', 'Facturas de monotributo del mes 1', false],
+  ['additional-monotributo-invoices-2', 'Facturas de monotributo del mes 2', false],
+  ['additional-monotributo-invoices-3', 'Facturas de monotributo del mes 3', false],
+  ['additional-monotributo-invoices-4', 'Facturas de monotributo del mes 4', false],
+  ['additional-monotributo-invoices-5', 'Facturas de monotributo del mes 5', false],
+  ['additional-monotributo-invoices-6', 'Facturas de monotributo del mes 6', false],
+];
 
 export function PrequalificationStages(props: Props) {
   const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
@@ -113,6 +122,7 @@ export function PrequalificationStages(props: Props) {
   const [economic, setEconomic] = useState<EconomicInputs>({
     profile: defaultProfile, activity: '', activityCategory: 'other', activitySeniorityMonths: 0, declaredMonthlyDebtService: 0,
     proposedMonthlyCanon: 0, employeeNetIncome: 0, declaredMonthlyNetIncome: 0, hasEmploymentIncome: false,
+    hasMonotributoIncome: false, additionalMonotributoNetIncome: 0,
     additionalEmploymentNetIncome: 0, monthlySales: [0, 0, 0, 0, 0, 0], declaredOperatingMargin: 0,
     requestedFinancing: Math.max(0, props.requestData.assetValue - props.requestData.advance),
     computableNetWorth: 0, existingComputableFinancing: 0, qualifyingGuarantee: 'none',
@@ -132,6 +142,9 @@ export function PrequalificationStages(props: Props) {
     /salary-slip|monotributo-invoices|balance-|vat-|income-detail|post-balance-sales/.test(document.kind),
   ).length;
   const previewAssessment = evaluateEconomicCapacity(economic, incomeDocumentCount, balance);
+  const automaticBalanceMargin = balance?.sales && (balance.operatingProfit ?? balance.netProfit) != null
+    ? Math.max(0, ((balance.operatingProfit ?? balance.netProfit) as number) / balance.sales) * 100
+    : null;
 
   const api = async (payload: object, caseId = effectiveCaseId) => {
     const response = await fetch('/api/prequalification/case', {
@@ -171,7 +184,15 @@ export function PrequalificationStages(props: Props) {
           ...added,
         ];
       });
-      if (balanceText) setBalance(extractBalanceData(balanceText));
+      if (balanceText) {
+        const extractedBalance = extractBalanceData(balanceText);
+        setBalance(extractedBalance);
+        setEconomic(current => ({
+          ...current,
+          computableNetWorth: current.computableNetWorth || extractedBalance.equity || 0,
+          existingComputableFinancing: current.existingComputableFinancing || extractedBalance.financialDebt || 0,
+        }));
+      }
       setMessage(`${added.length} documento(s) incorporado(s).`);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo leer el archivo.'); }
     setBusy(false);
@@ -190,7 +211,8 @@ export function PrequalificationStages(props: Props) {
   const saveStage2 = async () => {
     const applicableRequirements = [
       ...stage2Requirements[economic.profile],
-      ...(economic.profile !== 'employee' && economic.hasEmploymentIncome ? employmentSlipRequirements : []),
+      ...(economic.profile === 'monotributista' && economic.hasEmploymentIncome ? employmentSlipRequirements : []),
+      ...(economic.profile === 'employee' && economic.hasMonotributoIncome ? monotributoSupplementRequirements : []),
     ];
     const missingDocuments = applicableRequirements
       .filter(([, , required]) => required)
@@ -278,20 +300,28 @@ export function PrequalificationStages(props: Props) {
                 <option value="other">Otra actividad</option>
               </select><small>No se aplican quitas automáticas por actividad ni por falta de comprobantes.</small></label></>
           : <><label>Facturación promedio mensual declarada<input type="text" inputMode="numeric" onChange={e => setEconomic({ ...economic, monthlySales: Array(6).fill(Number(e.target.value.replace(/\D/g, ''))) })} /><small>Podés ingresar un promedio o adjuntar las facturas de cada mes, o ambas cosas.</small></label>
-            <label>Margen operativo estimado (%)<input type="number" value={economic.declaredOperatingMargin} onChange={e => setEconomic({ ...economic, declaredOperatingMargin: Number(e.target.value) })} /></label>
+            {economic.profile === 'responsable-inscripto' && <label>Margen operativo estimado (%)<input type="number" value={economic.declaredOperatingMargin} onChange={e => setEconomic({ ...economic, declaredOperatingMargin: Number(e.target.value) })} /></label>}
+            {economic.profile === 'legal-entity' && <div className="prequalCalculatedField"><b>Margen calculado automáticamente</b><span>{automaticBalanceMargin == null ? 'Se calculará al cargar el último balance.' : `${automaticBalanceMargin.toFixed(1)}% según ventas y resultado del balance.`}</span></div>}
           </>}
         {economic.profile === 'legal-entity' && <>
-          <label>Patrimonio computable<input type="text" inputMode="numeric" value={economic.computableNetWorth || ''} onChange={e => setEconomic({ ...economic, computableNetWorth: Number(e.target.value.replace(/\D/g, '')) })} /><small>Podés declararlo; si se extrajo del balance, verificá y corregí el valor.</small></label>
-          <label>Financiaciones computables existentes<input type="text" inputMode="numeric" value={economic.existingComputableFinancing || ''} onChange={e => setEconomic({ ...economic, existingComputableFinancing: Number(e.target.value.replace(/\D/g, '')) })} /></label>
+          <label>Patrimonio neto al cierre del último balance<input type="text" inputMode="numeric" value={economic.computableNetWorth || ''} onChange={e => setEconomic({ ...economic, computableNetWorth: Number(e.target.value.replace(/\D/g, '')) })} /><small>Es la base preliminar para verificar el límite regulatorio. LeasingScoring podrá ajustarla si el balance contiene conceptos no computables.</small></label>
+          <label>Deuda bancaria y financiera vigente<input type="text" inputMode="numeric" value={economic.existingComputableFinancing || ''} onChange={e => setEconomic({ ...economic, existingComputableFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Saldo total actual de préstamos, descubiertos, leasing y otras financiaciones todavía pendientes.</small></label>
           <label>Monto neto solicitado<input type="text" inputMode="numeric" value={economic.requestedFinancing || ''} onChange={e => setEconomic({ ...economic, requestedFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Valor del bien menos anticipo; modificable si la estructura propuesta es distinta.</small></label>
           <label>Garantía regulatoria elegible<select value={economic.qualifyingGuarantee} onChange={e => setEconomic({ ...economic, qualifyingGuarantee: e.target.value as EconomicInputs['qualifyingGuarantee'] })}><option value="none">Sin SGR/fondo público informado</option><option value="sgr-public-fund">SGR o fondo público elegible</option></select></label>
         </>}
-        {economic.profile !== 'employee' && <label className="prequalCheckRow">
+        {economic.profile === 'monotributista' && <label className="prequalCheckRow">
           <input type="checkbox" checked={!!economic.hasEmploymentIncome} onChange={e => setEconomic({ ...economic, hasEmploymentIncome: e.target.checked, additionalEmploymentNetIncome: e.target.checked ? economic.additionalEmploymentNetIncome : 0 })} />
           <span><b>También trabaja en relación de dependencia</b><small>Marcá esta opción para sumar el sueldo mensual a los ingresos de la actividad.</small></span>
         </label>}
-        {economic.profile !== 'employee' && economic.hasEmploymentIncome && <label>Ingreso neto mensual por relación de dependencia
+        {economic.profile === 'monotributista' && economic.hasEmploymentIncome && <label>Ingreso neto mensual por relación de dependencia
           <input type="text" inputMode="numeric" value={economic.additionalEmploymentNetIncome || ''} onChange={e => setEconomic({ ...economic, additionalEmploymentNetIncome: Number(e.target.value.replace(/\D/g, '')) })} />
+        </label>}
+        {economic.profile === 'employee' && <label className="prequalCheckRow">
+          <input type="checkbox" checked={!!economic.hasMonotributoIncome} onChange={e => setEconomic({ ...economic, hasMonotributoIncome: e.target.checked, additionalMonotributoNetIncome: e.target.checked ? economic.additionalMonotributoNetIncome : 0 })} />
+          <span><b>También tiene actividad como monotributista</b><small>Marcá esta opción para sumar el ingreso mensual neto de esa actividad.</small></span>
+        </label>}
+        {economic.profile === 'employee' && economic.hasMonotributoIncome && <label>Ingreso mensual neto declarado como monotributista
+          <input type="text" inputMode="numeric" value={economic.additionalMonotributoNetIncome || ''} onChange={e => setEconomic({ ...economic, additionalMonotributoNetIncome: Number(e.target.value.replace(/\D/g, '')) })} />
         </label>}
       </div>
       <div className="prequalEntityDetail">
@@ -299,10 +329,11 @@ export function PrequalificationStages(props: Props) {
         <p>Los comprobantes de ingresos son voluntarios en esta etapa. Sin ellos, el resultado se identificará como declarativo y recomendará pedir respaldo antes de avanzar.</p>
         {[
           ...stage2Requirements[economic.profile],
-          ...(economic.profile !== 'employee' && economic.hasEmploymentIncome ? employmentSlipRequirements : []),
+          ...(economic.profile === 'monotributista' && economic.hasEmploymentIncome ? employmentSlipRequirements : []),
+          ...(economic.profile === 'employee' && economic.hasMonotributoIncome ? monotributoSupplementRequirements : []),
         ].map(([kind, label, required]) => {
           const uploaded = documents.filter(document => document.stage === 2 && document.kind === kind);
-          const allowsSeveral = kind.startsWith('monotributo-invoices-');
+          const allowsSeveral = kind.includes('monotributo-invoices-');
           const inputId = `stage-2-${kind}`;
           return <div className="prequalUploadItem" key={kind}>
             <div className="prequalUploadRow">

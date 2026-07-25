@@ -45,6 +45,17 @@ test('computa íntegramente el ingreso neto declarado del monotributista', () =>
   assert.match(result.reasons.join(' '), /íntegramente/i);
 });
 
+test('una persona empleada puede sumar ingreso monotributista declarado', () => {
+  const result = evaluateEconomicCapacity({
+    profile: 'employee', activity: 'Administración', activitySeniorityMonths: 36,
+    declaredMonthlyDebtService: 100_000, proposedMonthlyCanon: 500_000,
+    employeeNetIncome: 1_400_000, hasMonotributoIncome: true,
+    additionalMonotributoNetIncome: 800_000,
+  }, 0);
+  assert.equal(result.normalizedMonthlyIncome, 2_200_000);
+  assert.match(result.reasons.join(' '), /actividad monotributista/i);
+});
+
 test('clasifica una persona jurídica dentro del margen básico', () => {
   const result = evaluateEconomicCapacity({
     profile: 'legal-entity', activity: 'Industria', activitySeniorityMonths: 60,
@@ -52,9 +63,16 @@ test('clasifica una persona jurídica dentro del margen básico', () => {
     monthlySales: Array(6).fill(20_000_000), declaredOperatingMargin: 20,
     requestedFinancing: 30_000_000, existingComputableFinancing: 20_000_000,
     computableNetWorth: 60_000_000, qualifyingGuarantee: 'none',
-  }, 0);
+  }, 0, {
+    closingDate: '31/12/2025', currentAssets: 30_000_000, nonCurrentAssets: 50_000_000,
+    currentLiabilities: 10_000_000, nonCurrentLiabilities: 10_000_000, equity: 60_000_000,
+    sales: 240_000_000, grossProfit: 60_000_000, operatingProfit: 48_000_000,
+    netProfit: 35_000_000, financialDebt: 20_000_000, cash: 8_000_000,
+    extractionConfidence: 100, missingFields: [],
+  });
   assert.equal(result.regulatoryExposure.status, 'basic-margin');
   assert.equal(result.status, 'compatible');
+  assert.equal(result.normalizedMonthlyIncome, 4_000_000);
 });
 
 test('el margen complementario requiere aprobación y no califica automáticamente', () => {

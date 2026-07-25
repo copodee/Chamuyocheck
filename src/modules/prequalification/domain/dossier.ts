@@ -32,6 +32,8 @@ export type EconomicInputs = {
   declaredMonthlyNetIncome?: number;
   hasEmploymentIncome?: boolean;
   additionalEmploymentNetIncome?: number;
+  hasMonotributoIncome?: boolean;
+  additionalMonotributoNetIncome?: number;
   monthlySales?: number[];
   declaredOperatingMargin?: number;
   requestedFinancing?: number;
