@@ -7,6 +7,7 @@ import type { PrequalificationResult } from '../../src/modules/prequalification/
 import { PrequalificationStages } from '../../src/modules/prequalification/ui/PrequalificationStages';
 
 const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
+const moneyDigits = (value: string) => value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
 const statusLabels = {
   prequalified: '🟢 Precalificado',
   conditional: '🟡 Precalificado con condiciones',
@@ -71,6 +72,16 @@ export default function PrequalificationPage() {
   const prequalify = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!session) return;
+    const assetValue = Number(form.assetValue);
+    const advance = Number(form.advance || 0);
+    if (!(assetValue > 0)) {
+      setError('Ingresá un valor del bien mayor a cero.');
+      return;
+    }
+    if (advance < 0 || advance >= assetValue) {
+      setError('El anticipo debe ser menor que el valor del bien.');
+      return;
+    }
     setBusy(true);
     setError('');
     setResult(null);
@@ -80,8 +91,8 @@ export default function PrequalificationPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({
           ...form,
-          assetValue: Number(form.assetValue),
-          advance: Number(form.advance || 0),
+          assetValue,
+          advance,
           termMonths: Number(form.termMonths),
         }),
         signal: AbortSignal.timeout(30000),
@@ -142,8 +153,8 @@ export default function PrequalificationPage() {
       <div className="prequalGrid">
         <label>CUIT/CUIL<input required inputMode="numeric" placeholder="30-12345678-9" value={form.cuit} onChange={(e) => updateForm({ cuit: e.target.value })} /></label>
         <label>Tipo de cliente<select value={form.clientType} onChange={(e) => updateForm({ clientType: e.target.value })}><option value="persona-juridica">Persona Jurídica</option><option value="persona-humana">Persona Humana</option></select></label>
-        <label>Valor del bien<input required min="1" type="number" inputMode="numeric" placeholder="35000000" value={form.assetValue} onChange={(e) => updateForm({ assetValue: e.target.value })} /></label>
-        <label>Anticipo disponible (opcional)<input min="0" type="number" inputMode="numeric" placeholder="0" value={form.advance} onChange={(e) => updateForm({ advance: e.target.value })} /></label>
+        <label>Valor del bien<input required type="text" inputMode="numeric" pattern="[0-9]*" placeholder="35000000" value={form.assetValue} onChange={(e) => updateForm({ assetValue: moneyDigits(e.target.value) })} /><small>{form.assetValue ? money.format(Number(form.assetValue)) : 'Ingresá el importe sin puntos ni comas.'}</small></label>
+        <label>Anticipo disponible (opcional)<input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" value={form.advance} onChange={(e) => updateForm({ advance: moneyDigits(e.target.value) })} /><small>{form.advance ? money.format(Number(form.advance)) : 'Podés dejarlo vacío si no hay anticipo.'}</small></label>
         <label>Plazo deseado<select value={form.termMonths} onChange={(e) => updateForm({ termMonths: e.target.value })}>{[12, 18, 24, 36, 48, 60, 72, 84].map((value) => <option key={value} value={value}>{value} meses</option>)}</select></label>
         <label>Tipo de bien<select value={form.assetType} onChange={(e) => updateForm({ assetType: e.target.value })}><option value="automotor-0km">Automotor 0 km</option><option value="automotor-usado">Automotor usado / rodado</option><option value="maquinaria">Maquinaria</option><option value="equipo">Equipo</option><option value="inmueble">Inmueble</option><option value="otro">Otro</option></select></label>
       </div>
