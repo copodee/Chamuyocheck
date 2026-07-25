@@ -51,6 +51,25 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
   const interestCoverage = ratio(balance.operatingProfit, balance.interestExpense == null ? null : Math.abs(balance.interestExpense));
 
   const observations: string[] = [];
+  const accountingEquationDifference = totalAssets != null && totalLiabilities != null && balance.equity != null
+    ? Math.abs(totalAssets - totalLiabilities - balance.equity) / Math.max(1, Math.abs(totalAssets))
+    : null;
+  const derivedGrossResult = balance.sales != null && balance.costOfSales != null
+    ? balance.costOfSales < 0
+      ? balance.sales + balance.costOfSales
+      : balance.sales - balance.costOfSales
+    : null;
+  const grossResultDifference = derivedGrossResult != null && balance.grossProfit != null && balance.sales != null
+    ? Math.abs(derivedGrossResult - balance.grossProfit) / Math.max(1, Math.abs(balance.sales))
+    : null;
+  const inconsistentExtraction = (accountingEquationDifference != null && accountingEquationDifference > 0.02)
+    || (grossResultDifference != null && grossResultDifference > 0.02);
+  if (accountingEquationDifference != null && accountingEquationDifference > 0.02) {
+    observations.push('Los importes extraídos no concilian: Activo difiere de Pasivo más Patrimonio. Requiere revisión.');
+  }
+  if (grossResultDifference != null && grossResultDifference > 0.02) {
+    observations.push('Ventas, costo y resultado bruto extraídos no concilian. Requiere revisión.');
+  }
   let points = 0;
   let measured = 0;
   const grade = (value: number | null, good: (value: number) => boolean, warning: (value: number) => boolean, weak: string) => {
@@ -70,7 +89,8 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
   grade(interestCoverage, value => value >= 2, value => value >= 1, 'El resultado operativo no cubre adecuadamente los intereses.');
 
   if (balance.extractionConfidence < 60) observations.push('La extracción del balance tiene baja confianza y exige revisión humana.');
-  const score = measured ? Math.round((points / (measured * 2)) * 100) : null;
+  const rawScore = measured ? Math.round((points / (measured * 2)) * 100) : null;
+  const score = rawScore == null ? null : inconsistentExtraction ? Math.min(rawScore, 50) : rawScore;
   const status = score == null ? 'insufficient-data'
     : score >= 80 ? 'strong'
       : score >= 60 ? 'adequate'

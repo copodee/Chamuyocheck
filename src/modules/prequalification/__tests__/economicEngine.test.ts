@@ -22,6 +22,32 @@ test('extrae rubros centrales de un balance para revisión crediticia', () => {
   assert.ok(result.extractionConfidence > 0);
 });
 
+test('lee formato argentino con notas, fecha verbal e importes negativos entre paréntesis', () => {
+  const result = extractBalanceData(`
+    Estados contables por el ejercicio finalizado el 30 de junio de 2025
+    Total de activo corriente 687.625.831
+    Total de activo no corriente 106.431.993
+    Total del pasivo corriente 587.913.585
+    Patrimonio neto (según estado respectivo) 206.144.239
+    Total del activo 794.057.824
+    Total del pasivo 587.913.585
+    Disponibilidades (Nota 3.a.) 15.682.978
+    Créditos comerciales (Nota 3.b.) 95.225.171
+    Bienes de cambio (Nota 3.c.) 574.583.215
+    Ventas netas 671.495.592
+    Costo de la mercadería vendida (508.490.270)
+    Utilidad bruta 163.005.322
+    Resultado operativo 92.997.060
+    Resultado neto del ejercicio 61.568.980
+  `);
+  assert.equal(result.closingDate, '30/06/2025');
+  assert.equal(result.currentAssets, 687_625_831);
+  assert.equal(result.equity, 206_144_239);
+  assert.equal(result.inventory, 574_583_215);
+  assert.equal(result.costOfSales, -508_490_270);
+  assert.equal(result.netProfit, 61_568_980);
+});
+
 test('combina monotributo con ingreso en relación de dependencia sin quitas documentales', () => {
   const result = evaluateEconomicCapacity({
     profile: 'monotributista', activity: 'Servicios', activitySeniorityMonths: 30,

@@ -75,3 +75,16 @@ test('compara dos ejercicios sin mezclar sus importes', () => {
   assert.equal(result.equityChange, 15_000_000 / 35_000_000);
   assert.equal(result.trend, 'improving');
 });
+
+test('envía a revisión una extracción que no concilia contablemente', () => {
+  const result = analyzeCorporateFinancials({
+    closingDate: '31/12/2025', currentAssets: 80, nonCurrentAssets: 20,
+    currentLiabilities: 20, nonCurrentLiabilities: 10, equity: 20,
+    sales: 100, grossProfit: 70, operatingProfit: 20, netProfit: 10,
+    financialDebt: 10, cash: 5, inventory: 10, costOfSales: -40,
+    totalAssets: 100, totalLiabilities: 30, extractionConfidence: 100, missingFields: [],
+  });
+  assert.ok((result.score ?? 100) <= 50);
+  assert.equal(result.status, 'review');
+  assert.ok(result.observations.some(item => item.includes('no concilian')));
+});
