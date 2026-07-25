@@ -180,7 +180,7 @@ values (
   'prequalification-documents',
   false,
   20971520,
-  array['application/pdf', 'image/jpeg', 'image/png']
+  array['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
 )
 on conflict (id) do update set
   public = false,

@@ -3,7 +3,13 @@ import { authenticatePrequalificationRequest } from '../../../../src/modules/pre
 import { getPrequalificationSupabaseConfig } from '../../../../src/modules/prequalification/infrastructure/supabase/config';
 
 export const runtime = 'nodejs';
-const allowed = new Set(['application/pdf', 'image/jpeg', 'image/png']);
+const allowed = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
 
 export async function POST(request: Request) {
   const auth = await authenticatePrequalificationRequest(request);
@@ -13,7 +19,8 @@ export async function POST(request: Request) {
   const caseId = String(data.get('caseId') || '');
   const stage = String(data.get('stage') || '');
   if (!(file instanceof File) || !caseId || !['2', '3'].includes(stage)) return NextResponse.json({ error: 'Documento incompleto.' }, { status: 400 });
-  if (!allowed.has(file.type) || file.size > 20 * 1024 * 1024) return NextResponse.json({ error: 'Sólo PDF, JPG o PNG de hasta 20 MB.' }, { status: 400 });
+  const supportedExtension = /\.(pdf|jpe?g|png|doc|docx)$/i.test(file.name);
+  if ((!allowed.has(file.type) && !supportedExtension) || file.size > 20 * 1024 * 1024) return NextResponse.json({ error: 'Sólo PDF, JPG, PNG o Word de hasta 20 MB.' }, { status: 400 });
   const config = getPrequalificationSupabaseConfig();
   if (!config) return NextResponse.json({ error: 'Almacenamiento no configurado.' }, { status: 503 });
   const safeName = file.name.normalize('NFKD').replace(/[^\w.-]+/g, '-').slice(-100);

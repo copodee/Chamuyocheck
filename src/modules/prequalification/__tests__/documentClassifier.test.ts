@@ -1,0 +1,29 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { classifyPrequalificationDocument } from '../scoring/documentClassifier';
+import { latestSixMonthlySales } from '../scoring/fiscalDocumentExtractor';
+
+const base = { profile: 'legal-entity' as const, targetCuit: '30716790203', usedKinds: new Set<string>() };
+
+test('clasifica el lote societario por finalidad y etapa', () => {
+  assert.equal(classifyPrequalificationDocument({ ...base, fileName: 'EECC 30.06.2025 Legalizado.pdf', extractedText: '' }).kind, 'balance-1');
+  assert.equal(classifyPrequalificationDocument({ ...base, fileName: 'Acta Asamblea Designación de Autoridades.pdf', extractedText: '' }).stage, 3);
+  assert.equal(classifyPrequalificationDocument({ ...base, fileName: 'DJ F.2051 022026.pdf', extractedText: '' }).kind, 'post-balance-sales');
+  assert.equal(classifyPrequalificationDocument({ ...base, fileName: 'F713ddjj2025.pdf', extractedText: '' }).kind, 'corporate-income-tax');
+});
+
+test('pone en revisión documentos pertenecientes a otro CUIT', () => {
+  const result = classifyPrequalificationDocument({ ...base, fileName: 'afip_cuit_30717339963_f2051.pdf', extractedText: '' });
+  assert.equal(result.action, 'review');
+  assert.equal(result.kind, 'different-subject');
+});
+
+test('descarta listas de requisitos que no acreditan información del cliente', () => {
+  const result = classifyPrequalificationDocument({ ...base, fileName: 'Requisitos - Personas Fisicas.pdf', extractedText: '' });
+  assert.equal(result.action, 'discard');
+});
+
+test('extrae los seis meses más recientes de ventas netas', () => {
+  const text = 'dic-25 71.846.457,29 15.087.756,03 86.934.213,32 ene-26 102.065.352,00 21.433.723,92 123.499.075,92 feb-26 84.007.775,19 17.641.632,79 101.649.407,98 mar-26 102.038.977,38 21.428.185,25 123.467.162,63 abr-26 27.887.516,81 5.856.378,53 33.743.895,34 may-26 206.653.141,52 43.397.159,72 250.050.301,24';
+  assert.deepEqual(latestSixMonthlySales(text), [71846457.29, 102065352, 84007775.19, 102038977.38, 27887516.81, 206653141.52]);
+});

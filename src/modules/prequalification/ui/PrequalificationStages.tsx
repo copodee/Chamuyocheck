@@ -6,6 +6,8 @@ import { extractPdfTextInBrowser } from '../../../lib/extractors/browserPdfOcr';
 import { extractImageTextInBrowser } from '../../../lib/extractors/browserOcr';
 import { extractBalanceData } from '../scoring/balanceExtractor';
 import { evaluateEconomicCapacity } from '../scoring/economicEngine';
+import { classifyPrequalificationDocument } from '../scoring/documentClassifier';
+import { latestSixMonthlySales } from '../scoring/fiscalDocumentExtractor';
 import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicAssessment, EconomicInputs, EconomicProfile, ExtractedBalance } from '../domain/dossier';
 import type { PrequalificationResult } from '../domain/types';
 
@@ -86,7 +88,9 @@ const stage3Requirements: Record<EconomicProfile, Array<[string, string, boolean
   ],
   'legal-entity': [
     ['statute', 'Estatuto o contrato social', false], ['authorities-act', 'Acta vigente de autoridades', false],
-    ['signer-power', 'Poder del firmante', false], ['partners-assets', 'Bienes Personales o manifestación de socios, si se solicita', false],
+    ['balance-approval-act', 'Acta de aprobación del último balance', false], ['signer-power', 'Poder del firmante', false],
+    ['representative-identity-front', 'DNI frente del representante', false], ['representative-identity-back', 'DNI dorso del representante', false],
+    ['partners-assets', 'Bienes Personales o manifestación de socios, si se solicita', false],
   ],
 };
 
@@ -108,49 +112,12 @@ const monotributoSupplementRequirements: Array<[string, string, boolean]> = [
   ['additional-monotributo-invoices-6', 'Facturas de monotributo del mes 6', false],
 ];
 
-function normalizedDocumentText(value: string) {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-}
-
-function nextAvailable(prefix: string, maximum: number, usedKinds: Set<string>) {
-  for (let index = 1; index <= maximum; index += 1) {
-    const kind = `${prefix}-${index}`;
-    if (!usedKinds.has(kind)) return kind;
-  }
-  return `${prefix}-${maximum}`;
-}
-
-function classifyDocument(profile: EconomicProfile, fileName: string, extractedText: string, usedKinds: Set<string>) {
-  const content = normalizedDocumentText(`${fileName} ${extractedText.slice(0, 18000)}`);
-  const has = (...patterns: string[]) => patterns.some(pattern => content.includes(pattern));
-  if (profile === 'legal-entity') {
-    if (has('deuda bancaria', 'deuda financiera', 'prestamos bancarios', 'entidades acreedoras')) return 'financial-debt';
-    if (has('ventas netas de iva', 'ventas posteriores', 'ventas post balance', 'detalle mensual de ventas')) return 'post-balance-sales';
-    if (has('estado de situacion patrimonial', 'patrimonio neto', 'estado de resultados', 'balance general', 'ejercicio economico')) return nextAvailable('balance', 2, usedKinds);
-  }
-  if (profile === 'responsable-inscripto') {
-    if (has('declaracion jurada de iva', 'f. 2002', 'formulario 2002', 'saldo tecnico iva')) return nextAvailable('vat', 6, usedKinds);
-    if (has('impuesto a las ganancias', 'declaracion jurada ganancias')) return 'income-tax';
-    if (has('constancia de inscripcion', 'sistema registral', 'datos registrales')) return 'tax-proof';
-  }
-  if (profile === 'monotributista') {
-    if (has('constancia de opcion', 'monotributo', 'categoria actual')) return 'monotributo-proof';
-    if (has('factura c', 'comprobante', 'punto de venta', 'cae')) return nextAvailable('monotributo-invoices', 6, usedKinds);
-    if (has('manifestacion de bienes', 'bienes personales')) return 'asset-statement';
-  }
-  if (profile === 'employee') {
-    if (has('recibo de sueldo', 'remuneracion neta', 'haberes', 'empleador', 'sueldo neto')) return nextAvailable('salary-slip', 6, usedKinds);
-    if (has('impuesto a las ganancias', 'declaracion jurada ganancias')) return 'income-tax';
-    if (has('manifestacion de bienes', 'bienes personales')) return 'personal-assets';
-  }
-  return 'unclassified';
-}
-
 export function PrequalificationStages(props: Props) {
   const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [documents, setDocuments] = useState<DossierDocument[]>([]);
+  const [excludedDocuments, setExcludedDocuments] = useState<Array<{ name: string; reason: string }>>([]);
   const [balance, setBalance] = useState<ExtractedBalance>();
   const [assessment, setAssessment] = useState<EconomicAssessment>();
   const [contact, setContact] = useState<ContactData>({
@@ -184,6 +151,15 @@ export function PrequalificationStages(props: Props) {
   const automaticBalanceMargin = balance?.sales && (balance.operatingProfit ?? balance.netProfit) != null
     ? Math.max(0, ((balance.operatingProfit ?? balance.netProfit) as number) / balance.sales) * 100
     : null;
+  const currentStage2Requirements = [
+    ...stage2Requirements[economic.profile],
+    ...(economic.profile === 'monotributista' && economic.hasEmploymentIncome ? employmentSlipRequirements : []),
+    ...(economic.profile === 'employee' && economic.hasMonotributoIncome ? monotributoSupplementRequirements : []),
+  ];
+  const missingStage2Documents = currentStage2Requirements
+    .filter(([, , required]) => required)
+    .filter(([kind]) => !documents.some(document => document.stage === 2 && document.kind === kind))
+    .map(([, label]) => label);
 
   const api = async (payload: object, caseId = effectiveCaseId) => {
     const response = await fetch('/api/prequalification/case', {
@@ -200,6 +176,7 @@ export function PrequalificationStages(props: Props) {
     const added: DossierDocument[] = [];
     const usedKinds = new Set(documents.map(document => document.kind));
     let balanceText = '';
+    let monthlySalesFromDocuments: number[] = [];
     try {
       const recovered = await recoverCase();
       for (const file of Array.from(files)) {
@@ -207,27 +184,40 @@ export function PrequalificationStages(props: Props) {
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
           const extraction = await extractPdfTextInBrowser(file, (progress) => setMessage(`Leyendo página ${progress.page} de ${progress.totalPages}…`));
           extractedText = extraction.text;
+        } else if (/\.docx$/i.test(file.name) || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+          setMessage(`Leyendo ${file.name}…`);
+          const mammoth = await import('mammoth');
+          extractedText = (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
         } else if (/^image\/(png|jpeg|jpg|webp)$/i.test(file.type)) {
           setMessage(`Leyendo ${file.name} mediante OCR…`);
           extractedText = (await extractImageTextInBrowser(file)).text;
         }
-        const resolvedKind = documentKind === 'auto'
-          ? classifyDocument(economic.profile, file.name, extractedText, usedKinds)
-          : documentKind;
+        const admission = documentKind === 'auto'
+          ? classifyPrequalificationDocument({ profile: economic.profile, fileName: file.name, extractedText, targetCuit: props.requestData.cuit, usedKinds })
+          : { action: 'accept' as const, kind: documentKind, stage: stage === 3 ? 3 as const : 2 as const, confidence: 'high' as const, reason: 'Tipo seleccionado por el usuario.' };
+        const resolvedKind = admission.kind;
+        if (admission.action === 'discard' || admission.kind === 'different-subject') {
+          setExcludedDocuments(current => [...current, { name: file.name, reason: admission.reason }]);
+          continue;
+        }
         usedKinds.add(resolvedKind);
         if (economic.profile === 'legal-entity' && resolvedKind.startsWith('balance-')) balanceText += `\n${extractedText}`;
-        const documentStage = stage === 3 ? 3 : 2;
+        if (resolvedKind === 'post-balance-sales') {
+          const extractedSales = latestSixMonthlySales(extractedText);
+          if (extractedSales.length === 6) monthlySalesFromDocuments = extractedSales;
+        }
+        const documentStage = documentKind === 'auto' ? admission.stage : stage === 3 ? 3 : 2;
         const upload = new FormData();
         upload.append('file', file); upload.append('caseId', recovered.caseId); upload.append('stage', String(documentStage));
         const uploadResponse = await fetch('/api/prequalification/document', { method: 'POST', headers: { Authorization: `Bearer ${props.session.access_token}` }, body: upload });
         const uploadData = await uploadResponse.json();
         if (!uploadResponse.ok) throw new Error(uploadData.error || 'No se pudo guardar el documento.');
-        added.push({ id: crypto.randomUUID(), stage: documentStage, kind: resolvedKind, name: file.name, size: file.size, extractedText, storagePath: uploadData.storagePath, status: resolvedKind === 'unclassified' ? 'needs-review' : extractedText ? 'read' : 'uploaded' });
+        added.push({ id: crypto.randomUUID(), stage: documentStage, kind: resolvedKind, name: file.name, size: file.size, extractedText, storagePath: uploadData.storagePath, status: admission.action === 'review' ? 'needs-review' : extractedText ? 'read' : 'uploaded' });
       }
       setDocuments((current) => {
         const updated = [...current];
         for (const next of added) {
-          const allowsSeveral = next.kind.includes('invoices-') || next.kind === 'unclassified';
+          const allowsSeveral = next.kind.includes('invoices-') || ['post-balance-sales', 'corporate-income-tax', 'representative-identity-front', 'representative-identity-back', 'different-subject', 'unclassified'].includes(next.kind);
           if (!allowsSeveral) {
             const existing = updated.findIndex(document => document.stage === next.stage && document.kind === next.kind);
             if (existing >= 0) updated.splice(existing, 1);
@@ -244,6 +234,9 @@ export function PrequalificationStages(props: Props) {
           computableNetWorth: current.computableNetWorth || extractedBalance.equity || 0,
           existingComputableFinancing: current.existingComputableFinancing || extractedBalance.financialDebt || 0,
         }));
+      }
+      if (monthlySalesFromDocuments.length === 6) {
+        setEconomic(current => ({ ...current, monthlySales: monthlySalesFromDocuments }));
       }
       const reviewCount = added.filter(document => document.status === 'needs-review').length;
       setMessage(`${added.length} documento(s) incorporado(s).${reviewCount ? ` ${reviewCount} requieren identificar su tipo manualmente.` : ' Todos fueron identificados automáticamente.'}`);
@@ -385,11 +378,18 @@ export function PrequalificationStages(props: Props) {
           onDragOver={event => event.preventDefault()}
           onDrop={event => { event.preventDefault(); void readFiles(event.dataTransfer.files, 'auto'); }}
         >
-          <div><b>Carga automática de varios documentos</b><span>Seleccioná o arrastrá todos los PDF e imágenes juntos. LeasingScoring leerá y clasificará cada archivo.</span></div>
+          <div><b>Carga automática de varios documentos</b><span>Seleccioná o arrastrá juntos archivos PDF, imágenes o Word. LeasingScoring identificará sujeto, tipo y etapa antes de incorporarlos.</span></div>
           <label className="prequalUploadButton" htmlFor="stage-2-bulk-documents">Seleccionar varios archivos</label>
-          <input id="stage-2-bulk-documents" className="prequalFileInput" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={event => readFiles(event.target.files, 'auto')} />
+          <input id="stage-2-bulk-documents" className="prequalFileInput" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={event => readFiles(event.target.files, 'auto')} />
         </div>
-        {documents.filter(document => document.stage === 2 && document.kind === 'unclassified').map(document => <div className="prequalClassificationReview" key={document.id}>
+        {!!excludedDocuments.length && <div className="prequalExcludedDocuments"><b>Archivos no incorporados al expediente</b>{excludedDocuments.map(document => <span key={`${document.name}-${document.reason}`}>{document.name}: {document.reason}</span>)}</div>}
+        <div className={`prequalMissingDocuments ${missingStage2Documents.length ? 'hasMissing' : 'complete'}`}>
+          <b>{missingStage2Documents.length ? 'Documentación que todavía falta' : 'Documentación económica mínima completa'}</b>
+          {missingStage2Documents.length
+            ? <ul>{missingStage2Documents.map(item => <li key={item}>{item}</li>)}</ul>
+            : <span>El lote contiene todos los respaldos obligatorios para calcular esta etapa.</span>}
+        </div>
+        {documents.filter(document => document.status === 'needs-review').map(document => <div className="prequalClassificationReview" key={document.id}>
           <div><b>Revisar clasificación</b><span>{document.name}</span></div>
           <label>Tipo de documento
             <select value="" onChange={event => {
@@ -399,9 +399,8 @@ export function PrequalificationStages(props: Props) {
             }}>
               <option value="">Seleccionar tipo…</option>
               {[
-                ...stage2Requirements[economic.profile],
-                ...(economic.profile === 'monotributista' && economic.hasEmploymentIncome ? employmentSlipRequirements : []),
-                ...(economic.profile === 'employee' && economic.hasMonotributoIncome ? monotributoSupplementRequirements : []),
+                ...currentStage2Requirements,
+                ...stage3Requirements[economic.profile],
               ].map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}
             </select>
           </label>
