@@ -18,7 +18,8 @@
     "pdfjs-dist": "5.4.296",
     "react": "latest",
     "react-dom": "latest",
-    "tesseract.js": "^7.0.0"
+    "tesseract.js": "^7.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "latest",

@@ -8,6 +8,7 @@ import { extractBalanceData } from '../scoring/balanceExtractor';
 import { evaluateEconomicCapacity } from '../scoring/economicEngine';
 import { classifyPrequalificationDocument } from '../scoring/documentClassifier';
 import { latestSixMonthlySales } from '../scoring/fiscalDocumentExtractor';
+import { extractFinancialDebt, type ExtractedFinancialDebt } from '../scoring/financialDebtExtractor';
 import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicAssessment, EconomicInputs, EconomicProfile, ExtractedBalance } from '../domain/dossier';
 import type { PrequalificationResult } from '../domain/types';
 
@@ -127,6 +128,7 @@ export function PrequalificationStages(props: Props) {
   const [excludedDocuments, setExcludedDocuments] = useState<Array<{ name: string; reason: string }>>([]);
   const [balance, setBalance] = useState<ExtractedBalance>();
   const [previousBalance, setPreviousBalance] = useState<ExtractedBalance>();
+  const [debtExtraction, setDebtExtraction] = useState<ExtractedFinancialDebt>();
   const [assessment, setAssessment] = useState<EconomicAssessment>();
   const [contact, setContact] = useState<ContactData>({
     fullName: props.subject.denomination || '', address: '', city: '', province: '', email: '', mobile: '',
@@ -185,6 +187,7 @@ export function PrequalificationStages(props: Props) {
     const usedKinds = new Set(documents.map(document => document.kind));
     const balanceTexts: Partial<Record<'balance-1' | 'balance-2', string>> = {};
     let monthlySalesFromDocuments: number[] = [];
+    let debtFromDocument: ExtractedFinancialDebt | undefined;
     try {
       const recovered = await recoverCase();
       for (const file of Array.from(files)) {
@@ -196,6 +199,13 @@ export function PrequalificationStages(props: Props) {
           setMessage(`Leyendo ${file.name}…`);
           const mammoth = await import('mammoth');
           extractedText = (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
+        } else if (/\.(xlsx?|xls)$/i.test(file.name) || /spreadsheet|excel/i.test(file.type)) {
+          setMessage(`Leyendo planilla ${file.name}…`);
+          const spreadsheet = await import('xlsx');
+          const workbook = spreadsheet.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+          extractedText = workbook.SheetNames.map(name =>
+            `HOJA: ${name}\n${spreadsheet.utils.sheet_to_csv(workbook.Sheets[name], { blankrows: false })}`,
+          ).join('\n\n');
         } else if (/^image\/(png|jpeg|jpg|webp)$/i.test(file.type)) {
           setMessage(`Leyendo ${file.name} mediante OCR…`);
           extractedText = (await extractImageTextInBrowser(file)).text;
@@ -216,6 +226,7 @@ export function PrequalificationStages(props: Props) {
           const extractedSales = latestSixMonthlySales(extractedText);
           if (extractedSales.length === 6) monthlySalesFromDocuments = extractedSales;
         }
+        if (resolvedKind === 'financial-debt') debtFromDocument = extractFinancialDebt(extractedText);
         const documentStage = documentKind === 'auto' ? admission.stage : stage === 3 ? 3 : 2;
         const upload = new FormData();
         upload.append('file', file); upload.append('caseId', recovered.caseId); upload.append('stage', String(documentStage));
@@ -257,6 +268,14 @@ export function PrequalificationStages(props: Props) {
       if (priorBalance) setPreviousBalance(priorBalance);
       if (monthlySalesFromDocuments.length === 6) {
         setEconomic(current => ({ ...current, monthlySales: monthlySalesFromDocuments }));
+      }
+      if (debtFromDocument) {
+        setDebtExtraction(debtFromDocument);
+        setEconomic(current => ({
+          ...current,
+          existingComputableFinancing: debtFromDocument?.totalOutstanding ?? current.existingComputableFinancing,
+          declaredMonthlyDebtService: debtFromDocument?.monthlyDebtService ?? current.declaredMonthlyDebtService,
+        }));
       }
       const reviewCount = added.filter(document => document.status === 'needs-review').length;
       setMessage(`${added.length} documento(s) incorporado(s).${reviewCount ? ` ${reviewCount} requieren identificar su tipo manualmente.` : ' Todos fueron identificados automáticamente.'}`);
@@ -371,7 +390,7 @@ export function PrequalificationStages(props: Props) {
           </>}
         {economic.profile === 'legal-entity' && <>
           <label>Patrimonio neto al cierre del último balance<input type="text" inputMode="numeric" value={economic.computableNetWorth || ''} onChange={e => setEconomic({ ...economic, computableNetWorth: Number(e.target.value.replace(/\D/g, '')) })} /><small>Es la base preliminar para verificar el límite regulatorio. LeasingScoring podrá ajustarla si el balance contiene conceptos no computables.</small></label>
-          <label>Deuda bancaria y financiera vigente<input type="text" inputMode="numeric" value={economic.existingComputableFinancing || ''} onChange={e => setEconomic({ ...economic, existingComputableFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Saldo total actual de préstamos, descubiertos, leasing y otras financiaciones todavía pendientes.</small></label>
+          <label>Deuda bancaria y financiera vigente<input type="text" inputMode="numeric" value={economic.existingComputableFinancing || ''} onChange={e => setEconomic({ ...economic, existingComputableFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Saldo total actual de préstamos, descubiertos, leasing y otras financiaciones todavía pendientes.</small>{debtExtraction && <small>Extraído del documento con confianza {debtExtraction.confidence}%. {debtExtraction.creditorEntities.length ? `${debtExtraction.creditorEntities.length} entidad(es) identificada(s).` : ''} {debtExtraction.warnings.join(' ')}</small>}</label>
           <label>Monto neto solicitado<input type="text" inputMode="numeric" value={economic.requestedFinancing || ''} onChange={e => setEconomic({ ...economic, requestedFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Valor del bien menos anticipo; modificable si la estructura propuesta es distinta.</small></label>
           <label>Garantía regulatoria elegible<select value={economic.qualifyingGuarantee} onChange={e => setEconomic({ ...economic, qualifyingGuarantee: e.target.value as EconomicInputs['qualifyingGuarantee'] })}><option value="none">Sin SGR/fondo público informado</option><option value="sgr-public-fund">SGR o fondo público elegible</option></select></label>
         </>}
@@ -400,7 +419,7 @@ export function PrequalificationStages(props: Props) {
         >
           <div><b>Carga automática de varios documentos</b><span>Seleccioná o arrastrá juntos archivos PDF, imágenes o Word. LeasingScoring identificará sujeto, tipo y etapa antes de incorporarlos.</span></div>
           <label className="prequalUploadButton" htmlFor="stage-2-bulk-documents">Seleccionar varios archivos</label>
-          <input id="stage-2-bulk-documents" className="prequalFileInput" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={event => readFiles(event.target.files, 'auto')} />
+          <input id="stage-2-bulk-documents" className="prequalFileInput" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" onChange={event => readFiles(event.target.files, 'auto')} />
         </div>
         {!!excludedDocuments.length && <div className="prequalExcludedDocuments"><b>Archivos no incorporados al expediente</b>{excludedDocuments.map(document => <span key={`${document.name}-${document.reason}`}>{document.name}: {document.reason}</span>)}</div>}
         <div className={`prequalMissingDocuments ${missingStage2Documents.length ? 'hasMissing' : 'complete'}`}>
@@ -437,7 +456,7 @@ export function PrequalificationStages(props: Props) {
             <div className="prequalUploadRow">
               <div><b>{label}</b><small>{required ? 'Requerido' : 'Opcional'}</small></div>
               <label className="prequalUploadButton" htmlFor={inputId}>Agregar {allowsSeveral ? 'archivos' : 'archivo'}</label>
-              <input id={inputId} className="prequalFileInput" type="file" multiple={allowsSeveral} accept=".pdf,.jpg,.jpeg,.png" onChange={e => readFiles(e.target.files, kind)} />
+              <input id={inputId} className="prequalFileInput" type="file" multiple={allowsSeveral} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" onChange={e => readFiles(e.target.files, kind)} />
             </div>
             {!!uploaded.length && <div className="prequalUploadedFile">✓ {uploaded.length} archivo(s): {uploaded.map(document => document.name).join(', ')}</div>}
           </div>;
