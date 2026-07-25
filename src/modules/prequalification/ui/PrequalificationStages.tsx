@@ -341,7 +341,7 @@ export function PrequalificationStages(props: Props) {
     setBusy(true);
     const response = await fetch('/api/prequalification/pdf', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${props.session.access_token}` },
-      body: JSON.stringify({ caseNumber: effectiveCaseNumber, subject: props.subject.denomination, cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact, economic: assessment, compliance, decision, responseEmail }),
+      body: JSON.stringify({ caseNumber: effectiveCaseNumber, subject: props.subject.denomination, cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact, economic: { ...assessment, declaredMonthlyDebtService: economic.declaredMonthlyDebtService }, compliance, decision, responseEmail }),
     });
     if (response.ok) {
       const url = URL.createObjectURL(await response.blob());
@@ -370,7 +370,10 @@ export function PrequalificationStages(props: Props) {
         <label>Celular<input value={contact.mobile} onChange={e => setContact({ ...contact, mobile: e.target.value })} /></label>
         <label>Actividad<input value={economic.activity} onChange={e => setEconomic({ ...economic, activity: e.target.value })} /></label>
         <label>Antigüedad (meses)<input type="text" inputMode="numeric" value={economic.activitySeniorityMonths || ''} onChange={e => setEconomic({ ...economic, activitySeniorityMonths: Number(e.target.value.replace(/\D/g, '')) })} /></label>
-        <label>Servicio mensual de deudas declarado<input type="number" value={economic.declaredMonthlyDebtService} onChange={e => setEconomic({ ...economic, declaredMonthlyDebtService: Number(e.target.value) })} /></label>
+        <label>Cuotas mensuales de financiaciones vigentes
+          <input type="number" value={economic.declaredMonthlyDebtService} onChange={e => setEconomic({ ...economic, declaredMonthlyDebtService: Number(e.target.value) })} />
+          <small>Suma mensual que actualmente paga por préstamos, leasing, descubiertos y otras financiaciones. No es el saldo total adeudado.</small>
+        </label>
         <label>Canon mensual propuesto<input type="text" inputMode="numeric" value={economic.proposedMonthlyCanon || ''} onChange={e => setEconomic({ ...economic, proposedMonthlyCanon: Number(e.target.value.replace(/\D/g, '')) })} /></label>
         {economic.profile === 'employee'
           ? <label>Ingreso neto mensual declarado<input type="number" value={economic.employeeNetIncome} onChange={e => setEconomic({ ...economic, employeeNetIncome: Number(e.target.value) })} /><small>Podés informarlo ahora y adjuntar recibos voluntariamente.</small></label>

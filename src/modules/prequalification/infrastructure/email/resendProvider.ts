@@ -126,7 +126,7 @@ export function stage2NotificationHtml(input: {
     <p><b>Respaldo de ingresos:</b> ${escapeHtml(input.confidence)}</p>
     <p><b>Ingreso mensual computable:</b> ${money(input.normalizedMonthlyIncome)}</p>
     <p><b>Canon mensual propuesto:</b> ${money(input.proposedMonthlyCanon)}</p>
-    <p><b>Otros compromisos mensuales:</b> ${money(input.declaredMonthlyDebtService)}</p>
+    <p><b>Cuotas mensuales de financiaciones vigentes:</b> ${money(input.declaredMonthlyDebtService)}</p>
     <p><b>Relación compromisos/ingreso:</b> ${input.installmentToIncomeRatio == null ? 'No estimable' : `${(input.installmentToIncomeRatio * 100).toFixed(1)}%`} · política máxima 30%</p>
     <p><b>Canon máximo estimado:</b> ${money(input.maximumPrudentCanon)}</p>
     ${input.regulatoryExposure.applicable ? `<h2 style="font-size:18px">Encuadre patrimonial y regulatorio</h2>

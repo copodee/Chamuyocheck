@@ -74,6 +74,7 @@ export async function buildDossierPdf(data: PdfData) {
     row('Score económico', data.economic?.score);
     row('Respaldo de ingresos', data.economic?.confidence);
     row('Ingreso mensual normalizado', money(data.economic?.normalizedMonthlyIncome));
+    row('Cuotas mensuales de financiaciones vigentes', money(data.economic?.declaredMonthlyDebtService));
     row('Relación compromisos / ingreso', data.economic?.installmentToIncomeRatio == null ? 'No estimable' : `${(data.economic.installmentToIncomeRatio * 100).toFixed(1)}%`);
     if (data.economic?.regulatoryExposure?.applicable) {
       section('Encuadre patrimonial y regulatorio');
