@@ -1,6 +1,7 @@
 import type { ExtractedBalance } from '../domain/dossier';
 
 function normalizedNumber(raw: string): number | null {
+  const negativeParentheses = /\(.*\)/.test(raw);
   const cleaned = raw.replace(/[^\d,.-]/g, '');
   if (!cleaned) return null;
   const decimalComma = cleaned.includes(',') && (!cleaned.includes('.') || cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.'));
@@ -9,12 +10,12 @@ function normalizedNumber(raw: string): number | null {
     ? cleaned.replace(/\./g, '').replace(',', '.')
     : thousandsDots ? cleaned.replace(/\./g, '') : cleaned.replace(/,/g, '');
   const value = Number(canonical);
-  return Number.isFinite(value) ? value : null;
+  return Number.isFinite(value) ? (negativeParentheses ? -Math.abs(value) : value) : null;
 }
 
 function findAmount(text: string, labels: string[]): number | null {
   for (const label of labels) {
-    const expression = new RegExp(`${label}\\s*[:\\-]?\\s*[$]?\\s*([\\d.,]+)`, 'i');
+    const expression = new RegExp(`${label}\\s*[:\\-]?\\s*[$]?\\s*(\\(?\\-?[\\d.,]+\\)?)`, 'i');
     const match = text.match(expression);
     const value = match?.[1] ? normalizedNumber(match[1]) : null;
     if (value !== null) return value;
@@ -39,6 +40,10 @@ export function extractBalanceData(text: string): ExtractedBalance {
     financialDebt: findAmount(compact, ['deudas financieras', 'préstamos bancarios', 'deuda bancaria']),
     cash: findAmount(compact, ['caja y bancos', 'disponibilidades', 'efectivo y equivalentes']),
     inventory: findAmount(compact, ['bienes de cambio', 'inventarios']),
+    tradeReceivables: findAmount(compact, ['cr[eé]ditos por ventas', 'cuentas por cobrar comerciales', 'deudores por ventas']),
+    costOfSales: findAmount(compact, ['costo de ventas', 'costo de mercader[ií]as vendidas', 'costo de servicios prestados']),
+    interestExpense: findAmount(compact, ['intereses perdidos', 'intereses y gastos financieros', 'costos financieros', 'gastos financieros']),
+    depreciationAndAmortization: findAmount(compact, ['depreciaciones y amortizaciones', 'depreciaci[oó]n y amortizaci[oó]n']),
     totalAssets: findAmount(compact, ['total del activo', 'total activo']),
     totalLiabilities: findAmount(compact, ['total del pasivo', 'total pasivo']),
     ebitda: findAmount(compact, ['ebitda', 'resultado antes de intereses, impuestos, depreciaciones y amortizaciones']),

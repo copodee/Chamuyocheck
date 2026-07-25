@@ -16,13 +16,22 @@ test('calcula liquidez, capital de trabajo, endeudamiento y rentabilidad empresa
     netProfit: 24_000_000,
     financialDebt: 10_000_000,
     cash: 8_000_000,
+    inventory: 5_000_000,
+    tradeReceivables: 12_000_000,
+    costOfSales: 180_000_000,
+    interestExpense: 6_000_000,
     extractionConfidence: 100,
     missingFields: [],
   });
   assert.equal(result.workingCapital, 20_000_000);
   assert.equal(result.currentRatio, 3);
+  assert.equal(result.quickRatio, 2.5);
   assert.equal(result.netMargin, 0.1);
   assert.equal(result.returnOnEquity, 0.4);
+  assert.equal(result.assetTurnover, 3);
+  assert.equal(result.inventoryTurnover, 36);
+  assert.equal(result.receivablesTurnover, 20);
+  assert.equal(result.interestCoverage, 6);
   assert.equal(result.status, 'strong');
 });
 

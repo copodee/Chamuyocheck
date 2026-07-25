@@ -89,12 +89,18 @@ export function stage2NotificationHtml(input: {
     score: number | null;
     workingCapital: number | null;
     currentRatio: number | null;
+    quickRatio: number | null;
     liabilitiesToEquity: number | null;
     debtToEquity: number | null;
     operatingMargin: number | null;
+    grossMargin: number | null;
     netMargin: number | null;
     returnOnAssets: number | null;
     returnOnEquity: number | null;
+    assetTurnover: number | null;
+    inventoryTurnover: number | null;
+    receivablesTurnover: number | null;
+    interestCoverage: number | null;
   };
   corporateEvolution?: {
     trend: string;
@@ -138,8 +144,9 @@ export function stage2NotificationHtml(input: {
     ${input.corporateFinancials ? `<h2 style="font-size:18px">Indicadores del último balance</h2>
     <p><b>Calificación financiera:</b> ${input.corporateFinancials.score == null ? 'Datos insuficientes' : `${input.corporateFinancials.score}/100`}</p>
     <p><b>Liquidez corriente:</b> ${input.corporateFinancials.currentRatio?.toFixed(2) ?? 'No calculable'} · <b>Capital de trabajo:</b> ${money(input.corporateFinancials.workingCapital)}</p>
+    <p><b>Liquidez ácida:</b> ${input.corporateFinancials.quickRatio?.toFixed(2) ?? 'No calculable'} · <b>Cobertura de intereses:</b> ${input.corporateFinancials.interestCoverage?.toFixed(2) ?? 'No calculable'}</p>
     <p><b>Pasivo / patrimonio:</b> ${input.corporateFinancials.liabilitiesToEquity == null ? 'No calculable' : `${(input.corporateFinancials.liabilitiesToEquity * 100).toFixed(1)}%`} · <b>Deuda financiera / patrimonio:</b> ${input.corporateFinancials.debtToEquity == null ? 'No calculable' : `${(input.corporateFinancials.debtToEquity * 100).toFixed(1)}%`}</p>
-    <p><b>Margen operativo:</b> ${input.corporateFinancials.operatingMargin == null ? 'No calculable' : `${(input.corporateFinancials.operatingMargin * 100).toFixed(1)}%`} · <b>Margen neto:</b> ${input.corporateFinancials.netMargin == null ? 'No calculable' : `${(input.corporateFinancials.netMargin * 100).toFixed(1)}%`}</p>
+    <p><b>Margen bruto:</b> ${input.corporateFinancials.grossMargin == null ? 'No calculable' : `${(input.corporateFinancials.grossMargin * 100).toFixed(1)}%`} · <b>Margen operativo:</b> ${input.corporateFinancials.operatingMargin == null ? 'No calculable' : `${(input.corporateFinancials.operatingMargin * 100).toFixed(1)}%`} · <b>Margen neto:</b> ${input.corporateFinancials.netMargin == null ? 'No calculable' : `${(input.corporateFinancials.netMargin * 100).toFixed(1)}%`}</p>
     <p><b>ROA:</b> ${input.corporateFinancials.returnOnAssets == null ? 'No calculable' : `${(input.corporateFinancials.returnOnAssets * 100).toFixed(1)}%`} · <b>ROE:</b> ${input.corporateFinancials.returnOnEquity == null ? 'No calculable' : `${(input.corporateFinancials.returnOnEquity * 100).toFixed(1)}%`}</p>` : ''}
     ${input.corporateEvolution ? `<h2 style="font-size:18px">Evolución entre balances</h2>
     <p><b>Tendencia:</b> ${input.corporateEvolution.trend === 'improving' ? 'Favorable' : input.corporateEvolution.trend === 'stable' ? 'Estable' : input.corporateEvolution.trend === 'deteriorating' ? 'Desfavorable' : 'Datos insuficientes'}</p>

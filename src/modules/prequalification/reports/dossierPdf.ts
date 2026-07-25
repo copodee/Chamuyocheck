@@ -89,13 +89,19 @@ export async function buildDossierPdf(data: PdfData) {
       section('Indicadores del último balance');
       row('Calificación financiera', corporate.score == null ? 'Datos insuficientes' : `${corporate.score}/100`);
       row('Liquidez corriente', corporate.currentRatio == null ? 'No calculable' : corporate.currentRatio.toFixed(2));
+      row('Liquidez ácida', corporate.quickRatio == null ? 'No calculable' : corporate.quickRatio.toFixed(2));
       row('Capital de trabajo', corporate.workingCapital == null ? 'No calculable' : money(corporate.workingCapital));
       row('Pasivo / patrimonio', corporate.liabilitiesToEquity == null ? 'No calculable' : `${(corporate.liabilitiesToEquity * 100).toFixed(1)}%`);
       row('Deuda financiera / patrimonio', corporate.debtToEquity == null ? 'No calculable' : `${(corporate.debtToEquity * 100).toFixed(1)}%`);
+      row('Margen bruto', corporate.grossMargin == null ? 'No calculable' : `${(corporate.grossMargin * 100).toFixed(1)}%`);
       row('Margen operativo', corporate.operatingMargin == null ? 'No calculable' : `${(corporate.operatingMargin * 100).toFixed(1)}%`);
       row('Margen neto', corporate.netMargin == null ? 'No calculable' : `${(corporate.netMargin * 100).toFixed(1)}%`);
       row('ROA', corporate.returnOnAssets == null ? 'No calculable' : `${(corporate.returnOnAssets * 100).toFixed(1)}%`);
       row('ROE', corporate.returnOnEquity == null ? 'No calculable' : `${(corporate.returnOnEquity * 100).toFixed(1)}%`);
+      row('Rotación de activos', corporate.assetTurnover == null ? 'No calculable' : corporate.assetTurnover.toFixed(2));
+      row('Rotación de inventarios', corporate.inventoryTurnover == null ? 'No calculable' : corporate.inventoryTurnover.toFixed(2));
+      row('Rotación de créditos por ventas', corporate.receivablesTurnover == null ? 'No calculable' : corporate.receivablesTurnover.toFixed(2));
+      row('Cobertura de intereses', corporate.interestCoverage == null ? 'No calculable' : corporate.interestCoverage.toFixed(2));
     }
     if (data.economic?.corporateEvolution) {
       const evolution = data.economic.corporateEvolution;

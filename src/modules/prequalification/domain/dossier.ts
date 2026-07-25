@@ -69,6 +69,10 @@ export type ExtractedBalance = {
   financialDebt: number | null;
   cash: number | null;
   inventory?: number | null;
+  tradeReceivables?: number | null;
+  costOfSales?: number | null;
+  interestExpense?: number | null;
+  depreciationAndAmortization?: number | null;
   totalAssets?: number | null;
   totalLiabilities?: number | null;
   ebitda?: number | null;
@@ -79,14 +83,20 @@ export type ExtractedBalance = {
 export type CorporateFinancialAssessment = {
   workingCapital: number | null;
   currentRatio: number | null;
+  quickRatio: number | null;
   cashRatio: number | null;
   debtToEquity: number | null;
   liabilitiesToEquity: number | null;
   netMargin: number | null;
+  grossMargin: number | null;
   operatingMargin: number | null;
   returnOnAssets: number | null;
   returnOnEquity: number | null;
   financialDebtToSales: number | null;
+  assetTurnover: number | null;
+  inventoryTurnover: number | null;
+  receivablesTurnover: number | null;
+  interestCoverage: number | null;
   status: 'strong' | 'adequate' | 'review' | 'weak' | 'insufficient-data';
   score: number | null;
   observations: string[];

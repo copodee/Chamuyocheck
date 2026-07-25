@@ -3,12 +3,13 @@ import type { CorporateEvolutionAssessment, CorporateFinancialAssessment, Extrac
 const ratio = (numerator: number | null | undefined, denominator: number | null | undefined) =>
   numerator != null && denominator != null && denominator !== 0 ? numerator / denominator : null;
 
-export function analyzeCorporateFinancials(balance?: ExtractedBalance): CorporateFinancialAssessment {
+export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?: ExtractedBalance): CorporateFinancialAssessment {
   if (!balance) {
     return {
-      workingCapital: null, currentRatio: null, cashRatio: null, debtToEquity: null,
-      liabilitiesToEquity: null, netMargin: null, operatingMargin: null,
+      workingCapital: null, currentRatio: null, quickRatio: null, cashRatio: null, debtToEquity: null,
+      liabilitiesToEquity: null, netMargin: null, grossMargin: null, operatingMargin: null,
       returnOnAssets: null, returnOnEquity: null, financialDebtToSales: null,
+      assetTurnover: null, inventoryTurnover: null, receivablesTurnover: null, interestCoverage: null,
       status: 'insufficient-data', score: null,
       observations: ['Falta un balance legible para calcular indicadores empresariales.'],
     };
@@ -23,14 +24,31 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance): Corporat
   const workingCapital = balance.currentAssets != null && balance.currentLiabilities != null
     ? balance.currentAssets - balance.currentLiabilities : null;
   const currentRatio = ratio(balance.currentAssets, balance.currentLiabilities);
+  const quickRatio = balance.currentAssets != null
+    ? ratio(balance.currentAssets - Math.max(0, balance.inventory || 0), balance.currentLiabilities)
+    : null;
   const cashRatio = ratio(balance.cash, balance.currentLiabilities);
   const debtToEquity = ratio(balance.financialDebt, balance.equity);
   const liabilitiesToEquity = ratio(totalLiabilities, balance.equity);
   const netMargin = ratio(balance.netProfit, balance.sales);
+  const grossMargin = ratio(balance.grossProfit, balance.sales);
   const operatingMargin = ratio(balance.operatingProfit, balance.sales);
-  const returnOnAssets = ratio(balance.netProfit, totalAssets);
-  const returnOnEquity = ratio(balance.netProfit, balance.equity);
+  const previousTotalAssets = previous?.totalAssets ??
+    (previous?.currentAssets != null && previous?.nonCurrentAssets != null
+      ? previous.currentAssets + previous.nonCurrentAssets : null);
+  const averageAssets = totalAssets != null && previousTotalAssets != null ? (totalAssets + previousTotalAssets) / 2 : totalAssets;
+  const averageEquity = balance.equity != null && previous?.equity != null ? (balance.equity + previous.equity) / 2 : balance.equity;
+  const averageInventory = balance.inventory != null && previous?.inventory != null
+    ? (balance.inventory + previous.inventory) / 2 : balance.inventory;
+  const averageReceivables = balance.tradeReceivables != null && previous?.tradeReceivables != null
+    ? (balance.tradeReceivables + previous.tradeReceivables) / 2 : balance.tradeReceivables;
+  const returnOnAssets = ratio(balance.netProfit, averageAssets);
+  const returnOnEquity = ratio(balance.netProfit, averageEquity);
   const financialDebtToSales = ratio(balance.financialDebt, balance.sales);
+  const assetTurnover = ratio(balance.sales, averageAssets);
+  const inventoryTurnover = ratio(balance.costOfSales == null ? null : Math.abs(balance.costOfSales), averageInventory);
+  const receivablesTurnover = ratio(balance.sales, averageReceivables);
+  const interestCoverage = ratio(balance.operatingProfit, balance.interestExpense == null ? null : Math.abs(balance.interestExpense));
 
   const observations: string[] = [];
   let points = 0;
@@ -43,11 +61,13 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance): Corporat
     else observations.push(weak);
   };
   grade(currentRatio, value => value >= 1.2, value => value >= 1, 'La liquidez corriente es inferior a 1.');
+  grade(quickRatio, value => value >= 1, value => value >= 0.7, 'La liquidez ácida es reducida frente al pasivo corriente.');
   grade(workingCapital, value => value > 0, value => value === 0, 'El capital de trabajo es negativo.');
   grade(liabilitiesToEquity, value => value <= 1.5, value => value <= 2.5, 'El pasivo total es elevado respecto del patrimonio neto.');
   grade(netMargin, value => value > 0.05, value => value >= 0, 'El ejercicio presenta margen neto negativo.');
   grade(returnOnAssets, value => value > 0.03, value => value >= 0, 'La rentabilidad sobre activos es negativa.');
   grade(financialDebtToSales, value => value <= 0.3, value => value <= 0.6, 'La deuda financiera representa una proporción elevada de las ventas anuales.');
+  grade(interestCoverage, value => value >= 2, value => value >= 1, 'El resultado operativo no cubre adecuadamente los intereses.');
 
   if (balance.extractionConfidence < 60) observations.push('La extracción del balance tiene baja confianza y exige revisión humana.');
   const score = measured ? Math.round((points / (measured * 2)) * 100) : null;
@@ -57,8 +77,9 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance): Corporat
         : score >= 40 ? 'review'
           : 'weak';
   return {
-    workingCapital, currentRatio, cashRatio, debtToEquity, liabilitiesToEquity,
-    netMargin, operatingMargin, returnOnAssets, returnOnEquity, financialDebtToSales,
+    workingCapital, currentRatio, quickRatio, cashRatio, debtToEquity, liabilitiesToEquity,
+    netMargin, grossMargin, operatingMargin, returnOnAssets, returnOnEquity, financialDebtToSales,
+    assetTurnover, inventoryTurnover, receivablesTurnover, interestCoverage,
     status, score, observations,
   };
 }
