@@ -51,6 +51,7 @@ button,input,textarea{font:inherit}
     linear-gradient(180deg,#ffffff,#f4f8fa);
 }
 .leasingAppShell .sidebar{background:linear-gradient(180deg,#f1f7f8,#e8f1f3);border-right-color:rgba(11,100,114,.18)}
+.leasingSidebarBrand{display:flex;align-items:center;gap:12px;color:#10333e;font-size:20px;font-weight:900;letter-spacing:.025em;white-space:nowrap}.leasingSidebarBrand img{width:62px;height:62px;object-fit:contain;flex:0 0 62px}
 .leasingAppShell .logo{color:#10333e;letter-spacing:-.025em}.leasingAppShell .logo span{color:#b8750c;text-shadow:none}
 .leasingAppShell .tag{color:#35717b}
 .leasingAppShell .shield{background:linear-gradient(145deg,#6d28d9,#4c1d95);border-color:rgba(201,137,22,.55);color:#fff}
@@ -878,3 +879,32 @@ body:has(.leasingAppShell){
 .prequalCalculatedField{display:grid;gap:7px;padding:14px;border:1px solid rgba(56,211,159,.35);border-radius:12px;background:rgba(13,59,50,.72)}.prequalCalculatedField b{color:#edfff9}.prequalCalculatedField span{color:#bcebdc;line-height:1.45}
 .prequalColumns{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}.prequalColumns>div{background:#0e232c;padding:18px;border-radius:14px}.prequalColumns h3{margin-top:0}.prequalColumns li{margin:8px 0;color:#c6dce1;line-height:1.5}.prequalResult small{color:#86a7af}
 @media(max-width:760px){.prequalPage{padding:18px 12px}.prequalHeader{align-items:flex-start}.prequalHeader>div:first-child{display:grid;gap:3px}.prequalUser span{display:none}.prequalCard{padding:20px}.prequalGrid,.prequalColumns{grid-template-columns:1fr}.prequalMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}.prequalUploadRow{align-items:stretch;flex-direction:column;gap:10px}.prequalForm .prequalUploadButton{width:100%}}
+
+/* Precalificación comparte el sistema visual claro de la aplicación principal. */
+html:has(.prequalPage){color-scheme:light;background:#f4f8fa}
+body:has(.prequalPage){color:#102f3b;background:radial-gradient(circle at 82% 0%,rgba(224,171,68,.10),transparent 28%),radial-gradient(circle at 12% 8%,rgba(30,139,151,.09),transparent 32%),linear-gradient(180deg,#fff,#f4f8fa)}
+.prequalPage{background:transparent;color:#102f3b}
+.prequalHeader{border-bottom-color:rgba(20,72,88,.18)}
+.prequalHeader span,.prequalUser span{color:#496873}
+.prequalBrandLogo{display:flex;align-items:center;gap:10px;width:auto;color:#10333e;font-size:1.08rem;font-weight:900;letter-spacing:.025em;white-space:nowrap}
+.prequalBrandLogo img{display:block;width:48px;height:48px;object-fit:contain}
+.prequalUser button,.prequalSecondary{border-color:rgba(76,29,149,.32);color:#4c1d95;background:#fff}
+.prequalIntro h1,.prequalAccess h1,.prequalResult h2{color:#102f3b}
+.prequalIntro p,.prequalAccess p{color:#405e69}
+.prequalEyebrow{color:#6d28d9}
+.prequalNotice{background:#f2edff;border-color:#c9b8f5;color:#4c1d95}
+.prequalCard{background:rgba(255,255,255,.94);border-color:rgba(20,72,88,.20);box-shadow:0 20px 60px rgba(19,58,70,.10)}
+.prequalForm label{color:#244753}
+.prequalForm input,.prequalForm select{border-color:rgba(20,72,88,.24);background:#f8fbfc;color:#102f3b}
+.prequalForm .prequalCheckRow{border-color:rgba(20,72,88,.18);background:#f6fafb}
+.prequalForm .prequalCheckRow small{color:#607b84}
+.prequalMetrics>div,.prequalUploadItem{background:#f5fafb;border-color:rgba(20,72,88,.16)}
+.prequalMetrics span,.prequalUploadRow small{color:#607b84}
+.prequalMetrics b,.prequalUploadRow b{color:#102f3b}
+.prequalEntityDetail,.prequalColumns>div{background:#f5fafb;border-color:rgba(20,72,88,.16)}
+.prequalEntityDetail>p,.prequalColumns li{color:#405e69}
+.prequalEntityDetail th{color:#496873}.prequalEntityDetail td,.prequalEntityDetail tfoot th{color:#102f3b}
+.prequalUploadedFile{color:#287568}
+.prequalResult small{color:#607b84}
+.prequalCapacity{box-shadow:0 12px 32px rgba(19,58,70,.10)}
+@media(max-width:760px){.prequalBrandLogo{font-size:.95rem}.prequalBrandLogo img{width:40px;height:40px}}
