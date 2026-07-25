@@ -9,6 +9,7 @@ import { evaluateEconomicCapacity } from '../scoring/economicEngine';
 import { classifyPrequalificationDocument } from '../scoring/documentClassifier';
 import { latestSixMonthlySales } from '../scoring/fiscalDocumentExtractor';
 import { extractFinancialDebt, type ExtractedFinancialDebt } from '../scoring/financialDebtExtractor';
+import { extractInvoiceTotal, extractSalaryNetAmount } from '../scoring/incomeDocumentExtractor';
 import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicAssessment, EconomicInputs, EconomicProfile, ExtractedBalance } from '../domain/dossier';
 import type { PrequalificationResult } from '../domain/types';
 
@@ -264,6 +265,31 @@ export function PrequalificationStages(props: Props) {
         }
         return updated;
       });
+      const combinedDocuments = [...documents, ...added];
+      const averageExtracted = (values: Array<number | null>) => {
+        const valid = values.filter((value): value is number => value != null && value > 0);
+        return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : 0;
+      };
+      const primarySalary = averageExtracted(combinedDocuments.filter(document => /^salary-slip-\d+$/.test(document.kind)).map(document => extractSalaryNetAmount(document.extractedText || '')));
+      const additionalSalary = averageExtracted(combinedDocuments.filter(document => /^additional-salary-slip-\d+$/.test(document.kind)).map(document => extractSalaryNetAmount(document.extractedText || '')));
+      const invoiceMonths = (prefix: string) => Array.from({ length: 6 }, (_, index) =>
+        combinedDocuments
+          .filter(document => document.kind === `${prefix}-${index + 1}`)
+          .map(document => extractInvoiceTotal(document.extractedText || ''))
+          .filter((value): value is number => value != null)
+          .reduce((sum, value) => sum + value, 0),
+      );
+      const primaryMonotributoSales = invoiceMonths('monotributo-invoices');
+      const additionalMonotributoSales = invoiceMonths('additional-monotributo-invoices');
+      setEconomic(current => ({
+        ...current,
+        employeeNetIncome: primarySalary || current.employeeNetIncome,
+        additionalEmploymentNetIncome: additionalSalary || current.additionalEmploymentNetIncome,
+        monthlySales: primaryMonotributoSales.some(Boolean) ? primaryMonotributoSales : current.monthlySales,
+        additionalMonotributoNetIncome: additionalMonotributoSales.some(Boolean)
+          ? averageExtracted(additionalMonotributoSales)
+          : current.additionalMonotributoNetIncome,
+      }));
       const newlyExtracted = {
         current: balanceTexts['balance-1'] ? extractBalanceData(balanceTexts['balance-1']) : undefined,
         previous: balanceTexts['balance-2'] ? extractBalanceData(balanceTexts['balance-2']) : undefined,
@@ -395,12 +421,12 @@ export function PrequalificationStages(props: Props) {
           {economic.profile === 'legal-entity' && <small>{constitutionDate ? `Calculada desde la fecha de constitución extraída del estatuto: ${constitutionDate}.` : 'Se calculará automáticamente si el estatuto o contrato social contiene una fecha de constitución legible.'}</small>}
         </label>
         <label>Cuotas mensuales de financiaciones vigentes
-          <input type="number" value={economic.declaredMonthlyDebtService} onChange={e => setEconomic({ ...economic, declaredMonthlyDebtService: Number(e.target.value) })} />
+          <input type="text" inputMode="numeric" value={economic.declaredMonthlyDebtService || ''} onChange={e => setEconomic({ ...economic, declaredMonthlyDebtService: Number(e.target.value.replace(/\D/g, '')) })} />
           <small>Suma mensual que actualmente paga por préstamos, leasing, descubiertos y otras financiaciones. No es el saldo total adeudado.</small>
         </label>
         <label>Canon mensual propuesto<input type="text" inputMode="numeric" value={economic.proposedMonthlyCanon || ''} onChange={e => setEconomic({ ...economic, proposedMonthlyCanon: Number(e.target.value.replace(/\D/g, '')) })} /></label>
         {economic.profile === 'employee'
-          ? <label>Ingreso neto mensual declarado<input type="number" value={economic.employeeNetIncome} onChange={e => setEconomic({ ...economic, employeeNetIncome: Number(e.target.value) })} /><small>Podés informarlo ahora y adjuntar recibos voluntariamente.</small></label>
+          ? <label>Ingreso neto mensual declarado<input type="text" inputMode="numeric" value={economic.employeeNetIncome || ''} onChange={e => setEconomic({ ...economic, employeeNetIncome: Number(e.target.value.replace(/\D/g, '')) })} /><small>Podés informarlo ahora y adjuntar recibos voluntariamente.</small></label>
           : economic.profile === 'monotributista'
             ? <><label>Ingreso mensual neto declarado<input type="text" inputMode="numeric" value={economic.declaredMonthlyNetIncome || ''} onChange={e => setEconomic({ ...economic, declaredMonthlyNetIncome: Number(e.target.value.replace(/\D/g, '')) })} /><small>Se computará íntegramente. Las facturas son respaldo opcional y no alteran esta precalificación.</small></label>
               <label>Tipo de actividad<select value={economic.activityCategory} onChange={e => setEconomic({ ...economic, activityCategory: e.target.value as EconomicInputs['activityCategory'] })}>
@@ -411,7 +437,7 @@ export function PrequalificationStages(props: Props) {
                 <option value="transport">Transporte</option>
                 <option value="other">Otra actividad</option>
               </select><small>No se aplican quitas automáticas por actividad ni por falta de comprobantes.</small></label></>
-          : <><label>Facturación promedio mensual declarada<input type="text" inputMode="numeric" onChange={e => setEconomic({ ...economic, monthlySales: Array(6).fill(Number(e.target.value.replace(/\D/g, ''))) })} /><small>Podés ingresar un promedio o adjuntar las facturas de cada mes, o ambas cosas.</small></label>
+          : <><label>Facturación promedio mensual declarada<input type="text" inputMode="numeric" value={Math.round((economic.monthlySales || []).reduce((sum, value) => sum + value, 0) / Math.max(1, (economic.monthlySales || []).length)) || ''} onChange={e => setEconomic({ ...economic, monthlySales: Array(6).fill(Number(e.target.value.replace(/\D/g, ''))) })} /><small>Podés ingresar un promedio o adjuntar las facturas de cada mes, o ambas cosas.</small></label>
             {economic.profile === 'responsable-inscripto' && <label>Margen operativo estimado (%)<input type="number" value={economic.declaredOperatingMargin} onChange={e => setEconomic({ ...economic, declaredOperatingMargin: Number(e.target.value) })} /></label>}
             {economic.profile === 'legal-entity' && <div className="prequalCalculatedField"><b>Margen calculado automáticamente</b><span>{automaticBalanceMargin == null ? 'Se calculará al cargar el último balance.' : `${automaticBalanceMargin.toFixed(1)}% según ventas y resultado del balance.`}</span></div>}
           </>}
