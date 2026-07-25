@@ -439,6 +439,15 @@ export function PrequalificationStages(props: Props) {
           <p>Exposición / patrimonio: <b>{previewAssessment.regulatoryExposure.exposureToNetWorthRatio == null ? 'No evaluable' : `${(previewAssessment.regulatoryExposure.exposureToNetWorthRatio * 100).toFixed(1)}%`}</b> · Nuevo financiamiento máximo dentro del margen básico: <b>{previewAssessment.regulatoryExposure.basicMarginAvailable == null ? 'No evaluable' : pesos.format(previewAssessment.regulatoryExposure.basicMarginAvailable)}</b></p>
           {previewAssessment.regulatoryExposure.conditions.map((condition) => <small key={condition}>{condition}</small>)}
         </div>}
+        {previewAssessment.corporateFinancials && <div className="prequalRegulatory">
+          <h3>Indicadores del último balance</h3>
+          <p>Calificación financiera: <b>{previewAssessment.corporateFinancials.score == null ? 'Datos insuficientes' : `${previewAssessment.corporateFinancials.score}/100`}</b></p>
+          <p>Liquidez corriente: <b>{previewAssessment.corporateFinancials.currentRatio?.toFixed(2) ?? 'No calculable'}</b> · Capital de trabajo: <b>{previewAssessment.corporateFinancials.workingCapital == null ? 'No calculable' : pesos.format(previewAssessment.corporateFinancials.workingCapital)}</b></p>
+          <p>Pasivo / patrimonio: <b>{previewAssessment.corporateFinancials.liabilitiesToEquity == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.liabilitiesToEquity * 100).toFixed(1)}%`}</b> · Deuda financiera / patrimonio: <b>{previewAssessment.corporateFinancials.debtToEquity == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.debtToEquity * 100).toFixed(1)}%`}</b></p>
+          <p>Margen operativo: <b>{previewAssessment.corporateFinancials.operatingMargin == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.operatingMargin * 100).toFixed(1)}%`}</b> · Margen neto: <b>{previewAssessment.corporateFinancials.netMargin == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.netMargin * 100).toFixed(1)}%`}</b></p>
+          <p>ROA: <b>{previewAssessment.corporateFinancials.returnOnAssets == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.returnOnAssets * 100).toFixed(1)}%`}</b> · ROE: <b>{previewAssessment.corporateFinancials.returnOnEquity == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.returnOnEquity * 100).toFixed(1)}%`}</b></p>
+          {previewAssessment.corporateFinancials.observations.map(observation => <small key={observation}>{observation}</small>)}
+        </div>}
         <small>{incomeDocumentCount ? `Respaldo: ${previewAssessment.confidence} (${incomeDocumentCount} documento(s) de ingresos).` : 'Ingresos declarativos: el informe recomendará solicitar comprobantes.'}</small>
       </div>
       <label><input type="checkbox" checked={contact.dataConsent} onChange={e => setContact({ ...contact, dataConsent: e.target.checked })} /> Autorizo el tratamiento de datos para esta evaluación.</label>

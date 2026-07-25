@@ -38,6 +38,10 @@ export function extractBalanceData(text: string): ExtractedBalance {
     netProfit: findAmount(compact, ['resultado neto', 'ganancia del ejercicio', 'pérdida del ejercicio']),
     financialDebt: findAmount(compact, ['deudas financieras', 'préstamos bancarios', 'deuda bancaria']),
     cash: findAmount(compact, ['caja y bancos', 'disponibilidades', 'efectivo y equivalentes']),
+    inventory: findAmount(compact, ['bienes de cambio', 'inventarios']),
+    totalAssets: findAmount(compact, ['total del activo', 'total activo']),
+    totalLiabilities: findAmount(compact, ['total del pasivo', 'total pasivo']),
+    ebitda: findAmount(compact, ['ebitda', 'resultado antes de intereses, impuestos, depreciaciones y amortizaciones']),
     extractionConfidence: 0,
     missingFields: [],
   };

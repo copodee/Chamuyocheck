@@ -68,8 +68,28 @@ export type ExtractedBalance = {
   netProfit: number | null;
   financialDebt: number | null;
   cash: number | null;
+  inventory?: number | null;
+  totalAssets?: number | null;
+  totalLiabilities?: number | null;
+  ebitda?: number | null;
   extractionConfidence: number;
   missingFields: string[];
+};
+
+export type CorporateFinancialAssessment = {
+  workingCapital: number | null;
+  currentRatio: number | null;
+  cashRatio: number | null;
+  debtToEquity: number | null;
+  liabilitiesToEquity: number | null;
+  netMargin: number | null;
+  operatingMargin: number | null;
+  returnOnAssets: number | null;
+  returnOnEquity: number | null;
+  financialDebtToSales: number | null;
+  status: 'strong' | 'adequate' | 'review' | 'weak' | 'insufficient-data';
+  score: number | null;
+  observations: string[];
 };
 
 export type EconomicAssessment = {
@@ -84,6 +104,7 @@ export type EconomicAssessment = {
   reasons: string[];
   conditions: string[];
   balance?: ExtractedBalance;
+  corporateFinancials?: CorporateFinancialAssessment;
   regulatoryExposure: RegulatoryExposureAssessment;
 };
 

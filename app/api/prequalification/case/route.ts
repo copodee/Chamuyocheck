@@ -126,6 +126,7 @@ export async function POST(request: Request) {
           reasons: assessment.reasons,
           conditions: assessment.conditions,
           regulatoryExposure: assessment.regulatoryExposure,
+          corporateFinancials: assessment.corporateFinancials,
           documents: documents.filter(document => document.stage === 2).map(document => ({ name: document.name, kind: document.kind })),
           downloadLinks: delivery.downloadLinks,
         }),

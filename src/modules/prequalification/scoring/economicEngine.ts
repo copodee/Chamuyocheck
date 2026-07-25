@@ -1,4 +1,5 @@
 import type { EconomicAssessment, EconomicInputs, ExtractedBalance, RegulatoryExposureAssessment } from '../domain/dossier';
+import { analyzeCorporateFinancials } from './corporateFinancialAnalysis';
 
 const POLICY_RATIO = 0.3;
 
@@ -71,6 +72,7 @@ export function evaluateEconomicCapacity(
   const conditions: string[] = [];
   let normalizedMonthlyIncome: number | null = null;
   const regulatoryExposure = evaluateRegulatoryExposure(inputs, balance);
+  const corporateFinancials = inputs.profile === 'legal-entity' ? analyzeCorporateFinancials(balance) : undefined;
 
   if (inputs.profile === 'employee') {
     normalizedMonthlyIncome = Math.max(0, Number(inputs.employeeNetIncome || 0)) || null;
@@ -166,6 +168,11 @@ export function evaluateEconomicCapacity(
   if (balance && balance.extractionConfidence < 60) {
     conditions.push('El balance requiere revisión manual de campos no extraídos.');
   }
+  if (corporateFinancials?.status === 'weak') {
+    status = 'manual-review';
+    score = Math.min(score, 45);
+    conditions.push('Los indicadores del último balance requieren revisión crediticia antes de continuar.');
+  }
   score = Math.max(0, Math.min(100, score));
 
   return {
@@ -180,6 +187,7 @@ export function evaluateEconomicCapacity(
     reasons,
     conditions,
     balance,
+    corporateFinancials,
     regulatoryExposure,
   };
 }

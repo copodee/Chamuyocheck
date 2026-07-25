@@ -85,6 +85,17 @@ export function stage2NotificationHtml(input: {
     computableNetWorth: number | null; exposureToNetWorthRatio: number | null;
     basicMarginAvailable: number | null;
   };
+  corporateFinancials?: {
+    score: number | null;
+    workingCapital: number | null;
+    currentRatio: number | null;
+    liabilitiesToEquity: number | null;
+    debtToEquity: number | null;
+    operatingMargin: number | null;
+    netMargin: number | null;
+    returnOnAssets: number | null;
+    returnOnEquity: number | null;
+  };
   documents: Array<{ name: string; kind: string }>;
   downloadLinks: Array<{ name: string; url: string }>;
 }) {
@@ -116,6 +127,12 @@ export function stage2NotificationHtml(input: {
     <p><b>Patrimonio computable:</b> ${money(input.regulatoryExposure.computableNetWorth)}</p>
     <p><b>Exposición / patrimonio:</b> ${input.regulatoryExposure.exposureToNetWorthRatio == null ? 'No evaluable' : `${(input.regulatoryExposure.exposureToNetWorthRatio * 100).toFixed(1)}%`}</p>
     <p><b>Nuevo financiamiento máximo dentro del margen básico:</b> ${money(input.regulatoryExposure.basicMarginAvailable)}</p>` : ''}
+    ${input.corporateFinancials ? `<h2 style="font-size:18px">Indicadores del último balance</h2>
+    <p><b>Calificación financiera:</b> ${input.corporateFinancials.score == null ? 'Datos insuficientes' : `${input.corporateFinancials.score}/100`}</p>
+    <p><b>Liquidez corriente:</b> ${input.corporateFinancials.currentRatio?.toFixed(2) ?? 'No calculable'} · <b>Capital de trabajo:</b> ${money(input.corporateFinancials.workingCapital)}</p>
+    <p><b>Pasivo / patrimonio:</b> ${input.corporateFinancials.liabilitiesToEquity == null ? 'No calculable' : `${(input.corporateFinancials.liabilitiesToEquity * 100).toFixed(1)}%`} · <b>Deuda financiera / patrimonio:</b> ${input.corporateFinancials.debtToEquity == null ? 'No calculable' : `${(input.corporateFinancials.debtToEquity * 100).toFixed(1)}%`}</p>
+    <p><b>Margen operativo:</b> ${input.corporateFinancials.operatingMargin == null ? 'No calculable' : `${(input.corporateFinancials.operatingMargin * 100).toFixed(1)}%`} · <b>Margen neto:</b> ${input.corporateFinancials.netMargin == null ? 'No calculable' : `${(input.corporateFinancials.netMargin * 100).toFixed(1)}%`}</p>
+    <p><b>ROA:</b> ${input.corporateFinancials.returnOnAssets == null ? 'No calculable' : `${(input.corporateFinancials.returnOnAssets * 100).toFixed(1)}%`} · <b>ROE:</b> ${input.corporateFinancials.returnOnEquity == null ? 'No calculable' : `${(input.corporateFinancials.returnOnEquity * 100).toFixed(1)}%`}</p>` : ''}
     <p><b>Correo del solicitante:</b> ${escapeHtml(input.responseEmail)}</p>
     <h2 style="font-size:18px">Fundamentos</h2>
     <ul>${input.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>
