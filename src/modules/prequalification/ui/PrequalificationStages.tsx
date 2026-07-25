@@ -303,10 +303,15 @@ export function PrequalificationStages(props: Props) {
         ].map(([kind, label, required]) => {
           const uploaded = documents.filter(document => document.stage === 2 && document.kind === kind);
           const allowsSeveral = kind.startsWith('monotributo-invoices-');
-          return <label key={kind}>{label} {required ? <b>· requerido</b> : <small>· opcional</small>}
-            <input type="file" multiple={allowsSeveral} accept=".pdf,.jpg,.jpeg,.png" onChange={e => readFiles(e.target.files, kind)} />
-            {!!uploaded.length && <small>✓ {uploaded.length} archivo(s): {uploaded.map(document => document.name).join(', ')}</small>}
-          </label>;
+          const inputId = `stage-2-${kind}`;
+          return <div className="prequalUploadItem" key={kind}>
+            <div className="prequalUploadRow">
+              <div><b>{label}</b><small>{required ? 'Requerido' : 'Opcional'}</small></div>
+              <label className="prequalUploadButton" htmlFor={inputId}>Agregar {allowsSeveral ? 'archivos' : 'archivo'}</label>
+              <input id={inputId} className="prequalFileInput" type="file" multiple={allowsSeveral} accept=".pdf,.jpg,.jpeg,.png" onChange={e => readFiles(e.target.files, kind)} />
+            </div>
+            {!!uploaded.length && <div className="prequalUploadedFile">✓ {uploaded.length} archivo(s): {uploaded.map(document => document.name).join(', ')}</div>}
+          </div>;
         })}
       </div>
       <div className={`prequalCapacity prequalEconomic-${previewAssessment.status}`}>
@@ -350,10 +355,15 @@ export function PrequalificationStages(props: Props) {
         <p>Son opcionales en esta instancia y el administrador puede solicitarlos cuando corresponda.</p>
         {stage3Requirements[economic.profile].map(([kind, label]) => {
           const uploaded = documents.find(document => document.stage === 3 && document.kind === kind);
-          return <label key={kind}>{label}
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => readFiles(e.target.files, kind)} />
-            {uploaded && <small>✓ Agregado: {uploaded.name}</small>}
-          </label>;
+          const inputId = `stage-3-${kind}`;
+          return <div className="prequalUploadItem" key={kind}>
+            <div className="prequalUploadRow">
+              <div><b>{label}</b><small>Opcional en esta instancia</small></div>
+              <label className="prequalUploadButton" htmlFor={inputId}>Agregar archivo</label>
+              <input id={inputId} className="prequalFileInput" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => readFiles(e.target.files, kind)} />
+            </div>
+            {uploaded && <div className="prequalUploadedFile">✓ Agregado: {uploaded.name}</div>}
+          </div>;
         })}
       </div>
       <label>Decisión<select value={decision} onChange={e => setDecision(e.target.value)}>{decisions.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
