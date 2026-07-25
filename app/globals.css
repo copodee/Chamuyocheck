@@ -922,4 +922,10 @@ body:has(.prequalPage){color:#102f3b;background:radial-gradient(circle at 82% 0%
 .prequalUploadedFile{color:#287568}
 .prequalResult small{color:#607b84}
 .prequalCapacity{box-shadow:0 12px 32px rgba(19,58,70,.10)}
+.prequalDocumentationGuide{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);gap:20px;margin-bottom:24px;align-items:start}
+.prequalDocumentationGuide h2{margin:6px 0;color:#102f3b}.prequalDocumentationGuide p{margin:0;color:#405e69;line-height:1.5}
+.prequalDocumentationGuide label{display:grid;gap:8px;color:#244753;font-weight:800}.prequalDocumentationGuide select{width:100%;min-width:0;border:1px solid rgba(20,72,88,.24);background:#f8fbfc;color:#102f3b;border-radius:12px;padding:14px 42px 14px 14px;font:inherit}
+.prequalDocumentationList{grid-column:1/-1;padding:18px 20px;border:1px solid rgba(20,72,88,.16);border-left:4px solid #6d28d9;border-radius:14px;background:#f6fafb}
+.prequalDocumentationList h3{margin:0 0 10px;color:#102f3b}.prequalDocumentationList ul{margin:0;padding-left:22px}.prequalDocumentationList li{margin:7px 0;color:#294e59;line-height:1.45}
 @media(max-width:760px){.prequalBrandLogo{font-size:.95rem}.prequalBrandLogo img{width:40px;height:40px}}
+@media(max-width:760px){.prequalDocumentationGuide{grid-template-columns:1fr}.prequalDocumentationList{grid-column:auto}}

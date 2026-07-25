@@ -15,6 +15,15 @@ const statusLabels = {
   'not-prequalified': '🔴 No precalificado',
 };
 
+const documentationByCategory = {
+  employee: { label: 'Persona en relación de dependencia', documents: ['Últimos seis recibos de sueldo.', 'Últimas dos declaraciones juradas de Ganancias, si corresponde.', 'Manifestación de bienes o última declaración de Bienes Personales disponible.'] },
+  monotributista: { label: 'Monotributista', documents: ['Constancia de inscripción al monotributo.', 'Facturas emitidas durante los últimos seis meses.', 'Detalle de ingresos.', 'Manifestación de bienes disponible.'] },
+  'responsable-inscripto': { label: 'Responsable inscripto', documents: ['Constancia de inscripción.', 'Declaraciones juradas de IVA de los últimos seis meses.', 'Última declaración jurada de Ganancias disponible.', 'Detalle actualizado de deudas bancarias y financieras.', 'Manifestación de bienes o Bienes Personales disponible.'] },
+  'persona-juridica': { label: 'Persona jurídica', documents: ['Últimos dos balances completos.', 'Detalle mensual de ventas netas de IVA posteriores al último balance.', 'Detalle actualizado de deudas bancarias y financieras.', 'Estatuto o contrato social vigente.', 'Última acta de designación de autoridades.', 'Poder del firmante, si corresponde.', 'Manifestación de bienes o Bienes Personales de los socios, solamente si se requieren garantías adicionales.'] },
+} as const;
+
+type DocumentationCategory = keyof typeof documentationByCategory;
+
 type ApiResponse = {
   caseId?: string;
   caseNumber?: string;
@@ -32,6 +41,7 @@ export default function PrequalificationPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ApiResponse | null>(null);
+  const [documentationCategory, setDocumentationCategory] = useState<DocumentationCategory>('employee');
   const [form, setForm] = useState({
     cuit: '',
     clientType: 'persona-juridica',
@@ -148,6 +158,22 @@ export default function PrequalificationPage() {
       <h1>¿Conviene avanzar con esta operación?</h1>
       <p>Consultá la Central de Deudores y cheques rechazados del BCRA sin pedir documentación en esta etapa.</p>
       <div className="prequalNotice">No es una aprobación crediticia ni una oferta de financiación.</div>
+    </section>
+    <section className="prequalCard prequalDocumentationGuide">
+      <div>
+        <div className="prequalEyebrow">GUÍA PARA EL LEGAJO</div>
+        <h2>Documentación por categoría</h2>
+        <p>Seleccioná el perfil para saber qué documentación solicitar antes de avanzar con la precalificación.</p>
+      </div>
+      <label>Categoría de análisis
+        <select value={documentationCategory} onChange={(event) => setDocumentationCategory(event.target.value as DocumentationCategory)}>
+          {Object.entries(documentationByCategory).map(([value, category]) => <option key={value} value={value}>{category.label}</option>)}
+        </select>
+      </label>
+      <div className="prequalDocumentationList">
+        <h3>{documentationByCategory[documentationCategory].label}</h3>
+        <ul>{documentationByCategory[documentationCategory].documents.map((item) => <li key={item}>{item}</li>)}</ul>
+      </div>
     </section>
     <form onSubmit={prequalify} className="prequalCard prequalForm">
       <div className="prequalGrid">
