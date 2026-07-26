@@ -40,7 +40,9 @@ export async function buildDossierPdf(data: PdfData) {
     target.drawText(`${n}`, { x: 540, y: 28, size: 8, font: regular, color: muted });
   };
   const newPage = () => { page = pdf.addPage([595, 842]); y = 735; };
-  const text = (value: string, size = 10, font: PDFFont = regular, color = ink) => {
+  // Helvetica es la fuente PDF estándar métricamente compatible con Arial.
+  // Se usa 11 pt para el cuerpo del informe y tamaños mayores sólo en títulos.
+  const text = (value: string, size = 11, font: PDFFont = regular, color = ink) => {
     const words = String(value || '-').replace(/[^\x20-\x7EÀ-ÿ]/g, '').split(/\s+/);
     let line = '';
     for (const word of words) {
@@ -53,7 +55,7 @@ export async function buildDossierPdf(data: PdfData) {
     if (y < 80) newPage();
   };
   const section = (title: string) => { y -= 7; text(title.toUpperCase(), 11, bold, violet); };
-  const row = (label: string, value: unknown) => text(`${label}: ${value ?? '-'}`, 10);
+  const row = (label: string, value: unknown) => text(`${label}: ${value ?? '-'}`, 11);
   const money = (value: unknown) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(Number(value || 0));
 
   text('RESUMEN DE PRECALIFICACIÓN CREDITICIA', 20, bold);
@@ -99,7 +101,6 @@ export async function buildDossierPdf(data: PdfData) {
     if (data.economic?.corporateFinancials) {
       const corporate = data.economic.corporateFinancials;
       section('Indicadores del último balance');
-      row('Sector interpretado', corporate.sectorLabel);
       row('Confianza de lectura', data.economic.balance ? `${Math.round(data.economic.balance.extractionConfidence)}%` : 'Sin balance');
       row('Rubros centrales pendientes', data.economic.balance?.missingFields.length ? data.economic.balance.missingFields.join(', ') : 'Ninguno');
       row('Período contable', data.economic.balance?.statementKind === 'interim'
