@@ -7,6 +7,7 @@
     "test": "tsx --test \"src/**/__tests__/*.test.ts\""
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "@supabase/supabase-js": "latest",
     "@tesseract.js-data/spa": "^1.0.0",
     "cheerio": "latest",

@@ -1100,11 +1100,47 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const shouldShowScoreExplanationPanel = showScoreExplanation && scoreExplanationItems.length > 0;
   const toggleScoreExplanation = () => setShowScoreExplanation((value) => !value);
   const executiveSummaryText = showFullSummary ? analysis?.summary : analysis?.verdict;
-  const downloadAnalysisReport = () => {
+  const downloadAnalysisReport = async () => {
     if (!analysis || typeof window === 'undefined') return;
     const answer = analysis.decisionAnswer;
     const scoreName = isLeasingAnalysis ? 'LeasingScoring' : 'ChamuyoScore';
     const scoreValue = isLeasingAnalysis ? leasingScore.score : score;
+    if (isLeasingAnalysis) {
+      try {
+        const response = await fetch('/api/leasing-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: new Date().toLocaleDateString('es-AR'),
+            category: ANALYSIS_CATEGORIES.find((item) => item.id === selectedCategory)?.label || analysis.topicLabel || 'Especialista en Leasing',
+            input: getInputLabel(detected, Boolean(file)),
+            title: answer?.title || analysis.centralQuestion || 'Resultado financiero del leasing',
+            summary: answer?.directAnswer || analysis.summary,
+            score: scoreValue,
+            scoreLabel: leasingScore.label,
+            comparisonTable: answer?.comparisonTable,
+            sections: answer?.sections,
+            findings: answer?.findings,
+            nextActions: answer?.nextActions,
+            limitations: answer?.limitations,
+            disclaimer: analysis.legalSafeguard || 'Resultado automatizado, orientativo y sujeto a revisión humana.',
+          }),
+        });
+        if (!response.ok) throw new Error('No se pudo generar el PDF.');
+        const blob = await response.blob();
+        const href = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = href;
+        link.download = `informe-leasingscoring-${new Date().toISOString().slice(0, 10)}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(href);
+      } catch {
+        window.alert('No se pudo generar el informe PDF. Volvé a intentarlo.');
+      }
+      return;
+    }
     const lines = [
       isLeasingAnalysis ? 'LEASINGSCORING — INFORME' : 'CHAMUYOCHECK — INFORME',
       `Fecha: ${new Date().toLocaleDateString('es-AR')}`,
@@ -1360,12 +1396,12 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       <div className="nav">
         <button type="button" className={activeView === 'inicio' ? 'active' : ''} onClick={openHome}>⌂ Inicio</button>
         <button type="button" className={activeView === 'historial' ? 'active' : ''} onClick={openHistory}>◴ Historial</button>
-        <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>
+        {!leasingPage && <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>}
         {!leasingPage && <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>}
         <button type="button" onClick={() => window.location.assign('/precalificacion')}>✓ Precalificación</button>
         <button type="button" className={activeView === 'comparar' ? 'active' : ''} onClick={openCompare}>⚖ Comparar</button>
-        <button type="button" className={activeView === 'mejorar' ? 'active' : ''} onClick={openImprove}>↑ Mejorar documento</button>
-        <button type="button" className={activeView === 'ajustes' ? 'active' : ''} onClick={openSettings}>⚙ Ajustes</button>
+        {!leasingPage && <button type="button" className={activeView === 'mejorar' ? 'active' : ''} onClick={openImprove}>↑ Mejorar documento</button>}
+        {!leasingPage && <button type="button" className={activeView === 'ajustes' ? 'active' : ''} onClick={openSettings}>⚙ Ajustes</button>}
         <button type="button" className={activeView === 'ayuda' ? 'active' : ''} onClick={openHelp}>? Ayuda</button>
       </div>
       <div className="proBox"><b>ACCESO BETA COMPLETO</b><p>Todos los formatos y análisis están habilitados. No se realizan cobros.</p></div>
@@ -1374,7 +1410,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     <main className="main">
       <div className="mobileTopbar">
         <div className="mobileTopbarBrand">
-          {leasingPage ? <a href="/" aria-label="Volver al inicio"><img className="leasingMobileBrandLogo" src="/brand/leasing-scoring-logo.png" alt="Leasing Scoring" /></a> : <><div className="shield">✓</div><div className="authIntro"><div className="logo">CHAMUYO<span>CHECK</span></div><div className="tag">Finanzas · Estafas · Derecho</div></div></>}
+          {leasingPage ? <a href="/" aria-label="Volver al inicio"><img className="leasingMobileBrandLogo" src="/brand/leasing-scoring-report-logo.png" alt="Leasing Scoring" /></a> : <><div className="shield">✓</div><div className="authIntro"><div className="logo">CHAMUYO<span>CHECK</span></div><div className="tag">Finanzas · Estafas · Derecho</div></div></>}
         </div>
         <div className="mobileTopbarActions">
           <button type="button" className="newBtn" onClick={startNewAnalysis}>＋ {leasingPage ? 'Nuevo leasing' : 'Nuevo análisis'}</button>
@@ -1384,12 +1420,12 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       {mobileMenuOpen && <div className="mobileNav">
         <button type="button" className={activeView === 'inicio' ? 'active' : ''} onClick={openHome}>⌂ Inicio</button>
         <button type="button" className={activeView === 'historial' ? 'active' : ''} onClick={openHistory}>◴ Historial</button>
-        <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>
+        {!leasingPage && <button type="button" className={activeView === 'favoritos' ? 'active' : ''} onClick={openFavorites}>☆ Favoritos</button>}
         {!leasingPage && <button type="button" className={activeView === 'plantillas' ? 'active' : ''} onClick={openTemplates}>▤ Plantillas</button>}
         <button type="button" onClick={() => window.location.assign('/precalificacion')}>✓ Precalificación</button>
         <button type="button" className={activeView === 'comparar' ? 'active' : ''} onClick={openCompare}>⚖ Comparar</button>
-        <button type="button" className={activeView === 'mejorar' ? 'active' : ''} onClick={openImprove}>↑ Mejorar documento</button>
-        <button type="button" className={activeView === 'ajustes' ? 'active' : ''} onClick={openSettings}>⚙ Ajustes</button>
+        {!leasingPage && <button type="button" className={activeView === 'mejorar' ? 'active' : ''} onClick={openImprove}>↑ Mejorar documento</button>}
+        {!leasingPage && <button type="button" className={activeView === 'ajustes' ? 'active' : ''} onClick={openSettings}>⚙ Ajustes</button>}
         <button type="button" className={activeView === 'ayuda' ? 'active' : ''} onClick={openHelp}>? Ayuda</button>
       </div>}
       <div className="topbar">
@@ -1690,7 +1726,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         <div className="verifyBand">
           <div><h3>💡 ¿Qué deberías verificar?</h3><p>Antes de tomar una decisión basada en este contenido, conviene contrastar los puntos clave con evidencia externa.</p></div>
           <div className="verifyList">{reportSections?.verify.slice(0, 6).map((x, i) => <div key={i}><span className="num">{i + 1}</span>{x}</div>)}</div>
-          <div><h3>↗ Recomendaciones</h3><p>{reportSections?.contextCard ? reportSections.contextCard.items[0] : 'Obtené sugerencias específicas para aumentar calidad y confiabilidad.'}</p><button type="button" className="ghost" onClick={() => { setImproveDraft(analysis.extractedPreview || text); openImprove(); }}>Mejorar documento</button></div>
+          <div><h3>↗ Recomendaciones</h3><p>{reportSections?.contextCard ? reportSections.contextCard.items[0] : 'Obtené sugerencias específicas para aumentar calidad y confiabilidad.'}</p>{!leasingPage && <button type="button" className="ghost" onClick={() => { setImproveDraft(analysis.extractedPreview || text); openImprove(); }}>Mejorar documento</button>}</div>
         </div>
         {reportSections?.contextCard && <div className="section"><h2>{reportSections.contextCard.title}</h2><ul>{reportSections.contextCard.items.map((x, i) => <li key={i}>{x}</li>)}</ul></div>}
         <div className="section"><h2>Recomendaciones de verificación</h2><ul>{reportSections?.recommendations.slice(0, 6).map((x, i) => <li key={i}>{x}</li>)}</ul></div>

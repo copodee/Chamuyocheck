@@ -988,7 +988,21 @@ body:has(.leasingAppShell){
 .prequalHeader>div:first-child{display:flex;align-items:center;gap:18px}.prequalHeader span{color:#a8c8d0}
 .prequalBrand{font-size:1.15rem;font-weight:900;letter-spacing:.02em;color:#fff}.prequalBrand:first-letter{color:#c4a7ff}
 .prequalBrandLogo{display:block;width:min(285px,70vw);height:auto;object-fit:contain}
-.leasingBrandLogo{display:block;width:218px;max-width:100%;height:auto;object-fit:contain}.leasingMobileBrandLogo{display:block;width:210px;max-width:48vw;height:auto;object-fit:contain}
+.leasingBrandLogo{display:block;width:218px;max-width:100%;height:auto;object-fit:contain}.leasingMobileBrandLogo{display:block;width:280px;max-width:78vw;height:auto;object-fit:contain}
+
+.leasingAppShell .historyMini{max-height:none;background:#fff;border-color:rgba(20,72,88,.16)}
+.leasingAppShell .historyItem{grid-template-columns:54px minmax(0,1fr) auto;align-items:start;border-top-color:rgba(20,72,88,.14)}
+.leasingAppShell .historyItem span{color:#5b21b6;font-size:18px}
+.leasingAppShell .historyItem div{color:#143845}
+.leasingAppShell .historyItem small{color:#607983;line-height:1.4}
+
+@media(max-width:720px){
+  .leasingAppShell .mobileTopbarBrand{width:100%}
+  .leasingAppShell .mobileTopbarBrand>a{display:block;width:100%}
+  .leasingAppShell .historyItem{grid-template-columns:44px minmax(0,1fr)}
+  .leasingAppShell .historyItem .savedItemActions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .leasingAppShell .historyItem .savedItemActions .ghost{width:100%;min-height:48px}
+}
 .prequalUser{display:flex;align-items:center;gap:14px}.prequalUser button,.prequalSecondary{border:1px solid rgba(213,194,255,.45);background:transparent;color:#e6d9ff;border-radius:11px;padding:10px 15px;text-decoration:none;font-weight:750;cursor:pointer}
 .prequalIntro{margin:24px 0 26px;max-width:800px}.prequalEyebrow{color:#c9a9ff;font-size:.78rem;font-weight:900;letter-spacing:.14em}.prequalIntro h1,.prequalAccess h1{font-size:clamp(2rem,5vw,3.55rem);line-height:1.03;margin:12px 0;color:#fff}.prequalIntro p,.prequalAccess p{font-size:1.08rem;color:#b8d0d6;line-height:1.65}
 .prequalNotice{display:inline-flex;margin-top:12px;padding:10px 14px;border-radius:9px;background:rgba(111,52,182,.24);border:1px solid rgba(196,167,255,.3);color:#e5d9ff}
