@@ -42,32 +42,76 @@ function sumFirstAmounts(text: string, label: string, maximum: number): number |
   return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
 }
 
+const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+function verbalDate(day: string, monthName: string, year: string): string | null {
+  const month = monthNames.indexOf(monthName.toLowerCase()) + 1;
+  return month ? `${day.padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}` : null;
+}
+
+function monthsBetween(startDate: string | null, endDate: string | null): number | null {
+  if (!startDate || !endDate) return null;
+  const [startDay, startMonth, startYear] = startDate.split('/').map(Number);
+  const [endDay, endMonth, endYear] = endDate.split('/').map(Number);
+  if (![startDay, startMonth, startYear, endDay, endMonth, endYear].every(Number.isFinite)) return null;
+  const months = (endYear - startYear) * 12 + endMonth - startMonth + 1;
+  return months > 0 && months <= 24 ? months : null;
+}
+
 export function extractBalanceData(text: string): ExtractedBalance {
   const compact = text.replace(/\s+/g, ' ');
-  const numericClosingDate = compact.match(/(?:fecha de cierre|ejercicio finalizado el|cerrado al|estados contables al)\s*[:\-]?\s*(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i)?.[1];
-  const verbalClosingDate = compact.match(/(?:ejercicio finalizado el|cerrado al|estados contables al|\bal)\s*[:\-]?\s*(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+(\d{4})/i);
-  const month = verbalClosingDate ? ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'].indexOf(verbalClosingDate[2].toLowerCase()) + 1 : 0;
-  const closingDate = numericClosingDate || (verbalClosingDate && month
-    ? `${verbalClosingDate[1].padStart(2, '0')}/${String(month).padStart(2, '0')}/${verbalClosingDate[3]}`
+  const numericClosingDate = compact.match(/(?:fecha de cierre|ejercicio finalizado el|finalizado el|cerrado al|estados contables al)\s*[:\-]?\s*(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i)?.[1];
+  const verbalClosingDate = compact.match(/(?:ejercicio finalizado el|finalizado el|cerrado al|estados contables al|\bal)\s*[:\-]?\s*(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+(\d{4})/i);
+  const closingDate = numericClosingDate || (verbalClosingDate
+    ? verbalDate(verbalClosingDate[1], verbalClosingDate[2], verbalClosingDate[3])
     : null);
+  const verbalStartDate = compact.match(/(?:iniciado el|iniciado en)\s*(\d{1,2})?[°º]?\s*(?:de\s+)?(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(?:de\s+)?(\d{4})/i);
+  const numericStartDate = compact.match(/(?:iniciado el|desde el)\s*[:\-]?\s*(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i)?.[1] || null;
+  const periodStartDate = numericStartDate || (verbalStartDate
+    ? verbalDate(verbalStartDate[1] || '1', verbalStartDate[2], verbalStartDate[3])
+    : null);
+  const statedMonthsMatch = compact.match(/per[ií]odo intermedio de\s+(tres|seis|nueve|doce|3|6|9|12)\s+meses/i);
+  const statedMonths = statedMonthsMatch
+    ? ({ tres: 3, seis: 6, nueve: 9, doce: 12 }[statedMonthsMatch[1].toLowerCase()] || Number(statedMonthsMatch[1]))
+    : null;
+  const statementKind = /per[ií]odo(?:s)? intermedio|estados contables trimestrales/i.test(compact)
+    ? 'interim'
+    : /ejercicio anual|ejercicio econ[oó]mico|por el ejercicio (?:iniciado|finalizado)/i.test(compact) ? 'annual' : 'unknown';
+  const periodMonths = statedMonths || monthsBetween(periodStartDate, closingDate)
+    || (statementKind === 'annual' ? 12 : null);
+  const amountScale: 1 | 1000 | 1000000 = /(?:importes |cifras )?expresad[oa]s? en millones/i.test(compact) ? 1000000
+    : /(?:importes |cifras )?expresad[oa]s? en miles/i.test(compact) ? 1000 : 1;
   const result: ExtractedBalance = {
-    activity: compact.match(/actividad principal\s*:\s*([^$]{3,120}?)(?=\s+(?:CUIT|domicilio|fecha|duraci[oó]n|n[°º]?de inscripci[oó]n|$))/i)?.[1]?.trim() || null,
+    activity: compact.match(/actividad principal\s*:\s*([^$]{3,120}?)(?=\s+(?:CUIT|domicilio|fecha|duraci[oó]n|inscripci[oó]n|n[°º]?de inscripci[oó]n|$))/i)?.[1]?.trim() || null,
     closingDate,
+    periodStartDate,
+    periodMonths,
+    statementKind,
+    currencyBasis: /moneda homog[eé]nea|poder adquisitivo|reexpresad/i.test(compact) ? 'homogeneous'
+      : /moneda nominal|valores nominales/i.test(compact) ? 'nominal' : 'unknown',
+    amountScale,
+    statementScope: /estados? (?:contables |financieros )?consolidados?/i.test(compact) ? 'consolidated'
+      : /estados? (?:contables |financieros )?separados?/i.test(compact) ? 'separate'
+        : /estados? (?:contables |financieros )?individuales?/i.test(compact) ? 'individual' : 'unknown',
+    assuranceLevel: /informe de revisi[oó]n (?:del )?auditor|revisi[oó]n de estados contables de per[ií]odos intermedios/i.test(compact)
+      ? 'limited-review'
+      : /informe (?:del )?auditor independiente|estados contables auditados/i.test(compact) ? 'audit' : 'unknown',
     currentAssets: findAmount(compact, ['total(?: del| de)? activo corriente', 'activo corriente']),
     nonCurrentAssets: findAmount(compact, ['total(?: del| de)? activo no corriente', 'activo no corriente']),
     currentLiabilities: findAmount(compact, ['total(?: del| de)? pasivo corriente', 'pasivo corriente']),
     nonCurrentLiabilities: findAmount(compact, ['total(?: del| de)? pasivo no corriente', 'pasivo no corriente']),
     equity: findAmount(compact, ['patrimonio neto\\s+seg[uú]n estado respectivo y nota\\s*[\\d.]+', 'patrimonio neto']),
-    sales: findAmount(compact, ['ventas netas de bienes y servicios', 'ingresos netos operativos', 'ingresos por servicios', 'ventas netas', 'ingresos por ventas', 'ventas']),
+    sales: findAmount(compact, ['ventas netas de bienes y servicios', 'ingresos netos operativos', 'ingresos por productos', 'ingresos por servicios', 'ventas netas', 'ingresos por ventas', 'ventas']),
     grossProfit: findAmount(compact, ['resultado bruto', 'ganancia bruta', 'utilidad bruta']),
     operatingProfit: findAmount(compact, ['resultado operativo', 'ganancia operativa']),
     netProfit: (() => {
       const loss = findAmount(compact, ['p[eé]rdida final del ejercicio', 'resultado final:\\s*p[eé]rdida\\)?', 'p[eé]rdida del ejercicio']);
       if (loss != null) return -Math.abs(loss);
-      return findAmount(compact, ['resultado neto del ejercicio', 'resultado neto', 'ganancia \\(p[eé]rdida\\) del ejercicio', 'ganancia del ejercicio']);
+      return findAmount(compact, ['resultado neto del ejercicio', 'resultado del per[ií]odo', 'resultado neto', 'ganancia \\(p[eé]rdida\\) del ejercicio', 'ganancia del ejercicio']);
     })(),
     financialDebt: sumFirstAmounts(compact, 'pr[eé]stamos y otros pasivos financieros', 2)
-      ?? findAmount(compact, ['deudas financieras', 'préstamos bancarios', 'deuda bancaria']),
+      ?? sumFirstAmounts(compact, 'deudas financieras', 2)
+      ?? findAmount(compact, ['préstamos bancarios', 'deuda bancaria']),
     cash: findAmount(compact, ['caja y bancos', 'disponibilidades', 'efectivo y equivalentes']),
     inventory: findAmount(compact, ['bienes de cambio', 'inventarios']),
     tradeReceivables: findAmount(compact, ['cr[eé]ditos comerciales', 'cr[eé]ditos por ventas', 'cuentas por cobrar comerciales', 'deudores por ventas']),
@@ -80,6 +124,18 @@ export function extractBalanceData(text: string): ExtractedBalance {
     extractionConfidence: 0,
     missingFields: [],
   };
+  if (amountScale !== 1) {
+    const monetaryFields = [
+      'currentAssets', 'nonCurrentAssets', 'currentLiabilities', 'nonCurrentLiabilities', 'equity',
+      'sales', 'grossProfit', 'operatingProfit', 'netProfit', 'financialDebt', 'cash', 'inventory',
+      'tradeReceivables', 'costOfSales', 'interestExpense', 'depreciationAndAmortization',
+      'totalAssets', 'totalLiabilities', 'ebitda',
+    ] as const;
+    for (const field of monetaryFields) {
+      const value = result[field];
+      if (typeof value === 'number') result[field] = value * amountScale;
+    }
+  }
   const required: Array<keyof ExtractedBalance> = [
     'currentAssets', 'currentLiabilities', 'equity', 'sales', 'netProfit',
   ];

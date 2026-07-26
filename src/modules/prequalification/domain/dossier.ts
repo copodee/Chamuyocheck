@@ -58,6 +58,13 @@ export type RegulatoryExposureAssessment = {
 export type ExtractedBalance = {
   activity?: string | null;
   closingDate: string | null;
+  periodStartDate?: string | null;
+  periodMonths?: number | null;
+  statementKind?: 'annual' | 'interim' | 'unknown';
+  currencyBasis?: 'homogeneous' | 'nominal' | 'unknown';
+  amountScale?: 1 | 1000 | 1000000;
+  statementScope?: 'consolidated' | 'separate' | 'individual' | 'unknown';
+  assuranceLevel?: 'audit' | 'limited-review' | 'unknown';
   currentAssets: number | null;
   nonCurrentAssets: number | null;
   currentLiabilities: number | null;

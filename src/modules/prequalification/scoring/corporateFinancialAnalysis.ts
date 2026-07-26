@@ -35,6 +35,11 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
   const cashRatio = ratio(balance.cash, balance.currentLiabilities);
   const debtToEquity = ratio(balance.financialDebt, balance.equity);
   const liabilitiesToEquity = ratio(totalLiabilities, balance.equity);
+  const annualizationFactor = balance.statementKind === 'interim' && balance.periodMonths
+    ? 12 / balance.periodMonths : 1;
+  const annualizedSales = balance.sales == null ? null : balance.sales * annualizationFactor;
+  const annualizedNetProfit = balance.netProfit == null ? null : balance.netProfit * annualizationFactor;
+  const annualizedCostOfSales = balance.costOfSales == null ? null : balance.costOfSales * annualizationFactor;
   const netMargin = ratio(balance.netProfit, balance.sales);
   const grossMargin = ratio(balance.grossProfit, balance.sales);
   const operatingMargin = ratio(balance.operatingProfit, balance.sales);
@@ -47,15 +52,18 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
     ? (balance.inventory + previous.inventory) / 2 : balance.inventory;
   const averageReceivables = balance.tradeReceivables != null && previous?.tradeReceivables != null
     ? (balance.tradeReceivables + previous.tradeReceivables) / 2 : balance.tradeReceivables;
-  const returnOnAssets = ratio(balance.netProfit, averageAssets);
-  const returnOnEquity = ratio(balance.netProfit, averageEquity);
-  const financialDebtToSales = ratio(balance.financialDebt, balance.sales);
-  const assetTurnover = ratio(balance.sales, averageAssets);
-  const inventoryTurnover = ratio(balance.costOfSales == null ? null : Math.abs(balance.costOfSales), averageInventory);
-  const receivablesTurnover = ratio(balance.sales, averageReceivables);
+  const returnOnAssets = ratio(annualizedNetProfit, averageAssets);
+  const returnOnEquity = ratio(annualizedNetProfit, averageEquity);
+  const financialDebtToSales = ratio(balance.financialDebt, annualizedSales);
+  const assetTurnover = ratio(annualizedSales, averageAssets);
+  const inventoryTurnover = ratio(annualizedCostOfSales == null ? null : Math.abs(annualizedCostOfSales), averageInventory);
+  const receivablesTurnover = ratio(annualizedSales, averageReceivables);
   const interestCoverage = ratio(balance.operatingProfit, balance.interestExpense == null ? null : Math.abs(balance.interestExpense));
 
   const observations: string[] = [];
+  if (annualizationFactor !== 1) {
+    observations.push(`Los flujos del período intermedio de ${balance.periodMonths} meses se anualizaron sólo para ROA, ROE, deuda/ventas y rotaciones; los saldos de cierre no se anualizaron.`);
+  }
   const quickThresholds = quickRatioThresholds(sector);
   const accountingEquationDifference = totalAssets != null && totalLiabilities != null && balance.equity != null
     ? Math.abs(totalAssets - totalLiabilities - balance.equity) / Math.max(1, Math.abs(totalAssets))
@@ -121,13 +129,23 @@ export function analyzeCorporateEvolution(current?: ExtractedBalance, previous?:
   if (!current || !previous) {
     return { ...empty, trend: 'insufficient-data', observations: ['Se necesitan dos balances separados para medir la evolución interanual.'] };
   }
+  if (current.statementScope && previous.statementScope
+    && current.statementScope !== 'unknown' && previous.statementScope !== 'unknown'
+    && current.statementScope !== previous.statementScope) {
+    return {
+      ...empty, trend: 'insufficient-data',
+      observations: ['No se comparan estados consolidados con estados separados o individuales; seleccioná documentos del mismo alcance.'],
+    };
+  }
   const currentMetrics = analyzeCorporateFinancials(current);
   const previousMetrics = analyzeCorporateFinancials(previous);
   const change = (latest: number | null | undefined, prior: number | null | undefined) =>
     latest != null && prior != null && prior !== 0 ? (latest - prior) / Math.abs(prior) : null;
-  const salesChange = change(current.sales, previous.sales);
+  const annualizedFlow = (value: number | null | undefined, balance: ExtractedBalance) =>
+    value == null ? null : value * (balance.statementKind === 'interim' && balance.periodMonths ? 12 / balance.periodMonths : 1);
+  const salesChange = change(annualizedFlow(current.sales, current), annualizedFlow(previous.sales, previous));
   const equityChange = change(current.equity, previous.equity);
-  const netProfitChange = change(current.netProfit, previous.netProfit);
+  const netProfitChange = change(annualizedFlow(current.netProfit, current), annualizedFlow(previous.netProfit, previous));
   const currentRatioChange = change(currentMetrics.currentRatio, previousMetrics.currentRatio);
   const liabilitiesToEquityChange = change(currentMetrics.liabilitiesToEquity, previousMetrics.liabilitiesToEquity);
   const signals = [
@@ -143,6 +161,9 @@ export function analyzeCorporateEvolution(current?: ExtractedBalance, previous?:
       : total <= -2 ? 'deteriorating'
         : 'stable';
   const observations: string[] = [];
+  if (current.periodMonths && previous.periodMonths && current.periodMonths !== previous.periodMonths) {
+    observations.push('Ventas y resultado se normalizaron a doce meses porque los estados comparados cubren períodos diferentes.');
+  }
   if (salesChange != null && salesChange < 0) observations.push('Las ventas disminuyeron frente al ejercicio anterior.');
   if (equityChange != null && equityChange < 0) observations.push('El patrimonio neto disminuyó frente al ejercicio anterior.');
   if (netProfitChange != null && netProfitChange < 0) observations.push('El resultado neto se deterioró frente al ejercicio anterior.');

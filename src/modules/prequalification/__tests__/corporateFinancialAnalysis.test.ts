@@ -118,3 +118,36 @@ test('no interpreta la falta de inventarios como debilidad de una empresa de ser
   assert.equal(result.sector, 'professional-services');
   assert.ok(result.sectorObservations.some(item => item.includes('ausencia de inventarios no es una debilidad')));
 });
+
+test('anualiza sólo flujos de un trimestre y conserva los saldos de cierre', () => {
+  const result = analyzeCorporateFinancials({
+    closingDate: '31/12/2025', periodStartDate: '01/10/2025', periodMonths: 3, statementKind: 'interim',
+    currentAssets: 57_259_985_278.54, nonCurrentAssets: 105_113_275_307.64,
+    currentLiabilities: 59_223_887_474.94, nonCurrentLiabilities: 13_111_588_113.36,
+    equity: 90_037_784_997.88, sales: 19_383_612_571.76,
+    grossProfit: 8_214_470_889.22, operatingProfit: 2_528_078_444.78,
+    netProfit: 810_369_272.49, financialDebt: 33_230_073_039.35,
+    cash: 444_995_751.80, extractionConfidence: 100, missingFields: [],
+  });
+  assert.equal(result.workingCapital, 57_259_985_278.54 - 59_223_887_474.94);
+  assert.ok(Math.abs((result.returnOnAssets || 0) - ((810_369_272.49 * 4) / 162_373_260_586.18)) < 1e-10);
+  assert.ok(result.observations.some(item => item.includes('flujos del período intermedio de 3 meses')));
+});
+
+test('normaliza períodos distintos al comparar evolución sin anualizar patrimonio', () => {
+  const annual = { ...sectorBase, statementKind: 'annual' as const, periodMonths: 12, sales: 1_200, netProfit: 120, equity: 600 };
+  const quarter = { ...sectorBase, statementKind: 'interim' as const, periodMonths: 3, sales: 330, netProfit: 33, equity: 630 };
+  const result = analyzeCorporateEvolution(quarter, annual);
+  assert.equal(result.salesChange, 0.1);
+  assert.equal(result.equityChange, 0.05);
+  assert.ok(result.observations.some(item => item.includes('períodos diferentes')));
+});
+
+test('no compara un estado consolidado con uno separado', () => {
+  const consolidated = { ...sectorBase, statementScope: 'consolidated' as const };
+  const separate = { ...sectorBase, statementScope: 'separate' as const };
+  const result = analyzeCorporateEvolution(consolidated, separate);
+  assert.equal(result.trend, 'insufficient-data');
+  assert.equal(result.salesChange, null);
+  assert.ok(result.observations.some(item => item.includes('No se comparan estados consolidados')));
+});

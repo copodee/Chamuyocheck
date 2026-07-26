@@ -90,6 +90,18 @@ export async function buildDossierPdf(data: PdfData) {
       row('Sector interpretado', corporate.sectorLabel);
       row('Confianza de lectura', data.economic.balance ? `${Math.round(data.economic.balance.extractionConfidence)}%` : 'Sin balance');
       row('Rubros centrales pendientes', data.economic.balance?.missingFields.length ? data.economic.balance.missingFields.join(', ') : 'Ninguno');
+      row('Período contable', data.economic.balance?.statementKind === 'interim'
+        ? `Intermedio de ${data.economic.balance.periodMonths || '?'} meses`
+        : data.economic.balance?.statementKind === 'annual' ? 'Anual' : 'Sin determinar');
+      row('Base y aseguramiento', [
+        data.economic.balance?.currencyBasis === 'homogeneous' ? 'Moneda homogénea' : null,
+        data.economic.balance?.amountScale === 1000 ? 'Publicado en miles' : data.economic.balance?.amountScale === 1000000 ? 'Publicado en millones' : null,
+        data.economic.balance?.statementScope === 'consolidated' ? 'Consolidado'
+          : data.economic.balance?.statementScope === 'separate' ? 'Separado'
+            : data.economic.balance?.statementScope === 'individual' ? 'Individual' : null,
+        data.economic.balance?.assuranceLevel === 'limited-review' ? 'Revisión limitada'
+          : data.economic.balance?.assuranceLevel === 'audit' ? 'Auditado' : null,
+      ].filter(Boolean).join(' · ') || 'No identificado');
       row('Calificación financiera', corporate.score == null ? 'Datos insuficientes' : `${corporate.score}/100`);
       row('Cobertura de compromisos', data.economic.totalCommitmentCoverage == null ? 'No calculable' : `${data.economic.totalCommitmentCoverage.toFixed(2)} veces`);
       row('Monto solicitado / ventas', data.economic.requestedFinancingToSales == null ? 'No calculable' : `${(data.economic.requestedFinancingToSales * 100).toFixed(1)}%`);

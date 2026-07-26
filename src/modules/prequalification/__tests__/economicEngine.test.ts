@@ -169,3 +169,48 @@ test('marca el ingreso como declarativo cuando no hay comprobantes', () => {
   assert.equal(result.confidence, 'declarativa');
   assert.match(result.conditions.join(' '), /solicitar respaldo/i);
 });
+
+test('identifica un estado intermedio trimestral sin tratarlo como balance anual', () => {
+  const result = extractBalanceData(`
+    ESTADOS CONTABLES Correspondientes al período intermedio de tres meses
+    iniciado el 1° de octubre de 2025 y finalizado el 31 de diciembre de 2025
+    Actividad principal: Producción de alimento balanceado para mascotas
+    (Importes expresados en moneda homogénea)
+    TOTAL DEL ACTIVO CORRIENTE 57.259.985.278,54
+    TOTAL DEL ACTIVO NO CORRIENTE 105.113.275.307,64
+    TOTAL DEL PASIVO CORRIENTE 59.223.887.474,94
+    DEUDAS FINANCIERAS 33.230.073.039,35 37.174.337.871,13
+    TOTAL DEL PASIVO NO CORRIENTE 13.111.588.113,36
+    DEUDAS FINANCIERAS 13.108.759.973,82 9.352.246.728,08
+    PATRIMONIO NETO 90.037.784.997,88
+    INGRESOS POR PRODUCTOS 19.383.612.571,76
+    RESULTADO BRUTO 8.214.470.889,22
+    RESULTADO OPERATIVO 2.528.078.444,78
+    RESULTADO DEL PERIODO 810.369.272,49
+    INFORME DE REVISIÓN DEL AUDITOR INDEPENDIENTE SOBRE ESTADOS CONTABLES DE PERÍODOS INTERMEDIOS
+  `);
+  assert.equal(result.statementKind, 'interim');
+  assert.equal(result.periodMonths, 3);
+  assert.equal(result.periodStartDate, '01/10/2025');
+  assert.equal(result.closingDate, '31/12/2025');
+  assert.equal(result.currencyBasis, 'homogeneous');
+  assert.equal(result.assuranceLevel, 'limited-review');
+  assert.equal(result.financialDebt, 46_338_833_013.17);
+});
+
+test('escala estados publicados en miles y reconoce su alcance consolidado', () => {
+  const result = extractBalanceData(`
+    Estados financieros consolidados. Cifras expresadas en miles de pesos.
+    Total del activo corriente 120.000
+    Total del activo no corriente 80.000
+    Total del pasivo corriente 50.000
+    Total del pasivo no corriente 30.000
+    Patrimonio neto 120.000
+    Ventas netas 300.000
+    Resultado neto del ejercicio 24.000
+  `);
+  assert.equal(result.amountScale, 1000);
+  assert.equal(result.statementScope, 'consolidated');
+  assert.equal(result.currentAssets, 120_000_000);
+  assert.equal(result.sales, 300_000_000);
+});
