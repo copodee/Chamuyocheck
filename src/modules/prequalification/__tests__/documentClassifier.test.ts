@@ -12,6 +12,16 @@ test('clasifica el lote societario por finalidad y etapa', () => {
   assert.equal(classifyPrequalificationDocument({ ...base, fileName: 'F713ddjj2025.pdf', extractedText: '' }).kind, 'corporate-income-tax');
 });
 
+test('reconoce las notas como complemento del balance', () => {
+  const result = classifyPrequalificationDocument({
+    ...base,
+    fileName: '2- NOTAS siete puntas 2025.pdf',
+    extractedText: 'NOTAS A LOS ESTADOS CONTABLES. Criterios de valuación y composición de los rubros.',
+  });
+  assert.equal(result.kind, 'balance-notes');
+  assert.equal(result.stage, 2);
+});
+
 test('pone en revisión documentos pertenecientes a otro CUIT', () => {
   const result = classifyPrequalificationDocument({ ...base, fileName: 'afip_cuit_30717339963_f2051.pdf', extractedText: '' });
   assert.equal(result.action, 'review');

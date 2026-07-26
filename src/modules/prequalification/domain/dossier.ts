@@ -121,6 +121,9 @@ export type EconomicAssessment = {
   totalMonthlyCommitments: number | null;
   installmentToIncomeRatio: number | null;
   canonCoverage: number | null;
+  totalCommitmentCoverage: number | null;
+  requestedFinancingToSales: number | null;
+  requestedFinancingToAssets: number | null;
   maximumPrudentCanon: number | null;
   status: 'compatible' | 'conditional' | 'manual-review' | 'not-compatible';
   reasons: string[];

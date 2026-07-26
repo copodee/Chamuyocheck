@@ -199,7 +199,6 @@ export function PrequalificationStages(props: Props) {
     setBusy(true); setMessage('Leyendo documentos…');
     const added: DossierDocument[] = [];
     const usedKinds = new Set(documents.map(document => document.kind));
-    const balanceTexts: Partial<Record<'balance-1' | 'balance-2', string>> = {};
     let monthlySalesFromDocuments: number[] = [];
     let debtFromDocument: ExtractedFinancialDebt | undefined;
     let societaryAntiquity: ReturnType<typeof extractConstitutionAntiquity>;
@@ -234,9 +233,6 @@ export function PrequalificationStages(props: Props) {
           continue;
         }
         usedKinds.add(resolvedKind);
-        if (economic.profile === 'legal-entity' && (resolvedKind === 'balance-1' || resolvedKind === 'balance-2')) {
-          balanceTexts[resolvedKind] = extractedText;
-        }
         if (resolvedKind === 'post-balance-sales') {
           const extractedSales = latestSixMonthlySales(extractedText);
           if (extractedSales.length === 6) monthlySalesFromDocuments = extractedSales;
@@ -256,7 +252,7 @@ export function PrequalificationStages(props: Props) {
       setDocuments((current) => {
         const updated = [...current];
         for (const next of added) {
-          const allowsSeveral = next.kind.includes('invoices-') || ['post-balance-sales', 'corporate-income-tax', 'representative-identity-front', 'representative-identity-back', 'different-subject', 'unclassified'].includes(next.kind);
+          const allowsSeveral = next.kind.includes('invoices-') || ['balance-notes', 'post-balance-sales', 'corporate-income-tax', 'representative-identity-front', 'representative-identity-back', 'different-subject', 'unclassified'].includes(next.kind);
           if (!allowsSeveral) {
             const existing = updated.findIndex(document => document.stage === next.stage && document.kind === next.kind);
             if (existing >= 0) updated.splice(existing, 1);
@@ -265,7 +261,15 @@ export function PrequalificationStages(props: Props) {
         }
         return updated;
       });
-      const combinedDocuments = [...documents, ...added];
+      const combinedDocuments = [...documents];
+      for (const next of added) {
+        const allowsSeveral = next.kind.includes('invoices-') || ['balance-notes', 'post-balance-sales', 'corporate-income-tax', 'representative-identity-front', 'representative-identity-back', 'different-subject', 'unclassified'].includes(next.kind);
+        if (!allowsSeveral) {
+          const existing = combinedDocuments.findIndex(document => document.stage === next.stage && document.kind === next.kind);
+          if (existing >= 0) combinedDocuments.splice(existing, 1);
+        }
+        combinedDocuments.push(next);
+      }
       const averageExtracted = (values: Array<number | null>) => {
         const valid = values.filter((value): value is number => value != null && value > 0);
         return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : 0;
@@ -290,15 +294,18 @@ export function PrequalificationStages(props: Props) {
           ? averageExtracted(additionalMonotributoSales)
           : current.additionalMonotributoNetIncome,
       }));
-      const newlyExtracted = {
-        current: balanceTexts['balance-1'] ? extractBalanceData(balanceTexts['balance-1']) : undefined,
-        previous: balanceTexts['balance-2'] ? extractBalanceData(balanceTexts['balance-2']) : undefined,
-      };
-      const extractedBalances = [newlyExtracted.current, newlyExtracted.previous]
-        .filter((item): item is ExtractedBalance => Boolean(item))
+      const balanceNotesText = combinedDocuments
+        .filter(document => document.kind === 'balance-notes')
+        .map(document => document.extractedText || '')
+        .join('\n');
+      const extractedBalances = combinedDocuments
+        .filter(document => economic.profile === 'legal-entity'
+          && (document.kind === 'balance-1' || document.kind === 'balance-2')
+          && Boolean(document.extractedText))
+        .map(document => extractBalanceData(`${document.extractedText || ''}\n${document.kind === 'balance-1' ? balanceNotesText : ''}`))
         .sort((left, right) => balanceDateValue(right.closingDate) - balanceDateValue(left.closingDate));
-      const latestBalance = extractedBalances.length === 2 ? extractedBalances[0] : newlyExtracted.current;
-      const priorBalance = extractedBalances.length === 2 ? extractedBalances[1] : newlyExtracted.previous;
+      const latestBalance = extractedBalances[0];
+      const priorBalance = extractedBalances[1];
       if (latestBalance) {
         const extractedBalance = latestBalance;
         setBalance(extractedBalance);
@@ -540,6 +547,7 @@ export function PrequalificationStages(props: Props) {
         {previewAssessment.corporateFinancials && <div className="prequalRegulatory">
           <h3>Indicadores del último balance</h3>
           <p>Calificación financiera: <b>{previewAssessment.corporateFinancials.score == null ? 'Datos insuficientes' : `${previewAssessment.corporateFinancials.score}/100`}</b></p>
+          <p>Cobertura de compromisos mensuales: <b>{previewAssessment.totalCommitmentCoverage?.toFixed(2) ?? 'No calculable'} veces</b> · Monto solicitado / ventas anuales: <b>{previewAssessment.requestedFinancingToSales == null ? 'No calculable' : `${(previewAssessment.requestedFinancingToSales * 100).toFixed(1)}%`}</b> · Monto solicitado / activo: <b>{previewAssessment.requestedFinancingToAssets == null ? 'No calculable' : `${(previewAssessment.requestedFinancingToAssets * 100).toFixed(1)}%`}</b></p>
           <p>Liquidez corriente: <b>{previewAssessment.corporateFinancials.currentRatio?.toFixed(2) ?? 'No calculable'}</b> · Capital de trabajo: <b>{previewAssessment.corporateFinancials.workingCapital == null ? 'No calculable' : pesos.format(previewAssessment.corporateFinancials.workingCapital)}</b></p>
           <p>Liquidez ácida: <b>{previewAssessment.corporateFinancials.quickRatio?.toFixed(2) ?? 'No calculable'}</b> · Cobertura de intereses: <b>{previewAssessment.corporateFinancials.interestCoverage?.toFixed(2) ?? 'No calculable'}</b></p>
           <p>Pasivo / patrimonio: <b>{previewAssessment.corporateFinancials.liabilitiesToEquity == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.liabilitiesToEquity * 100).toFixed(1)}%`}</b> · Deuda financiera / patrimonio: <b>{previewAssessment.corporateFinancials.debtToEquity == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.debtToEquity * 100).toFixed(1)}%`}</b></p>

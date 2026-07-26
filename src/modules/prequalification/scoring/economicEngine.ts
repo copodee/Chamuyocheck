@@ -125,6 +125,20 @@ export function evaluateEconomicCapacity(
   const canonCoverage = inputs.proposedMonthlyCanon > 0 && normalizedMonthlyIncome
     ? normalizedMonthlyIncome / inputs.proposedMonthlyCanon
     : null;
+  const totalCommitmentCoverage = commitments > 0 && normalizedMonthlyIncome
+    ? normalizedMonthlyIncome / commitments
+    : null;
+  const requestedFinancingToSales = inputs.profile === 'legal-entity'
+    && inputs.requestedFinancing > 0 && balance?.sales
+    ? inputs.requestedFinancing / balance.sales
+    : null;
+  const balanceAssets = balance
+    ? balance.totalAssets ?? ((balance.currentAssets ?? 0) + (balance.nonCurrentAssets ?? 0) || null)
+    : null;
+  const requestedFinancingToAssets = inputs.profile === 'legal-entity'
+    && inputs.requestedFinancing > 0 && balanceAssets
+    ? inputs.requestedFinancing / balanceAssets
+    : null;
 
   let status: EconomicAssessment['status'] = 'manual-review';
   let score = 50;
@@ -189,6 +203,9 @@ export function evaluateEconomicCapacity(
     totalMonthlyCommitments: commitments,
     installmentToIncomeRatio: ratio,
     canonCoverage,
+    totalCommitmentCoverage,
+    requestedFinancingToSales,
+    requestedFinancingToAssets,
     maximumPrudentCanon,
     status,
     reasons,

@@ -88,6 +88,9 @@ export async function buildDossierPdf(data: PdfData) {
       const corporate = data.economic.corporateFinancials;
       section('Indicadores del último balance');
       row('Calificación financiera', corporate.score == null ? 'Datos insuficientes' : `${corporate.score}/100`);
+      row('Cobertura de compromisos', data.economic.totalCommitmentCoverage == null ? 'No calculable' : `${data.economic.totalCommitmentCoverage.toFixed(2)} veces`);
+      row('Monto solicitado / ventas', data.economic.requestedFinancingToSales == null ? 'No calculable' : `${(data.economic.requestedFinancingToSales * 100).toFixed(1)}%`);
+      row('Monto solicitado / activo', data.economic.requestedFinancingToAssets == null ? 'No calculable' : `${(data.economic.requestedFinancingToAssets * 100).toFixed(1)}%`);
       row('Liquidez corriente', corporate.currentRatio == null ? 'No calculable' : corporate.currentRatio.toFixed(2));
       row('Liquidez ácida', corporate.quickRatio == null ? 'No calculable' : corporate.quickRatio.toFixed(2));
       row('Capital de trabajo', corporate.workingCapital == null ? 'No calculable' : money(corporate.workingCapital));

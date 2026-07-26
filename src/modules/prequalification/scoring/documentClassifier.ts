@@ -61,6 +61,10 @@ export function classifyPrequalificationDocument(input: {
   }
 
   if (input.profile === 'legal-entity') {
+    if (has('notas a los estados contables', 'informacion complementaria a los estados contables')
+      || (has('nota n°', 'nota nº', 'nota no') && has('criterios de valuacion', 'composicion de los rubros'))) {
+      return { action: 'accept', kind: 'balance-notes', stage: 2, confidence: 'high', reason: 'Notas complementarias de los estados contables detectadas.' };
+    }
     if (has('detalle de deuda', 'deuda bancaria', 'deuda financiera', 'prestamos bancarios', 'entidades acreedoras')) return { action: 'accept', kind: 'financial-debt', stage: 2, confidence: 'high', reason: 'Detalle de deuda financiera detectado.' };
     if (has('f.2051', 'f2051', 'formulario 2051', 'ventas netas de iva', 'ventas posteriores', 'ventas post balance', 'detalle mensual de ventas')) return { action: 'accept', kind: 'post-balance-sales', stage: 2, confidence: 'high', reason: 'Declaración mensual o detalle de ventas detectado.' };
     if (has('f.713', 'f713', 'declaracion jurada ganancias sociedades', 'impuesto a las ganancias sociedades')) return { action: 'accept', kind: 'corporate-income-tax', stage: 2, confidence: 'high', reason: 'Declaración anual de Ganancias de la sociedad detectada.' };

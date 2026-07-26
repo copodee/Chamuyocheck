@@ -48,6 +48,27 @@ test('lee formato argentino con notas, fecha verbal e importes negativos entre p
   assert.equal(result.netProfit, 61_568_980);
 });
 
+test('extrae un EECC ganadero comparativo sin confundir subtotales ni omitir las dos deudas financieras', () => {
+  const result = extractBalanceData(`
+    ESTADOS CONTABLES AL 31/12/2025
+    Total del activo corriente 1.521.218.093,79 956.365.640,38
+    Total del activo no corriente 328.396.343,80 206.917.300,59
+    Total del activo 1.849.614.437,60 1.163.282.940,98
+    Total del pasivo corriente 378.827.460,19 219.681.069,70
+    Préstamos y otros pasivos financieros (Nota N°5) 33.385.529,81 27.116.971,79
+    Total del pasivo no corriente 96.054.224,70 161.773.765,32
+    Préstamos y otros pasivos financieros (Nota N°5) 80.255.908,80 134.985.843,76
+    Total del pasivo 474.881.684,89 381.454.835,02
+    PATRIMONIO NETO 1.374.732.752,71 781.828.105,96
+    Ventas Netas de Bienes y Servicios 2.157.792.986,08
+    Ganancia (pérdida) del ejercicio 592.904.646,75
+  `);
+  assert.equal(result.totalAssets, 1_849_614_437.60);
+  assert.equal(result.totalLiabilities, 474_881_684.89);
+  assert.equal(result.financialDebt, 113_641_438.61);
+  assert.equal(result.netProfit, 592_904_646.75);
+});
+
 test('combina monotributo con ingreso en relación de dependencia sin quitas documentales', () => {
   const result = evaluateEconomicCapacity({
     profile: 'monotributista', activity: 'Servicios', activitySeniorityMonths: 30,
