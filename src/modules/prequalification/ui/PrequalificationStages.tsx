@@ -10,7 +10,7 @@ import { classifyPrequalificationDocument } from '../scoring/documentClassifier'
 import { latestSixMonthlySales } from '../scoring/fiscalDocumentExtractor';
 import { extractFinancialDebt, type ExtractedFinancialDebt } from '../scoring/financialDebtExtractor';
 import { reconcileFinancialDebt } from '../scoring/debtReconciliation';
-import { analyzeInvoiceIncome, extractInvoiceTotal, extractSalaryNetAmount, type InvoiceIncomeAnalysis } from '../scoring/incomeDocumentExtractor';
+import { analyzeInvoiceIncome, analyzeSalaryIncome, extractInvoiceTotal, type InvoiceIncomeAnalysis } from '../scoring/incomeDocumentExtractor';
 import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicAssessment, EconomicInputs, EconomicProfile, ExtractedBalance } from '../domain/dossier';
 import type { PrequalificationResult } from '../domain/types';
 
@@ -309,8 +309,8 @@ export function PrequalificationStages(props: Props) {
         const valid = values.filter((value): value is number => value != null && value > 0);
         return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : 0;
       };
-      const primarySalary = averageExtracted(combinedDocuments.filter(document => /^salary-slip-\d+$/.test(document.kind)).map(document => extractSalaryNetAmount(document.extractedText || '')));
-      const additionalSalary = averageExtracted(combinedDocuments.filter(document => /^additional-salary-slip-\d+$/.test(document.kind)).map(document => extractSalaryNetAmount(document.extractedText || '')));
+      const primarySalary = analyzeSalaryIncome(combinedDocuments.filter(document => /^salary-slip-\d+$/.test(document.kind)).map(document => document.extractedText || ''));
+      const additionalSalary = analyzeSalaryIncome(combinedDocuments.filter(document => /^additional-salary-slip-\d+$/.test(document.kind)).map(document => document.extractedText || ''));
       const invoiceMonths = (prefix: string) => Array.from({ length: 6 }, (_, index) =>
         combinedDocuments
           .filter(document => document.kind === `${prefix}-${index + 1}`)
@@ -326,8 +326,8 @@ export function PrequalificationStages(props: Props) {
       if (primaryInvoiceAnalysis.invoices.length) setInvoiceIncomeAnalysis(primaryInvoiceAnalysis);
       setEconomic(current => ({
         ...current,
-        employeeNetIncome: primarySalary || current.employeeNetIncome,
-        additionalEmploymentNetIncome: additionalSalary || current.additionalEmploymentNetIncome,
+        employeeNetIncome: primarySalary.normalizedMonthlyIncome || current.employeeNetIncome,
+        additionalEmploymentNetIncome: additionalSalary.normalizedMonthlyIncome || current.additionalEmploymentNetIncome,
         monthlySales: primaryMonotributoSales.some(Boolean) ? primaryMonotributoSales : current.monthlySales,
         documentedMonthlyIncome: primaryInvoiceAnalysis.averageMonthlyIncome
           || current.documentedMonthlyIncome

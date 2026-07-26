@@ -1,9 +1,40 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeInvoiceIncome, extractInvoiceData, extractInvoiceTotal, extractSalaryNetAmount } from '../scoring/incomeDocumentExtractor';
+import { analyzeInvoiceIncome, analyzeSalaryIncome, extractInvoiceData, extractInvoiceTotal, extractSalaryNetAmount, extractSalaryReceipt } from '../scoring/incomeDocumentExtractor';
 
 test('extrae el neto a cobrar de un recibo de sueldo', () => {
   assert.equal(extractSalaryNetAmount('Haberes 1.800.000,00\nDescuentos 300.000,00\nNeto a cobrar $ 1.500.000,00'), 1_500_000);
+});
+
+const salarySlip = (period: string, receipt: string, concepts: string, net: string) => `
+Recibo de Sueldo Número: ${receipt}
+Período de pago: ${period} Días Trabajo: 30 Fecha: 31/03/2026
+Haberes Retenciones
+${concepts}
+Neto a Cobrar: ${net}`;
+
+test('identifica período, neto y naturaleza de recibos mensuales, retroactivos y SAC', () => {
+  assert.equal(extractSalaryReceipt(salarySlip('Marzo de 2026', '791873', '311-SUELDO MENSUAL 1.166.877,57', '1.152.354,12')).kind, 'regular');
+  const retro = extractSalaryReceipt(salarySlip('Enero y febrero 2026', '795125', '349-RETRO ENERO/FEB 125.182,00', '101.397,42'));
+  assert.equal(retro.kind, 'retroactive');
+  assert.deepEqual(retro.periodKeys, ['2026-01', '2026-02']);
+  assert.equal(extractSalaryReceipt(salarySlip('SAC 1er semestre 2026', '800000', 'SUELDO ANUAL COMPLEMENTARIO', '575.000,00')).kind, 'sac');
+});
+
+test('promedia meses completos, distribuye retroactivos y prorratea el aguinaldo', () => {
+  const analysis = analyzeSalaryIncome([
+    salarySlip('Febrero de 2026', '787606', '311-SUELDO MENSUAL', '1.056.615,04'),
+    salarySlip('Marzo de 2026', '791873', '311-SUELDO MENSUAL', '1.152.354,12'),
+    salarySlip('Abril de 2026', '799227', '311-SUELDO MENSUAL', '1.167.511,40'),
+    salarySlip('Mayo de 2026', '803514', '311-SUELDO MENSUAL', '1.047.156,76'),
+    salarySlip('Enero y febrero 2026', '795125', '349-RETRO ENERO/FEB', '101.397,42'),
+    salarySlip('SAC 1er semestre 2026', '810000', 'SUELDO ANUAL COMPLEMENTARIO', '575.000,00'),
+  ]);
+  assert.equal(analysis.observedRegularMonths, 4);
+  assert.equal(Math.round(analysis.monthlyTotals[0].retroactiveNet), 50_699);
+  assert.equal(Math.round(analysis.regularMonthlyAverage), 1_118_584);
+  assert.equal(Math.round(analysis.sacMonthlyEquivalent), 95_833);
+  assert.equal(Math.round(analysis.normalizedMonthlyIncome), 1_214_417);
 });
 
 test('extrae el importe total de una factura argentina', () => {

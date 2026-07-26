@@ -27,6 +27,105 @@ export function extractSalaryNetAmount(text: string) {
   return values.length ? values[values.length - 1] : null;
 }
 
+export type SalaryReceiptKind = 'regular' | 'sac' | 'retroactive' | 'extraordinary';
+
+export type ExtractedSalaryReceipt = {
+  receiptNumber: string | null;
+  paymentPeriod: string | null;
+  periodKeys: string[];
+  paymentDate: string | null;
+  netAmount: number | null;
+  kind: SalaryReceiptKind;
+};
+
+export type SalaryIncomeAnalysis = {
+  receipts: ExtractedSalaryReceipt[];
+  monthlyTotals: Array<{ period: string; regularNet: number; retroactiveNet: number; totalRecurringNet: number }>;
+  regularMonthlyAverage: number;
+  sacMonthlyEquivalent: number;
+  normalizedMonthlyIncome: number;
+  observedRegularMonths: number;
+  warnings: string[];
+};
+
+const spanishMonths: Record<string, number> = {
+  enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6,
+  julio: 7, agosto: 8, septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12,
+};
+
+function salaryPeriodKeys(value: string | null) {
+  if (!value) return [];
+  const normalized = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const year = Number(normalized.match(/\b(20\d{2})\b/)?.[1]);
+  if (!year) return [];
+  return Object.entries(spanishMonths)
+    .filter(([name]) => new RegExp(`\\b${name}\\b`, 'i').test(normalized))
+    .map(([, month]) => `${year}-${String(month).padStart(2, '0')}`)
+    .filter((key, index, values) => values.indexOf(key) === index);
+}
+
+export function extractSalaryReceipt(text: string): ExtractedSalaryReceipt {
+  const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const paymentPeriod = normalized.match(/Per[ií]odo\s+de\s+pago:\s*([^\r\n]+)/i)?.[1]?.trim() || null;
+  const hasSac = /\b(?:SAC|aguinaldo|sueldo\s+anual\s+complementario)\b/i.test(normalized);
+  const hasRetroactive = /\b(?:retro(?:activo)?|ajuste\s+salarial|diferencia\s+salarial)\b/i.test(normalized);
+  const hasRegularSalary = /\bsueldo\s+mensual\b/i.test(normalized);
+  return {
+    receiptNumber: normalized.match(/Recibo\s+de\s+Sueldo\s+N[uú]mero:\s*(\d+)/i)?.[1] || null,
+    paymentPeriod,
+    periodKeys: salaryPeriodKeys(paymentPeriod),
+    paymentDate: normalized.match(/\bFecha:\s*(\d{1,2}\/\d{1,2}\/20\d{2})/i)?.[1] || null,
+    netAmount: extractSalaryNetAmount(text),
+    kind: hasSac ? 'sac' : hasRetroactive ? 'retroactive' : hasRegularSalary ? 'regular' : 'extraordinary',
+  };
+}
+
+export function analyzeSalaryIncome(texts: string[]): SalaryIncomeAnalysis {
+  const receipts = texts.map(extractSalaryReceipt);
+  const regularMonths = new Map<string, { regularNet: number; retroactiveNet: number }>();
+  for (const receipt of receipts.filter(item => item.kind === 'regular' && item.netAmount != null)) {
+    const period = receipt.periodKeys[0];
+    if (!period) continue;
+    const current = regularMonths.get(period) || { regularNet: 0, retroactiveNet: 0 };
+    current.regularNet += receipt.netAmount || 0;
+    regularMonths.set(period, current);
+  }
+  for (const receipt of receipts.filter(item => item.kind === 'retroactive' && item.netAmount != null && item.periodKeys.length)) {
+    const allocation = (receipt.netAmount || 0) / receipt.periodKeys.length;
+    for (const period of receipt.periodKeys) {
+      // El retroactivo complementa un mes observado; no convierte un período
+      // sin recibo mensual en un mes completo artificialmente bajo.
+      const current = regularMonths.get(period);
+      if (current) current.retroactiveNet += allocation;
+    }
+  }
+  const monthlyTotals = [...regularMonths.entries()]
+    .map(([period, values]) => ({ period, ...values, totalRecurringNet: values.regularNet + values.retroactiveNet }))
+    .sort((left, right) => left.period.localeCompare(right.period))
+    .slice(-6);
+  const regularMonthlyAverage = monthlyTotals.length
+    ? monthlyTotals.reduce((sum, month) => sum + month.totalRecurringNet, 0) / monthlyTotals.length
+    : 0;
+  const sacReceipts = receipts.filter(item => item.kind === 'sac' && item.netAmount != null);
+  const sacTotal = sacReceipts.reduce((sum, item) => sum + (item.netAmount || 0), 0);
+  // Un SAC semestral se prorratea en seis meses. Si se observan los dos SAC
+  // del año, se prorratea su suma en doce meses.
+  const sacMonthlyEquivalent = sacReceipts.length === 1 ? sacTotal / 6 : sacReceipts.length > 1 ? sacTotal / 12 : 0;
+  const warnings: string[] = [];
+  if (monthlyTotals.length < 6) warnings.push(`Solo se observaron ${monthlyTotals.length} recibo(s) mensual(es) completos; el promedio es preliminar hasta completar seis meses.`);
+  if (receipts.some(item => item.netAmount == null || !item.periodKeys.length)) warnings.push('Algún recibo no permitió identificar período o neto y requiere revisión.');
+  if (receipts.some(item => item.kind === 'extraordinary')) warnings.push('Se detectó un comprobante extraordinario que no se incorporó al ingreso mensual recurrente.');
+  return {
+    receipts,
+    monthlyTotals,
+    regularMonthlyAverage,
+    sacMonthlyEquivalent,
+    normalizedMonthlyIncome: regularMonthlyAverage + sacMonthlyEquivalent,
+    observedRegularMonths: monthlyTotals.length,
+    warnings,
+  };
+}
+
 export function extractInvoiceTotal(text: string) {
   const values = labeledAmounts(text, [
     'importe total', 'total comprobante', 'total factura', 'total',
