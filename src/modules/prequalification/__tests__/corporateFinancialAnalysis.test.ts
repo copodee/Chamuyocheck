@@ -151,3 +151,12 @@ test('no compara un estado consolidado con uno separado', () => {
   assert.equal(result.salesChange, null);
   assert.ok(result.observations.some(item => item.includes('No se comparan estados consolidados')));
 });
+
+test('no sobrecalifica una utilidad explicada principalmente por resultados financieros', () => {
+  const result = analyzeCorporateFinancials({
+    ...sectorBase, sales: 8_897_999_523, operatingProfit: 373_543_150,
+    netProfit: 5_777_993_778, financialDebt: 27_440_629_674,
+  });
+  assert.ok(result.observations.some(item => item.includes('resultado final supera ampliamente al operativo')));
+  assert.ok((result.operatingMargin || 0) < 0.05);
+});

@@ -43,6 +43,7 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
   const netMargin = ratio(balance.netProfit, balance.sales);
   const grossMargin = ratio(balance.grossProfit, balance.sales);
   const operatingMargin = ratio(balance.operatingProfit, balance.sales);
+  const recurringMargin = operatingMargin ?? netMargin;
   const previousTotalAssets = previous?.totalAssets ??
     (previous?.currentAssets != null && previous?.nonCurrentAssets != null
       ? previous.currentAssets + previous.nonCurrentAssets : null);
@@ -63,6 +64,10 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
   const observations: string[] = [];
   if (annualizationFactor !== 1) {
     observations.push(`Los flujos del período intermedio de ${balance.periodMonths} meses se anualizaron sólo para ROA, ROE, deuda/ventas y rotaciones; los saldos de cierre no se anualizaron.`);
+  }
+  if (balance.operatingProfit != null && balance.netProfit != null
+    && Math.abs(balance.netProfit) > Math.max(1, Math.abs(balance.operatingProfit)) * 2) {
+    observations.push('El resultado final supera ampliamente al operativo; la capacidad de pago debe apoyarse en resultados recurrentes y revisar resultados financieros/RECPAM.');
   }
   const quickThresholds = quickRatioThresholds(sector);
   const accountingEquationDifference = totalAssets != null && totalLiabilities != null && balance.equity != null
@@ -97,7 +102,7 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
   grade(quickRatio, value => value >= quickThresholds.good, value => value >= quickThresholds.warning, 'La liquidez ácida es reducida frente al pasivo corriente para la actividad informada.');
   grade(workingCapital, value => value > 0, value => value === 0, 'El capital de trabajo es negativo.');
   grade(liabilitiesToEquity, value => value <= 1.5, value => value <= 2.5, 'El pasivo total es elevado respecto del patrimonio neto.');
-  grade(netMargin, value => value > 0.05, value => value >= 0, 'El ejercicio presenta margen neto negativo.');
+  grade(recurringMargin, value => value > 0.05, value => value >= 0, 'El margen operativo o, en su defecto, el margen neto es negativo.');
   grade(returnOnAssets, value => value > 0.03, value => value >= 0, 'La rentabilidad sobre activos es negativa.');
   grade(financialDebtToSales, value => value <= 0.3, value => value <= 0.6, 'La deuda financiera representa una proporción elevada de las ventas anuales.');
   grade(interestCoverage, value => value >= 2, value => value >= 1, 'El resultado operativo no cubre adecuadamente los intereses.');
