@@ -6,6 +6,7 @@ export type CorporateSector =
   | 'transport-logistics'
   | 'professional-services'
   | 'technology'
+  | 'fintech-financial-services'
   | 'real-estate'
   | 'health-education'
   | 'hospitality'
@@ -21,6 +22,7 @@ export function classifyCorporateSector(activity: string): CorporateSector {
   if (/(constru|obra|contratista)/.test(value)) return 'construction';
   if (/(comerc|venta|distribu|mayorista|minorista|retail)/.test(value)) return 'commerce';
   if (/(transport|logistic|flete|deposito|almacenamiento|movimiento de (?:materias|cargas))/.test(value)) return 'transport-logistics';
+  if (/(fintech|billetera virtual|servicios financieros digitales|pagos digitales|plataforma de pagos|mercado pago)/.test(value)) return 'fintech-financial-services';
   if (/(software|tecnolog|informat|plataforma digital|sistemas)/.test(value)) return 'technology';
   if (/(inmobili|alquiler|propiedad|real estate|desarrollador|desarrollo urbano)/.test(value)) return 'real-estate';
   if (/(salud|medic|clinica|sanatorio|educa|ensenanza|colegio)/.test(value)) return 'health-education';
@@ -38,6 +40,7 @@ export const sectorLabel = (sector: CorporateSector) => ({
   'transport-logistics': 'Transporte y logística',
   'professional-services': 'Servicios profesionales',
   technology: 'Tecnología y software',
+  'fintech-financial-services': 'Fintech y servicios financieros digitales',
   'real-estate': 'Actividad inmobiliaria',
   'health-education': 'Salud o educación',
   hospitality: 'Hotelería, gastronomía o turismo',
@@ -59,6 +62,8 @@ export function sectorObservations(sector: CorporateSector): string[] {
     case 'professional-services':
     case 'technology':
       return ['En servicios, la ausencia de inventarios no es una debilidad; pesan recurrencia de contratos, concentración de clientes, capital humano y cobranza.'];
+    case 'fintech-financial-services':
+      return ['En fintech deben analizarse volumen procesado, ingresos netos, fraude y contracargos, fondeo, liquidez, concentración, regulación aplicable y calidad de cartera, sin confundir fondos de terceros con recursos propios.'];
     case 'real-estate':
       return ['En actividades inmobiliarias deben distinguirse activos de renta, desarrollos, vacancia, contratos y flujo efectivo de alquileres.'];
     case 'health-education':

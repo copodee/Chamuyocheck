@@ -104,6 +104,10 @@ export async function buildDossierPdf(data: PdfData) {
     row('Relación compromisos / ingreso', data.economic?.installmentToIncomeRatio == null ? 'No estimable' : `${(data.economic.installmentToIncomeRatio * 100).toFixed(1)}%`);
     section('Síntesis del director de riesgos');
     row('Decisión económica preliminar', ({ compatible: 'Compatible', conditional: 'Compatible con condiciones', 'manual-review': 'Revisión manual', 'not-compatible': 'No compatible' } as Record<string, string>)[data.economic?.status] || data.economic?.status);
+    if (data.economic?.proposedAdvancePercent) {
+      row('Anticipo propuesto', `${data.economic.proposedAdvancePercent}% - ${money(data.economic.proposedAdvanceAmount)}`);
+      row('Saldo a financiar', money(data.economic.requestedFinancing));
+    }
     row('Comportamiento BCRA', data.stage1.currentSituation == null ? 'Sin datos actuales' : `Situación ${data.stage1.currentSituation}; máxima histórica ${data.stage1.maximumSituation ?? 'sin datos'}`);
     row('Holgura de canon', data.economic?.maximumPrudentCanon == null || data.economic?.proposedMonthlyCanon == null
       ? 'No calculable'
@@ -120,7 +124,7 @@ export async function buildDossierPdf(data: PdfData) {
       row('Exposición total', money(data.economic.regulatoryExposure.totalExposure));
       row('Patrimonio computable', money(data.economic.regulatoryExposure.computableNetWorth));
       row('Exposición / patrimonio', data.economic.regulatoryExposure.exposureToNetWorthRatio == null ? 'No evaluable' : `${(data.economic.regulatoryExposure.exposureToNetWorthRatio * 100).toFixed(1)}%`);
-      row('Financiamiento disponible dentro del margen básico', money(data.economic.regulatoryExposure.basicMarginAvailable));
+      row('Margen básico patrimonial restante estimado', money(data.economic.regulatoryExposure.basicMarginAvailable));
     }
     if (data.economic?.corporateFinancials) {
       const corporate = data.economic.corporateFinancials;

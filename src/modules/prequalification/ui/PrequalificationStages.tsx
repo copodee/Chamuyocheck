@@ -45,11 +45,11 @@ const productiveSectors = [
   'Transporte y logística',
   'Servicios profesionales',
   'Tecnología y software',
+  'Fintech y servicios financieros digitales',
   'Actividad inmobiliaria y desarrollos',
   'Salud y educación',
   'Hotelería, gastronomía y turismo',
   'Energía, petróleo, gas y minería',
-  'Otros servicios',
 ] as const;
 const isListedSector = (value: string) => productiveSectors.some(sector => sector === value);
 const argentinaJurisdictions = [
@@ -262,6 +262,33 @@ export function PrequalificationStages(props: Props) {
     if (!response.ok) throw new Error(data.error || 'No se pudo actualizar el expediente.');
     return data;
   };
+  const uploadDocumentDirectly = async (file: File, caseId: string, documentStage: number) => {
+    const preparationResponse = await fetch('/api/prequalification/document', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${props.session.access_token}` },
+      body: JSON.stringify({
+        caseId,
+        stage: documentStage,
+        fileName: file.name,
+        fileType: file.type || 'application/octet-stream',
+        fileSize: file.size,
+      }),
+    });
+    const preparation = await preparationResponse.json();
+    if (!preparationResponse.ok) throw new Error(preparation.error || 'No se pudo preparar la carga privada.');
+    const uploadResponse = await fetch(preparation.uploadUrl, {
+      method: 'POST',
+      headers: {
+        apikey: preparation.publicKey,
+        Authorization: `Bearer ${props.session.access_token}`,
+        'Content-Type': file.type || 'application/octet-stream',
+        'x-upsert': 'false',
+      },
+      body: file,
+    });
+    if (!uploadResponse.ok) throw new Error('No se pudo guardar el documento en el expediente privado.');
+    return preparation.storagePath as string;
+  };
   const readFiles = async (files: FileList | File[] | null, documentKind: string) => {
     if (!files || files.length === 0) return;
     const selectedFiles = Array.from(files);
@@ -333,15 +360,11 @@ export function PrequalificationStages(props: Props) {
           societaryAntiquity = extractConstitutionAntiquity(extractedText);
         }
         const documentStage = documentKind === 'auto' ? admission.stage : stage === 3 ? 3 : 2;
-        const upload = new FormData();
-        upload.append('file', file); upload.append('caseId', recovered.caseId); upload.append('stage', String(documentStage));
-        const uploadResponse = await fetch('/api/prequalification/document', { method: 'POST', headers: { Authorization: `Bearer ${props.session.access_token}` }, body: upload });
-        const uploadData = await uploadResponse.json();
-        if (!uploadResponse.ok) throw new Error(uploadData.error || 'No se pudo guardar el documento.');
+        const storagePath = await uploadDocumentDirectly(file, recovered.caseId, documentStage);
         fileStored = true;
         added.push({
           id: crypto.randomUUID(), stage: documentStage, kind: resolvedKind, name: file.name, size: file.size,
-          pages: extractedPages, extractionConfidence, extractedText, storagePath: uploadData.storagePath,
+          pages: extractedPages, extractionConfidence, extractedText, storagePath,
           status: admission.action === 'review' || (extractedText && extractionConfidence < 55)
             ? 'needs-review'
             : extractedText ? 'read' : 'uploaded',
@@ -352,17 +375,8 @@ export function PrequalificationStages(props: Props) {
           processingErrors.push(`${file.name}: ${detail}`);
           if (!fileStored) {
             try {
-              const fallbackUpload = new FormData();
-              fallbackUpload.append('file', file);
-              fallbackUpload.append('caseId', recovered.caseId);
-              fallbackUpload.append('stage', '2');
-              const fallbackResponse = await fetch('/api/prequalification/document', {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${props.session.access_token}` },
-                body: fallbackUpload,
-              });
-              const fallbackData = await fallbackResponse.json();
-              if (fallbackResponse.ok) {
+              const fallbackStoragePath = await uploadDocumentDirectly(file, recovered.caseId, 2);
+              if (fallbackStoragePath) {
                 const fallbackAdmission = documentKind === 'auto'
                   ? classifyPrequalificationDocument({
                     profile: economic.profile,
@@ -375,7 +389,7 @@ export function PrequalificationStages(props: Props) {
                 usedKinds.add(fallbackAdmission.kind);
                 added.push({
                   id: crypto.randomUUID(), stage: fallbackAdmission.stage, kind: fallbackAdmission.kind, name: file.name, size: file.size,
-                  extractionConfidence: 0, extractedText: '', storagePath: fallbackData.storagePath,
+                  extractionConfidence: 0, extractedText: '', storagePath: fallbackStoragePath,
                   status: 'needs-review',
                 });
               }
@@ -387,7 +401,9 @@ export function PrequalificationStages(props: Props) {
         }
       }
       setDocuments((current) => {
-        const updated = [...current];
+        const updated = documentKind === 'auto'
+          ? [...current]
+          : current.filter(document => !(document.stage === (stage === 3 ? 3 : 2) && document.kind === documentKind));
         for (const next of added) {
           const allowsSeveral = next.kind.includes('invoices-') || ['balance-notes', 'post-balance-sales', 'corporate-income-tax', 'representative-identity-front', 'representative-identity-back', 'different-subject', 'unclassified'].includes(next.kind);
           const duplicate = updated.findIndex(document => document.stage === next.stage && document.kind === next.kind && document.name === next.name);
@@ -406,7 +422,9 @@ export function PrequalificationStages(props: Props) {
           ) === index
         );
       });
-      const combinedDocuments = [...documents];
+      const combinedDocuments = documentKind === 'auto'
+        ? [...documents]
+        : documents.filter(document => !(document.stage === (stage === 3 ? 3 : 2) && document.kind === documentKind));
       for (const next of added) {
         const allowsSeveral = next.kind.includes('invoices-') || ['balance-notes', 'post-balance-sales', 'corporate-income-tax', 'representative-identity-front', 'representative-identity-back', 'different-subject', 'unclassified'].includes(next.kind);
         const duplicate = combinedDocuments.findIndex(document => document.stage === next.stage && document.kind === next.kind && document.name === next.name);
@@ -579,13 +597,31 @@ export function PrequalificationStages(props: Props) {
     setBusy(true);
     const response = await fetch('/api/prequalification/pdf', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${props.session.access_token}` },
-      body: JSON.stringify({ caseNumber: effectiveCaseNumber, subject: props.subject.denomination, cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact, economic: { ...assessment, declaredMonthlyDebtService: economic.declaredMonthlyDebtService, proposedMonthlyCanon: economic.proposedMonthlyCanon }, compliance, decision, responseEmail, documents }),
+      body: JSON.stringify({ caseNumber: effectiveCaseNumber, subject: props.subject.denomination, cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact, economic: { ...assessment, declaredMonthlyDebtService: economic.declaredMonthlyDebtService, proposedMonthlyCanon: economic.proposedMonthlyCanon, proposedAdvancePercent: economic.proposedAdvancePercent, proposedAdvanceAmount: economic.proposedAdvanceAmount, requestedFinancing: economic.requestedFinancing }, compliance, decision, responseEmail, documents }),
     });
     if (response.ok) {
       const url = URL.createObjectURL(await response.blob());
       const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${effectiveCaseNumber}.pdf`; anchor.click(); URL.revokeObjectURL(url);
     } else setMessage('No se pudo generar el PDF.');
     setBusy(false);
+  };
+  const applyAdvancePercent = (percent: number) => {
+    const assetValue = Math.max(0, props.requestData.assetValue);
+    const advanceAmount = Math.round(assetValue * percent / 100);
+    const nextFinancing = Math.max(0, assetValue - advanceAmount);
+    setEconomic(current => {
+      const currentFinancing = Math.max(0, Number(current.requestedFinancing || assetValue - props.requestData.advance));
+      const proportionalCanon = current.proposedMonthlyCanon > 0 && currentFinancing > 0
+        ? Math.round(current.proposedMonthlyCanon * nextFinancing / currentFinancing)
+        : current.proposedMonthlyCanon;
+      return {
+        ...current,
+        proposedAdvancePercent: percent,
+        proposedAdvanceAmount: advanceAmount,
+        requestedFinancing: nextFinancing,
+        proposedMonthlyCanon: proportionalCanon,
+      };
+    });
   };
 
   return <section className="prequalCard prequalResult">
@@ -652,7 +688,7 @@ export function PrequalificationStages(props: Props) {
               </div>}
               <label>Tipo de actividad<select value={economic.activityCategory} onChange={e => setEconomic({ ...economic, activityCategory: e.target.value as EconomicInputs['activityCategory'] })}>
                 <option value="professional-services">Servicios profesionales</option>
-                <option value="other-services">Otros servicios</option>
+                <option value="fintech">Fintech y servicios financieros digitales</option>
                 <option value="commerce">Comercio</option>
                 <option value="production">Producción / elaboración</option>
                 <option value="transport">Transporte</option>
@@ -694,6 +730,15 @@ export function PrequalificationStages(props: Props) {
           <label>Monto neto solicitado<input type="text" inputMode="numeric" value={economic.requestedFinancing || ''} onChange={e => setEconomic({ ...economic, requestedFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Valor del bien menos anticipo; modificable si la estructura propuesta es distinta.</small></label>
           <label>Garantía regulatoria elegible<select value={economic.qualifyingGuarantee} onChange={e => setEconomic({ ...economic, qualifyingGuarantee: e.target.value as EconomicInputs['qualifyingGuarantee'] })}><option value="none">Sin SGR/fondo público informado</option><option value="sgr-public-fund">SGR o fondo público elegible</option></select></label>
         </>}
+        <label>Anticipo propuesto
+          <select value={economic.proposedAdvancePercent || ''} onChange={e => applyAdvancePercent(Number(e.target.value))}>
+            <option value="" disabled>Seleccioná un porcentaje</option>
+            {[10, 15, 20, 25, 30, 35, 40, 45, 50].map(percent => <option key={percent} value={percent}>{percent}%</option>)}
+          </select>
+          <small>{economic.proposedAdvancePercent
+            ? `Anticipo: ${pesos.format(economic.proposedAdvanceAmount || 0)} · Saldo a financiar: ${pesos.format(economic.requestedFinancing || 0)}. El canon se ajusta proporcionalmente como estimación y debe reemplazarse por el canon real de la oferta.`
+            : 'Podés proponer entre 10% y 50%. LeasingScoring calculará el importe, el saldo a financiar y un canon proporcional estimado.'}</small>
+        </label>
         {economic.profile === 'monotributista' && <label className="prequalCheckRow">
           <input type="checkbox" checked={!!economic.hasEmploymentIncome} onChange={e => setEconomic({ ...economic, hasEmploymentIncome: e.target.checked, additionalEmploymentNetIncome: e.target.checked ? economic.additionalEmploymentNetIncome : 0 })} />
           <span><b>También trabaja en relación de dependencia</b><small>Marcá esta opción para sumar el sueldo mensual a los ingresos de la actividad.</small></span>
@@ -787,7 +832,8 @@ export function PrequalificationStages(props: Props) {
           <h3>Encuadre patrimonial y regulatorio</h3>
           <p><b>{previewAssessment.regulatoryExposure.label}</b></p>
           <p>Exposición total: <b>{pesos.format(previewAssessment.regulatoryExposure.totalExposure)}</b> · Patrimonio computable: <b>{previewAssessment.regulatoryExposure.computableNetWorth == null ? 'No informado' : pesos.format(previewAssessment.regulatoryExposure.computableNetWorth)}</b></p>
-          <p>Exposición / patrimonio: <b>{previewAssessment.regulatoryExposure.exposureToNetWorthRatio == null ? 'No evaluable' : `${(previewAssessment.regulatoryExposure.exposureToNetWorthRatio * 100).toFixed(1)}%`}</b> · Nuevo financiamiento máximo dentro del margen básico: <b>{previewAssessment.regulatoryExposure.basicMarginAvailable == null ? 'No evaluable' : pesos.format(previewAssessment.regulatoryExposure.basicMarginAvailable)}</b></p>
+          <p>Exposición / patrimonio: <b>{previewAssessment.regulatoryExposure.exposureToNetWorthRatio == null ? 'No evaluable' : `${(previewAssessment.regulatoryExposure.exposureToNetWorthRatio * 100).toFixed(1)}%`}</b> · Margen básico patrimonial restante estimado: <b>{previewAssessment.regulatoryExposure.basicMarginAvailable == null ? 'No evaluable' : pesos.format(previewAssessment.regulatoryExposure.basicMarginAvailable)}</b></p>
+          <p><small>Es una verificación preliminar de Graduación del Crédito. No equivale al máximo aprobable: la entidad debe depurar el patrimonio computable, consolidar exposiciones y verificar sus propios límites y RPC.</small></p>
           {previewAssessment.regulatoryExposure.conditions.map((condition) => <small key={condition}>{condition}</small>)}
         </div>}
         {previewAssessment.corporateFinancials && <div className="prequalRegulatory">

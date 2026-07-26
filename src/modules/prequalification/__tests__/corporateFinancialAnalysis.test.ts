@@ -119,6 +119,16 @@ test('no interpreta la falta de inventarios como debilidad de una empresa de ser
   assert.ok(result.sectorObservations.some(item => item.includes('ausencia de inventarios no es una debilidad')));
 });
 
+test('clasifica una fintech de pagos digitales con criterios propios', () => {
+  const result = analyzeCorporateFinancials(
+    { ...sectorBase, inventory: 0 },
+    undefined,
+    'Fintech de billetera virtual y plataforma de pagos digitales',
+  );
+  assert.equal(result.sector, 'fintech-financial-services');
+  assert.ok(result.sectorObservations.some(item => item.includes('fondos de terceros')));
+});
+
 test('anualiza sólo flujos de un trimestre y conserva los saldos de cierre', () => {
   const result = analyzeCorporateFinancials({
     closingDate: '31/12/2025', periodStartDate: '01/10/2025', periodMonths: 3, statementKind: 'interim',

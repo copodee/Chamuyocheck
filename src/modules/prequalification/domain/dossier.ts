@@ -24,7 +24,7 @@ export type ContactData = {
 export type EconomicInputs = {
   profile: EconomicProfile;
   activity: string;
-  activityCategory?: 'professional-services' | 'other-services' | 'commerce' | 'production' | 'transport' | 'other';
+  activityCategory?: 'professional-services' | 'fintech' | 'commerce' | 'production' | 'transport' | 'other';
   activitySeniorityMonths: number;
   declaredMonthlyDebtService: number;
   proposedMonthlyCanon: number;
@@ -38,6 +38,8 @@ export type EconomicInputs = {
   monthlySales?: number[];
   declaredOperatingMargin?: number;
   requestedFinancing?: number;
+  proposedAdvancePercent?: number;
+  proposedAdvanceAmount?: number;
   computableNetWorth?: number;
   existingComputableFinancing?: number;
   qualifyingGuarantee?: 'none' | 'sgr-public-fund';
