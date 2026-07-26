@@ -995,6 +995,9 @@ body:has(.leasingAppShell){
 .leasingAppShell .historyItem span{color:#5b21b6;font-size:18px}
 .leasingAppShell .historyItem div{color:#143845}
 .leasingAppShell .historyItem small{color:#607983;line-height:1.4}
+.leasingAppShell .helpLegalNotice{margin-top:24px;padding:18px 20px;border-left:4px solid #6d28d9;border-radius:10px;background:#f5f1ff}
+.leasingAppShell .helpLegalNotice h3{margin-top:0;color:#4c1d95}
+.leasingAppShell .helpLegalNotice p{margin-bottom:0;color:#314f59;font-size:14px;line-height:1.55}
 
 @media(max-width:720px){
   .leasingAppShell .mobileTopbarBrand{width:100%}
