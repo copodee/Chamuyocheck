@@ -109,7 +109,7 @@ export async function extractPdfTextInBrowser(
       const context = canvas.getContext('2d', { alpha: false });
       if (!context) throw new Error('CANVAS_UNAVAILABLE');
       await page.render({ canvasContext: context, canvas, viewport }).promise;
-      const result = await worker.recognize(canvas);
+      const result = await worker.recognize(canvas, { rotateAuto: true });
       const text = String(result.data.text || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
       if (text) texts.push(`[Página ${pageNumber}]\n${text}`);
       confidences.push(Number(result.data.confidence || 0));

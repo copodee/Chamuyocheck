@@ -87,6 +87,8 @@ test('extrae un EECC de transporte con pérdida y notas intercaladas', () => {
     PÉRDIDA FINAL DEL EJERCICIO (5.380.692.244,58)
   `);
   assert.equal(result.activity, 'Servicios de Transporte de carga y Logística');
+  assert.equal(result.currentLiabilities, 26_157_962_744.84);
+  assert.equal(result.nonCurrentLiabilities, 2_004_511_469.10);
   assert.equal(result.equity, 21_912_554_047.40);
   assert.equal(result.sales, 84_824_549_224.84);
   assert.equal(result.costOfSales, -80_469_576_525.32);

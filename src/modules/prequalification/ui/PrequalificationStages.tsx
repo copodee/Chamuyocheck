@@ -206,13 +206,18 @@ export function PrequalificationStages(props: Props) {
       const recovered = await recoverCase();
       for (const file of Array.from(files)) {
         let extractedText = '';
+        let extractionConfidence = 0;
+        let extractedPages: number | undefined;
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
           const extraction = await extractPdfTextInBrowser(file, (progress) => setMessage(`Leyendo página ${progress.page} de ${progress.totalPages}…`));
           extractedText = extraction.text;
+          extractionConfidence = extraction.confidence;
+          extractedPages = extraction.pages;
         } else if (/\.docx$/i.test(file.name) || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
           setMessage(`Leyendo ${file.name}…`);
           const mammoth = await import('mammoth');
           extractedText = (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
+          extractionConfidence = extractedText ? 100 : 0;
         } else if (/\.(xlsx?|xls)$/i.test(file.name) || /spreadsheet|excel/i.test(file.type)) {
           setMessage(`Leyendo planilla ${file.name}…`);
           const spreadsheet = await import('xlsx');
@@ -220,9 +225,12 @@ export function PrequalificationStages(props: Props) {
           extractedText = workbook.SheetNames.map(name =>
             `HOJA: ${name}\n${spreadsheet.utils.sheet_to_csv(workbook.Sheets[name], { blankrows: false })}`,
           ).join('\n\n');
+          extractionConfidence = extractedText ? 100 : 0;
         } else if (/^image\/(png|jpeg|jpg|webp)$/i.test(file.type)) {
           setMessage(`Leyendo ${file.name} mediante OCR…`);
-          extractedText = (await extractImageTextInBrowser(file)).text;
+          const extraction = await extractImageTextInBrowser(file);
+          extractedText = extraction.text;
+          extractionConfidence = extraction.confidence;
         }
         const admission = documentKind === 'auto'
           ? classifyPrequalificationDocument({ profile: economic.profile, fileName: file.name, extractedText, targetCuit: props.requestData.cuit, usedKinds })
@@ -247,7 +255,13 @@ export function PrequalificationStages(props: Props) {
         const uploadResponse = await fetch('/api/prequalification/document', { method: 'POST', headers: { Authorization: `Bearer ${props.session.access_token}` }, body: upload });
         const uploadData = await uploadResponse.json();
         if (!uploadResponse.ok) throw new Error(uploadData.error || 'No se pudo guardar el documento.');
-        added.push({ id: crypto.randomUUID(), stage: documentStage, kind: resolvedKind, name: file.name, size: file.size, extractedText, storagePath: uploadData.storagePath, status: admission.action === 'review' ? 'needs-review' : extractedText ? 'read' : 'uploaded' });
+        added.push({
+          id: crypto.randomUUID(), stage: documentStage, kind: resolvedKind, name: file.name, size: file.size,
+          pages: extractedPages, extractionConfidence, extractedText, storagePath: uploadData.storagePath,
+          status: admission.action === 'review' || (extractedText && extractionConfidence < 55)
+            ? 'needs-review'
+            : extractedText ? 'read' : 'uploaded',
+        });
       }
       setDocuments((current) => {
         const updated = [...current];
@@ -302,7 +316,11 @@ export function PrequalificationStages(props: Props) {
         .filter(document => economic.profile === 'legal-entity'
           && (document.kind === 'balance-1' || document.kind === 'balance-2')
           && Boolean(document.extractedText))
-        .map(document => extractBalanceData(`${document.extractedText || ''}\n${document.kind === 'balance-1' ? balanceNotesText : ''}`))
+        .map(document => {
+          const extracted = extractBalanceData(`${document.extractedText || ''}\n${document.kind === 'balance-1' ? balanceNotesText : ''}`);
+          extracted.extractionConfidence = Math.round(Math.min(extracted.extractionConfidence, document.extractionConfidence ?? 100));
+          return extracted;
+        })
         .sort((left, right) => balanceDateValue(right.closingDate) - balanceDateValue(left.closingDate));
       const latestBalance = extractedBalances[0];
       const priorBalance = extractedBalances[1];
@@ -548,6 +566,7 @@ export function PrequalificationStages(props: Props) {
         {previewAssessment.corporateFinancials && <div className="prequalRegulatory">
           <h3>Indicadores del último balance</h3>
           <p>Sector interpretado: <b>{previewAssessment.corporateFinancials.sectorLabel}</b></p>
+          <p>Confianza de lectura del balance: <b>{balance ? `${Math.round(balance.extractionConfidence)}%` : 'Sin balance'}</b>{balance?.missingFields.length ? ` · Rubros centrales pendientes: ${balance.missingFields.join(', ')}` : ' · Rubros centrales completos'}</p>
           <p>Calificación financiera: <b>{previewAssessment.corporateFinancials.score == null ? 'Datos insuficientes' : `${previewAssessment.corporateFinancials.score}/100`}</b></p>
           <p>Cobertura de compromisos mensuales: <b>{previewAssessment.totalCommitmentCoverage?.toFixed(2) ?? 'No calculable'} veces</b> · Monto solicitado / ventas anuales: <b>{previewAssessment.requestedFinancingToSales == null ? 'No calculable' : `${(previewAssessment.requestedFinancingToSales * 100).toFixed(1)}%`}</b> · Monto solicitado / activo: <b>{previewAssessment.requestedFinancingToAssets == null ? 'No calculable' : `${(previewAssessment.requestedFinancingToAssets * 100).toFixed(1)}%`}</b></p>
           <p>Liquidez corriente: <b>{previewAssessment.corporateFinancials.currentRatio?.toFixed(2) ?? 'No calculable'}</b> · Capital de trabajo: <b>{previewAssessment.corporateFinancials.workingCapital == null ? 'No calculable' : pesos.format(previewAssessment.corporateFinancials.workingCapital)}</b></p>

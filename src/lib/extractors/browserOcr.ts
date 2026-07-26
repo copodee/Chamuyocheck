@@ -19,7 +19,7 @@ export async function extractImageTextInBrowser(file: File): Promise<BrowserOcrR
     const operation = (async () => {
       worker = await createWorker('spa', OEM.LSTM_ONLY);
       await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO, preserve_interword_spaces: '1' });
-      return worker.recognize(file);
+      return worker.recognize(file, { rotateAuto: true });
     })();
     const result = await Promise.race([
       operation,
