@@ -46,20 +46,22 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
   {
     jurisdiction: 'Ciudad Autónoma de Buenos Aires', fiscalYear: 2026, status: 'verified-current',
     stampRatePercent: 0.5,
-    treatment: 'AGIP informa una alícuota de Sellos del 0,50% para contratos de leasing. El Valor Locativo de Referencia de alquileres comerciales no se aplica a leasing.',
+    grossIncomeRatePercent: 8,
+    treatment: 'AGIP informa una alícuota de Sellos del 0,50% para contratos de leasing. La Ley Impositiva CABA 2026 asigna el 8% de Ingresos Brutos a la actividad 649100, arrendamiento financiero/leasing. El Valor Locativo de Referencia de alquileres comerciales no se aplica a leasing.',
     exemptions: [
       'No se encontró una exención general por el solo hecho de ser leasing; deben revisarse las exenciones del acto, bien y sujeto concretos.',
       'Código Fiscal CABA 2026, art. 319(a): un acto instrumentado en CABA no tributa Sellos allí cuando los bienes objeto de la transacción están radicados o situados fuera de CABA. Esto debe cruzarse con la territorialidad de la provincia donde el contrato produce efectos.',
       'Ley CABA 6.926, art. 1 inciso 37: desde 2026 el art. 422 considera radicado fiscalmente en CABA al vehículo en leasing cuando el tomador está domiciliado allí o cuando el vehículo tiene guarda habitual, uso o explotación en CABA. El domicilio del dador fue eliminado de esta regla. El Digesto DNRPA permite acreditar la guarda con documentos extendidos a nombre del tomador.',
     ],
     sourceUrl: 'https://imagenes.agip.gob.ar/impuestos/sellos',
-    sourceUrls: ['https://imagenes.agip.gob.ar/impuestos/sellos', 'https://documentosboletinoficial.buenosaires.gob.ar/publico/ck_PL-LEY-LCABA-LCBA-6926-25-7269.pdf', 'https://www.dnrpa.gov.ar/concursos_publicos/Digesto12-06-2023/Titulo1.pdf'], verifiedAt: '2026-07-18',
+    sourceUrls: ['https://imagenes.agip.gob.ar/impuestos/sellos', 'https://documentosboletinoficial.buenosaires.gob.ar/publico/PL-FEERR-LCABA-LCABA-6927-25-ANX.pdf', 'https://documentosboletinoficial.buenosaires.gob.ar/publico/ck_PL-LEY-LCABA-LCBA-6926-25-7269.pdf', 'https://www.dnrpa.gov.ar/concursos_publicos/Digesto12-06-2023/Titulo1.pdf'], verifiedAt: '2026-07-26',
   },
   {
     jurisdiction: 'Buenos Aires', fiscalYear: 2026, status: 'verified-current',
     stampRatePercent: 1.05,
+    grossIncomeRatePercent: 9,
     stampRateCondition: 'Alícuota especial para leasing registrado en entidades autorizadas; otros encuadres requieren determinar la tasa aplicable.',
-    treatment: 'La base especial es el total de cánones. Si se ejerce la opción, la transferencia toma el mayor entre el valor total asignado (cánones más opción) y la valuación fiscal, con crédito por Sellos pagado sobre los cánones. La Ley Impositiva fija 10,5‰ para leasing registrado en entidades autorizadas; otros encuadres requieren determinar la alícuota aplicable.',
+    treatment: 'La base especial de Sellos es el total de cánones. Si se ejerce la opción, la transferencia toma el mayor entre el valor total asignado (cánones más opción) y la valuación fiscal, con crédito por Sellos pagado sobre los cánones. La Ley Impositiva fija 10,5‰ para leasing registrado en entidades autorizadas y asigna el 9% de Ingresos Brutos a la actividad 6491, arrendamiento financiero/leasing.',
     exemptions: [
       'ARBA informa que PBA alcanza los instrumentos celebrados en la Provincia y/o que causen efectos en ella. Un contrato firmado en CABA para un bien usado o radicado en PBA requiere liquidar la territorialidad bonaerense y no asumir que el pago en CABA lo sustituye.',
       'Tasa 0% para la venta de determinados vehículos nuevos destinados a leasing, sujeta a las categorías y condiciones de la Ley Impositiva 2026.',
@@ -67,7 +69,7 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
       'La antigua bonificación automotor del 20% por leasing no debe presentarse como beneficio vigente general en 2026.',
     ],
     sourceUrl: 'https://www.arba.gov.ar/archivos/Publicaciones/leyimpositiva2026.pdf',
-    sourceUrls: ['https://www.arba.gov.ar/archivos/Publicaciones/leyimpositiva2026.pdf', 'https://web.arba.gov.ar/preguntas-frecuentes/que-grava-el-impuesto-de-sellos'], verifiedAt: '2026-07-18',
+    sourceUrls: ['https://www.arba.gov.ar/archivos/Publicaciones/leyimpositiva2026.pdf', 'https://web.arba.gov.ar/preguntas-frecuentes/que-es-la-base-imponible-donde-se-puede-consultar-la-alicuota-aplicar-para-el', 'https://web.arba.gov.ar/preguntas-frecuentes/que-grava-el-impuesto-de-sellos'], verifiedAt: '2026-07-26',
   },
   {
     jurisdiction: 'Córdoba', fiscalYear: 2026, status: 'verified-current',

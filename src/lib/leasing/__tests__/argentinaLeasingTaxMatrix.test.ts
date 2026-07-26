@@ -15,6 +15,8 @@ test('keeps verified local leasing treatments distinct', () => {
   assert.ok(verified.length >= 18);
   assert.match(verified.find((item) => item.jurisdiction === 'Ciudad Autónoma de Buenos Aires')?.treatment || '', /0,50%/);
   assert.match(verified.find((item) => item.jurisdiction === 'Buenos Aires')?.treatment || '', /10,5‰/);
+  assert.equal(verified.find((item) => item.jurisdiction === 'Ciudad Autónoma de Buenos Aires')?.grossIncomeRatePercent, 8);
+  assert.equal(verified.find((item) => item.jurisdiction === 'Buenos Aires')?.grossIncomeRatePercent, 9);
   assert.match(verified.find((item) => item.jurisdiction === 'Córdoba')?.treatment || '', /exime/);
   assert.match(verified.find((item) => item.jurisdiction === 'Entre Ríos')?.treatment || '', /pago a cuenta/);
   assert.match(verified.find((item) => item.jurisdiction === 'Santa Fe')?.treatment || '', /25%/);
