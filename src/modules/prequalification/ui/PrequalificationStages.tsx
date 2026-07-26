@@ -37,6 +37,21 @@ const profiles: Array<[EconomicProfile, string]> = [
   ['responsable-inscripto', 'Responsable inscripto'],
   ['legal-entity', 'Persona jurídica'],
 ];
+const productiveSectors = [
+  'Agropecuario y ganadero',
+  'Industria manufacturera',
+  'Construcción',
+  'Comercio y distribución',
+  'Transporte y logística',
+  'Servicios profesionales',
+  'Tecnología y software',
+  'Actividad inmobiliaria y desarrollos',
+  'Salud y educación',
+  'Hotelería, gastronomía y turismo',
+  'Energía, petróleo, gas y minería',
+  'Otros servicios',
+] as const;
+const isListedSector = (value: string) => productiveSectors.some(sector => sector === value);
 const argentinaJurisdictions = [
   'Ciudad Autónoma de Buenos Aires',
   'Buenos Aires',
@@ -596,7 +611,23 @@ export function PrequalificationStages(props: Props) {
         </label>
         <label>Correo<input type="email" value={contact.email} onChange={e => setContact({ ...contact, email: e.target.value })} /></label>
         <label>Celular<input value={contact.mobile} onChange={e => setContact({ ...contact, mobile: e.target.value })} /></label>
-        <label>Actividad<input value={economic.activity} onChange={e => setEconomic({ ...economic, activity: e.target.value })} /></label>
+        <label>Sector
+          <select
+            value={!economic.activity ? '' : isListedSector(economic.activity) ? economic.activity : 'Otro'}
+            onChange={e => setEconomic({ ...economic, activity: e.target.value === 'Otro' ? 'Otro' : e.target.value })}
+          >
+            <option value="" disabled>Seleccioná un sector</option>
+            {productiveSectors.map(sector => <option key={sector} value={sector}>{sector}</option>)}
+            <option value="Otro">Otro</option>
+          </select>
+          {economic.activity && !isListedSector(economic.activity) && <input
+            aria-label="Otro sector"
+            placeholder="Escribí el sector"
+            value={economic.activity === 'Otro' ? '' : economic.activity}
+            onChange={e => setEconomic({ ...economic, activity: e.target.value || 'Otro' })}
+          />}
+          <small>El sector declarado se utilizará para contextualizar el análisis cuando la documentación no permita identificarlo.</small>
+        </label>
         <label>{economic.profile === 'legal-entity' ? 'Antigüedad societaria (meses)' : 'Antigüedad (meses)'}
           <input type="text" inputMode="numeric" value={economic.activitySeniorityMonths || ''} onChange={e => setEconomic({ ...economic, activitySeniorityMonths: Number(e.target.value.replace(/\D/g, '')) })} />
           {economic.profile === 'legal-entity' && <small>{constitutionDate ? `Calculada desde la fecha de constitución extraída del estatuto: ${constitutionDate}.` : 'Se calculará automáticamente si el estatuto o contrato social contiene una fecha de constitución legible.'}</small>}
@@ -761,7 +792,6 @@ export function PrequalificationStages(props: Props) {
         </div>}
         {previewAssessment.corporateFinancials && <div className="prequalRegulatory">
           <h3>Indicadores del último balance</h3>
-          <p>Sector interpretado: <b>{previewAssessment.corporateFinancials.sectorLabel}</b></p>
           <p>Confianza de lectura del balance: <b>{balance ? `${Math.round(balance.extractionConfidence)}%` : 'Sin balance'}</b>{balance?.missingFields.length ? ` · Rubros centrales pendientes: ${balance.missingFields.join(', ')}` : ' · Rubros centrales completos'}</p>
           {balance && <p>Período identificado: <b>{balance.statementKind === 'interim' ? `intermedio de ${balance.periodMonths || '?'} meses` : balance.statementKind === 'annual' ? 'anual' : 'sin determinar'}</b>{balance.currencyBasis === 'homogeneous' ? ' · moneda homogénea' : ''}{balance.amountScale === 1000 ? ' · importes publicados en miles' : balance.amountScale === 1000000 ? ' · importes publicados en millones' : ''}{balance.statementScope && balance.statementScope !== 'unknown' ? ` · ${balance.statementScope === 'consolidated' ? 'consolidado' : balance.statementScope === 'separate' ? 'separado' : 'individual'}` : ''}{balance.assuranceLevel === 'limited-review' ? ' · revisión limitada' : balance.assuranceLevel === 'audit' ? ' · auditado' : ''}. Los saldos patrimoniales corresponden al cierre; sólo los flujos intermedios se anualizan para ratios comparables.</p>}
           <p>Calificación financiera: <b>{previewAssessment.corporateFinancials.score == null ? 'Datos insuficientes' : `${previewAssessment.corporateFinancials.score}/100`}</b></p>

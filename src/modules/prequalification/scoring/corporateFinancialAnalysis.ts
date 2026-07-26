@@ -5,9 +5,10 @@ const ratio = (numerator: number | null | undefined, denominator: number | null 
   numerator != null && denominator != null && denominator !== 0 ? numerator / denominator : null;
 
 export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?: ExtractedBalance, declaredActivity = ''): CorporateFinancialAssessment {
-  const sector = classifyCorporateSector(declaredActivity || balance?.activity || '');
+  const hasDeclaredSector = declaredActivity.trim().length > 0 && declaredActivity.trim().toLowerCase() !== 'otro';
+  const sector = classifyCorporateSector(hasDeclaredSector ? declaredActivity : balance?.activity || declaredActivity);
   const identifiedSectorLabel = sectorLabel(sector);
-  const contextualObservations = sectorObservations(sector);
+  const contextualObservations = sector === 'other' && hasDeclaredSector ? [] : sectorObservations(sector);
   if (!balance) {
     return {
       sector, sectorLabel: identifiedSectorLabel, sectorObservations: contextualObservations,

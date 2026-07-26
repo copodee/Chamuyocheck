@@ -18,13 +18,14 @@ export function classifyCorporateSector(activity: string): CorporateSector {
   const value = normalized(activity);
   if (/(ganader|agric|agro|cultivo|cria|tambo|forest|pesca)/.test(value)) return 'agriculture-livestock';
   if (/(industr|fabric|manufact|elaboracion|produccion de)/.test(value)) return 'manufacturing';
-  if (/(constru|obra|desarrolladora|contratista)/.test(value)) return 'construction';
+  if (/(constru|obra|contratista)/.test(value)) return 'construction';
   if (/(comerc|venta|distribu|mayorista|minorista|retail)/.test(value)) return 'commerce';
   if (/(transport|logistic|flete|deposito|almacenamiento|movimiento de (?:materias|cargas))/.test(value)) return 'transport-logistics';
   if (/(software|tecnolog|informat|plataforma digital|sistemas)/.test(value)) return 'technology';
-  if (/(inmobili|alquiler|propiedad|real estate)/.test(value)) return 'real-estate';
+  if (/(inmobili|alquiler|propiedad|real estate|desarrollador|desarrollo urbano)/.test(value)) return 'real-estate';
   if (/(salud|medic|clinica|sanatorio|educa|ensenanza|colegio)/.test(value)) return 'health-education';
   if (/(hotel|gastronom|restaurant|turis)/.test(value)) return 'hospitality';
+  if (/(energia|petrole|gas|mineria|minera)/.test(value)) return 'manufacturing';
   if (/(servicio|consult|profesional|asesor|estudio)/.test(value)) return 'professional-services';
   return 'other';
 }
