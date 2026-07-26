@@ -46,7 +46,7 @@ export default function PrequalificationPage() {
     cuit: '',
     clientType: 'persona-juridica',
     assetValue: '',
-    advance: '',
+    advancePercent: '0',
     termMonths: '36',
     assetType: 'automotor-0km',
   });
@@ -83,7 +83,8 @@ export default function PrequalificationPage() {
     event.preventDefault();
     if (!session) return;
     const assetValue = Number(form.assetValue);
-    const advance = Number(form.advance || 0);
+    const advancePercent = Number(form.advancePercent || 0);
+    const advance = Math.round(assetValue * advancePercent / 100);
     if (!(assetValue > 0)) {
       setError('Ingresá un valor del bien mayor a cero.');
       return;
@@ -180,7 +181,15 @@ export default function PrequalificationPage() {
         <label>CUIT/CUIL<input required inputMode="numeric" placeholder="30-12345678-9" value={form.cuit} onChange={(e) => updateForm({ cuit: e.target.value })} /></label>
         <label>Tipo de cliente<select value={form.clientType} onChange={(e) => updateForm({ clientType: e.target.value })}><option value="persona-juridica">Persona Jurídica</option><option value="persona-humana">Persona Humana</option></select></label>
         <label>Valor del bien<input required type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" value={form.assetValue} onChange={(e) => updateForm({ assetValue: moneyDigits(e.target.value) })} /><small>{form.assetValue ? money.format(Number(form.assetValue)) : 'Ingresá el importe sin puntos ni comas.'}</small></label>
-        <label>Anticipo disponible (opcional)<input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" value={form.advance} onChange={(e) => updateForm({ advance: moneyDigits(e.target.value) })} /><small>{form.advance ? money.format(Number(form.advance)) : 'Podés dejarlo vacío si no hay anticipo.'}</small></label>
+        <label>Anticipo disponible (opcional)
+          <select value={form.advancePercent} onChange={(e) => updateForm({ advancePercent: e.target.value })}>
+            <option value="0">Sin anticipo</option>
+            {[10, 15, 20, 25, 30, 35, 40, 45, 50].map((value) => <option key={value} value={value}>{value}%</option>)}
+          </select>
+          <small>{Number(form.advancePercent) > 0 && Number(form.assetValue) > 0
+            ? `${money.format(Math.round(Number(form.assetValue) * Number(form.advancePercent) / 100))} de anticipo · ${money.format(Math.round(Number(form.assetValue) * (100 - Number(form.advancePercent)) / 100))} por financiar`
+            : 'Seleccioná un porcentaje entre 10% y 50%, o continuá sin anticipo.'}</small>
+        </label>
         <label>Plazo deseado<select value={form.termMonths} onChange={(e) => updateForm({ termMonths: e.target.value })}>{[12, 18, 24, 36, 48, 60, 72, 84].map((value) => <option key={value} value={value}>{value} meses</option>)}</select></label>
         <label>Tipo de bien<select value={form.assetType} onChange={(e) => updateForm({ assetType: e.target.value })}><option value="automotor-0km">Automotor 0 km</option><option value="automotor-usado">Automotor usado / rodado</option><option value="maquinaria">Maquinaria</option><option value="equipo">Equipo</option><option value="inmueble">Inmueble</option><option value="otro">Otro</option></select></label>
       </div>
@@ -224,7 +233,7 @@ export default function PrequalificationPage() {
         cuit: form.cuit,
         clientType: form.clientType,
         assetValue: Number(form.assetValue),
-        advance: Number(form.advance || 0),
+        advance: Math.round(Number(form.assetValue) * Number(form.advancePercent || 0) / 100),
         termMonths: Number(form.termMonths),
         assetType: form.assetType,
       }}
