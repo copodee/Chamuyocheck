@@ -1,11 +1,16 @@
 import type { CorporateEvolutionAssessment, CorporateFinancialAssessment, ExtractedBalance } from '../domain/dossier';
+import { classifyCorporateSector, quickRatioThresholds, sectorLabel, sectorObservations } from './sectorAnalysis';
 
 const ratio = (numerator: number | null | undefined, denominator: number | null | undefined) =>
   numerator != null && denominator != null && denominator !== 0 ? numerator / denominator : null;
 
-export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?: ExtractedBalance): CorporateFinancialAssessment {
+export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?: ExtractedBalance, declaredActivity = ''): CorporateFinancialAssessment {
+  const sector = classifyCorporateSector(declaredActivity || balance?.activity || '');
+  const identifiedSectorLabel = sectorLabel(sector);
+  const contextualObservations = sectorObservations(sector);
   if (!balance) {
     return {
+      sector, sectorLabel: identifiedSectorLabel, sectorObservations: contextualObservations,
       workingCapital: null, currentRatio: null, quickRatio: null, cashRatio: null, debtToEquity: null,
       liabilitiesToEquity: null, netMargin: null, grossMargin: null, operatingMargin: null,
       returnOnAssets: null, returnOnEquity: null, financialDebtToSales: null,
@@ -51,6 +56,7 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
   const interestCoverage = ratio(balance.operatingProfit, balance.interestExpense == null ? null : Math.abs(balance.interestExpense));
 
   const observations: string[] = [];
+  const quickThresholds = quickRatioThresholds(sector);
   const accountingEquationDifference = totalAssets != null && totalLiabilities != null && balance.equity != null
     ? Math.abs(totalAssets - totalLiabilities - balance.equity) / Math.max(1, Math.abs(totalAssets))
     : null;
@@ -80,7 +86,7 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
     else observations.push(weak);
   };
   grade(currentRatio, value => value >= 1.2, value => value >= 1, 'La liquidez corriente es inferior a 1.');
-  grade(quickRatio, value => value >= 1, value => value >= 0.7, 'La liquidez ácida es reducida frente al pasivo corriente.');
+  grade(quickRatio, value => value >= quickThresholds.good, value => value >= quickThresholds.warning, 'La liquidez ácida es reducida frente al pasivo corriente para la actividad informada.');
   grade(workingCapital, value => value > 0, value => value === 0, 'El capital de trabajo es negativo.');
   grade(liabilitiesToEquity, value => value <= 1.5, value => value <= 2.5, 'El pasivo total es elevado respecto del patrimonio neto.');
   grade(netMargin, value => value > 0.05, value => value >= 0, 'El ejercicio presenta margen neto negativo.');
@@ -97,6 +103,7 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
         : score >= 40 ? 'review'
           : 'weak';
   return {
+    sector, sectorLabel: identifiedSectorLabel, sectorObservations: contextualObservations,
     workingCapital, currentRatio, quickRatio, cashRatio, debtToEquity, liabilitiesToEquity,
     netMargin, grossMargin, operatingMargin, returnOnAssets, returnOnEquity, financialDebtToSales,
     assetTurnover, inventoryTurnover, receivablesTurnover, interestCoverage,

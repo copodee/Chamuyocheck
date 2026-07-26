@@ -311,6 +311,7 @@ export function PrequalificationStages(props: Props) {
         setBalance(extractedBalance);
         setEconomic(current => ({
           ...current,
+          activity: current.activity || extractedBalance.activity || '',
           computableNetWorth: current.computableNetWorth || extractedBalance.equity || 0,
           existingComputableFinancing: current.existingComputableFinancing || extractedBalance.financialDebt || 0,
         }));
@@ -546,6 +547,7 @@ export function PrequalificationStages(props: Props) {
         </div>}
         {previewAssessment.corporateFinancials && <div className="prequalRegulatory">
           <h3>Indicadores del último balance</h3>
+          <p>Sector interpretado: <b>{previewAssessment.corporateFinancials.sectorLabel}</b></p>
           <p>Calificación financiera: <b>{previewAssessment.corporateFinancials.score == null ? 'Datos insuficientes' : `${previewAssessment.corporateFinancials.score}/100`}</b></p>
           <p>Cobertura de compromisos mensuales: <b>{previewAssessment.totalCommitmentCoverage?.toFixed(2) ?? 'No calculable'} veces</b> · Monto solicitado / ventas anuales: <b>{previewAssessment.requestedFinancingToSales == null ? 'No calculable' : `${(previewAssessment.requestedFinancingToSales * 100).toFixed(1)}%`}</b> · Monto solicitado / activo: <b>{previewAssessment.requestedFinancingToAssets == null ? 'No calculable' : `${(previewAssessment.requestedFinancingToAssets * 100).toFixed(1)}%`}</b></p>
           <p>Liquidez corriente: <b>{previewAssessment.corporateFinancials.currentRatio?.toFixed(2) ?? 'No calculable'}</b> · Capital de trabajo: <b>{previewAssessment.corporateFinancials.workingCapital == null ? 'No calculable' : pesos.format(previewAssessment.corporateFinancials.workingCapital)}</b></p>
@@ -555,6 +557,7 @@ export function PrequalificationStages(props: Props) {
           <p>ROA: <b>{previewAssessment.corporateFinancials.returnOnAssets == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.returnOnAssets * 100).toFixed(1)}%`}</b> · ROE: <b>{previewAssessment.corporateFinancials.returnOnEquity == null ? 'No calculable' : `${(previewAssessment.corporateFinancials.returnOnEquity * 100).toFixed(1)}%`}</b></p>
           <p>Rotación de activos: <b>{previewAssessment.corporateFinancials.assetTurnover?.toFixed(2) ?? 'No calculable'}</b> · Inventarios: <b>{previewAssessment.corporateFinancials.inventoryTurnover?.toFixed(2) ?? 'No calculable'}</b> · Créditos por ventas: <b>{previewAssessment.corporateFinancials.receivablesTurnover?.toFixed(2) ?? 'No calculable'}</b></p>
           {previewAssessment.corporateFinancials.observations.map(observation => <small key={observation}>{observation}</small>)}
+          {previewAssessment.corporateFinancials.sectorObservations.map(observation => <small key={observation}>{observation}</small>)}
         </div>}
         {previewAssessment.corporateEvolution && <div className="prequalRegulatory">
           <h3>Evolución entre balances</h3>

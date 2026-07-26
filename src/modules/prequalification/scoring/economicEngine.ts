@@ -73,7 +73,7 @@ export function evaluateEconomicCapacity(
   const conditions: string[] = [];
   let normalizedMonthlyIncome: number | null = null;
   const regulatoryExposure = evaluateRegulatoryExposure(inputs, balance);
-  const corporateFinancials = inputs.profile === 'legal-entity' ? analyzeCorporateFinancials(balance, previousBalance) : undefined;
+  const corporateFinancials = inputs.profile === 'legal-entity' ? analyzeCorporateFinancials(balance, previousBalance, inputs.activity) : undefined;
   const corporateEvolution = inputs.profile === 'legal-entity' ? analyzeCorporateEvolution(balance, previousBalance) : undefined;
 
   if (inputs.profile === 'employee') {

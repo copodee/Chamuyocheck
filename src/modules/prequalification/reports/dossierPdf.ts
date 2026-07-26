@@ -87,6 +87,7 @@ export async function buildDossierPdf(data: PdfData) {
     if (data.economic?.corporateFinancials) {
       const corporate = data.economic.corporateFinancials;
       section('Indicadores del último balance');
+      row('Sector interpretado', corporate.sectorLabel);
       row('Calificación financiera', corporate.score == null ? 'Datos insuficientes' : `${corporate.score}/100`);
       row('Cobertura de compromisos', data.economic.totalCommitmentCoverage == null ? 'No calculable' : `${data.economic.totalCommitmentCoverage.toFixed(2)} veces`);
       row('Monto solicitado / ventas', data.economic.requestedFinancingToSales == null ? 'No calculable' : `${(data.economic.requestedFinancingToSales * 100).toFixed(1)}%`);

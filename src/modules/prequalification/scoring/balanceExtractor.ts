@@ -51,6 +51,7 @@ export function extractBalanceData(text: string): ExtractedBalance {
     ? `${verbalClosingDate[1].padStart(2, '0')}/${String(month).padStart(2, '0')}/${verbalClosingDate[3]}`
     : null);
   const result: ExtractedBalance = {
+    activity: compact.match(/actividad principal\s*:\s*([^$]{3,100}?)(?=\s+(?:CUIT|domicilio|fecha|duraci[oó]n|$))/i)?.[1]?.trim() || null,
     closingDate,
     currentAssets: findAmount(compact, ['activo corriente']),
     nonCurrentAssets: findAmount(compact, ['activo no corriente']),

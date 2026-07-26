@@ -2,6 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeCorporateEvolution, analyzeCorporateFinancials } from '../scoring/corporateFinancialAnalysis';
 
+const sectorBase = {
+  closingDate: '31/12/2025', currentAssets: 300, nonCurrentAssets: 700,
+  currentLiabilities: 200, nonCurrentLiabilities: 200, equity: 600,
+  sales: 1_200, grossProfit: 400, operatingProfit: 180, netProfit: 120,
+  financialDebt: 100, cash: 80, extractionConfidence: 100, missingFields: [],
+};
+
 test('calcula liquidez, capital de trabajo, endeudamiento y rentabilidad empresarial', () => {
   const result = analyzeCorporateFinancials({
     closingDate: '30/06/2025',
@@ -87,4 +94,27 @@ test('envía a revisión una extracción que no concilia contablemente', () => {
   assert.ok((result.score ?? 100) <= 50);
   assert.equal(result.status, 'review');
   assert.ok(result.observations.some(item => item.includes('no concilian')));
+});
+
+test('interpreta la liquidez de una ganadera según su ciclo productivo', () => {
+  const balance = {
+    ...sectorBase,
+    activity: 'Ganadería de cría',
+    currentAssets: 1_500_000_000,
+    inventory: 1_300_000_000,
+    currentLiabilities: 400_000_000,
+    totalAssets: 1_900_000_000,
+    totalLiabilities: 500_000_000,
+    equity: 1_400_000_000,
+  };
+  const result = analyzeCorporateFinancials(balance);
+  assert.equal(result.sector, 'agriculture-livestock');
+  assert.equal(result.sectorLabel, 'Agropecuario y ganadero');
+  assert.ok(result.sectorObservations.some(item => item.includes('ciclo productivo')));
+});
+
+test('no interpreta la falta de inventarios como debilidad de una empresa de servicios', () => {
+  const result = analyzeCorporateFinancials({ ...sectorBase, inventory: 0 }, undefined, 'Servicios profesionales de consultoría');
+  assert.equal(result.sector, 'professional-services');
+  assert.ok(result.sectorObservations.some(item => item.includes('ausencia de inventarios no es una debilidad')));
 });

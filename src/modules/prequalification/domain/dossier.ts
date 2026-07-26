@@ -56,6 +56,7 @@ export type RegulatoryExposureAssessment = {
 };
 
 export type ExtractedBalance = {
+  activity?: string | null;
   closingDate: string | null;
   currentAssets: number | null;
   nonCurrentAssets: number | null;
@@ -81,6 +82,9 @@ export type ExtractedBalance = {
 };
 
 export type CorporateFinancialAssessment = {
+  sector: string;
+  sectorLabel: string;
+  sectorObservations: string[];
   workingCapital: number | null;
   currentRatio: number | null;
   quickRatio: number | null;
