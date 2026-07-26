@@ -80,7 +80,7 @@ export function classifyPrequalificationDocument(input: {
   }
   if (input.profile === 'monotributista') {
     if (has('constancia de opcion', 'categoria actual', 'monotributo')) return { action: 'accept', kind: 'monotributo-proof', stage: 2, confidence: 'medium', reason: 'Constancia de monotributo detectada.' };
-    if (has('factura c', 'comprobante', 'punto de venta', 'cae')) return { action: 'accept', kind: nextAvailable('monotributo-invoices', 6, input.usedKinds), stage: 2, confidence: 'medium', reason: 'Factura de monotributista detectada.' };
+    if (has('factura c', 'comprobante', 'punto de venta', 'cae')) return { action: 'accept', kind: 'monotributo-invoices-auto', stage: 2, confidence: 'medium', reason: 'Factura de monotributista detectada y asignada automáticamente por período.' };
     if (has('manifestacion de bienes', 'bienes personales')) return { action: 'accept', kind: 'asset-statement', stage: 2, confidence: 'high', reason: 'Manifestación patrimonial detectada.' };
   }
   if (input.profile === 'employee') {

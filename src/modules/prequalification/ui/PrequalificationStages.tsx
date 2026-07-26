@@ -10,7 +10,7 @@ import { classifyPrequalificationDocument } from '../scoring/documentClassifier'
 import { latestSixMonthlySales } from '../scoring/fiscalDocumentExtractor';
 import { extractFinancialDebt, type ExtractedFinancialDebt } from '../scoring/financialDebtExtractor';
 import { reconcileFinancialDebt } from '../scoring/debtReconciliation';
-import { extractInvoiceTotal, extractSalaryNetAmount } from '../scoring/incomeDocumentExtractor';
+import { analyzeInvoiceIncome, extractInvoiceTotal, extractSalaryNetAmount, type InvoiceIncomeAnalysis } from '../scoring/incomeDocumentExtractor';
 import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicAssessment, EconomicInputs, EconomicProfile, ExtractedBalance } from '../domain/dossier';
 import type { PrequalificationResult } from '../domain/types';
 
@@ -143,6 +143,7 @@ export function PrequalificationStages(props: Props) {
   const [balance, setBalance] = useState<ExtractedBalance>();
   const [previousBalance, setPreviousBalance] = useState<ExtractedBalance>();
   const [debtExtraction, setDebtExtraction] = useState<ExtractedFinancialDebt>();
+  const [invoiceIncomeAnalysis, setInvoiceIncomeAnalysis] = useState<InvoiceIncomeAnalysis>();
   const [usdDebtExchangeRate, setUsdDebtExchangeRate] = useState(0);
   const [constitutionDate, setConstitutionDate] = useState<string>();
   const [assessment, setAssessment] = useState<EconomicAssessment>();
@@ -319,11 +320,18 @@ export function PrequalificationStages(props: Props) {
       );
       const primaryMonotributoSales = invoiceMonths('monotributo-invoices');
       const additionalMonotributoSales = invoiceMonths('additional-monotributo-invoices');
+      const primaryInvoiceAnalysis = analyzeInvoiceIncome(combinedDocuments
+        .filter(document => document.kind.startsWith('monotributo-invoices'))
+        .map(document => document.extractedText || ''));
+      if (primaryInvoiceAnalysis.invoices.length) setInvoiceIncomeAnalysis(primaryInvoiceAnalysis);
       setEconomic(current => ({
         ...current,
         employeeNetIncome: primarySalary || current.employeeNetIncome,
         additionalEmploymentNetIncome: additionalSalary || current.additionalEmploymentNetIncome,
         monthlySales: primaryMonotributoSales.some(Boolean) ? primaryMonotributoSales : current.monthlySales,
+        declaredMonthlyNetIncome: current.declaredMonthlyNetIncome
+          || primaryInvoiceAnalysis.averageMonthlyIncome
+          || 0,
         additionalMonotributoNetIncome: additionalMonotributoSales.some(Boolean)
           ? averageExtracted(additionalMonotributoSales)
           : current.additionalMonotributoNetIncome,
@@ -481,7 +489,15 @@ export function PrequalificationStages(props: Props) {
         {economic.profile === 'employee'
           ? <label>Ingreso neto mensual declarado<input type="text" inputMode="numeric" value={economic.employeeNetIncome || ''} onChange={e => setEconomic({ ...economic, employeeNetIncome: Number(e.target.value.replace(/\D/g, '')) })} /><small>Podés informarlo ahora y adjuntar recibos voluntariamente.</small></label>
           : economic.profile === 'monotributista'
-            ? <><label>Ingreso mensual neto declarado<input type="text" inputMode="numeric" value={economic.declaredMonthlyNetIncome || ''} onChange={e => setEconomic({ ...economic, declaredMonthlyNetIncome: Number(e.target.value.replace(/\D/g, '')) })} /><small>Se computará íntegramente. Las facturas son respaldo opcional y no alteran esta precalificación.</small></label>
+            ? <><label>Ingreso mensual neto declarado<input type="text" inputMode="numeric" value={economic.declaredMonthlyNetIncome || ''} onChange={e => setEconomic({ ...economic, declaredMonthlyNetIncome: Number(e.target.value.replace(/\D/g, '')) })} /><small>Podés declararlo o dejarlo vacío: si adjuntás facturas, LeasingScoring calculará el promedio mensual documentado. Cuando existan ambos datos mostrará su diferencia.</small></label>
+              {invoiceIncomeAnalysis && <div className="prequalCalculatedField">
+                <b>Ingresos identificados en las facturas</b>
+                {invoiceIncomeAnalysis.monthlyTotals.map(month => <span key={month.period}>{month.period}: $ {Math.round(month.total).toLocaleString('es-AR')} · {month.invoiceCount} comprobante(s)</span>)}
+                <span>Promedio documentado: <b>$ {Math.round(invoiceIncomeAnalysis.averageMonthlyIncome).toLocaleString('es-AR')}</b> sobre {invoiceIncomeAnalysis.observedMonths} mes(es).</span>
+                {economic.declaredMonthlyNetIncome > 0 && <span>Diferencia frente al ingreso informado: $ {Math.round(economic.declaredMonthlyNetIncome - invoiceIncomeAnalysis.averageMonthlyIncome).toLocaleString('es-AR')}.</span>}
+                {!!invoiceIncomeAnalysis.duplicateCount && <span>{invoiceIncomeAnalysis.duplicateCount} archivo(s) duplicado(s) fueron excluidos del cálculo.</span>}
+                {invoiceIncomeAnalysis.warnings.map(warning => <span key={warning}>{warning}</span>)}
+              </div>}
               <label>Tipo de actividad<select value={economic.activityCategory} onChange={e => setEconomic({ ...economic, activityCategory: e.target.value as EconomicInputs['activityCategory'] })}>
                 <option value="professional-services">Servicios profesionales</option>
                 <option value="other-services">Otros servicios</option>
