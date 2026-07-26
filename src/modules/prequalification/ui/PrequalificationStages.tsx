@@ -37,6 +37,32 @@ const profiles: Array<[EconomicProfile, string]> = [
   ['responsable-inscripto', 'Responsable inscripto'],
   ['legal-entity', 'Persona jurídica'],
 ];
+const argentinaJurisdictions = [
+  'Ciudad Autónoma de Buenos Aires',
+  'Buenos Aires',
+  'Catamarca',
+  'Chaco',
+  'Chubut',
+  'Córdoba',
+  'Corrientes',
+  'Entre Ríos',
+  'Formosa',
+  'Jujuy',
+  'La Pampa',
+  'La Rioja',
+  'Mendoza',
+  'Misiones',
+  'Neuquén',
+  'Río Negro',
+  'Salta',
+  'San Juan',
+  'San Luis',
+  'Santa Cruz',
+  'Santa Fe',
+  'Santiago del Estero',
+  'Tierra del Fuego',
+  'Tucumán',
+] as const;
 const decisions = [
   ['ready', 'Lista para enviar a análisis'],
   ['conditional', 'Avanzar con condiciones'],
@@ -478,7 +504,12 @@ export function PrequalificationStages(props: Props) {
         <label>Perfil<select value={economic.profile} onChange={e => setEconomic({ ...economic, profile: e.target.value as EconomicProfile })}>{profiles.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
         <label>Domicilio declarado<input value={contact.address} onChange={e => setContact({ ...contact, address: e.target.value })} /></label>
         <label>Localidad<input value={contact.city} onChange={e => setContact({ ...contact, city: e.target.value })} /></label>
-        <label>Provincia<input value={contact.province} onChange={e => setContact({ ...contact, province: e.target.value })} /></label>
+        <label>Provincia
+          <select value={contact.province} onChange={e => setContact({ ...contact, province: e.target.value })}>
+            <option value="" disabled>Seleccioná una provincia</option>
+            {argentinaJurisdictions.map(province => <option key={province} value={province}>{province}</option>)}
+          </select>
+        </label>
         <label>Correo<input type="email" value={contact.email} onChange={e => setContact({ ...contact, email: e.target.value })} /></label>
         <label>Celular<input value={contact.mobile} onChange={e => setContact({ ...contact, mobile: e.target.value })} /></label>
         <label>Actividad<input value={economic.activity} onChange={e => setEconomic({ ...economic, activity: e.target.value })} /></label>
