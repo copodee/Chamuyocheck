@@ -104,8 +104,8 @@ export async function buildDossierPdf(data: PdfData) {
     row('Relación compromisos / ingreso', data.economic?.installmentToIncomeRatio == null ? 'No estimable' : `${(data.economic.installmentToIncomeRatio * 100).toFixed(1)}%`);
     section('Síntesis del director de riesgos');
     row('Decisión económica preliminar', ({ compatible: 'Compatible', conditional: 'Compatible con condiciones', 'manual-review': 'Revisión manual', 'not-compatible': 'No compatible' } as Record<string, string>)[data.economic?.status] || data.economic?.status);
-    if (data.economic?.proposedAdvancePercent) {
-      row('Anticipo propuesto', `${data.economic.proposedAdvancePercent}% - ${money(data.economic.proposedAdvanceAmount)}`);
+    if (data.economic?.proposedAdvancePercent != null) {
+      row('Anticipo definitivo', `${data.economic.proposedAdvancePercent}% - ${money(data.economic.proposedAdvanceAmount)}`);
       row('Saldo a financiar', money(data.economic.requestedFinancing));
     }
     row('Comportamiento BCRA', data.stage1.currentSituation == null ? 'Sin datos actuales' : `Situación ${data.stage1.currentSituation}; máxima histórica ${data.stage1.maximumSituation ?? 'sin datos'}`);

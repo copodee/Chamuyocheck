@@ -199,12 +199,17 @@ export function PrequalificationStages(props: Props) {
     preferredChannel: 'email', dataConsent: false, contactConsent: false, accuracyDeclaration: false,
   });
   const defaultProfile: EconomicProfile = props.clientType === 'persona-juridica' ? 'legal-entity' : 'employee';
+  const initialAdvancePercent = props.requestData.assetValue > 0
+    ? Math.round(props.requestData.advance / props.requestData.assetValue * 100)
+    : 0;
   const [economic, setEconomic] = useState<EconomicInputs>({
     profile: defaultProfile, activity: '', activityCategory: 'other', activitySeniorityMonths: 0, declaredMonthlyDebtService: 0,
     proposedMonthlyCanon: 0, employeeNetIncome: 0, declaredMonthlyNetIncome: 0, hasEmploymentIncome: false,
     hasMonotributoIncome: false, additionalMonotributoNetIncome: 0,
     additionalEmploymentNetIncome: 0, monthlySales: [0, 0, 0, 0, 0, 0], declaredOperatingMargin: 0,
     requestedFinancing: Math.max(0, props.requestData.assetValue - props.requestData.advance),
+    proposedAdvancePercent: initialAdvancePercent,
+    proposedAdvanceAmount: props.requestData.advance,
     computableNetWorth: 0, existingComputableFinancing: 0, qualifyingGuarantee: 'none',
   });
   const [compliance, setCompliance] = useState<ComplianceDeclarations>({
@@ -730,14 +735,14 @@ export function PrequalificationStages(props: Props) {
           <label>Monto neto solicitado<input type="text" inputMode="numeric" value={economic.requestedFinancing || ''} onChange={e => setEconomic({ ...economic, requestedFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Valor del bien menos anticipo; modificable si la estructura propuesta es distinta.</small></label>
           <label>Garantía regulatoria elegible<select value={economic.qualifyingGuarantee} onChange={e => setEconomic({ ...economic, qualifyingGuarantee: e.target.value as EconomicInputs['qualifyingGuarantee'] })}><option value="none">Sin SGR/fondo público informado</option><option value="sgr-public-fund">SGR o fondo público elegible</option></select></label>
         </>}
-        <label>Anticipo propuesto
-          <select value={economic.proposedAdvancePercent || ''} onChange={e => applyAdvancePercent(Number(e.target.value))}>
-            <option value="" disabled>Seleccioná un porcentaje</option>
+        <label>Anticipo definitivo
+          <select value={economic.proposedAdvancePercent ?? initialAdvancePercent} onChange={e => applyAdvancePercent(Number(e.target.value))}>
+            <option value="0">Sin anticipo</option>
             {[10, 15, 20, 25, 30, 35, 40, 45, 50].map(percent => <option key={percent} value={percent}>{percent}%</option>)}
           </select>
           <small>{economic.proposedAdvancePercent
-            ? `Anticipo: ${pesos.format(economic.proposedAdvanceAmount || 0)} · Saldo a financiar: ${pesos.format(economic.requestedFinancing || 0)}. El canon se ajusta proporcionalmente como estimación y debe reemplazarse por el canon real de la oferta.`
-            : 'Podés proponer entre 10% y 50%. LeasingScoring calculará el importe, el saldo a financiar y un canon proporcional estimado.'}</small>
+            ? `Anticipo definitivo: ${pesos.format(economic.proposedAdvanceAmount || 0)} · Saldo a financiar: ${pesos.format(economic.requestedFinancing || 0)}. Podés quitar, mantener, reducir o aumentar el anticipo inicial. El canon se ajusta proporcionalmente como estimación y debe reemplazarse por el canon real de la oferta.`
+            : `Sin anticipo · Saldo a financiar: ${pesos.format(economic.requestedFinancing || props.requestData.assetValue)}. Podés seleccionar entre 10% y 50% para reducir el saldo y la cuota estimada.`}</small>
         </label>
         {economic.profile === 'monotributista' && <label className="prequalCheckRow">
           <input type="checkbox" checked={!!economic.hasEmploymentIncome} onChange={e => setEconomic({ ...economic, hasEmploymentIncome: e.target.checked, additionalEmploymentNetIncome: e.target.checked ? economic.additionalEmploymentNetIncome : 0 })} />

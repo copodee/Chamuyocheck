@@ -161,7 +161,7 @@ export function stage2NotificationHtml(input: {
     <p><b>Promedio mensual documentado:</b> ${money(input.documentedMonthlyIncome)}</p>
     <p><b>Diferencia declarado/documentado:</b> ${input.declaredDocumentedDifference == null ? 'Sin comparación' : `${money(input.declaredDocumentedDifference)}${input.declaredDocumentedDifferenceRatio == null ? '' : ` (${(input.declaredDocumentedDifferenceRatio * 100).toFixed(1)}%)`}`}</p>` : ''}
     <p><b>Canon mensual propuesto:</b> ${money(input.proposedMonthlyCanon)}</p>
-    ${input.proposedAdvancePercent ? `<p><b>Anticipo propuesto:</b> ${input.proposedAdvancePercent}% · ${money(input.proposedAdvanceAmount ?? null)}</p>
+    ${input.proposedAdvancePercent != null ? `<p><b>Anticipo definitivo:</b> ${input.proposedAdvancePercent}% · ${money(input.proposedAdvanceAmount ?? null)}</p>
     <p><b>Saldo a financiar:</b> ${money(input.requestedFinancing ?? null)}</p>` : ''}
     <p><b>Cuotas mensuales de financiaciones vigentes:</b> ${money(input.declaredMonthlyDebtService)}</p>
     <p><b>Relación compromisos/ingreso:</b> ${input.installmentToIncomeRatio == null ? 'No estimable' : `${(input.installmentToIncomeRatio * 100).toFixed(1)}%`} · política máxima 30%</p>
