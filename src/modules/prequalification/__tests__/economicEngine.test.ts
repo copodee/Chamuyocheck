@@ -118,6 +118,31 @@ test('computa íntegramente el ingreso neto declarado del monotributista', () =>
   assert.match(result.reasons.join(' '), /íntegramente/i);
 });
 
+test('informa la diferencia entre ingreso declarado y promedio documentado', () => {
+  const result = evaluateEconomicCapacity({
+    profile: 'monotributista', activity: 'Servicios', activitySeniorityMonths: 24,
+    declaredMonthlyDebtService: 0, proposedMonthlyCanon: 500_000,
+    declaredMonthlyNetIncome: 3_000_000, documentedMonthlyIncome: 2_500_000,
+  }, 7);
+  assert.equal(result.declaredMonthlyIncome, 3_000_000);
+  assert.equal(result.documentedMonthlyIncome, 2_500_000);
+  assert.equal(result.declaredDocumentedDifference, 500_000);
+  assert.equal(result.declaredDocumentedDifferenceRatio, 0.2);
+  assert.match(result.conditions.join(' '), /diferencia|supera/i);
+});
+
+test('usa el promedio documentado cuando no hay monto declarado', () => {
+  const result = evaluateEconomicCapacity({
+    profile: 'monotributista', activity: 'Servicios', activitySeniorityMonths: 24,
+    declaredMonthlyDebtService: 0, proposedMonthlyCanon: 500_000,
+    documentedMonthlyIncome: 2_616_667,
+  }, 7);
+  assert.equal(result.normalizedMonthlyIncome, 2_616_667);
+  assert.equal(result.declaredMonthlyIncome, null);
+  assert.equal(result.documentedMonthlyIncome, 2_616_667);
+  assert.match(result.reasons.join(' '), /facturas/i);
+});
+
 test('una persona empleada puede sumar ingreso monotributista declarado', () => {
   const result = evaluateEconomicCapacity({
     profile: 'employee', activity: 'Administración', activitySeniorityMonths: 36,

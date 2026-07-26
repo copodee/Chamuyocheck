@@ -74,6 +74,13 @@ export async function buildDossierPdf(data: PdfData) {
     row('Score económico', data.economic?.score);
     row('Respaldo de ingresos', data.economic?.confidence);
     row('Ingreso mensual normalizado', money(data.economic?.normalizedMonthlyIncome));
+    if (data.economic?.declaredMonthlyIncome != null || data.economic?.documentedMonthlyIncome != null) {
+      row('Ingreso mensual declarado', money(data.economic?.declaredMonthlyIncome));
+      row('Promedio mensual documentado', money(data.economic?.documentedMonthlyIncome));
+      row('Diferencia declarado / documentado', data.economic?.declaredDocumentedDifference == null
+        ? 'Sin comparación'
+        : `${money(data.economic.declaredDocumentedDifference)}${data.economic.declaredDocumentedDifferenceRatio == null ? '' : ` (${(data.economic.declaredDocumentedDifferenceRatio * 100).toFixed(1)}%)`}`);
+    }
     row('Cuotas mensuales de financiaciones vigentes', money(data.economic?.declaredMonthlyDebtService));
     row('Relación compromisos / ingreso', data.economic?.installmentToIncomeRatio == null ? 'No estimable' : `${(data.economic.installmentToIncomeRatio * 100).toFixed(1)}%`);
     if (data.economic?.regulatoryExposure?.applicable) {

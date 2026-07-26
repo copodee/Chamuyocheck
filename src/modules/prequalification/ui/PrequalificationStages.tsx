@@ -329,8 +329,8 @@ export function PrequalificationStages(props: Props) {
         employeeNetIncome: primarySalary || current.employeeNetIncome,
         additionalEmploymentNetIncome: additionalSalary || current.additionalEmploymentNetIncome,
         monthlySales: primaryMonotributoSales.some(Boolean) ? primaryMonotributoSales : current.monthlySales,
-        declaredMonthlyNetIncome: current.declaredMonthlyNetIncome
-          || primaryInvoiceAnalysis.averageMonthlyIncome
+        documentedMonthlyIncome: primaryInvoiceAnalysis.averageMonthlyIncome
+          || current.documentedMonthlyIncome
           || 0,
         additionalMonotributoNetIncome: additionalMonotributoSales.some(Boolean)
           ? averageExtracted(additionalMonotributoSales)

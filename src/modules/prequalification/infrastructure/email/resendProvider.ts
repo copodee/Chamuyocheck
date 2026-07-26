@@ -74,6 +74,10 @@ export function stage2NotificationHtml(input: {
   economicScore: number;
   confidence: string;
   normalizedMonthlyIncome: number | null;
+  declaredMonthlyIncome: number | null;
+  documentedMonthlyIncome: number | null;
+  declaredDocumentedDifference: number | null;
+  declaredDocumentedDifferenceRatio: number | null;
   proposedMonthlyCanon: number;
   declaredMonthlyDebtService: number;
   maximumPrudentCanon: number | null;
@@ -131,6 +135,10 @@ export function stage2NotificationHtml(input: {
     <div style="padding:14px;border-radius:10px;background:#ede9fe"><b>${statusLabel}</b> · ${input.economicScore}/100</div>
     <p><b>Respaldo de ingresos:</b> ${escapeHtml(input.confidence)}</p>
     <p><b>Ingreso mensual computable:</b> ${money(input.normalizedMonthlyIncome)}</p>
+    ${input.declaredMonthlyIncome != null || input.documentedMonthlyIncome != null ? `
+    <p><b>Ingreso mensual declarado:</b> ${money(input.declaredMonthlyIncome)}</p>
+    <p><b>Promedio mensual documentado:</b> ${money(input.documentedMonthlyIncome)}</p>
+    <p><b>Diferencia declarado/documentado:</b> ${input.declaredDocumentedDifference == null ? 'Sin comparación' : `${money(input.declaredDocumentedDifference)}${input.declaredDocumentedDifferenceRatio == null ? '' : ` (${(input.declaredDocumentedDifferenceRatio * 100).toFixed(1)}%)`}`}</p>` : ''}
     <p><b>Canon mensual propuesto:</b> ${money(input.proposedMonthlyCanon)}</p>
     <p><b>Cuotas mensuales de financiaciones vigentes:</b> ${money(input.declaredMonthlyDebtService)}</p>
     <p><b>Relación compromisos/ingreso:</b> ${input.installmentToIncomeRatio == null ? 'No estimable' : `${(input.installmentToIncomeRatio * 100).toFixed(1)}%`} · política máxima 30%</p>

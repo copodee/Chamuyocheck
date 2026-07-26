@@ -72,6 +72,18 @@ export function evaluateEconomicCapacity(
   const reasons: string[] = [];
   const conditions: string[] = [];
   let normalizedMonthlyIncome: number | null = null;
+  const declaredMonthlyIncome = inputs.profile === 'monotributista'
+    ? Math.max(0, Number(inputs.declaredMonthlyNetIncome || 0)) || null
+    : null;
+  const documentedMonthlyIncome = inputs.profile === 'monotributista'
+    ? Math.max(0, Number(inputs.documentedMonthlyIncome || 0)) || null
+    : null;
+  const declaredDocumentedDifference = declaredMonthlyIncome != null && documentedMonthlyIncome != null
+    ? declaredMonthlyIncome - documentedMonthlyIncome
+    : null;
+  const declaredDocumentedDifferenceRatio = declaredDocumentedDifference != null && documentedMonthlyIncome
+    ? declaredDocumentedDifference / documentedMonthlyIncome
+    : null;
   const regulatoryExposure = evaluateRegulatoryExposure(inputs, balance);
   const corporateFinancials = inputs.profile === 'legal-entity' ? analyzeCorporateFinancials(balance, previousBalance, inputs.activity) : undefined;
   const corporateEvolution = inputs.profile === 'legal-entity' ? analyzeCorporateEvolution(balance, previousBalance) : undefined;
@@ -93,8 +105,16 @@ export function evaluateEconomicCapacity(
       conditions.push('El balance debe informar ventas y resultado operativo o neto para calcular automáticamente el margen.');
     }
   } else if (inputs.profile === 'monotributista') {
-    normalizedMonthlyIncome = Math.max(0, Number(inputs.declaredMonthlyNetIncome || 0)) || average(inputs.monthlySales || []) || null;
-    reasons.push('Se utilizó íntegramente el ingreso mensual neto declarado. Los comprobantes solo determinan si el dato está respaldado.');
+    normalizedMonthlyIncome = declaredMonthlyIncome || documentedMonthlyIncome || average(inputs.monthlySales || []) || null;
+    reasons.push(declaredMonthlyIncome
+      ? 'Se utilizó íntegramente el ingreso mensual neto declarado.'
+      : documentedMonthlyIncome
+        ? 'Al no existir un monto declarado, se utilizó el promedio mensual extraído de las facturas.'
+        : 'No se informó ni se pudo documentar un ingreso mensual.');
+    if (declaredDocumentedDifference != null && Math.abs(declaredDocumentedDifference) >= 1) {
+      const direction = declaredDocumentedDifference > 0 ? 'supera' : 'es inferior a';
+      conditions.push(`El ingreso declarado (${declaredMonthlyIncome?.toLocaleString('es-AR')}) ${direction} al promedio documentado (${documentedMonthlyIncome?.toLocaleString('es-AR')}) por $ ${Math.abs(Math.round(declaredDocumentedDifference)).toLocaleString('es-AR')}${declaredDocumentedDifferenceRatio == null ? '' : ` (${Math.abs(declaredDocumentedDifferenceRatio * 100).toFixed(1)}%)`}. Verificar la causa de la diferencia.`);
+    }
   } else {
     const monthlySales = average(inputs.monthlySales || []);
     const margin = Math.max(0, Math.min(1, Number(inputs.declaredOperatingMargin || 0) / 100));
@@ -200,6 +220,10 @@ export function evaluateEconomicCapacity(
     score,
     confidence: documentCount >= 2 ? 'documental' : documentCount === 1 ? 'parcialmente respaldada' : 'declarativa',
     normalizedMonthlyIncome,
+    declaredMonthlyIncome,
+    documentedMonthlyIncome,
+    declaredDocumentedDifference,
+    declaredDocumentedDifferenceRatio,
     totalMonthlyCommitments: commitments,
     installmentToIncomeRatio: ratio,
     canonCoverage,

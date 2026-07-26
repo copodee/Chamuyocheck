@@ -30,6 +30,7 @@ export type EconomicInputs = {
   proposedMonthlyCanon: number;
   employeeNetIncome?: number;
   declaredMonthlyNetIncome?: number;
+  documentedMonthlyIncome?: number;
   hasEmploymentIncome?: boolean;
   additionalEmploymentNetIncome?: number;
   hasMonotributoIncome?: boolean;
@@ -129,6 +130,10 @@ export type EconomicAssessment = {
   score: number;
   confidence: 'declarativa' | 'parcialmente respaldada' | 'documental';
   normalizedMonthlyIncome: number | null;
+  declaredMonthlyIncome: number | null;
+  documentedMonthlyIncome: number | null;
+  declaredDocumentedDifference: number | null;
+  declaredDocumentedDifferenceRatio: number | null;
   totalMonthlyCommitments: number | null;
   installmentToIncomeRatio: number | null;
   canonCoverage: number | null;
