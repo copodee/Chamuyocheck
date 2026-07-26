@@ -5,7 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 import { extractPdfTextInBrowser } from '../../../lib/extractors/browserPdfOcr';
 import { extractImageTextInBrowser } from '../../../lib/extractors/browserOcr';
 import { extractBalanceData } from '../scoring/balanceExtractor';
-import { evaluateEconomicCapacity } from '../scoring/economicEngine';
+import { evaluateEconomicCapacity, hasAffordableMonthlyPayment } from '../scoring/economicEngine';
 import { classifyPrequalificationDocument } from '../scoring/documentClassifier';
 import { latestSixMonthlySales } from '../scoring/fiscalDocumentExtractor';
 import { extractFinancialDebt, type ExtractedFinancialDebt } from '../scoring/financialDebtExtractor';
@@ -240,6 +240,7 @@ export function PrequalificationStages(props: Props) {
     /salary-slip|monotributo-invoices|balance-|vat-|income-detail|post-balance-sales/.test(document.kind),
   ).length;
   const previewAssessment = evaluateEconomicCapacity(economic, incomeDocumentCount, balance, previousBalance);
+  const paymentCapacityQualifies = hasAffordableMonthlyPayment(previewAssessment, economic.proposedMonthlyCanon);
   const automaticBalanceMargin = balance?.sales && (balance.operatingProfit ?? balance.netProfit) != null
     ? Math.max(0, ((balance.operatingProfit ?? balance.netProfit) as number) / balance.sales) * 100
     : null;
@@ -552,7 +553,7 @@ export function PrequalificationStages(props: Props) {
       .filter(([kind]) => !documents.some(document => document.stage === 2 && document.kind === kind))
       .map(([, label]) => label);
     setAssessment(previewAssessment);
-    if (previewAssessment.status !== 'compatible') {
+    if (!paymentCapacityQualifies) {
       setMessage(previewAssessment.maximumPrudentCanon == null
         ? 'No se enviará el expediente: faltan ingresos computables para evaluar la cuota.'
         : `No se enviará el expediente con esta cuota. El canon máximo estimado es ${pesos.format(previewAssessment.maximumPrudentCanon)}.`);
@@ -826,8 +827,8 @@ export function PrequalificationStages(props: Props) {
       </div>
       <div className={`prequalCapacity prequalEconomic-${previewAssessment.status}`}>
         <h3>Calificación económica antes del envío</h3>
-        {previewAssessment.status === 'compatible'
-          ? <p><b>La operación califica para continuar.</b> La relación total cuota/ingreso está dentro del máximo del 30%.</p>
+        {paymentCapacityQualifies
+          ? <p><b>La cuota califica por capacidad de pago.</b> La relación total cuota/ingreso está dentro del máximo del 30%.{previewAssessment.status !== 'compatible' ? ' La operación continuará con las condiciones y observaciones indicadas para revisión.' : ''}</p>
           : previewAssessment.maximumPrudentCanon == null
             ? <p><b>Todavía no puede calificarse.</b> Ingresá un ingreso o facturación mensual computable.</p>
             : <p><b>La cuota propuesta no califica.</b> Para continuar, reducí el canon hasta un máximo estimado de <b>{pesos.format(previewAssessment.maximumPrudentCanon)}</b>.</p>}
@@ -872,7 +873,7 @@ export function PrequalificationStages(props: Props) {
       <label><input type="checkbox" checked={contact.contactConsent} onChange={e => setContact({ ...contact, contactConsent: e.target.checked })} /> Autorizo el contacto sobre este expediente.</label>
       <label><input type="checkbox" checked={contact.accuracyDeclaration} onChange={e => setContact({ ...contact, accuracyDeclaration: e.target.checked })} /> Declaro que los datos son completos y veraces.</label>
       <button className="prequalPrimary" disabled={busy} onClick={saveStage2}>
-        {previewAssessment.status === 'compatible' ? 'Calificar y enviar expediente' : 'Recalcular capacidad de pago'}
+        {paymentCapacityQualifies ? 'Calificar y enviar expediente' : 'Recalcular capacidad de pago'}
       </button>
       {!!documentReadProgress.length && <div className="prequalReadProgress" aria-live="polite">
         <b>{documentLoadState === 'loading' ? 'Archivos que se están leyendo' : 'Resultado de la lectura'}</b>

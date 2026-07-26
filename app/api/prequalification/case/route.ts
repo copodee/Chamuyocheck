@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticatePrequalificationRequest } from '../../../../src/modules/prequalification/infrastructure/supabase/auth';
 import { prequalRest } from '../../../../src/modules/prequalification/infrastructure/supabase/rest';
-import { evaluateEconomicCapacity } from '../../../../src/modules/prequalification/scoring/economicEngine';
+import { evaluateEconomicCapacity, hasAffordableMonthlyPayment } from '../../../../src/modules/prequalification/scoring/economicEngine';
 import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicInputs, ExtractedBalance } from '../../../../src/modules/prequalification/domain/dossier';
 import { adminNotificationHtml, applicantResponseHtml, getPrequalificationEmailConfig, sendPrequalificationEmail, stage2NotificationHtml } from '../../../../src/modules/prequalification/infrastructure/email/resendProvider';
 import { isValidCuit, normalizeCuit } from '../../../../src/modules/prequalification/domain/cuit';
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
         body.balance as ExtractedBalance | undefined,
         body.previousBalance as ExtractedBalance | undefined,
       );
-      if (assessment.status !== 'compatible') {
+      if (!hasAffordableMonthlyPayment(assessment, inputs.proposedMonthlyCanon)) {
         return NextResponse.json({
           error: assessment.maximumPrudentCanon == null
             ? 'No hay ingresos suficientes para calificar la cuota propuesta.'

@@ -3,6 +3,15 @@ import { analyzeCorporateEvolution, analyzeCorporateFinancials } from './corpora
 
 const POLICY_RATIO = 0.3;
 
+export function hasAffordableMonthlyPayment(
+  assessment: Pick<EconomicAssessment, 'installmentToIncomeRatio'>,
+  proposedMonthlyCanon: number,
+): boolean {
+  return proposedMonthlyCanon > 0
+    && assessment.installmentToIncomeRatio !== null
+    && assessment.installmentToIncomeRatio <= POLICY_RATIO;
+}
+
 function average(values: number[]): number {
   const valid = values.filter((value) => Number.isFinite(value) && value >= 0);
   return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : 0;

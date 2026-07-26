@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateEconomicCapacity } from '../scoring/economicEngine';
+import { evaluateEconomicCapacity, hasAffordableMonthlyPayment } from '../scoring/economicEngine';
 import { extractBalanceData } from '../scoring/balanceExtractor';
 
 test('aplica la política del 30% a una persona en relación de dependencia', () => {
@@ -12,6 +12,22 @@ test('aplica la política del 30% a una persona en relación de dependencia', ()
   assert.equal(result.installmentToIncomeRatio, 0.3);
   assert.equal(result.status, 'compatible');
   assert.equal(result.maximumPrudentCanon, 500_000);
+});
+
+test('permite enviar si la cuota entra en 30% aunque el encuadre general tenga condiciones', () => {
+  const result = evaluateEconomicCapacity({
+    profile: 'legal-entity', activity: 'Servicios', activitySeniorityMonths: 36,
+    declaredMonthlyDebtService: 0, proposedMonthlyCanon: 4_000_000,
+    monthlySales: [100_000_000, 100_000_000, 100_000_000, 100_000_000, 100_000_000, 100_000_000],
+    requestedFinancing: 160_000_000, computableNetWorth: 103_697_553,
+    existingComputableFinancing: 0, qualifyingGuarantee: 'none',
+  }, 2, {
+    sales: 120_000_000, operatingProfit: 16_466_729,
+    equity: 103_697_553, extractionConfidence: 100, missingFields: [],
+  });
+  assert.equal(result.status, 'conditional');
+  assert.ok((result.installmentToIncomeRatio || 0) < 0.3);
+  assert.equal(hasAffordableMonthlyPayment(result, 4_000_000), true);
 });
 
 test('extrae rubros centrales de un balance para revisión crediticia', () => {
