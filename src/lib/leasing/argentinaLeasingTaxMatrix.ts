@@ -11,6 +11,7 @@ export type ProvincialStampProfile = {
   stampRateCondition?: string;
   contractStampBaseKind?: 'canons-only' | 'visible-contract-total';
   grossIncomeRatePercent?: number;
+  grossIncomeRateCondition?: string;
   sourceUrl?: string;
   sourceUrls?: string[];
   verifiedAt?: string;
@@ -74,10 +75,14 @@ export const PROVINCIAL_LEASING_STAMP_MATRIX: ProvincialStampProfile[] = [
   {
     jurisdiction: 'Córdoba', fiscalYear: 2026, status: 'verified-current',
     stampRatePercent: 0,
+    grossIncomeRatePercent: 7,
+    grossIncomeRateCondition: '7% para operaciones financieras realizadas por dadores no comprendidos en la Ley 21.526; 5% si el dador es una entidad financiera comprendida en esa ley.',
     stampRateCondition: 'Sólo si el contrato y el destino económico cumplen el Decreto 484/2022.',
-    treatment: 'El Decreto provincial 484/2022, que el portal oficial de Rentas identifica como vigente, exime del Impuesto de Sellos a los contratos de leasing comprendidos en las modalidades de los incisos a), b), c) y e) del artículo 1231 del Código Civil y Comercial, cuando el tomador destina el bien al desarrollo de sus actividades económicas.',
+    treatment: 'La Ley Impositiva Córdoba 2026 fija Ingresos Brutos del 5% para entidades comprendidas en la Ley 21.526 y del 7% para operaciones financieras de sujetos no comprendidos en esa ley. Por separado, el Decreto provincial 484/2022, que el portal oficial de Rentas identifica como vigente, exime del Impuesto de Sellos a los contratos de leasing comprendidos en las modalidades de los incisos a), b), c) y e) del artículo 1231 del Código Civil y Comercial, cuando el tomador destina el bien al desarrollo de sus actividades económicas.',
     exemptions: ['La exención exige modalidad contractual comprendida y destino económico del bien; no es una exención general para consumo personal ni para cualquier contrato denominado leasing.'],
-    sourceUrl: 'https://cms.rentascordoba.gob.ar/wp-content/uploads/2022/05/decreto_n%C2%B0_484-2022_-_eximicion_impuesto_de_sellos._contratos_de_leasing.pdf', verifiedAt: '2026-07-18',
+    sourceUrl: 'https://economiaygestionpublica.cba.gov.ar/wp-content/uploads/2025/11/Proyecto-de-Ley-Impositiva-2026-compressed.pdf',
+    sourceUrls: ['https://economiaygestionpublica.cba.gov.ar/wp-content/uploads/2025/11/Proyecto-de-Ley-Impositiva-2026-compressed.pdf', 'https://cms.rentascordoba.gob.ar/wp-content/uploads/2022/05/decreto_n%C2%B0_484-2022_-_eximicion_impuesto_de_sellos._contratos_de_leasing.pdf'],
+    verifiedAt: '2026-07-26',
   },
   {
     jurisdiction: 'Entre Ríos', status: 'verified-current',

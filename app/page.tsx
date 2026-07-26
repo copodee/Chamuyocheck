@@ -1369,9 +1369,14 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   };
   const provinceProfileA = PROVINCIAL_LEASING_STAMP_MATRIX.find((item) => item.jurisdiction === leasingHubProvinceA);
   const provinceProfileB = PROVINCIAL_LEASING_STAMP_MATRIX.find((item) => item.jurisdiction === leasingHubProvinceB);
+  const formatGrossIncomeRate = (profile: typeof provinceProfileA) => {
+    if (profile?.grossIncomeRatePercent === undefined) return 'No verificado como tasa específica de leasing';
+    const rate = `${profile.grossIncomeRatePercent.toLocaleString('es-AR')}%`;
+    return profile.grossIncomeRateCondition ? `${rate} — ${profile.grossIncomeRateCondition}` : rate;
+  };
   const provincialRows = [
     ['Sellos del contrato', provinceProfileA?.stampRatePercent === undefined ? 'Verificar tasa vigente' : `${provinceProfileA.stampRatePercent.toLocaleString('es-AR')}%`, provinceProfileB?.stampRatePercent === undefined ? 'Verificar tasa vigente' : `${provinceProfileB.stampRatePercent.toLocaleString('es-AR')}%`],
-    ['Ingresos Brutos del dador: alícuota o tratamiento', provinceProfileA?.grossIncomeRatePercent === undefined ? 'No verificado como tasa específica de leasing' : `${provinceProfileA.grossIncomeRatePercent.toLocaleString('es-AR')}%`, provinceProfileB?.grossIncomeRatePercent === undefined ? 'No verificado como tasa específica de leasing' : `${provinceProfileB.grossIncomeRatePercent.toLocaleString('es-AR')}%`],
+    ['Ingresos Brutos del dador: alícuota o tratamiento', formatGrossIncomeRate(provinceProfileA), formatGrossIncomeRate(provinceProfileB)],
     ['Base y tratamiento', provinceProfileA?.treatment || 'Sin ficha disponible', provinceProfileB?.treatment || 'Sin ficha disponible'],
     ['Condición de la tasa', provinceProfileA?.stampRateCondition || 'Depende del acto, bien y sujeto', provinceProfileB?.stampRateCondition || 'Depende del acto, bien y sujeto'],
     ['Opción y transferencia', 'Se liquida según el tipo de bien, base fiscal y reglas territoriales indicadas en la ficha.', 'Se liquida según el tipo de bien, base fiscal y reglas territoriales indicadas en la ficha.'],
