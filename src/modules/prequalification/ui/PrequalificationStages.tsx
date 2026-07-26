@@ -266,6 +266,7 @@ export function PrequalificationStages(props: Props) {
       const recovered = await recoverCase();
       for (const file of selectedFiles) {
         updateReadProgress(file.name, 'reading', 'Preparando lectura…');
+        let fileStored = false;
         try {
         let extractedText = '';
         let extractionConfidence = 0;
@@ -322,6 +323,7 @@ export function PrequalificationStages(props: Props) {
         const uploadResponse = await fetch('/api/prequalification/document', { method: 'POST', headers: { Authorization: `Bearer ${props.session.access_token}` }, body: upload });
         const uploadData = await uploadResponse.json();
         if (!uploadResponse.ok) throw new Error(uploadData.error || 'No se pudo guardar el documento.');
+        fileStored = true;
         added.push({
           id: crypto.randomUUID(), stage: documentStage, kind: resolvedKind, name: file.name, size: file.size,
           pages: extractedPages, extractionConfidence, extractedText, storagePath: uploadData.storagePath,
@@ -333,6 +335,29 @@ export function PrequalificationStages(props: Props) {
         } catch (error) {
           const detail = error instanceof Error ? error.message : 'No se pudo leer o guardar el archivo.';
           processingErrors.push(`${file.name}: ${detail}`);
+          if (!fileStored) {
+            try {
+              const fallbackUpload = new FormData();
+              fallbackUpload.append('file', file);
+              fallbackUpload.append('caseId', recovered.caseId);
+              fallbackUpload.append('stage', '2');
+              const fallbackResponse = await fetch('/api/prequalification/document', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${props.session.access_token}` },
+                body: fallbackUpload,
+              });
+              const fallbackData = await fallbackResponse.json();
+              if (fallbackResponse.ok) {
+                added.push({
+                  id: crypto.randomUUID(), stage: 2, kind: 'unclassified', name: file.name, size: file.size,
+                  extractionConfidence: 0, extractedText: '', storagePath: fallbackData.storagePath,
+                  status: 'needs-review',
+                });
+              }
+            } catch {
+              // La advertencia conserva el error original si tampoco pudo anexarse.
+            }
+          }
           updateReadProgress(file.name, 'error', detail);
         }
       }
@@ -468,9 +493,6 @@ export function PrequalificationStages(props: Props) {
       .filter(([, , required]) => required)
       .filter(([kind]) => !documents.some(document => document.stage === 2 && document.kind === kind))
       .map(([, label]) => label);
-    if (missingDocuments.length && !effectiveCaseNumber?.startsWith('DEMO-')) {
-      return setMessage(`Falta agregar: ${missingDocuments.join(', ')}.`);
-    }
     setAssessment(previewAssessment);
     if (previewAssessment.status !== 'compatible') {
       setMessage(previewAssessment.maximumPrudentCanon == null
@@ -481,10 +503,20 @@ export function PrequalificationStages(props: Props) {
     setBusy(true); setMessage('');
     try {
       const recovered = await recoverCase();
+      const documentReview = {
+        missingDocuments,
+        unidentifiedDocuments: documents
+          .filter(document => document.status === 'needs-review')
+          .map(document => `${document.name}: tipo pendiente de confirmación`),
+        excludedDocuments: excludedDocuments.map(document => `${document.name}: ${document.reason}`),
+        unreadableDocuments: documentReadProgress
+          .filter(document => document.status === 'error')
+          .map(document => `${document.name}: ${document.detail || 'no se pudo leer correctamente'}`),
+      };
       const data = await api({
         action: 'stage2', contact, economicInputs: economic, documents, balance, previousBalance,
         caseNumber: recovered.caseNumber, subject: props.subject.denomination,
-        cuitMasked: props.subject.cuitMasked, stage1: props.stage1,
+        cuitMasked: props.subject.cuitMasked, stage1: props.stage1, documentReview,
       }, recovered.caseId);
       setAssessment(data.assessment); setStage(3); setResponseEmail(contact.email);
       setMessage(data.notification?.sent
@@ -646,11 +678,17 @@ export function PrequalificationStages(props: Props) {
         </div>
         {!!excludedDocuments.length && <div className="prequalExcludedDocuments"><b>Archivos no incorporados al expediente</b>{excludedDocuments.map(document => <span key={`${document.name}-${document.reason}`}>{document.name}: {document.reason}</span>)}</div>}
         <div className={`prequalMissingDocuments ${missingStage2Documents.length ? 'hasMissing' : 'complete'}`}>
-          <b>{missingStage2Documents.length ? 'Documentación que todavía falta' : 'Documentación económica mínima completa'}</b>
+          <b>{missingStage2Documents.length ? 'Documentación no encontrada o pendiente de identificar' : 'Documentación económica mínima completa'}</b>
           {missingStage2Documents.length
-            ? <ul>{missingStage2Documents.map(item => <li key={item}>{item}</li>)}</ul>
+            ? <><span>Estos documentos pueden no haberse cargado o no haber sido reconocidos automáticamente. Se verificarán en la revisión humana de los anexos.</span><ul>{missingStage2Documents.map(item => <li key={item}>{item}</li>)}</ul></>
             : <span>El lote contiene todos los respaldos obligatorios para calcular esta etapa.</span>}
         </div>
+        {(missingStage2Documents.length > 0 || excludedDocuments.length > 0 || documentReadProgress.some(file => file.status === 'error')) && (
+          <div className="prequalDocumentWarning">
+            <b>El expediente se enviará igualmente para revisión humana</b>
+            <span>El resumen conservará todos los análisis parciales obtenidos con datos declarados y documentos legibles. Además indicará los faltantes y archivos que requieren control manual.</span>
+          </div>
+        )}
         {documents.filter(document => document.status === 'needs-review').map(document => <div className="prequalClassificationReview" key={document.id}>
           <div><b>Revisar clasificación</b><span>{document.name}</span></div>
           <label>Tipo de documento

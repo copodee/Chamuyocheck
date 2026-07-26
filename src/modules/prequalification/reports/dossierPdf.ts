@@ -13,6 +13,12 @@ type PdfData = {
   decision?: string;
   responseEmail?: string;
   documents?: Array<{ name: string; kind: string; status?: string }>;
+  documentReview?: {
+    missingDocuments: string[];
+    unidentifiedDocuments: string[];
+    excludedDocuments: string[];
+    unreadableDocuments: string[];
+  };
 };
 
 const violet = rgb(0.43, 0.16, 0.86);
@@ -178,6 +184,17 @@ export async function buildDossierPdf(data: PdfData) {
   if (data.documents?.length) {
     section('Documentación analizada');
     for (const document of data.documents) row(document.name, `${document.kind}${document.status ? ` · ${document.status}` : ''}`);
+  }
+  const documentReviewItems = [
+    ...(data.documentReview?.missingDocuments || []).map(item => `No encontrado entre los documentos identificados; puede no haberse cargado o no haberse reconocido: ${item}`),
+    ...(data.documentReview?.unidentifiedDocuments || []).map(item => `No identificado: ${item}`),
+    ...(data.documentReview?.excludedDocuments || []).map(item => `No incorporado: ${item}`),
+    ...(data.documentReview?.unreadableDocuments || []).map(item => `Lectura manual pendiente: ${item}`),
+  ];
+  if (documentReviewItems.length) {
+    section('Advertencia de revisión documental');
+    text('Los resultados informados son parciales y conservan todos los análisis que pudieron realizarse con los datos declarados y los documentos legibles. Se requiere además un control humano de los anexos.', 11, bold, violet);
+    for (const item of documentReviewItems) text(`- ${item}`, 9);
   }
   if (data.compliance) {
     section('Precalificación 3 · Declaraciones y decisión');

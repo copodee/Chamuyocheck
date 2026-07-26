@@ -50,6 +50,12 @@ export function adminNotificationHtml(input: {
   responseEmail: string;
   documents: Array<{ name: string; kind: string }>;
   downloadLinks: Array<{ name: string; url: string }>;
+  documentReview?: {
+    missingDocuments: string[];
+    unidentifiedDocuments: string[];
+    excludedDocuments: string[];
+    unreadableDocuments: string[];
+  };
 }) {
   return `<div style="font-family:Arial,sans-serif;color:#10212b;max-width:620px">
     <div style="font-size:22px;font-weight:700;color:#6d28d9">LeasingScoring</div>
@@ -116,6 +122,12 @@ export function stage2NotificationHtml(input: {
   };
   documents: Array<{ name: string; kind: string }>;
   downloadLinks: Array<{ name: string; url: string }>;
+  documentReview?: {
+    missingDocuments: string[];
+    unidentifiedDocuments: string[];
+    excludedDocuments: string[];
+    unreadableDocuments: string[];
+  };
 }) {
   const money = (value: number | null) => value == null
     ? 'No estimable'
@@ -127,6 +139,12 @@ export function stage2NotificationHtml(input: {
       : input.economicStatus === 'not-compatible'
         ? 'NO CALIFICA CON LA CUOTA PROPUESTA'
         : 'REVISIÓN MANUAL';
+  const reviewItems = [
+    ...(input.documentReview?.missingDocuments || []).map(item => `No encontrado entre los documentos identificados (puede no haberse cargado o no haberse reconocido): ${item}`),
+    ...(input.documentReview?.unidentifiedDocuments || []).map(item => `No identificado: ${item}`),
+    ...(input.documentReview?.excludedDocuments || []).map(item => `No incorporado: ${item}`),
+    ...(input.documentReview?.unreadableDocuments || []).map(item => `Lectura manual pendiente: ${item}`),
+  ];
   return `<div style="font-family:Arial,sans-serif;color:#10212b;max-width:620px">
     <div style="font-size:22px;font-weight:700;color:#6d28d9">LeasingScoring</div>
     <h1 style="font-size:24px">Precalificación 2 completada</h1>
@@ -167,6 +185,11 @@ export function stage2NotificationHtml(input: {
     <ul>${input.conditions.map(condition => `<li>${escapeHtml(condition)}</li>`).join('') || '<li>Sin condiciones económicas adicionales.</li>'}</ul>
     <h2 style="font-size:18px">Documentación adjunta (${input.documents.length})</h2>
     <ul>${input.documents.map(document => `<li>${escapeHtml(document.name)} · ${escapeHtml(document.kind)}</li>`).join('') || '<li>Evaluación basada exclusivamente en datos declarativos.</li>'}</ul>
+    ${reviewItems.length ? `<div style="padding:14px;border:1px solid #f59e0b;border-radius:10px;background:#fffbeb">
+      <h2 style="font-size:18px;margin-top:0">Revisión documental humana requerida</h2>
+      <p>Los resultados anteriores son los análisis parciales que sí pudieron realizarse. Revisar además:</p>
+      <ul>${reviewItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+    </div>` : ''}
     ${downloadLinksHtml(input.downloadLinks)}
     <p>La operación calificó por relación cuota/ingreso y puede continuar a Precalificación 3.</p>
     <p style="font-size:12px;color:#64748b">Evaluación preliminar. No constituye aprobación crediticia ni oferta de financiación.</p>

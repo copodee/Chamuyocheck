@@ -97,6 +97,12 @@ export async function POST(request: Request) {
       const contact = body.contact as ContactData;
       const inputs = body.economicInputs as EconomicInputs;
       const documents = (body.documents || []) as DossierDocument[];
+      const documentReview = {
+        missingDocuments: Array.isArray(body.documentReview?.missingDocuments) ? body.documentReview.missingDocuments.map(String) : [],
+        unidentifiedDocuments: Array.isArray(body.documentReview?.unidentifiedDocuments) ? body.documentReview.unidentifiedDocuments.map(String) : [],
+        excludedDocuments: Array.isArray(body.documentReview?.excludedDocuments) ? body.documentReview.excludedDocuments.map(String) : [],
+        unreadableDocuments: Array.isArray(body.documentReview?.unreadableDocuments) ? body.documentReview.unreadableDocuments.map(String) : [],
+      };
       if (!contact?.fullName || !contact.address || !contact.city || !contact.province || !emailPattern.test(contact.email || '') || !contact.mobile) return NextResponse.json({ error: 'Completá nombre, domicilio, localidad, provincia, correo y celular.' }, { status: 400 });
       if (!contact.dataConsent || !contact.contactConsent || !contact.accuracyDeclaration) return NextResponse.json({ error: 'Se necesitan las tres declaraciones de consentimiento.' }, { status: 400 });
       const incomeDocumentCount = documents.filter(document =>
@@ -125,6 +131,7 @@ export async function POST(request: Request) {
         contact,
         economic: { ...assessment, declaredMonthlyDebtService: inputs.declaredMonthlyDebtService, proposedMonthlyCanon: inputs.proposedMonthlyCanon },
         documents: documents.filter(document => document.stage === 2),
+        documentReview,
       });
       const reportAttachment = {
         filename: `${String(body.caseNumber || body.caseId).replace(/[^A-Z0-9-]/gi, '')}-informe.pdf`,
@@ -154,6 +161,7 @@ export async function POST(request: Request) {
           corporateEvolution: assessment.corporateEvolution,
           documents: documents.filter(document => document.stage === 2).map(document => ({ name: document.name, kind: document.kind })),
           downloadLinks: delivery.downloadLinks,
+          documentReview,
         }),
         idempotencyKey: `prequal-stage2-v2-${body.caseId}-${assessment.score}-${Math.round(inputs.proposedMonthlyCanon)}`,
         attachments: [reportAttachment, ...delivery.attachments],
@@ -165,7 +173,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: `La operación calificó, pero el correo no pudo enviarse: ${notification.reason}` }, { status: 502 });
       }
       await update(auth.token, body.caseId, {
-        stage: 2, contact, economic_inputs: inputs, economic_assessment: assessment,
+        stage: 2, contact, economic_inputs: inputs, economic_assessment: { ...assessment, documentReview },
         documents: documents.map(({ extractedText: _text, ...document }) => document),
         administrator_email: emailConfig.administratorEmail, email_provider: 'resend',
         notification_status: notification.sent ? 'stage2-administrator-notified' : 'email-configuration-required',
