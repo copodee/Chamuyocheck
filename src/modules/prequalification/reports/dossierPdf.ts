@@ -1,4 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 type PdfData = {
   caseNumber: string;
@@ -10,6 +12,7 @@ type PdfData = {
   compliance?: Record<string, any>;
   decision?: string;
   responseEmail?: string;
+  documents?: Array<{ name: string; kind: string; status?: string }>;
 };
 
 const violet = rgb(0.43, 0.16, 0.86);
@@ -20,13 +23,14 @@ export async function buildDossierPdf(data: PdfData) {
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const logoBytes = await readFile(join(process.cwd(), 'public', 'brand', 'leasing-scoring-report-logo.png'));
+  const logo = await pdf.embedPng(logoBytes);
   let page = pdf.addPage([595, 842]);
   let y = 735;
 
   const header = (target: PDFPage) => {
-    target.drawRectangle({ x: 42, y: 775, width: 30, height: 30, color: violet });
-    target.drawText('LS', { x: 48, y: 785, size: 10, font: bold, color: rgb(1, 1, 1) });
-    target.drawText('LeasingScoring', { x: 82, y: 785, size: 18, font: bold, color: ink });
+    const scaled = logo.scaleToFit(205, 43);
+    target.drawImage(logo, { x: 42, y: 772, width: scaled.width, height: scaled.height });
     target.drawText(`EXPEDIENTE ${data.caseNumber}`, { x: 355, y: 788, size: 9, font: bold, color: violet });
     target.drawLine({ start: { x: 42, y: 765 }, end: { x: 553, y: 765 }, thickness: 1, color: rgb(.82, .82, .87) });
   };
@@ -35,7 +39,7 @@ export async function buildDossierPdf(data: PdfData) {
     target.drawText('Evaluación preliminar. No constituye aprobación ni oferta de financiación.', { x: 42, y: 28, size: 8, font: regular, color: muted });
     target.drawText(`${n}`, { x: 540, y: 28, size: 8, font: regular, color: muted });
   };
-  const newPage = () => { footer(page, pdf.getPageCount()); page = pdf.addPage([595, 842]); header(page); y = 735; };
+  const newPage = () => { page = pdf.addPage([595, 842]); y = 735; };
   const text = (value: string, size = 10, font: PDFFont = regular, color = ink) => {
     const words = String(value || '-').replace(/[^\x20-\x7EÀ-ÿ]/g, '').split(/\s+/);
     let line = '';
@@ -52,7 +56,6 @@ export async function buildDossierPdf(data: PdfData) {
   const row = (label: string, value: unknown) => text(`${label}: ${value ?? '-'}`, 10);
   const money = (value: unknown) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(Number(value || 0));
 
-  header(page);
   text('RESUMEN DE PRECALIFICACIÓN CREDITICIA', 20, bold);
   text(data.subject || 'Titular consultado', 15, bold);
   row('CUIT/CUIL', data.cuitMasked);
@@ -82,6 +85,8 @@ export async function buildDossierPdf(data: PdfData) {
         : `${money(data.economic.declaredDocumentedDifference)}${data.economic.declaredDocumentedDifferenceRatio == null ? '' : ` (${(data.economic.declaredDocumentedDifferenceRatio * 100).toFixed(1)}%)`}`);
     }
     row('Cuotas mensuales de financiaciones vigentes', money(data.economic?.declaredMonthlyDebtService));
+    row('Canon mensual propuesto', money(data.economic?.proposedMonthlyCanon));
+    row('Canon máximo prudente', money(data.economic?.maximumPrudentCanon));
     row('Relación compromisos / ingreso', data.economic?.installmentToIncomeRatio == null ? 'No estimable' : `${(data.economic.installmentToIncomeRatio * 100).toFixed(1)}%`);
     if (data.economic?.regulatoryExposure?.applicable) {
       section('Encuadre patrimonial y regulatorio');
@@ -142,6 +147,18 @@ export async function buildDossierPdf(data: PdfData) {
     if (data.economic?.confidence === 'declarativa') {
       text('ADVERTENCIA: los ingresos son declarativos y deben solicitarse comprobantes antes de una decisión definitiva.', 9, bold, violet);
     }
+    if (data.economic?.reasons?.length) {
+      section('Fundamentos del análisis');
+      for (const reason of data.economic.reasons) text(`- ${reason}`, 9);
+    }
+    if (data.economic?.conditions?.length) {
+      section('Condiciones y observaciones');
+      for (const condition of data.economic.conditions) text(`- ${condition}`, 9);
+    }
+  }
+  if (data.documents?.length) {
+    section('Documentación analizada');
+    for (const document of data.documents) row(document.name, `${document.kind}${document.status ? ` · ${document.status}` : ''}`);
   }
   if (data.compliance) {
     section('Precalificación 3 · Declaraciones y decisión');
@@ -157,6 +174,9 @@ export async function buildDossierPdf(data: PdfData) {
   section('Trazabilidad');
   row('Generado', new Date().toLocaleString('es-AR'));
   row('Modelo', data.stage1.modelVersion);
-  footer(page, pdf.getPageCount());
+  pdf.getPages().forEach((target, index) => {
+    header(target);
+    footer(target, index + 1);
+  });
   return pdf.save();
 }

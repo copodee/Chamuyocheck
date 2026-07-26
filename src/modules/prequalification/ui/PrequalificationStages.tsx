@@ -426,6 +426,7 @@ export function PrequalificationStages(props: Props) {
       const data = await api({
         action: 'stage2', contact, economicInputs: economic, documents, balance, previousBalance,
         caseNumber: recovered.caseNumber, subject: props.subject.denomination,
+        cuitMasked: props.subject.cuitMasked, stage1: props.stage1,
       }, recovered.caseId);
       setAssessment(data.assessment); setStage(3); setResponseEmail(contact.email);
       setMessage(data.notification?.sent
@@ -437,7 +438,12 @@ export function PrequalificationStages(props: Props) {
   const saveStage3 = async () => {
     setBusy(true); setMessage('');
     try {
-      const data = await api({ action: 'stage3', compliance, decision, responseEmail, documents, caseNumber: effectiveCaseNumber, subject: props.subject.denomination });
+      const data = await api({
+        action: 'stage3', compliance, decision, responseEmail, documents,
+        caseNumber: effectiveCaseNumber, subject: props.subject.denomination,
+        cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact,
+        economic: { ...assessment, declaredMonthlyDebtService: economic.declaredMonthlyDebtService, proposedMonthlyCanon: economic.proposedMonthlyCanon },
+      });
       setMessage(data.notification?.sent ? 'El administrador fue notificado.' : 'Expediente guardado. Falta conectar la clave de Resend para enviar correos.');
       setStage(4);
     }
@@ -448,7 +454,7 @@ export function PrequalificationStages(props: Props) {
     setBusy(true);
     const response = await fetch('/api/prequalification/pdf', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${props.session.access_token}` },
-      body: JSON.stringify({ caseNumber: effectiveCaseNumber, subject: props.subject.denomination, cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact, economic: { ...assessment, declaredMonthlyDebtService: economic.declaredMonthlyDebtService }, compliance, decision, responseEmail }),
+      body: JSON.stringify({ caseNumber: effectiveCaseNumber, subject: props.subject.denomination, cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact, economic: { ...assessment, declaredMonthlyDebtService: economic.declaredMonthlyDebtService, proposedMonthlyCanon: economic.proposedMonthlyCanon }, compliance, decision, responseEmail, documents }),
     });
     if (response.ok) {
       const url = URL.createObjectURL(await response.blob());

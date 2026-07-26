@@ -6,13 +6,15 @@ import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicInpu
 import { adminNotificationHtml, applicantResponseHtml, getPrequalificationEmailConfig, sendPrequalificationEmail, stage2NotificationHtml } from '../../../../src/modules/prequalification/infrastructure/email/resendProvider';
 import { isValidCuit, normalizeCuit } from '../../../../src/modules/prequalification/domain/cuit';
 import { getPrequalificationSupabaseConfig } from '../../../../src/modules/prequalification/infrastructure/supabase/config';
+import { buildDossierPdf } from '../../../../src/modules/prequalification/reports/dossierPdf';
 
 export const runtime = 'nodejs';
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 async function update(token: string, id: string, values: Record<string, unknown>) {
   await prequalRest(token, `prequal_cases?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(values) });
 }
-const RESEND_SAFE_ENCODED_LIMIT = 35 * 1024 * 1024;
+// Reserva margen para que el informe PDF siempre viaje adjunto al correo.
+const RESEND_SAFE_ENCODED_LIMIT = 33 * 1024 * 1024;
 const DOWNLOAD_LINK_EXPIRY_SECONDS = 7 * 24 * 60 * 60;
 
 async function createDownloadLink(token: string, storagePath: string) {
@@ -115,6 +117,19 @@ export async function POST(request: Request) {
         }, { status: 422 });
       }
       const delivery = await prepareDocumentDelivery(auth.token, documents.filter(document => document.stage === 2));
+      const reportPdf = await buildDossierPdf({
+        caseNumber: body.caseNumber || body.caseId,
+        subject: body.subject || contact.fullName,
+        cuitMasked: body.cuitMasked || 'Reservado',
+        stage1: body.stage1 || {},
+        contact,
+        economic: { ...assessment, declaredMonthlyDebtService: inputs.declaredMonthlyDebtService, proposedMonthlyCanon: inputs.proposedMonthlyCanon },
+        documents: documents.filter(document => document.stage === 2),
+      });
+      const reportAttachment = {
+        filename: `${String(body.caseNumber || body.caseId).replace(/[^A-Z0-9-]/gi, '')}-informe.pdf`,
+        content: Buffer.from(reportPdf).toString('base64'),
+      };
       const emailConfig = getPrequalificationEmailConfig();
       const notification = await sendPrequalificationEmail({
         to: emailConfig.administratorEmail, replyTo: contact.email,
@@ -141,7 +156,7 @@ export async function POST(request: Request) {
           downloadLinks: delivery.downloadLinks,
         }),
         idempotencyKey: `prequal-stage2-v2-${body.caseId}-${assessment.score}-${Math.round(inputs.proposedMonthlyCanon)}`,
-        attachments: delivery.attachments,
+        attachments: [reportAttachment, ...delivery.attachments],
       }).catch((error) => ({
         sent: false as const,
         reason: error instanceof Error ? error.message : 'provider-error',
@@ -166,6 +181,22 @@ export async function POST(request: Request) {
       const emailConfig = getPrequalificationEmailConfig();
       const documents = (body.documents || []) as DossierDocument[];
       const delivery = await prepareDocumentDelivery(auth.token, documents);
+      const reportPdf = await buildDossierPdf({
+        caseNumber: body.caseNumber || body.caseId,
+        subject: body.subject || 'Titular consultado',
+        cuitMasked: body.cuitMasked || 'Reservado',
+        stage1: body.stage1 || {},
+        contact: body.contact,
+        economic: body.economic,
+        compliance,
+        decision: body.decision,
+        responseEmail: body.responseEmail,
+        documents,
+      });
+      const reportAttachment = {
+        filename: `${String(body.caseNumber || body.caseId).replace(/[^A-Z0-9-]/gi, '')}-informe-final.pdf`,
+        content: Buffer.from(reportPdf).toString('base64'),
+      };
       const notification = await sendPrequalificationEmail({
         to: emailConfig.administratorEmail,
         replyTo: body.responseEmail,
@@ -177,7 +208,7 @@ export async function POST(request: Request) {
           downloadLinks: delivery.downloadLinks,
         }),
         idempotencyKey: `prequal-admin-${body.caseId}`,
-        attachments: delivery.attachments,
+        attachments: [reportAttachment, ...delivery.attachments],
       }).catch(() => ({ sent: false as const, reason: 'provider-error' as const }));
       await update(auth.token, body.caseId, {
         stage: 3, compliance, stage3_decision: body.decision, response_email: body.responseEmail,
