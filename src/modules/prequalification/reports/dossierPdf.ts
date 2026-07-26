@@ -35,9 +35,11 @@ export async function buildDossierPdf(data: PdfData) {
     target.drawLine({ start: { x: 42, y: 765 }, end: { x: 553, y: 765 }, thickness: 1, color: rgb(.82, .82, .87) });
   };
   const footer = (target: PDFPage, n: number) => {
-    target.drawLine({ start: { x: 42, y: 45 }, end: { x: 553, y: 45 }, thickness: .5, color: rgb(.8, .8, .84) });
-    target.drawText('Evaluación preliminar. No constituye aprobación ni oferta de financiación.', { x: 42, y: 28, size: 8, font: regular, color: muted });
-    target.drawText(`${n}`, { x: 540, y: 28, size: 8, font: regular, color: muted });
+    target.drawLine({ start: { x: 42, y: 55 }, end: { x: 553, y: 55 }, thickness: .5, color: rgb(.8, .8, .84) });
+    target.drawText('Evaluación preliminar. No constituye aprobación ni oferta de financiación.', { x: 42, y: 39, size: 8, font: regular, color: muted });
+    target.drawText('www.leasingscoring.com', { x: 42, y: 27, size: 8, font: bold, color: violet });
+    target.drawText('contacto@leasingscoring.com', { x: 42, y: 15, size: 8, font: regular, color: muted });
+    target.drawText(`${n}`, { x: 540, y: 27, size: 8, font: regular, color: muted });
   };
   const newPage = () => { page = pdf.addPage([595, 842]); y = 735; };
   // Helvetica es la fuente PDF estándar métricamente compatible con Arial.
@@ -52,7 +54,7 @@ export async function buildDossierPdf(data: PdfData) {
       } else line = next;
     }
     if (line) { page.drawText(line, { x: 50, y, size, font, color }); y -= size + 7; }
-    if (y < 80) newPage();
+    if (y < 95) newPage();
   };
   const section = (title: string) => { y -= 7; text(title.toUpperCase(), 11, bold, violet); };
   const row = (label: string, value: unknown) => text(`${label}: ${value ?? '-'}`, 11);
@@ -90,6 +92,18 @@ export async function buildDossierPdf(data: PdfData) {
     row('Canon mensual propuesto', money(data.economic?.proposedMonthlyCanon));
     row('Canon máximo prudente', money(data.economic?.maximumPrudentCanon));
     row('Relación compromisos / ingreso', data.economic?.installmentToIncomeRatio == null ? 'No estimable' : `${(data.economic.installmentToIncomeRatio * 100).toFixed(1)}%`);
+    section('Síntesis del director de riesgos');
+    row('Decisión económica preliminar', ({ compatible: 'Compatible', conditional: 'Compatible con condiciones', 'manual-review': 'Revisión manual', 'not-compatible': 'No compatible' } as Record<string, string>)[data.economic?.status] || data.economic?.status);
+    row('Comportamiento BCRA', data.stage1.currentSituation == null ? 'Sin datos actuales' : `Situación ${data.stage1.currentSituation}; máxima histórica ${data.stage1.maximumSituation ?? 'sin datos'}`);
+    row('Holgura de canon', data.economic?.maximumPrudentCanon == null || data.economic?.proposedMonthlyCanon == null
+      ? 'No calculable'
+      : money(data.economic.maximumPrudentCanon - data.economic.proposedMonthlyCanon));
+    row('Cobertura total de compromisos', data.economic?.totalCommitmentCoverage == null ? 'No calculable' : `${data.economic.totalCommitmentCoverage.toFixed(2)} veces`);
+    row('Calidad del respaldo', data.economic?.confidence || 'No informada');
+    row('Solvencia contable', data.economic?.corporateFinancials?.status
+      ? ({ strong: 'Sólida', adequate: 'Adecuada', review: 'Requiere revisión', weak: 'Débil', 'insufficient-data': 'Datos insuficientes' } as Record<string, string>)[data.economic.corporateFinancials.status]
+      : 'No aplicable o no evaluada');
+    row('Encuadre regulatorio', data.economic?.regulatoryExposure?.label || 'No aplicable o no evaluado');
     if (data.economic?.regulatoryExposure?.applicable) {
       section('Encuadre patrimonial y regulatorio');
       row('Resultado', data.economic.regulatoryExposure.label);
