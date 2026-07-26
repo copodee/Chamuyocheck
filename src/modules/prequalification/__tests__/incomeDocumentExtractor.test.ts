@@ -37,6 +37,16 @@ test('promedia meses completos, distribuye retroactivos y prorratea el aguinaldo
   assert.equal(Math.round(analysis.normalizedMonthlyIncome), 1_214_417);
 });
 
+test('reconoce adicionales repetidos como parte habitual sin sumarlos dos veces al neto', () => {
+  const analysis = analyzeSalaryIncome([
+    salarySlip('Febrero de 2026', '1', '311-SUELDO MENSUAL 1.000.000,00\n324-ANTIGUEDAD Años: 10 200.000,00\n417-TITULO MAESTRIA 80.000,00', '1.050.000,00'),
+    salarySlip('Marzo de 2026', '2', '311-SUELDO MENSUAL 1.000.000,00\n324-ANTIGUEDAD Años: 10 200.000,00\n417-TITULO MAESTRIA 80.000,00', '1.050.000,00'),
+    salarySlip('Abril de 2026', '3', '311-SUELDO MENSUAL 1.000.000,00\n324-ANTIGUEDAD Años: 10 200.000,00\n417-TITULO MAESTRIA 80.000,00', '1.050.000,00'),
+  ]);
+  assert.deepEqual(analysis.recurringAdditionalConcepts.sort(), ['ANTIGUEDAD', 'TITULO MAESTRIA']);
+  assert.equal(analysis.regularMonthlyAverage, 1_050_000);
+});
+
 test('extrae el importe total de una factura argentina', () => {
   assert.equal(extractInvoiceTotal('Subtotal $ 450.000,00\nImporte total: $ 544.500,00'), 544_500);
 });

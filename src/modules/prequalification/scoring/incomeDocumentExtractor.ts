@@ -36,6 +36,7 @@ export type ExtractedSalaryReceipt = {
   paymentDate: string | null;
   netAmount: number | null;
   kind: SalaryReceiptKind;
+  earningConcepts: Array<{ code: string; name: string }>;
 };
 
 export type SalaryIncomeAnalysis = {
@@ -45,6 +46,7 @@ export type SalaryIncomeAnalysis = {
   sacMonthlyEquivalent: number;
   normalizedMonthlyIncome: number;
   observedRegularMonths: number;
+  recurringAdditionalConcepts: string[];
   warnings: string[];
 };
 
@@ -70,6 +72,10 @@ export function extractSalaryReceipt(text: string): ExtractedSalaryReceipt {
   const hasSac = /\b(?:SAC|aguinaldo|sueldo\s+anual\s+complementario)\b/i.test(normalized);
   const hasRetroactive = /\b(?:retro(?:activo)?|ajuste\s+salarial|diferencia\s+salarial)\b/i.test(normalized);
   const hasRegularSalary = /\bsueldo\s+mensual\b/i.test(normalized);
+  const earningConcepts = [...normalized.matchAll(/^\s*(\d{3})-([A-Z][A-Z .]*?)(?=\s+\d|\s+A[nñ]os:|\s*$)/gim)]
+    .map(match => ({ code: match[1], name: match[2].replace(/\s+/g, ' ').trim() }))
+    .filter(concept => Number(concept.code) < 700)
+    .filter((concept, index, concepts) => concepts.findIndex(item => item.code === concept.code) === index);
   return {
     receiptNumber: normalized.match(/Recibo\s+de\s+Sueldo\s+N[uú]mero:\s*(\d+)/i)?.[1] || null,
     paymentPeriod,
@@ -77,11 +83,24 @@ export function extractSalaryReceipt(text: string): ExtractedSalaryReceipt {
     paymentDate: normalized.match(/\bFecha:\s*(\d{1,2}\/\d{1,2}\/20\d{2})/i)?.[1] || null,
     netAmount: extractSalaryNetAmount(text),
     kind: hasSac ? 'sac' : hasRetroactive ? 'retroactive' : hasRegularSalary ? 'regular' : 'extraordinary',
+    earningConcepts,
   };
 }
 
 export function analyzeSalaryIncome(texts: string[]): SalaryIncomeAnalysis {
   const receipts = texts.map(extractSalaryReceipt);
+  const conceptMonths = new Map<string, Set<string>>();
+  for (const receipt of receipts) {
+    for (const concept of receipt.earningConcepts) {
+      if (concept.code === '311' || /sueldo mensual/i.test(concept.name)) continue;
+      const periods = conceptMonths.get(`${concept.code}|${concept.name}`) || new Set<string>();
+      receipt.periodKeys.forEach(period => periods.add(period));
+      conceptMonths.set(`${concept.code}|${concept.name}`, periods);
+    }
+  }
+  const recurringAdditionalConcepts = [...conceptMonths.entries()]
+    .filter(([, periods]) => periods.size >= 2)
+    .map(([key]) => key.split('|')[1]);
   const regularMonths = new Map<string, { regularNet: number; retroactiveNet: number }>();
   for (const receipt of receipts.filter(item => item.kind === 'regular' && item.netAmount != null)) {
     const period = receipt.periodKeys[0];
@@ -98,6 +117,14 @@ export function analyzeSalaryIncome(texts: string[]): SalaryIncomeAnalysis {
       const current = regularMonths.get(period);
       if (current) current.retroactiveNet += allocation;
     }
+  }
+  for (const receipt of receipts.filter(item => item.kind === 'extraordinary' && item.netAmount != null && item.periodKeys.length)) {
+    const isRecurring = receipt.earningConcepts.some(concept =>
+      recurringAdditionalConcepts.includes(concept.name),
+    );
+    if (!isRecurring) continue;
+    const current = regularMonths.get(receipt.periodKeys[0]);
+    if (current) current.retroactiveNet += receipt.netAmount || 0;
   }
   const monthlyTotals = [...regularMonths.entries()]
     .map(([period, values]) => ({ period, ...values, totalRecurringNet: values.regularNet + values.retroactiveNet }))
@@ -122,6 +149,7 @@ export function analyzeSalaryIncome(texts: string[]): SalaryIncomeAnalysis {
     sacMonthlyEquivalent,
     normalizedMonthlyIncome: regularMonthlyAverage + sacMonthlyEquivalent,
     observedRegularMonths: monthlyTotals.length,
+    recurringAdditionalConcepts,
     warnings,
   };
 }
