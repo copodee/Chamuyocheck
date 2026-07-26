@@ -348,8 +348,18 @@ export function PrequalificationStages(props: Props) {
               });
               const fallbackData = await fallbackResponse.json();
               if (fallbackResponse.ok) {
+                const fallbackAdmission = documentKind === 'auto'
+                  ? classifyPrequalificationDocument({
+                    profile: economic.profile,
+                    fileName: file.name,
+                    extractedText: '',
+                    targetCuit: props.requestData.cuit,
+                    usedKinds,
+                  })
+                  : { kind: documentKind, stage: stage === 3 ? 3 as const : 2 as const };
+                usedKinds.add(fallbackAdmission.kind);
                 added.push({
-                  id: crypto.randomUUID(), stage: 2, kind: 'unclassified', name: file.name, size: file.size,
+                  id: crypto.randomUUID(), stage: fallbackAdmission.stage, kind: fallbackAdmission.kind, name: file.name, size: file.size,
                   extractionConfidence: 0, extractedText: '', storagePath: fallbackData.storagePath,
                   status: 'needs-review',
                 });
@@ -365,17 +375,27 @@ export function PrequalificationStages(props: Props) {
         const updated = [...current];
         for (const next of added) {
           const allowsSeveral = next.kind.includes('invoices-') || ['balance-notes', 'post-balance-sales', 'corporate-income-tax', 'representative-identity-front', 'representative-identity-back', 'different-subject', 'unclassified'].includes(next.kind);
+          const duplicate = updated.findIndex(document => document.stage === next.stage && document.kind === next.kind && document.name === next.name);
+          if (duplicate >= 0) updated.splice(duplicate, 1);
           if (!allowsSeveral) {
             const existing = updated.findIndex(document => document.stage === next.stage && document.kind === next.kind);
             if (existing >= 0) updated.splice(existing, 1);
           }
           updated.push(next);
         }
-        return updated;
+        return updated.filter((document, index, all) =>
+          all.findLastIndex(candidate =>
+            candidate.stage === document.stage
+            && candidate.kind === document.kind
+            && candidate.name === document.name,
+          ) === index
+        );
       });
       const combinedDocuments = [...documents];
       for (const next of added) {
         const allowsSeveral = next.kind.includes('invoices-') || ['balance-notes', 'post-balance-sales', 'corporate-income-tax', 'representative-identity-front', 'representative-identity-back', 'different-subject', 'unclassified'].includes(next.kind);
+        const duplicate = combinedDocuments.findIndex(document => document.stage === next.stage && document.kind === next.kind && document.name === next.name);
+        if (duplicate >= 0) combinedDocuments.splice(duplicate, 1);
         if (!allowsSeveral) {
           const existing = combinedDocuments.findIndex(document => document.stage === next.stage && document.kind === next.kind);
           if (existing >= 0) combinedDocuments.splice(existing, 1);
