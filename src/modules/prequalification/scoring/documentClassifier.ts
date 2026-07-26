@@ -32,6 +32,7 @@ export function classifyPrequalificationDocument(input: {
   targetCuit: string;
   usedKinds: Set<string>;
 }): DocumentAdmission {
+  const normalizedFileName = normalizedDocumentText(input.fileName);
   const content = normalizedDocumentText(`${input.fileName} ${input.extractedText.slice(0, 24000)}`);
   const has = (...patterns: string[]) => patterns.some(pattern => content.includes(pattern));
   const targetCuit = input.targetCuit.replace(/\D/g, '');
@@ -64,12 +65,22 @@ export function classifyPrequalificationDocument(input: {
   }
 
   if (input.profile === 'legal-entity') {
+    const looksLikeCompleteFinancialStatements = (
+      (has('estado de situacion patrimonial') && has('estado de resultados'))
+      || (/\beecc\b|estados contables|balance (?:general|20\d{2})/.test(normalizedFileName)
+        && !/^\s*\d*\s*[-_.]?\s*notas?\b/.test(normalizedFileName))
+    );
+    // Los EECC completos suelen incluir sus propias notas. Deben reconocerse
+    // como balance antes de aplicar la regla específica para notas sueltas.
+    if (looksLikeCompleteFinancialStatements) {
+      return { action: 'accept', kind: nextAvailable('balance', 2, input.usedKinds), stage: 2, confidence: 'high', reason: 'Estados contables completos detectados.' };
+    }
     if (has('notas a los estados contables', 'informacion complementaria a los estados contables')
       || (has('nota n°', 'nota nº', 'nota no') && has('criterios de valuacion', 'composicion de los rubros'))) {
       return { action: 'accept', kind: 'balance-notes', stage: 2, confidence: 'high', reason: 'Notas complementarias de los estados contables detectadas.' };
     }
     if (has('detalle de deuda', 'deuda bancaria', 'deuda financiera', 'prestamos bancarios', 'entidades acreedoras')) return { action: 'accept', kind: 'financial-debt', stage: 2, confidence: 'high', reason: 'Detalle de deuda financiera detectado.' };
-    if (has('f.2051', 'f2051', 'formulario 2051', 'ventas netas de iva', 'ventas posteriores', 'ventas post balance', 'detalle mensual de ventas')) return { action: 'accept', kind: 'post-balance-sales', stage: 2, confidence: 'high', reason: 'Declaración mensual o detalle de ventas detectado.' };
+    if (has('f.2051', 'f2051', 'formulario 2051', 'ventas netas de iva', 'ventas posteriores', 'ventas post balance', 'detalle mensual de ventas', 'detalle de ventas')) return { action: 'accept', kind: 'post-balance-sales', stage: 2, confidence: 'high', reason: 'Declaración mensual o detalle de ventas detectado.' };
     if (has('f.713', 'f713', 'declaracion jurada ganancias sociedades', 'impuesto a las ganancias sociedades')) return { action: 'accept', kind: 'corporate-income-tax', stage: 2, confidence: 'high', reason: 'Declaración anual de Ganancias de la sociedad detectada.' };
     if (has('estado de situacion patrimonial', 'patrimonio neto', 'estado de resultados', 'balance general', 'ejercicio economico', 'estados contables', 'eecc')) return { action: 'accept', kind: nextAvailable('balance', 2, input.usedKinds), stage: 2, confidence: 'high', reason: 'Estados contables detectados.' };
   }

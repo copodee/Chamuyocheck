@@ -22,6 +22,32 @@ test('reconoce las notas como complemento del balance', () => {
   assert.equal(result.stage, 2);
 });
 
+test('prioriza un EECC completo aunque incluya sus propias notas', () => {
+  const result = classifyPrequalificationDocument({
+    ...base,
+    fileName: 'EECC 30.06.2025 GRUPO LORASCHI BATALLA Legalizado.pdf',
+    extractedText: 'MEMORIA Y ESTADOS CONTABLES. Estado de situación patrimonial. Estado de resultados. Notas a los estados contables.',
+  });
+  assert.equal(result.kind, 'balance-1');
+  assert.equal(result.stage, 2);
+});
+
+test('reconoce el lote económico real de GLB sin pedir nuevamente sus cuatro grupos', () => {
+  const usedKinds = new Set<string>();
+  const classify = (fileName: string, extractedText = '') => {
+    const result = classifyPrequalificationDocument({ ...base, fileName, extractedText, usedKinds });
+    usedKinds.add(result.kind);
+    return result.kind;
+  };
+  assert.equal(classify(
+    'EECC 30.06.2025 GRUPO LORASCHI BATALLA Legalizado.pdf',
+    'MEMORIA Y ESTADOS CONTABLES. Estado de situación patrimonial. Estado de resultados. Notas a los estados contables.',
+  ), 'balance-1');
+  assert.equal(classify('EECC_30716790203_2024.pdf'), 'balance-2');
+  assert.equal(classify('Ventas -2024-2026 - GLB.pdf', 'DETALLE DE VENTAS. Periodo Ventas Netas IVA Ventas Totales'), 'post-balance-sales');
+  assert.equal(classify('Detalle de deuda - Grupo Loraschi Batalla.pdf'), 'financial-debt');
+});
+
 test('separa una cotización de leasing de los estados contables', () => {
   const result = classifyPrequalificationDocument({
     ...base,

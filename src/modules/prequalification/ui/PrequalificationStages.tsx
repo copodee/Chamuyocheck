@@ -164,6 +164,12 @@ export function PrequalificationStages(props: Props) {
   const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [documentLoadState, setDocumentLoadState] = useState<'idle' | 'loading' | 'complete' | 'error'>('idle');
+  const [documentReadProgress, setDocumentReadProgress] = useState<Array<{
+    name: string;
+    status: 'pending' | 'reading' | 'complete' | 'excluded' | 'error';
+    detail?: string;
+  }>>([]);
   const [documents, setDocuments] = useState<DossierDocument[]>([]);
   const [excludedDocuments, setExcludedDocuments] = useState<Array<{ name: string; reason: string }>>([]);
   const [balance, setBalance] = useState<ExtractedBalance>();
@@ -242,21 +248,34 @@ export function PrequalificationStages(props: Props) {
     return data;
   };
   const readFiles = async (files: FileList | File[] | null, documentKind: string) => {
-    if (!files) return;
-    setBusy(true); setMessage('Leyendo documentos…');
+    if (!files || files.length === 0) return;
+    const selectedFiles = Array.from(files);
+    const updateReadProgress = (name: string, status: 'pending' | 'reading' | 'complete' | 'excluded' | 'error', detail?: string) => {
+      setDocumentReadProgress(current => current.map(item => item.name === name ? { ...item, status, detail } : item));
+    };
+    setDocumentLoadState('loading');
+    setDocumentReadProgress(selectedFiles.map(file => ({ name: file.name, status: 'pending' })));
+    setBusy(true); setMessage('Cargando y leyendo documentos…');
     const added: DossierDocument[] = [];
+    const processingErrors: string[] = [];
     const usedKinds = new Set(documents.map(document => document.kind));
     let monthlySalesFromDocuments: number[] = [];
     let debtFromDocument: ExtractedFinancialDebt | undefined;
     let societaryAntiquity: ReturnType<typeof extractConstitutionAntiquity>;
     try {
       const recovered = await recoverCase();
-      for (const file of Array.from(files)) {
+      for (const file of selectedFiles) {
+        updateReadProgress(file.name, 'reading', 'Preparando lectura…');
+        try {
         let extractedText = '';
         let extractionConfidence = 0;
         let extractedPages: number | undefined;
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-          const extraction = await extractPdfTextInBrowser(file, (progress) => setMessage(`Leyendo página ${progress.page} de ${progress.totalPages}…`));
+          const extraction = await extractPdfTextInBrowser(file, (progress) => {
+            const detail = `Leyendo página ${progress.page} de ${progress.totalPages}…`;
+            setMessage(`${file.name}: ${detail}`);
+            updateReadProgress(file.name, 'reading', detail);
+          });
           extractedText = extraction.text;
           extractionConfidence = extraction.confidence;
           extractedPages = extraction.pages;
@@ -285,6 +304,7 @@ export function PrequalificationStages(props: Props) {
         const resolvedKind = admission.kind;
         if (admission.action === 'discard' || admission.kind === 'different-subject') {
           setExcludedDocuments(current => [...current, { name: file.name, reason: admission.reason }]);
+          updateReadProgress(file.name, 'excluded', admission.reason);
           continue;
         }
         usedKinds.add(resolvedKind);
@@ -309,6 +329,12 @@ export function PrequalificationStages(props: Props) {
             ? 'needs-review'
             : extractedText ? 'read' : 'uploaded',
         });
+        updateReadProgress(file.name, 'complete', admission.reason);
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : 'No se pudo leer o guardar el archivo.';
+          processingErrors.push(`${file.name}: ${detail}`);
+          updateReadProgress(file.name, 'error', detail);
+        }
       }
       setDocuments((current) => {
         const updated = [...current];
@@ -411,8 +437,14 @@ export function PrequalificationStages(props: Props) {
         setEconomic(current => ({ ...current, activitySeniorityMonths: societaryAntiquity?.months ?? current.activitySeniorityMonths }));
       }
       const reviewCount = added.filter(document => document.status === 'needs-review').length;
-      setMessage(`${added.length} documento(s) incorporado(s).${reviewCount ? ` ${reviewCount} requieren identificar su tipo manualmente.` : ' Todos fueron identificados automáticamente.'}`);
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo leer el archivo.'); }
+      setDocumentLoadState(processingErrors.length ? 'error' : 'complete');
+      setMessage(processingErrors.length
+        ? `Carga finalizada: ${added.length} documento(s) incorporado(s) y ${processingErrors.length} archivo(s) para revisar.`
+        : `Carga completa: ${added.length} documento(s) incorporado(s).${reviewCount ? ` ${reviewCount} requieren identificar su tipo manualmente.` : ' Todos fueron identificados automáticamente.'}`);
+    } catch (error) {
+      setDocumentLoadState('error');
+      setMessage(error instanceof Error ? error.message : 'No se pudo leer el archivo.');
+    }
     setBusy(false);
   };
   async function recoverCase() {
@@ -602,9 +634,15 @@ export function PrequalificationStages(props: Props) {
           onDragOver={event => event.preventDefault()}
           onDrop={event => { event.preventDefault(); void readFiles(event.dataTransfer.files, 'auto'); }}
         >
-          <div><b>Carga automática de varios documentos</b><span>Seleccioná o arrastrá juntos archivos PDF, imágenes o Word. LeasingScoring identificará sujeto, tipo y etapa antes de incorporarlos.</span></div>
-          <label className="prequalUploadButton" htmlFor="stage-2-bulk-documents">Seleccionar varios archivos</label>
-          <input id="stage-2-bulk-documents" className="prequalFileInput" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" onChange={event => readFiles(event.target.files, 'auto')} />
+          <div>
+            <b>Carga automática de varios documentos</b>
+            <span>Seleccioná o arrastrá juntos archivos PDF, Word (.docx), Excel, JPG, PNG o WEBP. LeasingScoring identificará sujeto, tipo y etapa antes de incorporarlos.</span>
+            {documentLoadState === 'loading' && <strong className="prequalLoadStatus">Cargando… No cierres esta pantalla.</strong>}
+            {documentLoadState === 'complete' && <strong className="prequalLoadStatus complete">Carga completa</strong>}
+            {documentLoadState === 'error' && <strong className="prequalLoadStatus error">La carga requiere revisión</strong>}
+          </div>
+          <label className={`prequalUploadButton ${busy ? 'disabled' : ''}`} htmlFor="stage-2-bulk-documents">{busy ? 'Cargando…' : 'Seleccionar varios archivos'}</label>
+          <input id="stage-2-bulk-documents" className="prequalFileInput" type="file" multiple disabled={busy} accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xls,.xlsx" onChange={event => readFiles(event.target.files, 'auto')} />
         </div>
         {!!excludedDocuments.length && <div className="prequalExcludedDocuments"><b>Archivos no incorporados al expediente</b>{excludedDocuments.map(document => <span key={`${document.name}-${document.reason}`}>{document.name}: {document.reason}</span>)}</div>}
         <div className={`prequalMissingDocuments ${missingStage2Documents.length ? 'hasMissing' : 'complete'}`}>
@@ -697,6 +735,13 @@ export function PrequalificationStages(props: Props) {
       <button className="prequalPrimary" disabled={busy} onClick={saveStage2}>
         {previewAssessment.status === 'compatible' ? 'Calificar y enviar expediente' : 'Recalcular capacidad de pago'}
       </button>
+      {!!documentReadProgress.length && <div className="prequalReadProgress" aria-live="polite">
+        <b>{documentLoadState === 'loading' ? 'Archivos que se están leyendo' : 'Resultado de la lectura'}</b>
+        {documentReadProgress.map(file => <span className={`status-${file.status}`} key={file.name}>
+          <strong>{file.status === 'pending' ? 'Pendiente' : file.status === 'reading' ? 'Leyendo' : file.status === 'complete' ? 'Leído' : file.status === 'excluded' ? 'No incorporado' : 'Error'}</strong>
+          {' · '}{file.name}{file.detail ? ` · ${file.detail}` : ''}
+        </span>)}
+      </div>}
     </div>}
     {stage === 3 && <div className="prequalForm">
       <h3>Precalificación 3 · Validación y cumplimiento UIF</h3>
