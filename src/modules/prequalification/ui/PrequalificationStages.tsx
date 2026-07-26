@@ -142,6 +142,7 @@ export function PrequalificationStages(props: Props) {
   const [balance, setBalance] = useState<ExtractedBalance>();
   const [previousBalance, setPreviousBalance] = useState<ExtractedBalance>();
   const [debtExtraction, setDebtExtraction] = useState<ExtractedFinancialDebt>();
+  const [usdDebtExchangeRate, setUsdDebtExchangeRate] = useState(0);
   const [constitutionDate, setConstitutionDate] = useState<string>();
   const [assessment, setAssessment] = useState<EconomicAssessment>();
   const [contact, setContact] = useState<ContactData>({
@@ -168,6 +169,19 @@ export function PrequalificationStages(props: Props) {
   const [responseMessage, setResponseMessage] = useState('');
   const [effectiveCaseId, setEffectiveCaseId] = useState(props.caseId);
   const [effectiveCaseNumber, setEffectiveCaseNumber] = useState(props.caseNumber);
+  const applyUsdDebtExchangeRate = (rate: number) => {
+    setUsdDebtExchangeRate(rate);
+    if (!debtExtraction) return;
+    const ars = debtExtraction.currencySummaries.find(item => item.currency === 'ARS');
+    const usd = debtExtraction.currencySummaries.find(item => item.currency === 'USD');
+    if (!usd || rate <= 0) return;
+    setEconomic(current => ({
+      ...current,
+      existingComputableFinancing: Math.round((ars?.capital || 0) + usd.capital * rate),
+      declaredMonthlyDebtService: debtExtraction.monthlyDebtService
+        ?? Math.round((ars?.estimatedMonthlyService || 0) + (usd.estimatedMonthlyService || 0) * rate),
+    }));
+  };
   const incomeDocumentCount = documents.filter(document =>
     /salary-slip|monotributo-invoices|balance-|vat-|income-detail|post-balance-sales/.test(document.kind),
   ).length;
@@ -340,10 +354,16 @@ export function PrequalificationStages(props: Props) {
       }
       if (debtFromDocument) {
         setDebtExtraction(debtFromDocument);
+        const arsSummary = debtFromDocument.currencySummaries.find(item => item.currency === 'ARS');
+        const hasForeignCurrency = debtFromDocument.currencySummaries.some(item => item.currency !== 'ARS' && item.capital > 0);
         setEconomic(current => ({
           ...current,
-          existingComputableFinancing: debtFromDocument?.totalOutstanding ?? current.existingComputableFinancing,
-          declaredMonthlyDebtService: debtFromDocument?.monthlyDebtService ?? current.declaredMonthlyDebtService,
+          existingComputableFinancing: debtFromDocument.totalOutstanding
+            ?? (!hasForeignCurrency ? arsSummary?.capital : null)
+            ?? current.existingComputableFinancing,
+          declaredMonthlyDebtService: debtFromDocument.monthlyDebtService
+            ?? (!hasForeignCurrency ? arsSummary?.estimatedMonthlyService : null)
+            ?? current.declaredMonthlyDebtService,
         }));
       }
       if (societaryAntiquity) {
@@ -449,6 +469,7 @@ export function PrequalificationStages(props: Props) {
         <label>Cuotas mensuales de financiaciones vigentes
           <input type="text" inputMode="numeric" value={economic.declaredMonthlyDebtService || ''} onChange={e => setEconomic({ ...economic, declaredMonthlyDebtService: Number(e.target.value.replace(/\D/g, '')) })} />
           <small>Suma mensual que actualmente paga por préstamos, leasing, descubiertos y otras financiaciones. No es el saldo total adeudado.</small>
+          {debtExtraction?.monthlyDebtServiceBasis === 'portfolio-estimate' && <small>Valor estimado desde el capital, plazo promedio y TNA del informe. Corregilo si disponés del cronograma contractual de cuotas.</small>}
         </label>
         <label>Canon mensual propuesto<input type="text" inputMode="numeric" value={economic.proposedMonthlyCanon || ''} onChange={e => setEconomic({ ...economic, proposedMonthlyCanon: Number(e.target.value.replace(/\D/g, '')) })} /></label>
         {economic.profile === 'employee'
@@ -475,7 +496,20 @@ export function PrequalificationStages(props: Props) {
               : 'Se completará automáticamente al cargar el último balance. También podés informarlo manualmente si el documento no permite una lectura confiable.'}</small>
             <small>Es la base preliminar para verificar el límite regulatorio; puede requerir ajustes si existen conceptos no computables.</small>
           </label>
-          <label>Deuda bancaria y financiera vigente<input type="text" inputMode="numeric" value={economic.existingComputableFinancing || ''} onChange={e => setEconomic({ ...economic, existingComputableFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Saldo total actual de préstamos, descubiertos, leasing y otras financiaciones todavía pendientes.</small>{debtExtraction && <small>Extraído del documento con confianza {debtExtraction.confidence}%. {debtExtraction.creditorEntities.length ? `${debtExtraction.creditorEntities.length} entidad(es) identificada(s).` : ''} {debtExtraction.warnings.join(' ')}</small>}</label>
+          <label>Deuda bancaria y financiera vigente<input type="text" inputMode="numeric" value={economic.existingComputableFinancing || ''} onChange={e => setEconomic({ ...economic, existingComputableFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Saldo total actual de préstamos, descubiertos, leasing y otras financiaciones todavía pendientes.</small>{debtExtraction && <small>Extraído del documento con confianza {debtExtraction.confidence}%. {debtExtraction.asOfDate ? `Fecha de corte: ${debtExtraction.asOfDate}. ` : ''}{debtExtraction.creditorEntities.length ? `${debtExtraction.creditorEntities.length} entidad(es) identificada(s). ` : ''}{debtExtraction.warnings.join(' ')}</small>}</label>
+          {!!debtExtraction?.currencySummaries.length && <div className="prequalCalculatedField">
+            <b>Resumen de deuda extraído</b>
+            {debtExtraction.currencySummaries.map(summary => <span key={summary.currency}>
+              {summary.currency}: capital {summary.currency === 'ARS' ? '$' : 'US$'} {Math.round(summary.capital).toLocaleString('es-AR')}
+              {summary.weightedDurationYears != null ? ` · plazo promedio ${summary.weightedDurationYears.toLocaleString('es-AR')} años` : ''}
+              {summary.weightedAnnualRate != null ? ` · TNA ponderada ${(summary.weightedAnnualRate * 100).toFixed(2)}%` : ''}
+              {summary.estimatedMonthlyService != null ? ` · carga mensual estimada ${summary.currency === 'ARS' ? '$' : 'US$'} ${Math.round(summary.estimatedMonthlyService).toLocaleString('es-AR')}` : ''}
+            </span>)}
+          </div>}
+          {debtExtraction?.currencySummaries.some(item => item.currency === 'USD' && item.capital > 0) && <label>Tipo de cambio de referencia ARS/USD
+            <input type="text" inputMode="numeric" value={usdDebtExchangeRate || ''} onChange={e => applyUsdDebtExchangeRate(Number(e.target.value.replace(/\D/g, '')))} />
+            <small>Necesario para sumar la deuda y su carga mensual en dólares a los importes en pesos. El tipo de cambio queda identificado como supuesto de la precalificación.</small>
+          </label>}
           <label>Monto neto solicitado<input type="text" inputMode="numeric" value={economic.requestedFinancing || ''} onChange={e => setEconomic({ ...economic, requestedFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Valor del bien menos anticipo; modificable si la estructura propuesta es distinta.</small></label>
           <label>Garantía regulatoria elegible<select value={economic.qualifyingGuarantee} onChange={e => setEconomic({ ...economic, qualifyingGuarantee: e.target.value as EconomicInputs['qualifyingGuarantee'] })}><option value="none">Sin SGR/fondo público informado</option><option value="sgr-public-fund">SGR o fondo público elegible</option></select></label>
         </>}
