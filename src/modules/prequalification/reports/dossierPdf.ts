@@ -35,11 +35,15 @@ export async function buildDossierPdf(data: PdfData) {
     target.drawLine({ start: { x: 42, y: 765 }, end: { x: 553, y: 765 }, thickness: 1, color: rgb(.82, .82, .87) });
   };
   const footer = (target: PDFPage, n: number) => {
-    target.drawLine({ start: { x: 42, y: 55 }, end: { x: 553, y: 55 }, thickness: .5, color: rgb(.8, .8, .84) });
-    target.drawText('Evaluación preliminar. No constituye aprobación ni oferta de financiación.', { x: 42, y: 39, size: 8, font: regular, color: muted });
-    target.drawText('www.leasingscoring.com', { x: 42, y: 27, size: 8, font: bold, color: violet });
-    target.drawText('contacto@leasingscoring.com', { x: 42, y: 15, size: 8, font: regular, color: muted });
-    target.drawText(`${n}`, { x: 540, y: 27, size: 8, font: regular, color: muted });
+    const website = 'www.leasingscoring.com';
+    const email = 'contacto@leasingscoring.com';
+    const websiteWidth = bold.widthOfTextAtSize(website, 8);
+    const emailWidth = regular.widthOfTextAtSize(email, 8);
+    target.drawText('Evaluación preliminar. No constituye aprobación ni oferta de financiación.', { x: 42, y: 57, size: 8, font: regular, color: muted });
+    target.drawLine({ start: { x: 42, y: 49 }, end: { x: 553, y: 49 }, thickness: .5, color: rgb(.8, .8, .84) });
+    target.drawText(website, { x: (595 - websiteWidth) / 2, y: 32, size: 8, font: bold, color: violet });
+    target.drawText(email, { x: (595 - emailWidth) / 2, y: 18, size: 8, font: regular, color: muted });
+    target.drawText(`${n}`, { x: 540, y: 25, size: 8, font: regular, color: muted });
   };
   const newPage = () => { page = pdf.addPage([595, 842]); y = 735; };
   // Helvetica es la fuente PDF estándar métricamente compatible con Arial.
