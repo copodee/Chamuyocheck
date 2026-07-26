@@ -51,23 +51,27 @@ export function extractBalanceData(text: string): ExtractedBalance {
     ? `${verbalClosingDate[1].padStart(2, '0')}/${String(month).padStart(2, '0')}/${verbalClosingDate[3]}`
     : null);
   const result: ExtractedBalance = {
-    activity: compact.match(/actividad principal\s*:\s*([^$]{3,100}?)(?=\s+(?:CUIT|domicilio|fecha|duraci[oó]n|$))/i)?.[1]?.trim() || null,
+    activity: compact.match(/actividad principal\s*:\s*([^$]{3,120}?)(?=\s+(?:CUIT|domicilio|fecha|duraci[oó]n|n[°º]?de inscripci[oó]n|$))/i)?.[1]?.trim() || null,
     closingDate,
     currentAssets: findAmount(compact, ['activo corriente']),
     nonCurrentAssets: findAmount(compact, ['activo no corriente']),
     currentLiabilities: findAmount(compact, ['pasivo corriente']),
     nonCurrentLiabilities: findAmount(compact, ['pasivo no corriente']),
-    equity: findAmount(compact, ['patrimonio neto']),
-    sales: findAmount(compact, ['ventas netas', 'ingresos por ventas', 'ventas']),
+    equity: findAmount(compact, ['patrimonio neto\\s+seg[uú]n estado respectivo y nota\\s*[\\d.]+', 'patrimonio neto']),
+    sales: findAmount(compact, ['ventas netas de bienes y servicios', 'ingresos netos operativos', 'ingresos por servicios', 'ventas netas', 'ingresos por ventas', 'ventas']),
     grossProfit: findAmount(compact, ['resultado bruto', 'ganancia bruta', 'utilidad bruta']),
     operatingProfit: findAmount(compact, ['resultado operativo', 'ganancia operativa']),
-    netProfit: findAmount(compact, ['resultado neto del ejercicio', 'resultado neto', 'ganancia \\(p[eé]rdida\\) del ejercicio', 'ganancia del ejercicio', 'p[eé]rdida del ejercicio']),
+    netProfit: (() => {
+      const loss = findAmount(compact, ['p[eé]rdida final del ejercicio', 'resultado final:\\s*p[eé]rdida\\)?', 'p[eé]rdida del ejercicio']);
+      if (loss != null) return -Math.abs(loss);
+      return findAmount(compact, ['resultado neto del ejercicio', 'resultado neto', 'ganancia \\(p[eé]rdida\\) del ejercicio', 'ganancia del ejercicio']);
+    })(),
     financialDebt: sumFirstAmounts(compact, 'pr[eé]stamos y otros pasivos financieros', 2)
       ?? findAmount(compact, ['deudas financieras', 'préstamos bancarios', 'deuda bancaria']),
     cash: findAmount(compact, ['caja y bancos', 'disponibilidades', 'efectivo y equivalentes']),
     inventory: findAmount(compact, ['bienes de cambio', 'inventarios']),
     tradeReceivables: findAmount(compact, ['cr[eé]ditos comerciales', 'cr[eé]ditos por ventas', 'cuentas por cobrar comerciales', 'deudores por ventas']),
-    costOfSales: findAmount(compact, ['costo de ventas', 'costo de la mercader[ií]a\\s*v?\\s*endida', 'costo de mercader[ií]as vendidas', 'costo de servicios prestados']),
+    costOfSales: findAmount(compact, ['costo de los bienes vendidos y servicios prestados', 'costo de bienes vendidos y servicios prestados', 'costo de ventas', 'costo de la mercader[ií]a\\s*v?\\s*endida', 'costo de mercader[ií]as vendidas', 'costo de servicios prestados']),
     interestExpense: findAmount(compact, ['intereses perdidos', 'intereses y gastos financieros', 'costos financieros', 'gastos financieros']),
     depreciationAndAmortization: findAmount(compact, ['depreciaciones y amortizaciones', 'depreciaci[oó]n(?: de)? bienes de uso', 'amortizaciones']),
     totalAssets: findAmount(compact, ['total(?: del)? activo(?!\\s+(?:corriente|no corriente))']),

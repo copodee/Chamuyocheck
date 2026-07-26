@@ -102,7 +102,7 @@ export async function extractPdfTextInBrowser(
         worker = await createWorker('spa', OEM.LSTM_ONLY);
         await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO, preserve_interword_spaces: '1' });
       }
-      const viewport = page.getViewport({ scale: 1.35 });
+      const viewport = page.getViewport({ scale: 1.65 });
       const canvas = window.document.createElement('canvas');
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);

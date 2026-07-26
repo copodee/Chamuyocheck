@@ -22,6 +22,16 @@ test('reconoce las notas como complemento del balance', () => {
   assert.equal(result.stage, 2);
 });
 
+test('separa una cotización de leasing de los estados contables', () => {
+  const result = classifyPrequalificationDocument({
+    ...base,
+    fileName: 'EL CAQUI SAS.pdf',
+    extractedText: 'MOTOR LEASING COTIZACIÓN. Canon inicial. 35 cánones fijos mensuales. Opción de compra.',
+  });
+  assert.equal(result.kind, 'leasing-quotation');
+  assert.equal(result.stage, 2);
+});
+
 test('pone en revisión documentos pertenecientes a otro CUIT', () => {
   const result = classifyPrequalificationDocument({ ...base, fileName: 'afip_cuit_30717339963_f2051.pdf', extractedText: '' });
   assert.equal(result.action, 'review');

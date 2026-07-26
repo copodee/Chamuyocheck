@@ -69,6 +69,30 @@ test('extrae un EECC ganadero comparativo sin confundir subtotales ni omitir las
   assert.equal(result.netProfit, 592_904_646.75);
 });
 
+test('extrae un EECC de transporte con pérdida y notas intercaladas', () => {
+  const result = extractBalanceData(`
+    Actividad Principal: Servicios de Transporte de carga y Logística
+    N°de inscripción en la Inspección General de Justicia: 172.590
+    ESTADOS CONTABLES AL 31 DE DICIEMBRE DE 2025
+    Total del Activo Corriente 22.582.184.600,93
+    Total del Activo No Corriente 27.492.843.660,41
+    Total del Pasivo Corriente 26.157.962.744,84
+    Total del Pasivo No Corriente 2.004.511.469,10
+    PATRIMONIO NETO Según estado respectivo y nota 2.10. 21.912.554.047,40
+    TOTAL DEL ACTIVO 50.075.028.261,34
+    TOTAL DEL PASIVO 28.162.474.213,94
+    Ventas netas de bienes y servicios (Nota 8.12.) 84.824.549.224,84
+    Costo de los bienes vendidos y servicios prestados (Anexo III) (80.469.576.525,32)
+    Ganancia Bruta 4.354.972.699,52
+    PÉRDIDA FINAL DEL EJERCICIO (5.380.692.244,58)
+  `);
+  assert.equal(result.activity, 'Servicios de Transporte de carga y Logística');
+  assert.equal(result.equity, 21_912_554_047.40);
+  assert.equal(result.sales, 84_824_549_224.84);
+  assert.equal(result.costOfSales, -80_469_576_525.32);
+  assert.equal(result.netProfit, -5_380_692_244.58);
+});
+
 test('combina monotributo con ingreso en relación de dependencia sin quitas documentales', () => {
   const result = evaluateEconomicCapacity({
     profile: 'monotributista', activity: 'Servicios', activitySeniorityMonths: 30,

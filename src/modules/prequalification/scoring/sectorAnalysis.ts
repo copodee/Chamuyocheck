@@ -20,7 +20,7 @@ export function classifyCorporateSector(activity: string): CorporateSector {
   if (/(industr|fabric|manufact|elaboracion|produccion de)/.test(value)) return 'manufacturing';
   if (/(constru|obra|desarrolladora|contratista)/.test(value)) return 'construction';
   if (/(comerc|venta|distribu|mayorista|minorista|retail)/.test(value)) return 'commerce';
-  if (/(transport|logistic|flete|deposito|almacenamiento)/.test(value)) return 'transport-logistics';
+  if (/(transport|logistic|flete|deposito|almacenamiento|movimiento de (?:materias|cargas))/.test(value)) return 'transport-logistics';
   if (/(software|tecnolog|informat|plataforma digital|sistemas)/.test(value)) return 'technology';
   if (/(inmobili|alquiler|propiedad|real estate)/.test(value)) return 'real-estate';
   if (/(salud|medic|clinica|sanatorio|educa|ensenanza|colegio)/.test(value)) return 'health-education';

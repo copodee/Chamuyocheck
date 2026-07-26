@@ -59,6 +59,9 @@ export function classifyPrequalificationDocument(input: {
   if (has('poder general', 'poder especial', 'apoderado')) {
     return { action: 'accept', kind: 'signer-power', stage: 3, confidence: 'medium', reason: 'Posible poder del firmante detectado.' };
   }
+  if (has('cotizacion', 'cotización') && has('leasing', 'canon inicial', 'opcion de compra', 'opción de compra')) {
+    return { action: 'accept', kind: 'leasing-quotation', stage: 2, confidence: 'high', reason: 'Cotización de leasing detectada como respaldo de la operación; no se utilizará como balance.' };
+  }
 
   if (input.profile === 'legal-entity') {
     if (has('notas a los estados contables', 'informacion complementaria a los estados contables')
