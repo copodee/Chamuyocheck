@@ -9,6 +9,7 @@ import { evaluateEconomicCapacity } from '../scoring/economicEngine';
 import { classifyPrequalificationDocument } from '../scoring/documentClassifier';
 import { latestSixMonthlySales } from '../scoring/fiscalDocumentExtractor';
 import { extractFinancialDebt, type ExtractedFinancialDebt } from '../scoring/financialDebtExtractor';
+import { reconcileFinancialDebt } from '../scoring/debtReconciliation';
 import { extractInvoiceTotal, extractSalaryNetAmount } from '../scoring/incomeDocumentExtractor';
 import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicAssessment, EconomicInputs, EconomicProfile, ExtractedBalance } from '../domain/dossier';
 import type { PrequalificationResult } from '../domain/types';
@@ -188,6 +189,11 @@ export function PrequalificationStages(props: Props) {
   const previewAssessment = evaluateEconomicCapacity(economic, incomeDocumentCount, balance, previousBalance);
   const automaticBalanceMargin = balance?.sales && (balance.operatingProfit ?? balance.netProfit) != null
     ? Math.max(0, ((balance.operatingProfit ?? balance.netProfit) as number) / balance.sales) * 100
+    : null;
+  const debtHasUnconvertedUsd = debtExtraction?.currencySummaries.some(item => item.currency === 'USD' && item.capital > 0)
+    && usdDebtExchangeRate <= 0;
+  const debtReconciliation = debtExtraction && !debtHasUnconvertedUsd
+    ? reconcileFinancialDebt(balance?.financialDebt, economic.existingComputableFinancing)
     : null;
   const currentStage2Requirements = [
     ...stage2Requirements[economic.profile],
@@ -505,6 +511,13 @@ export function PrequalificationStages(props: Props) {
               {summary.weightedAnnualRate != null ? ` · TNA ponderada ${(summary.weightedAnnualRate * 100).toFixed(2)}%` : ''}
               {summary.estimatedMonthlyService != null ? ` · carga mensual estimada ${summary.currency === 'ARS' ? '$' : 'US$'} ${Math.round(summary.estimatedMonthlyService).toLocaleString('es-AR')}` : ''}
             </span>)}
+          </div>}
+          {debtReconciliation && <div className="prequalCalculatedField">
+            <b>Conciliación sin duplicar deuda</b>
+            <span>Último balance{balance?.closingDate ? ` (${balance.closingDate})` : ''}: $ {Math.round(debtReconciliation.balanceDebt).toLocaleString('es-AR')}</span>
+            <span>Informe vigente{debtExtraction?.asOfDate ? ` (${debtExtraction.asOfDate})` : ''}: $ {Math.round(debtReconciliation.currentDebt).toLocaleString('es-AR')}</span>
+            <span>Diferencia: $ {Math.round(debtReconciliation.difference).toLocaleString('es-AR')}{debtReconciliation.differenceRatio != null ? ` (${(debtReconciliation.differenceRatio * 100).toFixed(1)}%)` : ''}</span>
+            <span><b>{debtReconciliation.label}</b> Para la exposición actual se usa el informe vigente; el saldo del balance queda solamente como referencia y no se suma.</span>
           </div>}
           {debtExtraction?.currencySummaries.some(item => item.currency === 'USD' && item.capital > 0) && <label>Tipo de cambio de referencia ARS/USD
             <input type="text" inputMode="numeric" value={usdDebtExchangeRate || ''} onChange={e => applyUsdDebtExchangeRate(Number(e.target.value.replace(/\D/g, '')))} />
