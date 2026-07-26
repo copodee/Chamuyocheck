@@ -814,7 +814,7 @@ pre,code{white-space:pre-wrap}
    mobile browser chrome and short pages. Keep the ChamuyoCheck dark canvas
    from showing through around the light application shell. */
 html:has(.leasingAppShell){
-  color-scheme:light;
+  color-scheme:only light;
   background:#f4f8fa;
 }
 body:has(.leasingAppShell){
@@ -858,6 +858,126 @@ body:has(.leasingAppShell){
   .leasingAppShell .drop .uploadLimits,
   .leasingAppShell .userBox .hint{
     color:#405e69;
+  }
+  .leasingAppShell .leasingMenuComparison .leasingComparisonTableWrap{
+    overflow:visible;
+    border:0;
+    background:transparent;
+    box-shadow:none;
+  }
+  .leasingAppShell .leasingMenuComparison .leasingComparisonTable{
+    display:block;
+    min-width:0;
+    width:100%;
+    background:transparent;
+  }
+  .leasingAppShell .leasingMenuComparison .leasingComparisonTable thead{
+    position:absolute;
+    width:1px;
+    height:1px;
+    padding:0;
+    margin:-1px;
+    overflow:hidden;
+    clip:rect(0,0,0,0);
+    white-space:nowrap;
+    border:0;
+  }
+  .leasingAppShell .leasingMenuComparison .leasingComparisonTable tbody,
+  .leasingAppShell .leasingMenuComparison .leasingComparisonTable tr,
+  .leasingAppShell .leasingMenuComparison .leasingComparisonTable th,
+  .leasingAppShell .leasingMenuComparison .leasingComparisonTable td{
+    display:block;
+    width:100%;
+    min-width:0;
+    position:static;
+  }
+  .leasingAppShell .leasingMenuComparison .leasingComparisonTable tr{
+    margin:0 0 14px;
+    overflow:hidden;
+    border:1px solid rgba(11,100,114,.22);
+    border-radius:12px;
+    background:#fff;
+  }
+  .leasingAppShell .leasingMenuComparison .leasingComparisonTable tbody th{
+    padding:13px 14px;
+    border:0;
+    background:#ede9fe;
+    color:#4c1d95;
+    font-size:1rem;
+  }
+  .leasingAppShell .leasingMenuComparison .leasingComparisonTable td{
+    padding:12px 14px;
+    border:0;
+    border-top:1px solid rgba(11,100,114,.14);
+    background:#fff;
+    color:#163844;
+    line-height:1.5;
+  }
+  .leasingAppShell .leasingMenuComparison .leasingComparisonTable td::before{
+    content:attr(data-label);
+    display:block;
+    margin-bottom:5px;
+    color:#0b6472;
+    font-size:.76rem;
+    font-weight:900;
+    letter-spacing:.02em;
+  }
+  .leasingAppShell .leasingComparisonSection .leasingComparisonTableWrap{
+    overflow:visible;
+    border:0;
+    background:transparent;
+    box-shadow:none;
+  }
+  .leasingAppShell .leasingComparisonSection .leasingComparisonTable{
+    display:block;
+    min-width:0;
+    width:100%;
+    background:transparent;
+  }
+  .leasingAppShell .leasingComparisonSection .leasingComparisonTable thead{
+    position:absolute;
+    width:1px;
+    height:1px;
+    overflow:hidden;
+    clip:rect(0,0,0,0);
+    white-space:nowrap;
+  }
+  .leasingAppShell .leasingComparisonSection .leasingComparisonTable tbody,
+  .leasingAppShell .leasingComparisonSection .leasingComparisonTable tr,
+  .leasingAppShell .leasingComparisonSection .leasingComparisonTable th,
+  .leasingAppShell .leasingComparisonSection .leasingComparisonTable td{
+    display:block;
+    position:static;
+    width:100%;
+    min-width:0;
+  }
+  .leasingAppShell .leasingComparisonSection .leasingComparisonTable tr{
+    margin-bottom:14px;
+    overflow:hidden;
+    border:1px solid rgba(11,100,114,.22);
+    border-radius:12px;
+    background:#fff;
+  }
+  .leasingAppShell .leasingComparisonSection .leasingComparisonTable tbody th{
+    padding:13px 14px;
+    border:0;
+    background:#ede9fe;
+    color:#4c1d95;
+  }
+  .leasingAppShell .leasingComparisonSection .leasingComparisonTable td{
+    padding:12px 14px;
+    border:0;
+    border-top:1px solid rgba(11,100,114,.14);
+    background:#fff;
+    color:#163844;
+  }
+  .leasingAppShell .leasingComparisonSection .leasingComparisonTable td::before{
+    content:attr(data-label);
+    display:block;
+    margin-bottom:5px;
+    color:#0b6472;
+    font-size:.76rem;
+    font-weight:900;
   }
 }
 

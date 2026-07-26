@@ -1584,7 +1584,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             <div className="leasingComparisonTableWrap">
               <table className="leasingComparisonTable">
                 <thead><tr><th>Concepto</th>{analysis.decisionAnswer.comparisonTable.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
-                <tbody>{analysis.decisionAnswer.comparisonTable.rows.map((row) => <tr key={row.label}><th>{row.label}</th>{row.values.map((value, index) => <td key={`${row.label}-${index}`}>{value}</td>)}</tr>)}</tbody>
+                <tbody>{analysis.decisionAnswer.comparisonTable.rows.map((row) => <tr key={row.label}><th>{row.label}</th>{row.values.map((value, index) => <td data-label={analysis.decisionAnswer.comparisonTable?.columns[index] || `Alternativa ${index + 1}`} key={`${row.label}-${index}`}>{value}</td>)}</tr>)}</tbody>
               </table>
             </div>
           </section>}
@@ -1754,7 +1754,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
               <label>Provincia A<select value={leasingHubProvinceA} onChange={(event) => setLeasingHubProvinceA(event.target.value)}>{PROVINCIAL_LEASING_STAMP_MATRIX.map((item) => <option key={`province-a-${item.jurisdiction}`}>{item.jurisdiction}</option>)}</select></label>
               <label>Provincia B<select value={leasingHubProvinceB} onChange={(event) => setLeasingHubProvinceB(event.target.value)}>{PROVINCIAL_LEASING_STAMP_MATRIX.map((item) => <option key={`province-b-${item.jurisdiction}`}>{item.jurisdiction}</option>)}</select></label>
             </div>
-            <div className="leasingComparisonTableWrap"><table className="leasingComparisonTable"><thead><tr><th>Concepto</th><th>{leasingHubProvinceA}</th><th>{leasingHubProvinceB}</th></tr></thead><tbody>{provincialRows.map(([label, a, b]) => <tr key={label}><th>{label}</th><td>{a}</td><td>{b}</td></tr>)}</tbody></table></div>
+            <div className="leasingComparisonTableWrap"><table className="leasingComparisonTable"><thead><tr><th>Concepto</th><th>{leasingHubProvinceA}</th><th>{leasingHubProvinceB}</th></tr></thead><tbody>{provincialRows.map(([label, a, b]) => <tr key={label}><th>{label}</th><td data-label={leasingHubProvinceA}>{a}</td><td data-label={leasingHubProvinceB}>{b}</td></tr>)}</tbody></table></div>
             <p className="hint">Patente, registración municipal y opción requieren vehículo, año/modelo, valuación fiscal, domicilio del tomador y lugar de guarda o uso.</p>
           </div>}
           {leasingPage && leasingCompareMode === 'types' && <div className="panel legalResultPanel leasingMenuComparison"><h3>Leasing operativo vs. leasing financiero</h3>
@@ -1765,7 +1765,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
               ['Opción de compra', 'Puede no existir o no ser el objetivo principal.', 'Suele estar prevista, cierta y determinada.'],
               ['Tratamiento fiscal', 'Puede encuadrar como locación; manda el contrato real.', 'Puede ser operación financiera si cumple dador, plazo y opción.'],
               ['Final del plazo', 'Devolución, renovación o recambio.', 'Opción, devolución o renovación según contrato.'],
-            ].map(([label, a, b]) => <tr key={label}><th>{label}</th><td>{a}</td><td>{b}</td></tr>)}</tbody></table></div>
+            ].map(([label, a, b]) => <tr key={label}><th>{label}</th><td data-label="Leasing operativo">{a}</td><td data-label="Leasing financiero">{b}</td></tr>)}</tbody></table></div>
           </div>}
           {leasingPage && leasingCompareMode === 'pledge' && <div className="panel legalResultPanel leasingMenuComparison"><h3>Leasing vs. préstamo prendario</h3>
             <div className="leasingComparisonTableWrap"><table className="leasingComparisonTable"><thead><tr><th>Aspecto</th><th>Leasing</th><th>Prenda</th></tr></thead><tbody>{[
@@ -1776,7 +1776,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
               ['Incumplimiento', 'El dador conserva el dominio y usa los remedios propios del leasing.', 'El acreedor ejecuta la garantía prendaria.'],
               ['Final', 'Opción, devolución o renovación según contrato.', 'Cancelada la deuda, se levanta la prenda y el titular conserva el bien.'],
               ['Ventaja central', 'Puede preservar liquidez, acompasar IVA al uso y permitir recambio.', 'Brinda propiedad inmediata y conservación definitiva del bien.'],
-            ].map(([label, a, b]) => <tr key={label}><th>{label}</th><td>{a}</td><td>{b}</td></tr>)}</tbody></table></div>
+            ].map(([label, a, b]) => <tr key={label}><th>{label}</th><td data-label="Leasing">{a}</td><td data-label="Prenda">{b}</td></tr>)}</tbody></table></div>
             <h3>Ventajas posibles del leasing frente a la prenda</h3><ul><li>No obliga a comprar desde el inicio.</li><li>Puede distribuir el IVA de bienes muebles con los cánones.</li><li>Permite adaptar plazo, residual, servicios y recambio al uso económico.</li><li>Puede dar un perfil fiscal distinto cuando el tomador realmente puede aprovecharlo.</li></ul>
           </div>}
           {!leasingPage && <>

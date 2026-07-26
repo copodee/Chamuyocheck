@@ -9,6 +9,11 @@ export const metadata = {
     : 'Analizá créditos, costos financieros, posibles estafas y documentos legales argentinos con evidencia y alcance claros.'
 };
 
+export const viewport = {
+  colorScheme: 'light',
+  themeColor: '#f4f8fa',
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return <html lang="es"><body>{children}</body></html>;
 }

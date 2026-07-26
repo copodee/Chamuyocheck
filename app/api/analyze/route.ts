@@ -1167,7 +1167,9 @@ export async function handleAnalyzeRequest(req: Request) {
       ? `${documentText}\n${leasingCompleteContext}`
       : documentText;
 
-    if (userInstruction.length > MAX_USER_INSTRUCTION_LENGTH) {
+    // El límite protege únicamente el texto escrito por la persona. El contexto
+    // técnico del leasing lo agrega el servidor y no debe consumir ese cupo.
+    if (userText.length > MAX_USER_INSTRUCTION_LENGTH) {
       return NextResponse.json({ error: 'La instrucción supera el límite permitido.' }, { status: 413 });
     }
     if (hasExternalContent && !userInstruction.trim()) {
