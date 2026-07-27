@@ -37,6 +37,18 @@ export function classifyPrequalificationDocument(input: {
   const has = (...patterns: string[]) => patterns.some(pattern => content.includes(pattern));
   const targetCuit = input.targetCuit.replace(/\D/g, '');
   const documentCuits = extractDocumentCuits(`${input.fileName} ${input.extractedText}`);
+  const isLegalEntityBalanceFile = input.profile === 'legal-entity' && (
+    (
+      /\beecc\b|estados contables|balance(?:\s+(?:general|cerrado|al))?(?:\s+|[_-])?(?:19|20)\d{2}/.test(normalizedFileName)
+      && !/acta|aprobacion|asamblea|directorio/.test(normalizedFileName)
+      && !/^\s*\d*\s*[-_.]?\s*notas?\b/.test(normalizedFileName)
+    )
+    || (
+      has('estado de situacion patrimonial')
+      && has('estado de resultados')
+      && has('activo', 'pasivo', 'patrimonio neto')
+    )
+  );
 
   if (has('requisitos - personas fisicas', 'documentacion requerida', 'lista de requisitos') && !has('estado de situacion patrimonial')) {
     return { action: 'discard', kind: 'requirements-list', stage: 2, confidence: 'high', reason: 'Es una lista de requisitos, no un respaldo económico del cliente.' };
@@ -47,6 +59,12 @@ export function classifyPrequalificationDocument(input: {
   if (has('documento nacional de identidad', 'registro nacional de las personas', 'idarg')) {
     const reverse = has('domicilio', 'lugar de nacimiento', 'pulgar', 'idarg') || has('reverso', 'dorso');
     return { action: 'accept', kind: reverse ? 'representative-identity-back' : 'representative-identity-front', stage: 3, confidence: 'high', reason: `DNI ${reverse ? 'dorso' : 'frente'} detectado.` };
+  }
+  // Un juego completo de estados contables puede contener, como anexos, el acta
+  // de aprobación y la designación de autoridades. El nombre inequívoco del
+  // archivo y los estados básicos prevalecen sobre esas frases internas.
+  if (isLegalEntityBalanceFile) {
+    return { action: 'accept', kind: nextAvailable('balance', 2, input.usedKinds), stage: 2, confidence: 'high', reason: 'Estados contables completos detectados.' };
   }
   if (has('designacion de autoridades', 'designación de autoridades', 'eleccion de autoridades', 'elección de autoridades')) {
     return { action: 'accept', kind: 'authorities-act', stage: 3, confidence: 'high', reason: 'Acta de designación de autoridades detectada.' };

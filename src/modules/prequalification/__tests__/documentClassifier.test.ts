@@ -32,6 +32,27 @@ test('prioriza un EECC completo aunque incluya sus propias notas', () => {
   assert.equal(result.stage, 2);
 });
 
+test('prioriza el balance KAVOS aunque incluya internamente su acta de aprobación', () => {
+  const result = classifyPrequalificationDocument({
+    ...base,
+    fileName: 'BALANCE KAVOS SA 2025 (10).pdf',
+    extractedText: 'ACTA DE ASAMBLEA. Aprobación del balance. Estado de situación patrimonial. Estado de resultados. Activo, pasivo y patrimonio neto.',
+  });
+  assert.equal(result.kind, 'balance-1');
+  assert.equal(result.stage, 2);
+  assert.equal(result.reason, 'Estados contables completos detectados.');
+});
+
+test('mantiene como acta el archivo societario que sólo aprueba el balance', () => {
+  const result = classifyPrequalificationDocument({
+    ...base,
+    fileName: 'Acta de asamblea - Aprobacion Balance 2025.pdf',
+    extractedText: 'Acta de asamblea. Se aprueban los estados contables del ejercicio.',
+  });
+  assert.equal(result.kind, 'balance-approval-act');
+  assert.equal(result.stage, 3);
+});
+
 test('reconoce el lote económico real de GLB sin pedir nuevamente sus cuatro grupos', () => {
   const usedKinds = new Set<string>();
   const classify = (fileName: string, extractedText = '') => {

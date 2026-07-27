@@ -276,6 +276,25 @@ export function PrequalificationStages(props: Props) {
     return data;
   };
   const uploadDocumentDirectly = async (file: File, caseId: string, documentStage: number) => {
+    const uploadThroughApplication = async () => {
+      const formData = new FormData();
+      formData.append('file', file, file.name);
+      formData.append('caseId', caseId);
+      formData.append('stage', String(documentStage));
+      const response = await fetch('/api/prequalification/document', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${props.session.access_token}` },
+        body: formData,
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'No se pudo guardar el documento en el expediente privado.');
+      return result.storagePath as string;
+    };
+    // Los archivos pequeños se envían por el mismo dominio. Evita bloqueos
+    // CORS/intermitencias del navegador observados en notas de ventas y deuda.
+    // Los archivos grandes conservan la carga directa para no superar el límite
+    // de cuerpo de las funciones del entorno de publicación.
+    if (file.size <= 3_500_000) return uploadThroughApplication();
     const preparationResponse = await fetch('/api/prequalification/document', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${props.session.access_token}` },
@@ -289,16 +308,21 @@ export function PrequalificationStages(props: Props) {
     });
     const preparation = await preparationResponse.json();
     if (!preparationResponse.ok) throw new Error(preparation.error || 'No se pudo preparar la carga privada.');
-    const uploadResponse = await fetch(preparation.uploadUrl, {
-      method: 'POST',
-      headers: {
-        apikey: preparation.publicKey,
-        Authorization: `Bearer ${props.session.access_token}`,
-        'Content-Type': file.type || 'application/octet-stream',
-        'x-upsert': 'false',
-      },
-      body: file,
-    });
+    let uploadResponse: Response;
+    try {
+      uploadResponse = await fetch(preparation.uploadUrl, {
+        method: 'POST',
+        headers: {
+          apikey: preparation.publicKey,
+          Authorization: `Bearer ${props.session.access_token}`,
+          'Content-Type': file.type || 'application/octet-stream',
+          'x-upsert': 'false',
+        },
+        body: file,
+      });
+    } catch {
+      throw new Error('No se pudo conectar con el almacenamiento privado. Volvé a intentar la carga.');
+    }
     if (!uploadResponse.ok) throw new Error('No se pudo guardar el documento en el expediente privado.');
     return preparation.storagePath as string;
   };
