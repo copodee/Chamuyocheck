@@ -47,7 +47,9 @@ const productiveSectors = [
   'Tecnología y software',
   'Fintech y servicios financieros digitales',
   'Actividad inmobiliaria y desarrollos',
-  'Salud y educación',
+  'Laboratorios y actividad farmacéutica',
+  'Servicios de salud',
+  'Educación',
   'Hotelería, gastronomía y turismo',
   'Energía, petróleo, gas y minería',
 ] as const;
@@ -324,6 +326,8 @@ export function PrequalificationStages(props: Props) {
         let extractedText = '';
         let extractionConfidence = 0;
         let extractedPages: number | undefined;
+        let extractionNeedsReview = false;
+        let extractionDetail = '';
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
           const extraction = await extractPdfTextInBrowser(file, (progress) => {
             const detail = `Leyendo página ${progress.page} de ${progress.totalPages}…`;
@@ -333,6 +337,8 @@ export function PrequalificationStages(props: Props) {
           extractedText = extraction.text;
           extractionConfidence = extraction.confidence;
           extractedPages = extraction.pages;
+          extractionNeedsReview = extraction.partial;
+          extractionDetail = extraction.note;
         } else if (/\.docx$/i.test(file.name) || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
           setMessage(`Leyendo ${file.name}…`);
           const mammoth = await import('mammoth');
@@ -376,11 +382,11 @@ export function PrequalificationStages(props: Props) {
         added.push({
           id: crypto.randomUUID(), stage: documentStage, kind: resolvedKind, name: file.name, size: file.size,
           pages: extractedPages, extractionConfidence, extractedText, storagePath,
-          status: admission.action === 'review' || (extractedText && extractionConfidence < 55)
+          status: admission.action === 'review' || extractionNeedsReview || (extractedText && extractionConfidence < 55)
             ? 'needs-review'
             : extractedText ? 'read' : 'uploaded',
         });
-        updateReadProgress(file.name, 'complete', admission.reason);
+        updateReadProgress(file.name, 'complete', [admission.reason, extractionDetail].filter(Boolean).join(' '));
         } catch (error) {
           const detail = error instanceof Error ? error.message : 'No se pudo leer o guardar el archivo.';
           processingErrors.push(`${file.name}: ${detail}`);

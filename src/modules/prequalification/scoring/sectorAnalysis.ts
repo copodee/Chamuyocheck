@@ -8,7 +8,9 @@ export type CorporateSector =
   | 'technology'
   | 'fintech-financial-services'
   | 'real-estate'
-  | 'health-education'
+  | 'pharmaceutical-laboratory'
+  | 'health-services'
+  | 'education'
   | 'hospitality'
   | 'other';
 
@@ -18,6 +20,7 @@ const normalized = (value: string) =>
 export function classifyCorporateSector(activity: string): CorporateSector {
   const value = normalized(activity);
   if (/(ganader|agric|agro|cultivo|cria|tambo|forest|pesca)/.test(value)) return 'agriculture-livestock';
+  if (/(laborator|farmaceut|medicamento|biotecnolog|principio activo|especialidad medicinal)/.test(value)) return 'pharmaceutical-laboratory';
   if (/(industr|fabric|manufact|elaboracion|produccion de)/.test(value)) return 'manufacturing';
   if (/(constru|obra|contratista)/.test(value)) return 'construction';
   if (/(comerc|venta|distribu|mayorista|minorista|retail)/.test(value)) return 'commerce';
@@ -25,7 +28,8 @@ export function classifyCorporateSector(activity: string): CorporateSector {
   if (/(fintech|billetera virtual|servicios financieros digitales|pagos digitales|plataforma de pagos|mercado pago)/.test(value)) return 'fintech-financial-services';
   if (/(software|tecnolog|informat|plataforma digital|sistemas)/.test(value)) return 'technology';
   if (/(inmobili|alquiler|propiedad|real estate|desarrollador|desarrollo urbano)/.test(value)) return 'real-estate';
-  if (/(salud|medic|clinica|sanatorio|educa|ensenanza|colegio)/.test(value)) return 'health-education';
+  if (/(salud|medic|clinica|sanatorio|hospital|diagnostic|odontolog|rehabilit|obra social|prepaga)/.test(value)) return 'health-services';
+  if (/(educa|ensenanza|colegio|universidad|instituto educativo)/.test(value)) return 'education';
   if (/(hotel|gastronom|restaurant|turis)/.test(value)) return 'hospitality';
   if (/(energia|petrole|gas|mineria|minera)/.test(value)) return 'manufacturing';
   if (/(servicio|consult|profesional|asesor|estudio)/.test(value)) return 'professional-services';
@@ -42,7 +46,9 @@ export const sectorLabel = (sector: CorporateSector) => ({
   technology: 'Tecnología y software',
   'fintech-financial-services': 'Fintech y servicios financieros digitales',
   'real-estate': 'Actividad inmobiliaria',
-  'health-education': 'Salud o educación',
+  'pharmaceutical-laboratory': 'Laboratorios y actividad farmacéutica',
+  'health-services': 'Servicios de salud',
+  education: 'Educación',
   hospitality: 'Hotelería, gastronomía o turismo',
   other: 'Actividad no clasificada',
 })[sector];
@@ -58,7 +64,7 @@ export function sectorObservations(sector: CorporateSector): string[] {
     case 'commerce':
       return ['En comercio son centrales la rotación de inventarios, el margen bruto, la cobranza y la concentración de proveedores y clientes.'];
     case 'transport-logistics':
-      return ['En transporte y logística deben contemplarse utilización de flota, combustible, mantenimiento, seguros y renovación de unidades.'];
+      return ['En transporte y logística deben contemplarse utilización y antigüedad de flota, combustible, mantenimiento, seguros, renovación de unidades, concentración de clientes y plazos de cobranza.'];
     case 'professional-services':
     case 'technology':
       return ['En servicios, la ausencia de inventarios no es una debilidad; pesan recurrencia de contratos, concentración de clientes, capital humano y cobranza.'];
@@ -66,8 +72,12 @@ export function sectorObservations(sector: CorporateSector): string[] {
       return ['En fintech deben analizarse volumen procesado, ingresos netos, fraude y contracargos, fondeo, liquidez, concentración, regulación aplicable y calidad de cartera, sin confundir fondos de terceros con recursos propios.'];
     case 'real-estate':
       return ['En actividades inmobiliarias deben distinguirse activos de renta, desarrollos, vacancia, contratos y flujo efectivo de alquileres.'];
-    case 'health-education':
-      return ['En salud y educación deben analizarse matrícula o prestaciones, plazos de cobro, regulación y costos laborales recurrentes.'];
+    case 'pharmaceutical-laboratory':
+      return ['En laboratorios deben analizarse registros y habilitaciones, vencimiento y rotación de inventarios, inversión en desarrollo, concentración por producto o cliente, plazos de cobranza y dependencia de insumos importados.'];
+    case 'health-services':
+      return ['En servicios de salud deben analizarse mezcla de financiadores, plazos de cobro de obras sociales y prepagas, ocupación o utilización, costos laborales, habilitaciones y necesidad de reposición de equipamiento.'];
+    case 'education':
+      return ['En educación deben analizarse matrícula, morosidad, estacionalidad del ciclo lectivo, regulación arancelaria y costos laborales recurrentes.'];
     case 'hospitality':
       return ['En hotelería, gastronomía y turismo deben contemplarse estacionalidad, ocupación, ticket promedio y estructura de costos fijos.'];
     default:
@@ -78,6 +88,6 @@ export function sectorObservations(sector: CorporateSector): string[] {
 export function quickRatioThresholds(sector: CorporateSector) {
   if (sector === 'agriculture-livestock') return { good: 0.5, warning: 0.25 };
   if (sector === 'construction') return { good: 0.7, warning: 0.4 };
-  if (sector === 'manufacturing' || sector === 'commerce') return { good: 0.8, warning: 0.5 };
+  if (sector === 'manufacturing' || sector === 'commerce' || sector === 'pharmaceutical-laboratory') return { good: 0.8, warning: 0.5 };
   return { good: 1, warning: 0.7 };
 }

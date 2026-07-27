@@ -58,8 +58,26 @@ function monthsBetween(startDate: string | null, endDate: string | null): number
   return months > 0 && months <= 24 ? months : null;
 }
 
+function normalizeAccountingOcrText(text: string): string {
+  return text
+    .replace(/\u00ad/g, '')
+    .replace(/([A-Za-zÁÉÍÓÚÜÑáéíóúüñ])-\s*\n\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ])/g, '$1$2')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\bactiv[0o]\b/gi, 'activo')
+    .replace(/\bpasiv[0o]\b/gi, 'pasivo')
+    .replace(/\bpatrimon(?:l|i0|lo)\s+net[0o]\b/gi, 'patrimonio neto')
+    .replace(/\bcorr(?:l|i)ente\b/gi, 'corriente')
+    .replace(/\bresultad[0o]\b/gi, 'resultado')
+    .replace(/\bvent[a4]s\b/gi, 'ventas')
+    .replace(/\bdeud[a4]s\b/gi, 'deudas')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function extractBalanceData(text: string): ExtractedBalance {
-  const compact = text.replace(/\s+/g, ' ');
+  const sourceCompact = text.replace(/\s+/g, ' ');
+  const compact = normalizeAccountingOcrText(text);
   const numericClosingDate = compact.match(/(?:fecha de cierre|ejercicio finalizado el|finalizado el|cerrado al|estados contables al)\s*[:\-]?\s*(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i)?.[1];
   const verbalClosingDate = compact.match(/(?:ejercicio finalizado el|finalizado el|cerrado al|estados contables al|\bal)\s*[:\-]?\s*(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+(\d{4})/i);
   const closingDate = numericClosingDate || (verbalClosingDate
@@ -82,7 +100,7 @@ export function extractBalanceData(text: string): ExtractedBalance {
   const amountScale: 1 | 1000 | 1000000 = /(?:importes |cifras )?expresad[oa]s? en millones/i.test(compact) ? 1000000
     : /(?:importes |cifras )?expresad[oa]s? en miles/i.test(compact) ? 1000 : 1;
   const result: ExtractedBalance = {
-    activity: compact.match(/actividad principal\s*:\s*([^$]{3,120}?)(?=\s+(?:CUIT|domicilio|fecha|duraci[oó]n|inscripci[oó]n|n[°º]?de inscripci[oó]n|$))/i)?.[1]?.trim() || null,
+    activity: sourceCompact.match(/actividad principal\s*:\s*([^$]{3,120}?)(?=\s+(?:CUIT|domicilio|fecha|duraci[oó]n|inscripci[oó]n|n[°º]?de inscripci[oó]n|$))/i)?.[1]?.trim() || null,
     closingDate,
     periodStartDate,
     periodMonths,

@@ -66,6 +66,22 @@ test('extrae rubros centrales de un balance para revisión crediticia', () => {
   assert.ok(result.extractionConfidence > 0);
 });
 
+test('tolera etiquetas dañadas por OCR en un balance PyME escaneado', () => {
+  const result = extractBalanceData(`
+    ESTADO DE SITUACION PATRIMONIAL
+    Total activ0 corríente 12.000.000
+    Total pasiv0 corrIente 4.000.000
+    Patrimonlo net0 8.000.000
+    Vent4s netas 30.000.000
+    Resultad0 neto 3.000.000
+  `);
+  assert.equal(result.currentAssets, 12_000_000);
+  assert.equal(result.currentLiabilities, 4_000_000);
+  assert.equal(result.equity, 8_000_000);
+  assert.equal(result.sales, 30_000_000);
+  assert.equal(result.netProfit, 3_000_000);
+});
+
 test('lee formato argentino con notas, fecha verbal e importes negativos entre paréntesis', () => {
   const result = extractBalanceData(`
     Estados contables por el ejercicio finalizado el 30 de junio de 2025

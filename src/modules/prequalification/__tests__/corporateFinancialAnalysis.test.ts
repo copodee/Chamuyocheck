@@ -129,6 +129,38 @@ test('clasifica una fintech de pagos digitales con criterios propios', () => {
   assert.ok(result.sectorObservations.some(item => item.includes('fondos de terceros')));
 });
 
+test('clasifica laboratorios con riesgos regulatorios y de inventario propios', () => {
+  const result = analyzeCorporateFinancials(
+    { ...sectorBase, inventory: 180 },
+    undefined,
+    'Laboratorio farmacéutico y elaboración de especialidades medicinales',
+  );
+  assert.equal(result.sector, 'pharmaceutical-laboratory');
+  assert.ok(result.sectorObservations.some(item => item.includes('registros y habilitaciones')));
+  assert.ok(result.sectorObservations.some(item => item.includes('vencimiento y rotación')));
+});
+
+test('clasifica prestadores de salud sin confundirlos con educación', () => {
+  const result = analyzeCorporateFinancials(
+    { ...sectorBase, inventory: 0 },
+    undefined,
+    'Clínica, diagnóstico por imágenes y servicios de salud',
+  );
+  assert.equal(result.sector, 'health-services');
+  assert.ok(result.sectorObservations.some(item => item.includes('obras sociales y prepagas')));
+});
+
+test('clasifica logística con análisis de flota y concentración', () => {
+  const result = analyzeCorporateFinancials(
+    { ...sectorBase },
+    undefined,
+    'Operador de transporte, almacenamiento y logística',
+  );
+  assert.equal(result.sector, 'transport-logistics');
+  assert.ok(result.sectorObservations.some(item => item.includes('antigüedad de flota')));
+  assert.ok(result.sectorObservations.some(item => item.includes('concentración de clientes')));
+});
+
 test('anualiza sólo flujos de un trimestre y conserva los saldos de cierre', () => {
   const result = analyzeCorporateFinancials({
     closingDate: '31/12/2025', periodStartDate: '01/10/2025', periodMonths: 3, statementKind: 'interim',

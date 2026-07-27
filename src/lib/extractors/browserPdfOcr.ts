@@ -1,7 +1,8 @@
 import type { BrowserOcrResult } from './browserOcr';
 
-const MAX_PDF_BYTES = 20 * 1024 * 1024;
-const MAX_PDF_PAGES = 30;
+const MAX_PDF_BYTES = 40 * 1024 * 1024;
+const MAX_PDF_PAGES = 180;
+const MAX_OCR_PAGES = 60;
 
 export type PdfOcrProgress = {
   page: number;
@@ -10,6 +11,10 @@ export type PdfOcrProgress = {
 
 export type BrowserPdfOcrResult = BrowserOcrResult & {
   pages: number;
+  nativePages: number;
+  ocrPages: number;
+  unreadablePages: number[];
+  partial: boolean;
 };
 
 type PdfTextItem = {
@@ -38,6 +43,17 @@ function financialTextQuality(text: string, confidence: number): number {
     /activo|pasivo|patrimonio|ventas|resultado|corriente|disponibilidades|cr[eé]ditos|deudas|bienes de cambio/gi,
   )?.length || 0;
   return confidence + Math.min(25, text.length / 80) + Math.min(50, financialTerms * 5);
+}
+
+function nativeTextIsReliable(text: string): boolean {
+  const compact = text.replace(/\s+/g, ' ').trim();
+  if (compact.length < 80) return false;
+  const usefulCharacters = (compact.match(/[a-záéíóúüñ0-9$%.,:;()/-]/gi) || []).length;
+  const usefulRatio = usefulCharacters / Math.max(1, compact.length);
+  const accountingTerms = compact.match(
+    /activo|pasivo|patrimonio|estado|balance|ventas|resultado|corriente|disponibilidades|cr[eé]ditos|deudas|bienes de cambio|notas?|anexo/gi,
+  )?.length || 0;
+  return usefulRatio >= 0.68 && (compact.length >= 350 || accountingTerms >= 2);
 }
 
 export function reconstructPdfText(items: PdfTextItem[]): string {
@@ -79,10 +95,10 @@ export async function extractPdfTextInBrowser(
   onProgress?: (progress: PdfOcrProgress) => void,
 ): Promise<BrowserPdfOcrResult> {
   if (!/pdf/i.test(file.type) && !/\.pdf$/i.test(file.name)) {
-    return { ok: false, text: '', confidence: 0, pages: 0, note: 'El archivo seleccionado no es un PDF.' };
+    return { ok: false, text: '', confidence: 0, pages: 0, nativePages: 0, ocrPages: 0, unreadablePages: [], partial: false, note: 'El archivo seleccionado no es un PDF.' };
   }
   if (file.size > MAX_PDF_BYTES) {
-    return { ok: false, text: '', confidence: 0, pages: 0, note: 'El PDF puede pesar como máximo 20 MB.' };
+    return { ok: false, text: '', confidence: 0, pages: 0, nativePages: 0, ocrPages: 0, unreadablePages: [], partial: false, note: 'El PDF puede pesar como máximo 40 MB.' };
   }
 
   let document: any = null;
@@ -90,6 +106,9 @@ export async function extractPdfTextInBrowser(
   let totalPages = 0;
   const texts: string[] = [];
   const confidences: number[] = [];
+  const unreadablePages: number[] = [];
+  let nativePages = 0;
+  let ocrPages = 0;
   try {
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
     pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -104,7 +123,11 @@ export async function extractPdfTextInBrowser(
         text: '',
         confidence: 0,
         pages: totalPages,
-        note: `El PDF tiene ${totalPages} páginas. El máximo para lectura óptica es ${MAX_PDF_PAGES}.`,
+        nativePages: 0,
+        ocrPages: 0,
+        unreadablePages: [],
+        partial: false,
+        note: `El PDF tiene ${totalPages} páginas. El máximo admitido es ${MAX_PDF_PAGES}.`,
       };
     }
     for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
@@ -112,9 +135,19 @@ export async function extractPdfTextInBrowser(
       const page = await document.getPage(pageNumber);
       const content = await page.getTextContent();
       const nativeText = reconstructPdfText(content.items);
-      if (nativeText.length >= 30) {
+      if (nativeTextIsReliable(nativeText)) {
         texts.push(`[Página ${pageNumber}]\n${nativeText}`);
         confidences.push(100);
+        nativePages += 1;
+        page.cleanup();
+        continue;
+      }
+      if (ocrPages >= MAX_OCR_PAGES) {
+        if (nativeText.length >= 30) {
+          texts.push(`[Página ${pageNumber} · texto parcial]\n${nativeText}`);
+          confidences.push(45);
+        }
+        unreadablePages.push(pageNumber);
         page.cleanup();
         continue;
       }
@@ -147,7 +180,12 @@ export async function extractPdfTextInBrowser(
         rotated.height = 1;
       }
       if (text) texts.push(`[Página ${pageNumber}]\n${text}`);
-      confidences.push(confidence);
+      if (text.length >= 30) {
+        confidences.push(confidence);
+        ocrPages += 1;
+      } else {
+        unreadablePages.push(pageNumber);
+      }
       page.cleanup();
       canvas.width = 1;
       canvas.height = 1;
@@ -159,6 +197,10 @@ export async function extractPdfTextInBrowser(
       text: '',
       confidence: 0,
       pages: totalPages,
+      nativePages,
+      ocrPages,
+      unreadablePages,
+      partial: true,
       note: detail && detail !== 'Error'
         ? `No se pudo leer el PDF en este dispositivo: ${detail}`
         : 'No se pudo iniciar la lectura del PDF en este navegador. Actualizá el navegador o probá desde una computadora.',
@@ -177,8 +219,14 @@ export async function extractPdfTextInBrowser(
     text,
     confidence,
     pages: totalPages,
+    nativePages,
+    ocrPages,
+    unreadablePages,
+    partial: unreadablePages.length > 0,
     note: text.length >= 20
-      ? `PDF leído en el dispositivo: ${totalPages} páginas. Se usó texto nativo cuando estaba disponible y lectura óptica sólo como respaldo.`
+      ? unreadablePages.length
+        ? `Lectura parcial: ${nativePages} página(s) con texto nativo, ${ocrPages} mediante OCR y ${unreadablePages.length} pendiente(s) de revisión humana (${unreadablePages.join(', ')}).`
+        : `PDF leído completo: ${nativePages} página(s) con texto nativo y ${ocrPages} mediante OCR.`
       : 'El PDF no produjo texto suficiente. Puede estar protegido o tener imágenes de muy baja calidad.',
   };
 }
