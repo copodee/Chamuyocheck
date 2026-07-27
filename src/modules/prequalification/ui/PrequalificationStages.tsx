@@ -667,8 +667,22 @@ export function PrequalificationStages(props: Props) {
           />}
           <small>El sector declarado se utilizará para contextualizar el análisis cuando la documentación no permita identificarlo.</small>
         </label>
-        <label>{economic.profile === 'legal-entity' ? 'Antigüedad societaria (meses)' : 'Antigüedad (meses)'}
-          <input type="text" inputMode="numeric" value={economic.activitySeniorityMonths || ''} onChange={e => setEconomic({ ...economic, activitySeniorityMonths: Number(e.target.value.replace(/\D/g, '')) })} />
+        <label>{economic.profile === 'legal-entity' ? 'Antigüedad societaria (años)' : 'Antigüedad (meses)'}
+          <input
+            type="text"
+            inputMode={economic.profile === 'legal-entity' ? 'decimal' : 'numeric'}
+            value={economic.activitySeniorityMonths
+              ? economic.profile === 'legal-entity'
+                ? Number((economic.activitySeniorityMonths / 12).toFixed(1))
+                : economic.activitySeniorityMonths
+              : ''}
+            onChange={e => {
+              const enteredValue = economic.profile === 'legal-entity'
+                ? Number(e.target.value.replace(',', '.').replace(/[^\d.]/g, '')) * 12
+                : Number(e.target.value.replace(/\D/g, ''));
+              setEconomic({ ...economic, activitySeniorityMonths: enteredValue });
+            }}
+          />
           {economic.profile === 'legal-entity' && <small>{constitutionDate ? `Calculada desde la fecha de constitución extraída del estatuto: ${constitutionDate}.` : 'Se calculará automáticamente si el estatuto o contrato social contiene una fecha de constitución legible.'}</small>}
         </label>
         <label>Cuotas mensuales de financiaciones vigentes
