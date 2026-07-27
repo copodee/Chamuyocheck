@@ -130,7 +130,7 @@ const stage2Requirements: Record<EconomicProfile, Array<[string, string, boolean
     ['income-tax', 'Última DDJJ de Ganancias disponible', false],
   ],
   'legal-entity': [
-    ['balance-1', 'Último balance', true], ['balance-2', 'Balance anterior', true],
+    ['balance-1', 'Último balance', true], ['balance-2', 'Balance anterior (sólo para evolución interanual)', false],
     ['post-balance-sales', 'Ventas netas de IVA posteriores al último balance', true],
     ['financial-debt', 'Detalle de deuda bancaria y financiera', true],
   ],
@@ -235,7 +235,14 @@ export function PrequalificationStages(props: Props) {
   const incomeDocumentCount = documents.filter(document =>
     /salary-slip|monotributo-invoices|balance-|vat-|income-detail|post-balance-sales/.test(document.kind),
   ).length;
-  const previewAssessment = evaluateEconomicCapacity(economic, incomeDocumentCount, balance, previousBalance);
+  const documentedPostBalanceSales = documents
+    .filter(document => document.kind === 'post-balance-sales' && Boolean(document.extractedText))
+    .flatMap(document => latestSixMonthlySales(document.extractedText || ''))
+    .slice(-6);
+  const economicForAssessment = documentedPostBalanceSales.length
+    ? { ...economic, monthlySales: documentedPostBalanceSales }
+    : economic;
+  const previewAssessment = evaluateEconomicCapacity(economicForAssessment, incomeDocumentCount, balance, previousBalance);
   const paymentCapacityQualifies = hasAffordableMonthlyPayment(previewAssessment, economic.proposedMonthlyCanon, economic.profile);
   const usesPersonalCapacityPolicy = economic.profile === 'employee' || economic.profile === 'monotributista';
   const automaticBalanceMargin = balance?.sales && (balance.operatingProfit ?? balance.netProfit) != null
@@ -496,8 +503,17 @@ export function PrequalificationStages(props: Props) {
         }));
       }
       if (priorBalance) setPreviousBalance(priorBalance);
-      if (monthlySalesFromDocuments.length === 6) {
-        setEconomic(current => ({ ...current, monthlySales: monthlySalesFromDocuments }));
+      const allDocumentedPostBalanceSales = combinedDocuments
+        .filter(document => document.kind === 'post-balance-sales' && Boolean(document.extractedText))
+        .flatMap(document => latestSixMonthlySales(document.extractedText || ''))
+        .slice(-6);
+      if (allDocumentedPostBalanceSales.length === 6 || monthlySalesFromDocuments.length === 6) {
+        setEconomic(current => ({
+          ...current,
+          monthlySales: allDocumentedPostBalanceSales.length === 6
+            ? allDocumentedPostBalanceSales
+            : monthlySalesFromDocuments,
+        }));
       }
       if (debtFromDocument) {
         setDebtExtraction(debtFromDocument);
@@ -570,7 +586,7 @@ export function PrequalificationStages(props: Props) {
           .map(document => `${document.name}: ${document.detail || 'no se pudo leer correctamente'}`),
       };
       const data = await api({
-        action: 'stage2', contact, economicInputs: economic, documents, balance, previousBalance,
+        action: 'stage2', contact, economicInputs: economicForAssessment, documents, balance, previousBalance,
         caseNumber: recovered.caseNumber, subject: props.subject.denomination,
         cuitMasked: props.subject.cuitMasked, stage1: props.stage1, documentReview,
       }, recovered.caseId);
