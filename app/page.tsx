@@ -840,6 +840,9 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   }
 
   async function analyze() {
+    const analysisInstruction = text.trim() || (leasingPage
+      ? 'Analizá la operación de leasing con los datos informados. Calculá el flujo financiero, el costo total, la TIR mensual y efectiva anual, y señalá los datos que falten.'
+      : '');
     if (!session) {
       setAuthError('Registrate o iniciá sesión para realizar el análisis.');
       document.getElementById('registro')?.scrollIntoView({ behavior: 'smooth' });
@@ -850,7 +853,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       categoryRef.current?.focus();
       return;
     }
-    if (!text.trim()) {
+    if (!analysisInstruction) {
       setInstructionError('Escribí qué necesitás saber. El análisis se basará siempre en esa consulta.');
       document.querySelector<HTMLTextAreaElement>('#analysis-instruction')?.focus();
       return;
@@ -883,7 +886,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     }
     try {
       const form = new FormData();
-      form.append('text', text);
+      form.append('text', analysisInstruction);
       form.append('url', url);
       form.append('inputType', detected);
       form.append('selectedCategory', selectedCategory);
@@ -898,7 +901,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
           if (leasingConfirmedFields.has('assetType')) form.append('leasingAssetType', leasingAssetType);
           if (leasingAssetValue.trim()) form.append('leasingAssetValue', leasingAssetValue);
           if (leasingVehicleDescription.trim()) form.append('leasingVehicleDescription', leasingVehicleDescription);
-          if (leasingVehicleYear.trim()) form.append('leasingVehicleYear', leasingVehicleYear);
+          if (leasingVehicleCondition === 'used' && leasingVehicleYear.trim()) form.append('leasingVehicleYear', leasingVehicleYear);
           if (leasingAssetType === 'Automotor') form.append('leasingVehicleCondition', leasingVehicleCondition);
           if (leasingFiscalValuation.trim()) form.append('leasingFiscalValuation', leasingFiscalValuation);
           if (leasingPriorYearPatent.trim()) form.append('leasingPriorYearPatent', leasingPriorYearPatent);
@@ -971,7 +974,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       const historyScore = data.decisionAnswer?.kind === 'leasing-specialist'
         ? calculateLeasingTransparencyScore(buildLeasingTransparencyEvidence({
           documentText: data.leasingEvidenceText || data.extractedPreview || '',
-          userText: text,
+          userText: analysisInstruction,
           manualFields: file ? {} : {
             assetType: leasingConfirmedFields.has('assetType') ? leasingAssetType : '',
             assetValue: leasingAssetValue,
@@ -988,10 +991,10 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       const historyItem: HistoryItem = {
         id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}`,
         date: new Date().toLocaleDateString('es-AR'),
-        title: data.decisionAnswer?.title || data.centralQuestion || text.trim().slice(0, 100) || 'Análisis',
+        title: data.decisionAnswer?.title || data.centralQuestion || analysisInstruction.slice(0, 100) || 'Análisis',
         score: historyScore,
         documentType: data.documentType || getInputLabel(detected, Boolean(file)),
-        query: text.trim(),
+        query: analysisInstruction,
         category: selectedCategory,
         legalBranch: legalBranch || undefined,
         legalJurisdiction: legalJurisdiction || undefined,
@@ -1000,9 +1003,11 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       setHistoryItems(readLocalHistory());
       setTimeout(() => document.getElementById('informe')?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch (e: any) {
-      alert(e?.name === 'AbortError'
+      const visibleError = e?.name === 'AbortError'
         ? 'El análisis superó el tiempo máximo. La página quedó liberada para que puedas volver a intentar.'
-        : e.message || 'No se pudo analizar');
+        : e.message || 'No se pudo analizar';
+      setInstructionError(visibleError);
+      document.getElementById('analysis-instruction')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } finally {
       setLoading(false);
     }
@@ -1208,6 +1213,12 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setLegalBranch(null);
     setLegalJurisdiction('');
     setLeasingConfirmedFields(new Set());
+    setLeasingAssetValue('');
+    setLeasingVehicleDescription('');
+    setLeasingVehicleYear('');
+    setLeasingVehicleCondition('new');
+    setLeasingFiscalValuation('');
+    setLeasingPriorYearPatent('');
     setCategoryError('');
     setInstructionError('');
     if (typeof window !== 'undefined') {
@@ -1539,9 +1550,9 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                   <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => { setLeasingAssetType(event.target.value); confirmLeasingField('assetType'); }}><option>Maquinaria o equipo</option><option>Automotor</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
                   <label>Valor del bien sin IVA<input inputMode="decimal" value={leasingAssetValue} onChange={(event) => setLeasingAssetValue(event.target.value)} placeholder="Ej.: 100000000" /><small>Ingresá el precio neto. El IVA se calcula y analiza por separado.</small></label>
                   {leasingAssetType === 'Automotor' && <>
-                    <label>Condición del vehículo<select value={leasingVehicleCondition} onChange={(event) => setLeasingVehicleCondition(event.target.value as 'new' | 'used')}><option value="new">0 km</option><option value="used">Usado / rodado</option></select><small>En Provincia de Buenos Aires, el usado aplica el coeficiente 0,95; el 0 km toma la valuación completa.</small></label>
-                    <label>Marca, modelo y versión<input value={leasingVehicleDescription} onChange={(event) => setLeasingVehicleDescription(event.target.value)} placeholder="Ej.: Audi Q5 45 TFSI Advanced" /><small>La versión exacta evita usar una valuación fiscal incorrecta.</small></label>
-                    <label>Año modelo<input type="number" min="1900" max="2030" value={leasingVehicleYear} onChange={(event) => setLeasingVehicleYear(event.target.value)} placeholder="Ej.: 2023" /></label>
+                    <label>Condición del vehículo<select value={leasingVehicleCondition} onChange={(event) => { const condition = event.target.value as 'new' | 'used'; setLeasingVehicleCondition(condition); if (condition === 'new') setLeasingVehicleYear(''); }}><option value="new">0 km</option><option value="used">Usado / rodado</option></select><small>En Provincia de Buenos Aires, el usado aplica el coeficiente 0,95; el 0 km toma la valuación completa.</small></label>
+                    <label>Marca, modelo y versión<input value={leasingVehicleDescription} onChange={(event) => setLeasingVehicleDescription(event.target.value)} placeholder="Ingresá marca, modelo y versión" autoComplete="off" /><small>La versión exacta evita usar una valuación fiscal incorrecta.</small></label>
+                    {leasingVehicleCondition === 'used' && <label>Año modelo del usado<input type="number" min="1900" max="2030" value={leasingVehicleYear} onChange={(event) => setLeasingVehicleYear(event.target.value)} placeholder="Ej.: 2023" /></label>}
                     <label>Valuación fiscal 2026<input inputMode="decimal" value={leasingFiscalValuation} onChange={(event) => setLeasingFiscalValuation(event.target.value.replace(/[^\d.,]/g, ''))} placeholder="Ej.: 79916000" /><small>Usá la valuación de AGIP, ARBA o DNRPA aplicable; no necesariamente coincide con el precio de compra.</small></label>
                     <label>Patente total 2025 (opcional)<input inputMode="decimal" value={leasingPriorYearPatent} onChange={(event) => setLeasingPriorYearPatent(event.target.value.replace(/[^\d.,]/g, ''))} placeholder="Necesaria para el tope CABA 2026" /><small>Permite controlar la bonificación extraordinaria que limita el aumento por IPCBA.</small></label>
                   </>}
@@ -1578,7 +1589,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             {instructionError && <div className="termsError" role="alert">{instructionError}</div>}
             <div className="termsConsent"><input id="terms-consent" type="checkbox" checked={termsAccepted} onChange={(e) => e.target.checked ? acceptCurrentTerms() : revokeTermsAcceptance()} /><label htmlFor="terms-consent">Leí y acepto los <button type="button" className="termsLink" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>Términos y Condiciones</button> (versión {TERMS_VERSION}).</label></div>
             {termsError && <div className="termsError" role="alert">{termsError}</div>}
-            <div className="ctaRow"><button type="button" className="primary" onClick={() => void analyze()} disabled={loading || sessionLoading || !selectedCategory || !text.trim()}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">{session ? `Entrada: ${getInputLabel(detected, Boolean(file))}` : 'Registrate para analizar'}</span></div>
+            <div className="ctaRow"><button type="button" className="primary" onClick={() => void analyze()} disabled={loading || sessionLoading || !selectedCategory || (!leasingPage && !text.trim())}>{loading ? 'Analizando' : 'Analizar'}</button><span className="hint">{session ? `Entrada: ${getInputLabel(detected, Boolean(file))}` : 'Registrate para analizar'}</span></div>
             {session && <div className="betaAccessNote">Beta completa activa: sin límites ni cobros.</div>}
             {loading && <div className="loading">{steps.map((s, i) => <p key={i}>{s}</p>)}</div>}
             </div>
