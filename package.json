@@ -4,7 +4,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test \"src/**/__tests__/*.test.ts\""
+    "test": "tsx --test \"src/**/__tests__/*.test.ts\"",
+    "corpus:validate": "tsx scripts/public-eecc-corpus.ts",
+    "corpus:download": "tsx scripts/public-eecc-corpus.ts --download",
+    "corpus:analyze": "tsx scripts/public-eecc-corpus.ts --analyze"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
