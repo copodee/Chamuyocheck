@@ -5,6 +5,7 @@ export type AssetType =
   | 'automotor-usado'
   | 'maquinaria'
   | 'equipo'
+  | 'embarcacion'
   | 'inmueble'
   | 'otro';
 

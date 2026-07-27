@@ -6,10 +6,11 @@ import { prequalRest } from '../../../src/modules/prequalification/infrastructur
 import { BcraCreditProvider } from '../../../src/modules/prequalification/providers/bcraProvider';
 import { CreditProviderError } from '../../../src/modules/prequalification/providers/creditProvider';
 import { evaluatePrequalification } from '../../../src/modules/prequalification/scoring/riskEngine';
+import { isAllowedTerm } from '../../../src/modules/prequalification/domain/assetPolicy';
 
 export const runtime = 'nodejs';
 const clientTypes = new Set(['persona-humana', 'persona-juridica']);
-const assetTypes = new Set(['automotor-0km', 'automotor-usado', 'maquinaria', 'equipo', 'inmueble', 'otro']);
+const assetTypes = new Set(['automotor-0km', 'automotor-usado', 'maquinaria', 'equipo', 'embarcacion', 'inmueble', 'otro']);
 
 export async function POST(request: Request) {
   const auth = await authenticatePrequalificationRequest(request);
@@ -26,6 +27,12 @@ export async function POST(request: Request) {
   if (!(assetValue > 0)) return NextResponse.json({ error: 'El valor del bien debe ser mayor que cero.' }, { status: 400 });
   if (advance < 0 || advance > assetValue) return NextResponse.json({ error: 'El anticipo debe estar entre cero y el valor del bien.' }, { status: 400 });
   if (!Number.isInteger(termMonths) || termMonths < 12 || termMonths > 84) return NextResponse.json({ error: 'El plazo debe estar entre 12 y 84 meses.' }, { status: 400 });
+  if (!isAllowedTerm(body.clientType, body.assetType, termMonths)) {
+    const error = body.assetType === 'embarcacion' && body.clientType === 'persona-juridica'
+      ? 'Para embarcaciones de empresas, el plazo disponible es de 36 meses.'
+      : 'Para embarcaciones de personas humanas y monotributistas, elegí 12, 18, 24 o 36 meses.';
+    return NextResponse.json({ error }, { status: 400 });
+  }
   try {
     const report = await new BcraCreditProvider().getCreditReport(cuit);
     const result = evaluatePrequalification({ ...body, cuit, assetValue, advance, termMonths }, report);

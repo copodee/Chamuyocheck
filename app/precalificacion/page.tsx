@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { getPrequalificationSupabaseClient } from '../../src/modules/prequalification/infrastructure/supabase/client';
 import type { PrequalificationResult } from '../../src/modules/prequalification/domain/types';
+import { allowedTermMonths } from '../../src/modules/prequalification/domain/assetPolicy';
 import { PrequalificationStages } from '../../src/modules/prequalification/ui/PrequalificationStages';
 
 const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
@@ -51,7 +52,12 @@ export default function PrequalificationPage() {
     assetType: 'automotor-0km',
   });
   const updateForm = (values: Partial<typeof form>) => {
-    setForm((current) => ({ ...current, ...values }));
+    setForm((current) => {
+      const next = { ...current, ...values };
+      const allowedTerms = allowedTermMonths(next.clientType, next.assetType);
+      if (!allowedTerms.includes(Number(next.termMonths))) next.termMonths = '36';
+      return next;
+    });
     setResult(null);
     setError('');
   };
@@ -190,8 +196,8 @@ export default function PrequalificationPage() {
             ? `${money.format(Math.round(Number(form.assetValue) * Number(form.advancePercent) / 100))} de anticipo · ${money.format(Math.round(Number(form.assetValue) * (100 - Number(form.advancePercent)) / 100))} por financiar`
             : 'Seleccioná un porcentaje entre 10% y 50%, o continuá sin anticipo. Podrás mantenerlo, modificarlo o quitarlo en Precalificación 2.'}</small>
         </label>
-        <label>Plazo deseado<select value={form.termMonths} onChange={(e) => updateForm({ termMonths: e.target.value })}>{[12, 18, 24, 36, 48, 60, 72, 84].map((value) => <option key={value} value={value}>{value} meses</option>)}</select></label>
-        <label>Tipo de bien<select value={form.assetType} onChange={(e) => updateForm({ assetType: e.target.value })}><option value="automotor-0km">Automotor 0 km</option><option value="automotor-usado">Automotor usado / rodado</option><option value="maquinaria">Maquinaria</option><option value="equipo">Equipo</option><option value="inmueble">Inmueble</option><option value="otro">Otro</option></select></label>
+        <label>Plazo deseado<select value={form.termMonths} onChange={(e) => updateForm({ termMonths: e.target.value })}>{allowedTermMonths(form.clientType, form.assetType).map((value) => <option key={value} value={value}>{value} meses</option>)}</select></label>
+        <label>Tipo de bien<select value={form.assetType} onChange={(e) => updateForm({ assetType: e.target.value })}><option value="automotor-0km">Automotor 0 km</option><option value="automotor-usado">Automotor usado / rodado</option><option value="maquinaria">Maquinaria</option><option value="equipo">Equipo</option><option value="embarcacion">Embarcación</option><option value="inmueble">Inmueble</option><option value="otro">Otro</option></select></label>
       </div>
       {error && <div className="prequalError" role="alert">{error}</div>}
       <button className="prequalPrimary" disabled={busy}>{busy ? 'Consultando BCRA…' : 'Precalificar'}</button>
