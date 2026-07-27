@@ -20,6 +20,18 @@ function average(values: number[]): number {
   return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : 0;
 }
 
+function hasCoherentBalance(balance?: ExtractedBalance): boolean {
+  if (!balance) return false;
+  const assets = balance.totalAssets
+    ?? (balance.currentAssets != null && balance.nonCurrentAssets != null
+      ? balance.currentAssets + balance.nonCurrentAssets : null);
+  const liabilities = balance.totalLiabilities
+    ?? (balance.currentLiabilities != null && balance.nonCurrentLiabilities != null
+      ? balance.currentLiabilities + balance.nonCurrentLiabilities : null);
+  if (assets == null || assets <= 0 || liabilities == null || liabilities < 0 || balance.equity == null || balance.equity <= 0) return false;
+  return Math.abs(assets - liabilities - balance.equity) / Math.max(1, Math.abs(assets)) <= 0.02;
+}
+
 export function evaluateRegulatoryExposure(inputs: EconomicInputs, balance?: ExtractedBalance): RegulatoryExposureAssessment {
   if (inputs.profile !== 'legal-entity') {
     return {
@@ -28,7 +40,9 @@ export function evaluateRegulatoryExposure(inputs: EconomicInputs, balance?: Ext
       basicMarginAvailable: null, status: 'not-applicable', label: 'No aplicable', conditions: [],
     };
   }
-  const computableNetWorth = Math.max(0, Number(inputs.computableNetWorth || balance?.equity || 0)) || null;
+  const manuallyReportedNetWorth = Math.max(0, Number(inputs.computableNetWorth || 0)) || null;
+  const extractedNetWorth = hasCoherentBalance(balance) ? Math.max(0, Number(balance?.equity || 0)) || null : null;
+  const computableNetWorth = manuallyReportedNetWorth ?? extractedNetWorth;
   const existingComputableFinancing = Math.max(0, Number(inputs.existingComputableFinancing ?? balance?.financialDebt ?? 0));
   const requestedFinancing = Math.max(0, Number(inputs.requestedFinancing || 0));
   const totalExposure = existingComputableFinancing + requestedFinancing;
@@ -57,21 +71,11 @@ export function evaluateRegulatoryExposure(inputs: EconomicInputs, balance?: Ext
       conditions: ['Supera el 100% del patrimonio computable: requiere aprobación especial y verificar el límite respecto de la RPC de la entidad otorgante.'],
     };
   }
-  if (ratio <= 3 && inputs.qualifyingGuarantee === 'sgr-public-fund') {
-    return {
-      applicable: true, computableNetWorth, existingComputableFinancing, requestedFinancing, totalExposure,
-      exposureToNetWorthRatio: ratio, basicMarginAvailable, status: 'guaranteed-special-margin',
-      label: 'Sujeta a margen especial con garantía',
-      conditions: ['Solo puede encuadrar con garantía elegible de SGR o fondo público y verificando el límite respecto de la RPC de la entidad otorgante.'],
-    };
-  }
   return {
     applicable: true, computableNetWorth, existingComputableFinancing, requestedFinancing, totalExposure,
     exposureToNetWorthRatio: ratio, basicMarginAvailable, status: 'outside-regulatory-margin',
     label: 'Fuera del margen regulatorio informado',
-    conditions: [ratio <= 3
-      ? 'La exposición supera el 200% y no se informó una garantía elegible de SGR o fondo público.'
-      : 'La exposición supera el 300% del patrimonio computable.'],
+    conditions: ['La exposición supera el 200% del patrimonio computable y requiere revisión especial de la entidad otorgante.'],
   };
 }
 
@@ -106,7 +110,11 @@ export function evaluateEconomicCapacity(
   } else if (inputs.profile === 'legal-entity') {
     const monthlySales = average(inputs.monthlySales || []);
     const balanceResult = balance?.operatingProfit ?? balance?.netProfit;
-    if (balanceResult != null && balance?.sales) {
+    const coherentIncomeStatement = balanceResult != null
+      && balance?.sales != null
+      && balance.sales > 0
+      && Math.abs(balanceResult) <= balance.sales * 2;
+    if (coherentIncomeStatement && balance?.sales) {
       const balanceMargin = Math.max(0, balanceResult / balance.sales);
       normalizedMonthlyIncome = monthlySales
         ? monthlySales * balanceMargin
@@ -163,15 +171,18 @@ export function evaluateEconomicCapacity(
   const totalCommitmentCoverage = commitments > 0 && normalizedMonthlyIncome
     ? normalizedMonthlyIncome / commitments
     : null;
+  const coherentBalance = hasCoherentBalance(balance);
+  const coherentIncomeStatement = !!(balance?.sales && balance.sales > 0
+    && (balance.netProfit == null || Math.abs(balance.netProfit) <= balance.sales * 2));
   const requestedFinancingToSales = inputs.profile === 'legal-entity'
-    && inputs.requestedFinancing > 0 && balance?.sales
+    && inputs.requestedFinancing > 0 && coherentIncomeStatement && balance?.sales
     ? inputs.requestedFinancing / balance.sales
     : null;
   const balanceAssets = balance
     ? balance.totalAssets ?? ((balance.currentAssets ?? 0) + (balance.nonCurrentAssets ?? 0) || null)
     : null;
   const requestedFinancingToAssets = inputs.profile === 'legal-entity'
-    && inputs.requestedFinancing > 0 && balanceAssets
+    && inputs.requestedFinancing > 0 && coherentBalance && balanceAssets
     ? inputs.requestedFinancing / balanceAssets
     : null;
 
@@ -214,7 +225,7 @@ export function evaluateEconomicCapacity(
     if (regulatoryExposure.status === 'missing-data') {
       status = 'manual-review';
       score = Math.min(score, 50);
-    } else if (regulatoryExposure.status === 'complementary-margin' || regulatoryExposure.status === 'guaranteed-special-margin') {
+    } else if (regulatoryExposure.status === 'complementary-margin') {
       status = 'conditional';
       score = Math.min(score, 68);
     } else if (regulatoryExposure.status === 'outside-regulatory-margin') {

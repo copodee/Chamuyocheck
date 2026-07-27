@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import { evaluateEconomicCapacity, hasAffordableMonthlyPayment } from '../scoring/economicEngine';
 import { extractBalanceData } from '../scoring/balanceExtractor';
 
+test('no confunde la fecha ni el número de nota con el patrimonio del balance', () => {
+  const result = extractBalanceData(`
+    Estados contables al 30 de junio de 2025
+    Patrimonio neto según estado respectivo y Nota 8 26.275.959.154
+  `);
+  assert.equal(result.equity, 26_275_959_154);
+});
+
 test('aplica la política del 30% a una persona en relación de dependencia', () => {
   const result = evaluateEconomicCapacity({
     profile: 'employee', activity: 'Empleado', activitySeniorityMonths: 36,
@@ -20,7 +28,7 @@ test('permite enviar si la empresa cubre sus compromisos aunque el encuadre gene
     declaredMonthlyDebtService: 0, proposedMonthlyCanon: 4_000_000,
     monthlySales: [100_000_000, 100_000_000, 100_000_000, 100_000_000, 100_000_000, 100_000_000],
     requestedFinancing: 160_000_000, computableNetWorth: 103_697_553,
-    existingComputableFinancing: 0, qualifyingGuarantee: 'none',
+    existingComputableFinancing: 0,
   }, 2, {
     sales: 120_000_000, operatingProfit: 16_466_729,
     equity: 103_697_553, extractionConfidence: 100, missingFields: [],
@@ -220,7 +228,7 @@ test('clasifica una persona jurídica dentro del margen básico', () => {
     declaredMonthlyDebtService: 0, proposedMonthlyCanon: 1_000_000,
     monthlySales: Array(6).fill(20_000_000), declaredOperatingMargin: 20,
     requestedFinancing: 30_000_000, existingComputableFinancing: 20_000_000,
-    computableNetWorth: 60_000_000, qualifyingGuarantee: 'none',
+    computableNetWorth: 60_000_000,
   }, 0, {
     closingDate: '31/12/2025', currentAssets: 30_000_000, nonCurrentAssets: 50_000_000,
     currentLiabilities: 10_000_000, nonCurrentLiabilities: 10_000_000, equity: 60_000_000,
@@ -239,7 +247,7 @@ test('el margen complementario requiere aprobación y no califica automáticamen
     declaredMonthlyDebtService: 0, proposedMonthlyCanon: 500_000,
     monthlySales: Array(6).fill(20_000_000), declaredOperatingMargin: 20,
     requestedFinancing: 70_000_000, existingComputableFinancing: 40_000_000,
-    computableNetWorth: 100_000_000, qualifyingGuarantee: 'none',
+    computableNetWorth: 100_000_000,
   }, 0);
   assert.equal(result.regulatoryExposure.status, 'complementary-margin');
   assert.equal(result.status, 'conditional');

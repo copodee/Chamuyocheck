@@ -20,9 +20,16 @@ function findAmount(text: string, labels: string[]): number | null {
     while ((labelMatch = expression.exec(text))) {
       let tail = text.slice(expression.lastIndex, expression.lastIndex + 180);
       tail = tail.replace(/^\s*(?:\((?!\s*-?\d[\d.,]*\s*\))[^)]*\)\s*)+/, '');
-      const amountMatch = tail.match(/^[^\d(+-]{0,25}(\(?-?\d[\d.,]*\)?)/);
-      const value = amountMatch?.[1] ? normalizedNumber(amountMatch[1]) : null;
-      if (value !== null) return value;
+      const candidates = [...tail.matchAll(/\(?-?\d[\d.,]*\)?/g)]
+        .slice(0, 6)
+        .map(match => normalizedNumber(match[0]))
+        .filter((value): value is number => value !== null);
+      // En balances escaneados suelen aparecer antes del importe el día de
+      // cierre, el número de nota o el ejercicio. Priorizamos el primer valor
+      // monetario material y sólo usamos el primero como último recurso.
+      const material = candidates.find(value => Math.abs(value) >= 1000);
+      if (material !== undefined) return material;
+      if (candidates.length) return candidates[0];
     }
   }
   return null;

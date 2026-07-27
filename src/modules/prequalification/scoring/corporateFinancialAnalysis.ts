@@ -2,7 +2,8 @@ import type { CorporateEvolutionAssessment, CorporateFinancialAssessment, Extrac
 import { classifyCorporateSector, quickRatioThresholds, sectorLabel, sectorObservations } from './sectorAnalysis';
 
 const ratio = (numerator: number | null | undefined, denominator: number | null | undefined) =>
-  numerator != null && denominator != null && denominator !== 0 ? numerator / denominator : null;
+  numerator != null && denominator != null && Number.isFinite(numerator) && Number.isFinite(denominator) && denominator > 0
+    ? numerator / denominator : null;
 
 export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?: ExtractedBalance, declaredActivity = ''): CorporateFinancialAssessment {
   const hasDeclaredSector = declaredActivity.trim().length > 0 && declaredActivity.trim().toLowerCase() !== 'otro';
@@ -27,23 +28,32 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
   const totalLiabilities = balance.totalLiabilities ??
     (balance.currentLiabilities != null && balance.nonCurrentLiabilities != null
       ? balance.currentLiabilities + balance.nonCurrentLiabilities : null);
-  const workingCapital = balance.currentAssets != null && balance.currentLiabilities != null
+  const accountingEquationDifference = totalAssets != null && totalLiabilities != null && balance.equity != null
+    ? Math.abs(totalAssets - totalLiabilities - balance.equity) / Math.max(1, Math.abs(totalAssets))
+    : null;
+  const coherentBalance = totalAssets != null && totalAssets > 0
+    && totalLiabilities != null && totalLiabilities >= 0
+    && balance.equity != null && balance.equity > 0
+    && accountingEquationDifference != null && accountingEquationDifference <= 0.02;
+  const coherentIncomeStatement = balance.sales != null && balance.sales > 0
+    && (balance.netProfit == null || Math.abs(balance.netProfit) <= balance.sales * 2);
+  const workingCapital = coherentBalance && balance.currentAssets != null && balance.currentLiabilities != null
     ? balance.currentAssets - balance.currentLiabilities : null;
-  const currentRatio = ratio(balance.currentAssets, balance.currentLiabilities);
-  const quickRatio = balance.currentAssets != null
+  const currentRatio = coherentBalance ? ratio(balance.currentAssets, balance.currentLiabilities) : null;
+  const quickRatio = coherentBalance && balance.currentAssets != null
     ? ratio(balance.currentAssets - Math.max(0, balance.inventory || 0), balance.currentLiabilities)
     : null;
-  const cashRatio = ratio(balance.cash, balance.currentLiabilities);
-  const debtToEquity = ratio(balance.financialDebt, balance.equity);
-  const liabilitiesToEquity = ratio(totalLiabilities, balance.equity);
+  const cashRatio = coherentBalance ? ratio(balance.cash, balance.currentLiabilities) : null;
+  const debtToEquity = coherentBalance ? ratio(balance.financialDebt, balance.equity) : null;
+  const liabilitiesToEquity = coherentBalance ? ratio(totalLiabilities, balance.equity) : null;
   const annualizationFactor = balance.statementKind === 'interim' && balance.periodMonths
     ? 12 / balance.periodMonths : 1;
   const annualizedSales = balance.sales == null ? null : balance.sales * annualizationFactor;
   const annualizedNetProfit = balance.netProfit == null ? null : balance.netProfit * annualizationFactor;
   const annualizedCostOfSales = balance.costOfSales == null ? null : balance.costOfSales * annualizationFactor;
-  const netMargin = ratio(balance.netProfit, balance.sales);
-  const grossMargin = ratio(balance.grossProfit, balance.sales);
-  const operatingMargin = ratio(balance.operatingProfit, balance.sales);
+  const netMargin = coherentIncomeStatement ? ratio(balance.netProfit, balance.sales) : null;
+  const grossMargin = coherentIncomeStatement ? ratio(balance.grossProfit, balance.sales) : null;
+  const operatingMargin = coherentIncomeStatement ? ratio(balance.operatingProfit, balance.sales) : null;
   const recurringMargin = operatingMargin ?? netMargin;
   const previousTotalAssets = previous?.totalAssets ??
     (previous?.currentAssets != null && previous?.nonCurrentAssets != null
@@ -54,13 +64,19 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
     ? (balance.inventory + previous.inventory) / 2 : balance.inventory;
   const averageReceivables = balance.tradeReceivables != null && previous?.tradeReceivables != null
     ? (balance.tradeReceivables + previous.tradeReceivables) / 2 : balance.tradeReceivables;
-  const returnOnAssets = ratio(annualizedNetProfit, averageAssets);
-  const returnOnEquity = ratio(annualizedNetProfit, averageEquity);
-  const financialDebtToSales = ratio(balance.financialDebt, annualizedSales);
-  const assetTurnover = ratio(annualizedSales, averageAssets);
-  const inventoryTurnover = ratio(annualizedCostOfSales == null ? null : Math.abs(annualizedCostOfSales), averageInventory);
-  const receivablesTurnover = ratio(annualizedSales, averageReceivables);
-  const interestCoverage = ratio(balance.operatingProfit, balance.interestExpense == null ? null : Math.abs(balance.interestExpense));
+  const returnOnAssets = coherentBalance && coherentIncomeStatement ? ratio(annualizedNetProfit, averageAssets) : null;
+  const returnOnEquity = coherentBalance && coherentIncomeStatement ? ratio(annualizedNetProfit, averageEquity) : null;
+  const financialDebtToSales = coherentIncomeStatement ? ratio(balance.financialDebt, annualizedSales) : null;
+  const assetTurnover = coherentBalance && coherentIncomeStatement ? ratio(annualizedSales, averageAssets) : null;
+  const inventoryTurnover = coherentBalance && coherentIncomeStatement
+    ? ratio(annualizedCostOfSales == null ? null : Math.abs(annualizedCostOfSales), averageInventory)
+    : null;
+  const receivablesTurnover = coherentBalance && coherentIncomeStatement
+    ? ratio(annualizedSales, averageReceivables)
+    : null;
+  const interestCoverage = coherentIncomeStatement
+    ? ratio(balance.operatingProfit, balance.interestExpense == null ? null : Math.abs(balance.interestExpense))
+    : null;
 
   const observations: string[] = [];
   if (annualizationFactor !== 1) {
@@ -71,9 +87,6 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
     observations.push('El resultado final supera ampliamente al operativo; la capacidad de pago debe apoyarse en resultados recurrentes y revisar resultados financieros/RECPAM.');
   }
   const quickThresholds = quickRatioThresholds(sector);
-  const accountingEquationDifference = totalAssets != null && totalLiabilities != null && balance.equity != null
-    ? Math.abs(totalAssets - totalLiabilities - balance.equity) / Math.max(1, Math.abs(totalAssets))
-    : null;
   const derivedGrossResult = balance.sales != null && balance.costOfSales != null
     ? balance.costOfSales < 0
       ? balance.sales + balance.costOfSales
@@ -86,6 +99,9 @@ export function analyzeCorporateFinancials(balance?: ExtractedBalance, previous?
     || (grossResultDifference != null && grossResultDifference > 0.02);
   if (accountingEquationDifference != null && accountingEquationDifference > 0.02) {
     observations.push('Los importes extraídos no concilian: Activo difiere de Pasivo más Patrimonio. Requiere revisión.');
+  }
+  if (!coherentBalance) {
+    observations.push('No se publican ratios patrimoniales hasta validar Activo, Pasivo y Patrimonio Neto.');
   }
   if (grossResultDifference != null && grossResultDifference > 0.02) {
     observations.push('Ventas, costo y resultado bruto extraídos no concilian. Requiere revisión.');

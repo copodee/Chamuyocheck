@@ -11,7 +11,7 @@ import { latestSixMonthlySales } from '../scoring/fiscalDocumentExtractor';
 import { extractFinancialDebt, type ExtractedFinancialDebt } from '../scoring/financialDebtExtractor';
 import { reconcileFinancialDebt } from '../scoring/debtReconciliation';
 import { analyzeInvoiceIncome, analyzeSalaryIncome, extractInvoiceTotal, type InvoiceIncomeAnalysis } from '../scoring/incomeDocumentExtractor';
-import type { ComplianceDeclarations, ContactData, DossierDocument, EconomicAssessment, EconomicInputs, EconomicProfile, ExtractedBalance } from '../domain/dossier';
+import type { ContactData, DossierDocument, EconomicAssessment, EconomicInputs, EconomicProfile, ExtractedBalance } from '../domain/dossier';
 import type { PrequalificationResult } from '../domain/types';
 
 type Props = {
@@ -80,13 +80,6 @@ const argentinaJurisdictions = [
   'Tierra del Fuego',
   'Tucumán',
 ] as const;
-const decisions = [
-  ['ready', 'Lista para enviar a análisis'],
-  ['conditional', 'Avanzar con condiciones'],
-  ['additional-guarantees', 'Solicitar garantías adicionales'],
-  ['more-information', 'Solicitar más información'],
-  ['not-compatible', 'No compatible'],
-];
 const pesos = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
 const formatChange = (value: number | null) => value == null ? 'No calculable' : `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
 const balanceDateValue = (value: string | null) => {
@@ -135,27 +128,6 @@ const stage2Requirements: Record<EconomicProfile, Array<[string, string, boolean
     ['balance-1', 'Último balance', true], ['balance-2', 'Balance anterior (sólo para evolución interanual)', false],
     ['post-balance-sales', 'Ventas netas de IVA posteriores al último balance', true],
     ['financial-debt', 'Detalle de deuda bancaria y financiera', true],
-  ],
-};
-
-const stage3Requirements: Record<EconomicProfile, Array<[string, string, boolean]>> = {
-  employee: [
-    ['identity-front', 'DNI frente', false], ['identity-back', 'DNI dorso', false],
-    ['certified-income', 'Certificación de ingresos, si el administrador la solicita', false],
-  ],
-  monotributista: [
-    ['identity-front', 'DNI frente', false], ['identity-back', 'DNI dorso', false],
-    ['certified-income', 'Detalle de ingresos certificado, si se solicita', false],
-  ],
-  'responsable-inscripto': [
-    ['identity-front', 'DNI frente', false], ['identity-back', 'DNI dorso', false],
-    ['certified-income', 'Certificación contable, si se solicita', false],
-  ],
-  'legal-entity': [
-    ['statute', 'Estatuto o contrato social', false], ['authorities-act', 'Acta vigente de autoridades', false],
-    ['balance-approval-act', 'Acta de aprobación del último balance', false], ['signer-power', 'Poder del firmante', false],
-    ['representative-identity-front', 'DNI frente del representante', false], ['representative-identity-back', 'DNI dorso del representante', false],
-    ['partners-assets', 'Bienes Personales o manifestación de socios, si se solicita', false],
   ],
 };
 
@@ -213,13 +185,8 @@ export function PrequalificationStages(props: Props) {
     requestedFinancing: Math.max(0, props.requestData.assetValue - props.requestData.advance),
     proposedAdvancePercent: initialAdvancePercent,
     proposedAdvanceAmount: props.requestData.advance,
-    computableNetWorth: 0, existingComputableFinancing: 0, qualifyingGuarantee: 'none',
+    computableNetWorth: 0, existingComputableFinancing: 0,
   });
-  const [compliance, setCompliance] = useState<ComplianceDeclarations>({
-    pepStatus: 'no', obligedSubject: false, fundsLawfulOrigin: false, ownAccount: false,
-    taxResidenceArgentina: true, administratorMayRequestEvidence: false,
-  });
-  const [decision, setDecision] = useState('ready');
   const [effectiveCaseId, setEffectiveCaseId] = useState(props.caseId);
   const [effectiveCaseNumber, setEffectiveCaseNumber] = useState(props.caseNumber);
   const applyUsdDebtExchangeRate = (rate: number) => {
@@ -525,11 +492,23 @@ export function PrequalificationStages(props: Props) {
       const priorBalance = extractedBalances[1];
       if (latestBalance) {
         const extractedBalance = latestBalance;
+        const extractedAssets = extractedBalance.totalAssets
+          ?? (extractedBalance.currentAssets != null && extractedBalance.nonCurrentAssets != null
+            ? extractedBalance.currentAssets + extractedBalance.nonCurrentAssets : null);
+        const extractedLiabilities = extractedBalance.totalLiabilities
+          ?? (extractedBalance.currentLiabilities != null && extractedBalance.nonCurrentLiabilities != null
+            ? extractedBalance.currentLiabilities + extractedBalance.nonCurrentLiabilities : null);
+        const coherentBalance = extractedAssets != null && extractedAssets > 0
+          && extractedLiabilities != null && extractedLiabilities >= 0
+          && extractedBalance.equity != null && extractedBalance.equity > 0
+          && Math.abs(extractedAssets - extractedLiabilities - extractedBalance.equity)
+            / Math.max(1, extractedAssets) <= 0.02;
         setBalance(extractedBalance);
         setEconomic(current => ({
           ...current,
           activity: current.activity || extractedBalance.activity || '',
-          computableNetWorth: current.computableNetWorth || extractedBalance.equity || 0,
+          computableNetWorth: current.computableNetWorth
+            || (coherentBalance ? extractedBalance.equity || 0 : 0),
           existingComputableFinancing: current.existingComputableFinancing || extractedBalance.financialDebt || 0,
         }));
       }
@@ -636,33 +615,18 @@ export function PrequalificationStages(props: Props) {
         cuitMasked: props.subject.cuitMasked, stage1: props.stage1, documentReview,
         sendForManualReview,
       }, recovered.caseId);
-      setAssessment(data.assessment); setStage(3);
+      setAssessment(data.assessment); setStage(4);
       setMessage(data.notification?.sent
         ? `Expediente ${recovered.caseNumber} generado y enviado a contacto@leasingscoring.com.`
         : `Expediente ${recovered.caseNumber} generado. No se pudo enviar la notificación.`);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Error'); }
     setBusy(false);
   };
-  const saveStage3 = async () => {
-    setBusy(true); setMessage('');
-    try {
-      const data = await api({
-        action: 'stage3', compliance, decision, responseEmail: contact.email, documents,
-        caseNumber: effectiveCaseNumber, subject: props.subject.denomination,
-        cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact,
-        economic: { ...assessment, declaredMonthlyDebtService: economic.declaredMonthlyDebtService, proposedMonthlyCanon: economic.proposedMonthlyCanon },
-      });
-      setMessage(data.notification?.sent ? 'El administrador fue notificado.' : 'Expediente guardado. Falta conectar la clave de Resend para enviar correos.');
-      setStage(4);
-    }
-    catch (error) { setMessage(error instanceof Error ? error.message : 'Error'); }
-    setBusy(false);
-  };
   const downloadPdf = async () => {
     setBusy(true);
     const response = await fetch('/api/prequalification/pdf', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${props.session.access_token}` },
-      body: JSON.stringify({ caseNumber: effectiveCaseNumber, subject: props.subject.denomination, cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact, economic: { ...assessment, declaredMonthlyDebtService: economic.declaredMonthlyDebtService, proposedMonthlyCanon: economic.proposedMonthlyCanon, proposedAdvancePercent: economic.proposedAdvancePercent, proposedAdvanceAmount: economic.proposedAdvanceAmount, requestedFinancing: economic.requestedFinancing }, compliance, decision, responseEmail: contact.email, documents }),
+      body: JSON.stringify({ caseNumber: effectiveCaseNumber, subject: props.subject.denomination, cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact, economic: { ...assessment, declaredMonthlyDebtService: economic.declaredMonthlyDebtService, proposedMonthlyCanon: economic.proposedMonthlyCanon, proposedAdvancePercent: economic.proposedAdvancePercent, proposedAdvanceAmount: economic.proposedAdvanceAmount, requestedFinancing: economic.requestedFinancing }, documents }),
     });
     if (response.ok) {
       const url = URL.createObjectURL(await response.blob());
@@ -807,7 +771,6 @@ export function PrequalificationStages(props: Props) {
             <small>Necesario para sumar la deuda y su carga mensual en dólares a los importes en pesos. El tipo de cambio queda identificado como supuesto de la precalificación.</small>
           </label>}
           <label>Monto neto solicitado<input type="text" inputMode="numeric" value={economic.requestedFinancing || ''} onChange={e => setEconomic({ ...economic, requestedFinancing: Number(e.target.value.replace(/\D/g, '')) })} /><small>Valor del bien menos anticipo; modificable si la estructura propuesta es distinta.</small></label>
-          <label>Garantía regulatoria elegible<select value={economic.qualifyingGuarantee} onChange={e => setEconomic({ ...economic, qualifyingGuarantee: e.target.value as EconomicInputs['qualifyingGuarantee'] })}><option value="none">Sin SGR/fondo público informado</option><option value="sgr-public-fund">SGR o fondo público elegible</option></select></label>
         </>}
         <label>Anticipo definitivo
           <select value={economic.proposedAdvancePercent ?? initialAdvancePercent} onChange={e => applyAdvancePercent(Number(e.target.value))}>
@@ -873,9 +836,8 @@ export function PrequalificationStages(props: Props) {
               setDocuments(current => current.map(item => item.id === document.id ? { ...item, kind, status: item.extractedText ? 'read' : 'uploaded' } : item));
             }}>
               <option value="">Seleccionar tipo…</option>
-              {[
+              {[ 
                 ...currentStage2Requirements,
-                ...stage3Requirements[economic.profile],
               ].map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}
             </select>
           </label>
@@ -996,50 +958,9 @@ export function PrequalificationStages(props: Props) {
         </span>)}
       </div>}
     </div>}
-    {stage === 3 && <div className="prequalForm">
-      <h3>Precalificación 3 · Validación y cumplimiento UIF</h3>
-      {assessment && <div className="prequalCapacity"><b>Resultado económico: {assessment.status} · {assessment.score}/100</b><p>{usesPersonalCapacityPolicy
-        ? `Relación cuota/ingreso: ${assessment.installmentToIncomeRatio == null ? 'no estimable' : `${(assessment.installmentToIncomeRatio * 100).toFixed(1)}%`} (referencia: 30%).`
-        : `Cobertura de compromisos: ${assessment.totalCommitmentCoverage == null ? 'no calculable' : `${assessment.totalCommitmentCoverage.toFixed(2)} veces`} (referencia prudencial: 1,25 veces).`}</p><p>Respaldo de ingresos: <b>{assessment.confidence}</b>.</p>{assessment.confidence === 'declarativa' && <p>Los ingresos no tienen comprobantes adjuntos. Deben solicitarse antes de una decisión definitiva.</p>}</div>}
-      <p>Estas declaraciones son preliminares. El administrador podrá pedir formularios firmados, certificaciones, identidad, estatuto, autoridades, poderes o garantías antes de enviar a una entidad.</p>
-      <label>Condición PEP<select value={compliance.pepStatus} onChange={e => setCompliance({ ...compliance, pepStatus: e.target.value as ComplianceDeclarations['pepStatus'] })}><option value="no">No soy PEP</option><option value="yes">Soy PEP</option><option value="related">Soy familiar/allegado de PEP</option></select></label>
-      {compliance.pepStatus !== 'no' && <label>Detalle PEP<textarea value={compliance.pepDetail || ''} onChange={e => setCompliance({ ...compliance, pepDetail: e.target.value })} /></label>}
-      <label><input type="checkbox" checked={compliance.obligedSubject} onChange={e => setCompliance({ ...compliance, obligedSubject: e.target.checked })} /> Soy sujeto obligado ante la UIF.</label>
-      <label><input type="checkbox" checked={compliance.fundsLawfulOrigin} onChange={e => setCompliance({ ...compliance, fundsLawfulOrigin: e.target.checked })} /> Declaro origen lícito de fondos.</label>
-      <label><input type="checkbox" checked={compliance.ownAccount} onChange={e => setCompliance({ ...compliance, ownAccount: e.target.checked })} /> Actúo por cuenta propia; si no, informaré al beneficiario final.</label>
-      <label><input type="checkbox" checked={compliance.taxResidenceArgentina} onChange={e => setCompliance({ ...compliance, taxResidenceArgentina: e.target.checked })} /> Residencia fiscal exclusivamente argentina.</label>
-      <label><input type="checkbox" checked={compliance.administratorMayRequestEvidence} onChange={e => setCompliance({ ...compliance, administratorMayRequestEvidence: e.target.checked })} /> Acepto que el administrador solicite respaldo si lo considera necesario.</label>
-      <div className="prequalEntityDetail">
-        <h3>Documentos de validación</h3>
-        <p>Son opcionales en esta instancia y el administrador puede solicitarlos cuando corresponda.</p>
-        {stage3Requirements[economic.profile].map(([kind, label]) => {
-          const uploaded = documents.find(document => document.stage === 3 && document.kind === kind);
-          const inputId = `stage-3-${kind}`;
-          return <div className="prequalUploadItem" key={kind}>
-            <div className="prequalUploadRow">
-              <div><b>{label}</b><small>Opcional en esta instancia</small></div>
-              <label className="prequalUploadButton" htmlFor={inputId}>Agregar archivo</label>
-              <input id={inputId} className="prequalFileInput" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => readFiles(e.target.files, kind)} />
-            </div>
-            {uploaded && <div className="prequalUploadedFile">✓ Agregado: {uploaded.name}</div>}
-          </div>;
-        })}
-      </div>
-      <label>Decisión<select value={decision} onChange={e => setDecision(e.target.value)}>{decisions.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
-      <div className="prequalCalculatedField">
-        <b>Correo de contacto del solicitante</b>
-        <span>{contact.email}</span>
-        <small>Se incorpora al expediente únicamente como dato de contacto.</small>
-      </div>
-      <div className="prequalDocumentWarning">
-        <b>Destino del expediente</b>
-        <span>El expediente y sus anexos se enviarán únicamente a contacto@leasingscoring.com.</span>
-      </div>
-      <button className="prequalPrimary" disabled={busy} onClick={saveStage3}>Cerrar Precalificación 3</button>
-    </div>}
     {stage === 4 && <div className="prequalForm">
-      <h3>Precalificación 3 completada</h3>
-      <p>El expediente quedó listo para revisión administrativa y fue dirigido únicamente a <b>contacto@leasingscoring.com</b>.</p>
+      <h3>Expediente enviado</h3>
+      <p>El expediente quedó listo para revisión administrativa y fue enviado directamente a <b>contacto@leasingscoring.com</b>.</p>
       <p>El correo <b>{contact.email}</b> figura solamente como dato de contacto del solicitante dentro del expediente.</p>
       <button className="prequalPrimary" disabled={busy} onClick={downloadPdf}>Descargar expediente PDF</button>
     </div>}

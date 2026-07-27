@@ -42,7 +42,6 @@ export type EconomicInputs = {
   proposedAdvanceAmount?: number;
   computableNetWorth?: number;
   existingComputableFinancing?: number;
-  qualifyingGuarantee?: 'none' | 'sgr-public-fund';
 };
 
 export type RegulatoryExposureAssessment = {
@@ -53,7 +52,7 @@ export type RegulatoryExposureAssessment = {
   totalExposure: number;
   exposureToNetWorthRatio: number | null;
   basicMarginAvailable: number | null;
-  status: 'not-applicable' | 'basic-margin' | 'complementary-margin' | 'guaranteed-special-margin' | 'outside-regulatory-margin' | 'missing-data';
+  status: 'not-applicable' | 'basic-margin' | 'complementary-margin' | 'outside-regulatory-margin' | 'missing-data';
   label: string;
   conditions: string[];
 };

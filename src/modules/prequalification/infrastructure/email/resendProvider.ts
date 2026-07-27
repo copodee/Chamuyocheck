@@ -59,7 +59,7 @@ export function adminNotificationHtml(input: {
 }) {
   return `<div style="font-family:Arial,sans-serif;color:#10212b;max-width:620px">
     <div style="font-size:22px;font-weight:700;color:#6d28d9">LeasingScoring</div>
-    <h1 style="font-size:24px">Nueva Precalificación 3</h1>
+    <h1 style="font-size:24px">Nuevo expediente de precalificación</h1>
     <p><b>Expediente:</b> ${escapeHtml(input.caseNumber)}</p>
     <p><b>Solicitante:</b> ${escapeHtml(input.subject)}</p>
     <p><b>Decisión preliminar:</b> ${escapeHtml(input.decision)}</p>
@@ -205,7 +205,7 @@ export function stage2NotificationHtml(input: {
     ${downloadLinksHtml(input.downloadLinks)}
     <p>${input.submittedForManualReview
       ? 'El expediente fue remitido por decisión expresa del usuario para revisión humana. No debe interpretarse como una calificación favorable.'
-      : 'La operación superó la evaluación automática preliminar y puede continuar a Precalificación 3.'}</p>
+      : 'La operación superó la evaluación automática preliminar y fue remitida para análisis.'}</p>
     <p style="font-size:12px;color:#64748b">Evaluación preliminar. No constituye aprobación crediticia ni oferta de financiación.</p>
   </div>`;
 }

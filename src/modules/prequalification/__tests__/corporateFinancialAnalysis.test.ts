@@ -91,9 +91,28 @@ test('envía a revisión una extracción que no concilia contablemente', () => {
     financialDebt: 10, cash: 5, inventory: 10, costOfSales: -40,
     totalAssets: 100, totalLiabilities: 30, extractionConfidence: 100, missingFields: [],
   });
-  assert.ok((result.score ?? 100) <= 50);
-  assert.equal(result.status, 'review');
+  assert.equal(result.returnOnAssets, null);
+  assert.equal(result.returnOnEquity, null);
+  assert.equal(result.assetTurnover, null);
+  assert.equal(result.inventoryTurnover, null);
   assert.ok(result.observations.some(item => item.includes('no concilian')));
+});
+
+test('calcula ratios razonables con las cifras conciliadas del balance KAVOS', () => {
+  const result = analyzeCorporateFinancials({
+    closingDate: '30/06/2025',
+    currentAssets: 18_285_952_374, nonCurrentAssets: 12_358_305_448, totalAssets: 30_644_257_822,
+    currentLiabilities: 3_803_618_307, nonCurrentLiabilities: 564_680_361, totalLiabilities: 4_368_298_668,
+    equity: 26_275_959_154, sales: 39_876_154_078, costOfSales: 30_316_114_073,
+    grossProfit: 9_560_040_005, operatingProfit: 4_697_189_952, netProfit: 6_989_805_762,
+    financialDebt: 564_680_361, cash: 1_000_000_000, inventory: 10_000_000_000,
+    tradeReceivables: 5_000_000_000, extractionConfidence: 100, missingFields: [],
+  });
+  assert.ok(Math.abs((result.returnOnAssets || 0) - 0.2281) < 0.001);
+  assert.ok(Math.abs((result.returnOnEquity || 0) - 0.266) < 0.001);
+  assert.ok(Math.abs((result.netMargin || 0) - 0.1753) < 0.001);
+  assert.ok(Math.abs((result.currentRatio || 0) - 4.807) < 0.001);
+  assert.ok((result.assetTurnover || 0) > 1.3 && (result.assetTurnover || 0) < 1.31);
 });
 
 test('interpreta la liquidez de una ganadera según su ciclo productivo', () => {
