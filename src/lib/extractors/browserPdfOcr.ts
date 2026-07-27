@@ -24,16 +24,19 @@ type PdfTextItem = {
   height?: number;
 };
 
-function rotateCanvasClockwise(source: HTMLCanvasElement): HTMLCanvasElement {
+function rotateCanvas(source: HTMLCanvasElement, quarterTurns: 1 | 2 | 3): HTMLCanvasElement {
   const rotated = window.document.createElement('canvas');
-  rotated.width = source.height;
-  rotated.height = source.width;
+  const swapsDimensions = quarterTurns % 2 === 1;
+  rotated.width = swapsDimensions ? source.height : source.width;
+  rotated.height = swapsDimensions ? source.width : source.height;
   const context = rotated.getContext('2d', { alpha: false });
   if (!context) throw new Error('CANVAS_UNAVAILABLE');
   context.fillStyle = '#fff';
   context.fillRect(0, 0, rotated.width, rotated.height);
-  context.translate(rotated.width, 0);
-  context.rotate(Math.PI / 2);
+  if (quarterTurns === 1) context.translate(rotated.width, 0);
+  if (quarterTurns === 2) context.translate(rotated.width, rotated.height);
+  if (quarterTurns === 3) context.translate(0, rotated.height);
+  context.rotate((Math.PI / 2) * quarterTurns);
   context.drawImage(source, 0, 0);
   return rotated;
 }
@@ -166,18 +169,24 @@ export async function extractPdfTextInBrowser(
       let result = await worker.recognize(canvas, { rotateAuto: true });
       let text = String(result.data.text || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
       let confidence = Number(result.data.confidence || 0);
-      if (confidence < 68 || text.length < 180) {
-        const rotated = rotateCanvasClockwise(canvas);
-        const rotatedResult = await worker.recognize(rotated, { rotateAuto: false });
-        const rotatedText = String(rotatedResult.data.text || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-        const rotatedConfidence = Number(rotatedResult.data.confidence || 0);
-        if (financialTextQuality(rotatedText, rotatedConfidence) > financialTextQuality(text, confidence)) {
-          result = rotatedResult;
-          text = rotatedText;
-          confidence = rotatedConfidence;
+      const accountingPage = /activo|pasivo|patrimonio|estado de resultados|ventas|resultado/i.test(text);
+      if (confidence < 68 || text.length < 180 || accountingPage) {
+        // Los EECC escaneados suelen mezclar páginas verticales y apaisadas.
+        // Probamos ambas rotaciones de 90° y conservamos la lectura financiera
+        // más completa, no simplemente la de mayor confianza general.
+        for (const quarterTurns of [1, 3] as const) {
+          const rotated = rotateCanvas(canvas, quarterTurns);
+          const rotatedResult = await worker.recognize(rotated, { rotateAuto: false });
+          const rotatedText = String(rotatedResult.data.text || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+          const rotatedConfidence = Number(rotatedResult.data.confidence || 0);
+          if (financialTextQuality(rotatedText, rotatedConfidence) > financialTextQuality(text, confidence)) {
+            result = rotatedResult;
+            text = rotatedText;
+            confidence = rotatedConfidence;
+          }
+          rotated.width = 1;
+          rotated.height = 1;
         }
-        rotated.width = 1;
-        rotated.height = 1;
       }
       if (text) texts.push(`[Página ${pageNumber}]\n${text}`);
       if (text.length >= 30) {

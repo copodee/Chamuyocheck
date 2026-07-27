@@ -15,10 +15,26 @@ function normalizedNumber(raw: string): number | null {
 
 function findAmount(text: string, labels: string[]): number | null {
   for (const label of labels) {
-    const expression = new RegExp(label, 'gi');
+    // Primero buscamos el rubro al comienzo de una fila contable. Esto evita,
+    // por ejemplo, confundir "ventas" con "créditos por ventas" o "activo"
+    // con "total activo no corriente".
+    const rowExpression = new RegExp(
+      `^\\s*(?:\\d+(?:\\.\\d+)*[.)]?\\s+)?(?:${label})(?=\\s|:|$)`,
+      'gim',
+    );
     let labelMatch: RegExpExecArray | null;
-    while ((labelMatch = expression.exec(text))) {
-      let tail = text.slice(expression.lastIndex, expression.lastIndex + 180);
+    while ((labelMatch = rowExpression.exec(text))) {
+      const lineEnd = text.indexOf('\n', rowExpression.lastIndex);
+      const sameLineEnd = lineEnd === -1 ? text.length : lineEnd;
+      const sameLine = text.slice(rowExpression.lastIndex, sameLineEnd);
+      const sameLineCandidates = [...sameLine.matchAll(/\(?-?\d[\d.,]*\)?/g)]
+        .slice(0, 4)
+        .map(match => normalizedNumber(match[0]))
+        .filter((value): value is number => value !== null);
+      const sameLineMaterial = sameLineCandidates.find(value => Math.abs(value) >= 1000);
+      if (sameLineMaterial !== undefined) return sameLineMaterial;
+
+      let tail = text.slice(rowExpression.lastIndex, rowExpression.lastIndex + 180);
       tail = tail.replace(/^\s*(?:\((?!\s*-?\d[\d.,]*\s*\))[^)]*\)\s*)+/, '');
       const candidates = [...tail.matchAll(/\(?-?\d[\d.,]*\)?/g)]
         .slice(0, 6)
@@ -30,6 +46,26 @@ function findAmount(text: string, labels: string[]): number | null {
       const material = candidates.find(value => Math.abs(value) >= 1000);
       if (material !== undefined) return material;
       if (candidates.length) return candidates[0];
+    }
+
+    // Compatibilidad con extractos antiguos que llegan como una única línea.
+    // En ese caso se conserva el buscador tolerante, pero se descartan
+    // coincidencias incrustadas dentro de otro rubro.
+    if (!text.includes('\n')) {
+      const expression = new RegExp(
+        `(?:^|[;|]|(?<=\\d)\\s+)\\s*(?:${label})(?=\\s|:|$)`,
+        'gi',
+      );
+      while ((labelMatch = expression.exec(text))) {
+        const tail = text.slice(expression.lastIndex, expression.lastIndex + 180);
+        const candidates = [...tail.matchAll(/\(?-?\d[\d.,]*\)?/g)]
+          .slice(0, 6)
+          .map(match => normalizedNumber(match[0]))
+          .filter((value): value is number => value !== null);
+        const material = candidates.find(value => Math.abs(value) >= 1000);
+        if (material !== undefined) return material;
+        if (candidates.length) return candidates[0];
+      }
     }
   }
   return null;
@@ -78,7 +114,9 @@ function normalizeAccountingOcrText(text: string): string {
     .replace(/\bresultad[0o]\b/gi, 'resultado')
     .replace(/\bvent[a4]s\b/gi, 'ventas')
     .replace(/\bdeud[a4]s\b/gi, 'deudas')
-    .replace(/\s+/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\s*\n\s*/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
@@ -132,7 +170,7 @@ export function extractBalanceData(text: string): ExtractedBalance {
     netProfit: (() => {
       const loss = findAmount(compact, ['p[eé]rdida final del ejercicio', 'resultado final:\\s*p[eé]rdida\\)?', 'p[eé]rdida del ejercicio']);
       if (loss != null) return -Math.abs(loss);
-      return findAmount(compact, ['resultado neto del ejercicio', 'resultado del per[ií]odo', 'resultado neto', 'ganancia \\(p[eé]rdida\\) del ejercicio', 'ganancia del ejercicio']);
+      return findAmount(compact, ['resultado neto del ejercicio', 'resultado del ejercicio', 'resultado del per[ií]odo', 'resultado neto', 'ganancia \\(p[eé]rdida\\) del ejercicio', 'ganancia del ejercicio']);
     })(),
     financialDebt: sumFirstAmounts(compact, 'pr[eé]stamos y otros pasivos financieros', 2)
       ?? sumFirstAmounts(compact, 'deudas financieras', 2)
@@ -140,7 +178,7 @@ export function extractBalanceData(text: string): ExtractedBalance {
     cash: findAmount(compact, ['caja y bancos', 'disponibilidades', 'efectivo y equivalentes']),
     inventory: findAmount(compact, ['bienes de cambio', 'inventarios']),
     tradeReceivables: findAmount(compact, ['cr[eé]ditos comerciales', 'cr[eé]ditos por ventas', 'cuentas por cobrar comerciales', 'deudores por ventas']),
-    costOfSales: findAmount(compact, ['costo de los bienes vendidos y servicios prestados', 'costo de bienes vendidos y servicios prestados', 'costo de ventas', 'costo de la mercader[ií]a\\s*v?\\s*endida', 'costo de mercader[ií]as vendidas', 'costo de servicios prestados']),
+    costOfSales: findAmount(compact, ['costo de los bienes vendidos y servicios prestados', 'costo de bienes vendidos y servicios prestados', 'costo de ventas', 'costo de servicios', 'costo de la mercader[ií]a\\s*v?\\s*endida', 'costo de mercader[ií]as vendidas', 'costo de servicios prestados']),
     interestExpense: findAmount(compact, ['intereses perdidos', 'intereses y gastos financieros', 'costos financieros', 'gastos financieros']),
     depreciationAndAmortization: findAmount(compact, ['depreciaciones y amortizaciones', 'depreciaci[oó]n(?: de)? bienes de uso', 'amortizaciones']),
     totalAssets: findAmount(compact, ['total(?: del)? activo(?!\\s+(?:corriente|no corriente))']),

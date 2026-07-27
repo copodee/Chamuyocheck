@@ -307,3 +307,41 @@ test('escala estados publicados en miles y reconoce su alcance consolidado', () 
   assert.equal(result.currentAssets, 120_000_000);
   assert.equal(result.sales, 300_000_000);
 });
+
+test('extrae el ejercicio actual del balance real de IMOOVE aunque incluya comparativos', () => {
+  const result = extractBalanceData(`
+    ESTADOS CONTABLES AL 31 DE DICIEMBRE DE 2025
+    ACTIVO 31/12/2025 31/12/2024
+    Disponibilidades 592.699,42 3.088.603,83
+    Créditos por ventas 10.048.127,98 5.957.182,53
+    Bienes de cambio 2.855.116,02 1.727.448,00
+    Inversiones financieras 5.584.496,52 4.100.000,00
+    TOTAL DEL ACTIVO CORRIENTE 19.080.439,94 14.873.234,36
+    TOTAL DEL ACTIVO NO CORRIENTE 84.084.941,84 77.016.160,49
+    TOTAL DEL ACTIVO 103.165.381,78 91.889.394,85
+    PASIVO 31/12/2025 31/12/2024
+    Deudas comerciales 3.382.464,00 2.000.000,00
+    Deudas fiscales 7.788.073,74 5.500.000,00
+    TOTAL DEL PASIVO CORRIENTE 11.170.537,74 7.500.000,00
+    TOTAL DEL PASIVO 11.170.537,74 7.500.000,00
+    PATRIMONIO NETO 91.994.844,04 84.389.394,85
+    Ventas 92.774.096,86 70.000.000,00
+    Costo de servicios (58.365.879,32) (45.000.000,00)
+    GANANCIA BRUTA 34.408.217,53 25.000.000,00
+    RESULTADO OPERATIVO 3.523.092,02 2.500.000,00
+    RESULTADO DEL EJERCICIO 7.877.976,54 5.000.000,00
+  `);
+
+  assert.equal(result.currentAssets, 19_080_439.94);
+  assert.equal(result.nonCurrentAssets, 84_084_941.84);
+  assert.equal(result.totalAssets, 103_165_381.78);
+  assert.equal(result.currentLiabilities, 11_170_537.74);
+  assert.equal(result.totalLiabilities, 11_170_537.74);
+  assert.equal(result.equity, 91_994_844.04);
+  assert.equal(result.sales, 92_774_096.86);
+  assert.equal(result.costOfSales, -58_365_879.32);
+  assert.equal(result.grossProfit, 34_408_217.53);
+  assert.equal(result.operatingProfit, 3_523_092.02);
+  assert.equal(result.netProfit, 7_877_976.54);
+  assert.deepEqual(result.missingFields, []);
+});
