@@ -6,6 +6,7 @@ import { TERMS_SECTIONS, TERMS_STORAGE_KEY, TERMS_VERSION } from '../src/lib/leg
 import { extractImageTextInBrowser } from '../src/lib/extractors/browserOcr';
 import { extractPdfTextInBrowser } from '../src/lib/extractors/browserPdfOcr';
 import { getSupabaseClient } from '../src/lib/supabase/client';
+import { getPrequalificationSupabaseClient } from '../src/modules/prequalification/infrastructure/supabase/client';
 import { buildLeasingTransparencyEvidence, calculateLeasingTransparencyScore } from '../src/lib/leasing/leasingTransparencyScore';
 import { PROVINCIAL_LEASING_STAMP_MATRIX } from '../src/lib/leasing/argentinaLeasingTaxMatrix';
 import type { Session } from '@supabase/supabase-js';
@@ -556,7 +557,9 @@ function getScoreExplanationItems(analysis: Analysis, inputKind: string, text: s
 export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean } = {}) {
   const [session, setSession] = useState<Session | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
+  const [leasingAccessLoading, setLeasingAccessLoading] = useState(false);
+  const [leasingAccessAuthorized, setLeasingAccessAuthorized] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>(leasingPage ? 'signin' : 'signup');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authName, setAuthName] = useState('');
@@ -626,7 +629,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const leasingAutoRunStartedRef = useRef(false);
 
   useEffect(() => {
-    const supabase = getSupabaseClient();
+    const supabase = leasingPage ? getPrequalificationSupabaseClient() : getSupabaseClient();
     if (!supabase) {
       setSessionLoading(false);
       return;
@@ -640,7 +643,47 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       setSessionLoading(false);
     });
     return () => listener.subscription.unsubscribe();
-  }, []);
+  }, [leasingPage]);
+  useEffect(() => {
+    if (!leasingPage) {
+      setLeasingAccessAuthorized(true);
+      return;
+    }
+    if (sessionLoading) return;
+    if (!session) {
+      setLeasingAccessAuthorized(false);
+      setLeasingAccessLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLeasingAccessLoading(true);
+    fetch('/api/leasing-access', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!response.ok) {
+          setLeasingAccessAuthorized(false);
+          setAuthError(String(payload.error || 'Tu cuenta no está autorizada para LeasingScoring.'));
+          return;
+        }
+        setLeasingAccessAuthorized(true);
+        setAuthError('');
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLeasingAccessAuthorized(false);
+          setAuthError('No se pudo verificar la autorización. Intentá nuevamente.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLeasingAccessLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [leasingPage, session, sessionLoading]);
   useEffect(() => {
     if (!leasingPage || typeof window === 'undefined') return;
     const query = new URLSearchParams(window.location.search);
@@ -701,7 +744,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     event.preventDefault();
     setAuthError('');
     setAuthMessage('');
-    const supabase = getSupabaseClient();
+    const supabase = leasingPage ? getPrequalificationSupabaseClient() : getSupabaseClient();
     if (!supabase) {
       setAuthError('Falta configurar Supabase en este entorno.');
       return;
@@ -711,7 +754,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       return;
     }
     setAuthLoading(true);
-    const result = authMode === 'signup'
+    const result = !leasingPage && authMode === 'signup'
       ? await supabase.auth.signUp({
         email: authEmail.trim(),
         password: authPassword,
@@ -723,7 +766,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       setAuthError(friendlyAuthError(result.error.message));
       return;
     }
-    if (authMode === 'signup' && !result.data.session) {
+    if (!leasingPage && authMode === 'signup' && !result.data.session) {
       setAuthMessage('Revisá tu email y confirmá la cuenta para ingresar.');
     }
   }
@@ -747,8 +790,13 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   }
 
   async function signOut() {
-    const supabase = getSupabaseClient();
+    const supabase = leasingPage ? getPrequalificationSupabaseClient() : getSupabaseClient();
     await supabase?.auth.signOut();
+    if (leasingPage) {
+      setLeasingAccessAuthorized(false);
+      setAuthError('');
+      setAuthMessage('');
+    }
   }
 
   function acceptCurrentTerms() {
@@ -1402,6 +1450,40 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const availableCategories = leasingPage
     ? ANALYSIS_CATEGORIES.filter((category) => category.id === 'leasing-specialist')
     : ANALYSIS_CATEGORIES.filter((category) => category.id !== 'leasing-specialist');
+
+  if (leasingPage && (sessionLoading || leasingAccessLoading)) {
+    return <main className="leasingRestrictedPage">
+      <section className="leasingRestrictedCard" aria-live="polite">
+        <a className="leasingRestrictedBrand" href="/"><img src="/icon.png" alt="" /><span>LEASING SCORING</span></a>
+        <div className="eyebrow">ACCESO RESTRINGIDO</div>
+        <h1>Verificando tu autorización</h1>
+        <p>Estamos comprobando tu acceso administrativo a LeasingScoring.</p>
+      </section>
+    </main>;
+  }
+
+  if (leasingPage && (!session || !leasingAccessAuthorized)) {
+    return <main className="leasingRestrictedPage">
+      <section className="leasingRestrictedCard" aria-labelledby="leasing-access-title">
+        <a className="leasingRestrictedBrand" href="/"><img src="/icon.png" alt="" /><span>LEASING SCORING</span></a>
+        <div className="eyebrow">ACCESO RESTRINGIDO</div>
+        <h1 id="leasing-access-title">{session ? 'Tu cuenta no está autorizada' : 'Ingresá con tu acceso autorizado'}</h1>
+        <p>{session
+          ? 'La cuenta está registrada, pero un administrador todavía no la habilitó para LeasingScoring.'
+          : 'La misma cuenta autorizada permite ingresar al sitio principal y a Precalificación. No se admite el registro público.'}</p>
+        {authError && <div className="authError" role="alert">{authError}</div>}
+        {authMessage && <div className="authMessage">{authMessage}</div>}
+        {session
+          ? <button type="button" className="primary" onClick={signOut}>Ingresar con otra cuenta</button>
+          : <form className="authForm leasingRestrictedForm" onSubmit={submitEmailAuth}>
+            <label>Email<input type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} autoComplete="email" required /></label>
+            <label>Clave<input type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} autoComplete="current-password" minLength={6} required /></label>
+            <button type="submit" className="primary" disabled={authLoading}>{authLoading ? 'Ingresando…' : 'Ingresar'}</button>
+          </form>}
+        <p className="leasingRestrictedHelp">Las altas y autorizaciones son realizadas exclusivamente por el administrador del sitio.</p>
+      </section>
+    </main>;
+  }
 
   return <div className={`appShell ${leasingPage ? 'leasingAppShell' : ''}`}>
     {showTerms && <div className="termsBackdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowTerms(false); }}><section className="termsModal" role="dialog" aria-modal="true" aria-labelledby="terms-title"><div className="termsHeader"><div><h2 id="terms-title">Términos y Condiciones</h2><span>Versión {TERMS_VERSION}</span></div><button type="button" className="iconBtn" aria-label="Cerrar términos" onClick={() => setShowTerms(false)}>×</button></div><div className="termsBody"><p>Leé estos términos antes de usar {leasingPage ? 'LeasingScoring' : 'ChamuyoCheck'}. La aceptación es obligatoria para realizar análisis.</p>{TERMS_SECTIONS.map((section) => <section key={section.title}><h3>{section.title}</h3><p>{section.body}</p></section>)}<p className="legalDisclaimerSubtle">Este texto establece condiciones operativas iniciales y debe ser revisado por asesoría jurídica argentina antes del lanzamiento comercial definitivo.</p></div><div className="termsActions"><button type="button" className="ghost" onClick={() => setShowTerms(false)}>Cerrar</button><button type="button" className="primary" onClick={acceptCurrentTerms}>Acepto los Términos y Condiciones</button></div></section></div>}

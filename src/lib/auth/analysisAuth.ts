@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 import { getSupabasePublicConfig } from '../supabase/config';
+import { authenticatePrequalificationRequest } from '../../modules/prequalification/infrastructure/supabase/auth';
+import { getPrequalificationSupabaseConfig } from '../../modules/prequalification/infrastructure/supabase/config';
 
 type AuthenticationResult =
   | { ok: true; accessToken: string; user: User; client: SupabaseClient }
@@ -12,6 +14,25 @@ function bearerToken(request: Request): string {
 }
 
 export async function authenticateAnalysisRequest(request: Request): Promise<AuthenticationResult> {
+  if (process.env.NEXT_PUBLIC_SITE_MODE === 'leasing') {
+    const authorization = await authenticatePrequalificationRequest(request);
+    if (authorization.ok === false) return authorization;
+    const leasingConfig = getPrequalificationSupabaseConfig();
+    if (!leasingConfig) {
+      return { ok: false, status: 503, error: 'El acceso autorizado de LeasingScoring todavía no está configurado.' };
+    }
+    const client = createClient(leasingConfig.url, leasingConfig.publicKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${authorization.token}` } },
+    });
+    return {
+      ok: true,
+      accessToken: authorization.token,
+      user: authorization.user,
+      client,
+    };
+  }
+
   const config = getSupabasePublicConfig();
   const productName = process.env.NEXT_PUBLIC_SITE_MODE === 'leasing' ? 'LeasingScoring' : 'ChamuyoCheck';
   const accessToken = bearerToken(request);
