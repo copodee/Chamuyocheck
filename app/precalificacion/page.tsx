@@ -197,7 +197,7 @@ export default function PrequalificationPage() {
             : 'Seleccioná un porcentaje entre 10% y 50%, o continuá sin anticipo. Podrás mantenerlo, modificarlo o quitarlo en Precalificación 2.'}</small>
         </label>
         <label>Plazo deseado<select value={form.termMonths} onChange={(e) => updateForm({ termMonths: e.target.value })}>{allowedTermMonths(form.clientType, form.assetType).map((value) => <option key={value} value={value}>{value} meses</option>)}</select></label>
-        <label>Tipo de bien<select value={form.assetType} onChange={(e) => updateForm({ assetType: e.target.value })}><option value="automotor-0km">Automotor 0 km</option><option value="automotor-usado">Automotor usado / rodado</option><option value="maquinaria">Maquinaria</option><option value="equipo">Equipo</option><option value="embarcacion">Embarcación</option><option value="inmueble">Inmueble</option><option value="otro">Otro</option></select></label>
+        <label>Tipo de bien<select value={form.assetType} onChange={(e) => updateForm({ assetType: e.target.value })}><option value="automotor-0km">Automotor 0 km / rodados</option><option value="maquinaria">Maquinaria</option><option value="equipo">Equipo</option><option value="embarcacion">Embarcación</option><option value="inmueble">Inmueble</option><option value="otro">Otro</option></select></label>
       </div>
       {error && <div className="prequalError" role="alert">{error}</div>}
       <button className="prequalPrimary" disabled={busy}>{busy ? 'Consultando BCRA…' : 'Precalificar'}</button>

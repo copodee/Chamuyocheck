@@ -2,7 +2,6 @@ export type ClientType = 'persona-humana' | 'persona-juridica';
 
 export type AssetType =
   | 'automotor-0km'
-  | 'automotor-usado'
   | 'maquinaria'
   | 'equipo'
   | 'embarcacion'

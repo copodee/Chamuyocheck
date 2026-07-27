@@ -10,7 +10,7 @@ import { isAllowedTerm } from '../../../src/modules/prequalification/domain/asse
 
 export const runtime = 'nodejs';
 const clientTypes = new Set(['persona-humana', 'persona-juridica']);
-const assetTypes = new Set(['automotor-0km', 'automotor-usado', 'maquinaria', 'equipo', 'embarcacion', 'inmueble', 'otro']);
+const assetTypes = new Set(['automotor-0km', 'maquinaria', 'equipo', 'embarcacion', 'inmueble', 'otro']);
 
 export async function POST(request: Request) {
   const auth = await authenticatePrequalificationRequest(request);
