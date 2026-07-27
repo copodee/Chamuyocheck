@@ -19,6 +19,7 @@ type PdfData = {
     excludedDocuments: string[];
     unreadableDocuments: string[];
   };
+  submittedForManualReview?: boolean;
 };
 
 const violet = rgb(0.43, 0.16, 0.86);
@@ -72,6 +73,9 @@ export async function buildDossierPdf(data: PdfData) {
 
   text('RESUMEN DE PRECALIFICACIÓN CREDITICIA', 20, bold);
   text(data.subject || 'Titular consultado', 15, bold);
+  if (data.submittedForManualReview) {
+    text('EXPEDIENTE ENVIADO PARA REVISIÓN HUMANA: la evaluación automática fue incompleta o no concluyente. Se conservan los datos, anexos y conclusiones parciales disponibles.', 10, bold, rgb(.72, .34, .02));
+  }
   row('CUIT/CUIL', data.cuitMasked);
   section('Precalificación 1 · BCRA');
   row('Estado', ({ prequalified: 'Precalificado', conditional: 'Precalificado con condiciones', 'manual-review': 'Revisión manual', 'not-prequalified': 'No precalificado' } as Record<string, string>)[data.stage1.status] || data.stage1.status);

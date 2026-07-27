@@ -114,7 +114,8 @@ export async function POST(request: Request) {
         body.balance as ExtractedBalance | undefined,
         body.previousBalance as ExtractedBalance | undefined,
       );
-      if (!hasAffordableMonthlyPayment(assessment, inputs.proposedMonthlyCanon, inputs.profile)) {
+      const sendForManualReview = body.sendForManualReview === true;
+      if (!hasAffordableMonthlyPayment(assessment, inputs.proposedMonthlyCanon, inputs.profile) && !sendForManualReview) {
         return NextResponse.json({
           error: assessment.maximumPrudentCanon == null
             ? 'No hay ingresos suficientes para calificar la cuota propuesta.'
@@ -140,6 +141,7 @@ export async function POST(request: Request) {
         },
         documents: documents.filter(document => document.stage === 2),
         documentReview,
+        submittedForManualReview: sendForManualReview,
       });
       const reportAttachment = {
         filename: `${String(body.caseNumber || body.caseId).replace(/[^A-Z0-9-]/gi, '')}-informe.pdf`,
@@ -175,8 +177,9 @@ export async function POST(request: Request) {
           documents: documents.filter(document => document.stage === 2).map(document => ({ name: document.name, kind: document.kind })),
           downloadLinks: delivery.downloadLinks,
           documentReview,
+          submittedForManualReview: sendForManualReview,
         }),
-        idempotencyKey: `prequal-stage2-v2-${body.caseId}-${assessment.score}-${Math.round(inputs.proposedMonthlyCanon)}`,
+        idempotencyKey: `prequal-stage2-v3-${body.caseId}-${assessment.score}-${Math.round(inputs.proposedMonthlyCanon)}-${sendForManualReview ? 'manual' : 'automatic'}`,
         attachments: [reportAttachment, ...delivery.attachments],
       }).catch((error) => ({
         sent: false as const,
@@ -186,7 +189,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: `La operación calificó, pero el correo no pudo enviarse: ${notification.reason}` }, { status: 502 });
       }
       await update(auth.token, body.caseId, {
-        stage: 2, contact, economic_inputs: inputs, economic_assessment: { ...assessment, documentReview },
+        stage: 2, contact, economic_inputs: inputs, economic_assessment: { ...assessment, documentReview, submittedForManualReview: sendForManualReview },
         documents: documents.map(({ extractedText: _text, ...document }) => document),
         administrator_email: emailConfig.administratorEmail, email_provider: 'resend',
         notification_status: notification.sent ? 'stage2-administrator-notified' : 'email-configuration-required',

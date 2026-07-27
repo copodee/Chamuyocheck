@@ -194,6 +194,7 @@ export function PrequalificationStages(props: Props) {
   const [usdDebtExchangeRate, setUsdDebtExchangeRate] = useState(0);
   const [constitutionDate, setConstitutionDate] = useState<string>();
   const [assessment, setAssessment] = useState<EconomicAssessment>();
+  const [showManualSendConfirmation, setShowManualSendConfirmation] = useState(false);
   const [contact, setContact] = useState<ContactData>({
     fullName: props.subject.denomination || '', address: '', city: '', province: '', email: '', mobile: '',
     preferredChannel: 'email', dataConsent: false, contactConsent: false, accuracyDeclaration: false,
@@ -555,7 +556,7 @@ export function PrequalificationStages(props: Props) {
     setEffectiveCaseNumber(recovered.caseNumber);
     return recovered as { caseId: string; caseNumber: string };
   }
-  const saveStage2 = async () => {
+  const saveStage2 = async (sendForManualReview = false) => {
     const applicableRequirements = [
       ...stage2Requirements[economic.profile],
       ...(economic.profile === 'monotributista' && economic.hasEmploymentIncome ? employmentSlipRequirements : []),
@@ -565,13 +566,18 @@ export function PrequalificationStages(props: Props) {
       .filter(([, , required]) => required)
       .filter(([kind]) => !documents.some(document => document.stage === 2 && document.kind === kind))
       .map(([, label]) => label);
+    const requiresManualReview = !paymentCapacityQualifies
+      || missingDocuments.length > 0
+      || documents.some(document => document.status === 'needs-review')
+      || excludedDocuments.length > 0
+      || documentReadProgress.some(document => document.status === 'error');
     setAssessment(previewAssessment);
-    if (!paymentCapacityQualifies) {
-      setMessage(previewAssessment.maximumPrudentCanon == null
-        ? 'No se enviará el expediente: faltan ingresos computables para evaluar la cuota.'
-        : `No se enviará el expediente con esta cuota. El canon máximo estimado es ${pesos.format(previewAssessment.maximumPrudentCanon)}.`);
+    if (requiresManualReview && !sendForManualReview) {
+      setShowManualSendConfirmation(true);
+      setMessage('');
       return;
     }
+    setShowManualSendConfirmation(false);
     setBusy(true); setMessage('');
     try {
       const recovered = await recoverCase();
@@ -589,6 +595,7 @@ export function PrequalificationStages(props: Props) {
         action: 'stage2', contact, economicInputs: economicForAssessment, documents, balance, previousBalance,
         caseNumber: recovered.caseNumber, subject: props.subject.denomination,
         cuitMasked: props.subject.cuitMasked, stage1: props.stage1, documentReview,
+        sendForManualReview,
       }, recovered.caseId);
       setAssessment(data.assessment); setStage(3);
       setMessage(data.notification?.sent
@@ -901,9 +908,21 @@ export function PrequalificationStages(props: Props) {
       <label><input type="checkbox" checked={contact.dataConsent} onChange={e => setContact({ ...contact, dataConsent: e.target.checked })} /> Autorizo el tratamiento de datos para esta evaluación.</label>
       <label><input type="checkbox" checked={contact.contactConsent} onChange={e => setContact({ ...contact, contactConsent: e.target.checked })} /> Autorizo el contacto sobre este expediente.</label>
       <label><input type="checkbox" checked={contact.accuracyDeclaration} onChange={e => setContact({ ...contact, accuracyDeclaration: e.target.checked })} /> Declaro que los datos son completos y veraces.</label>
-      <button className="prequalPrimary" disabled={busy} onClick={saveStage2}>
+      <button className="prequalPrimary" disabled={busy} onClick={() => saveStage2(false)}>
         {paymentCapacityQualifies ? 'Calificar y enviar expediente' : 'Recalcular capacidad de pago'}
       </button>
+      {showManualSendConfirmation && <div className="prequalWarning" role="alert">
+        <h3>No se pudo completar la evaluación automática</h3>
+        <p>La documentación puede estar incompleta, no haberse identificado o no haberse podido validar. El expediente conservará los datos, archivos y conclusiones parciales disponibles.</p>
+        <p><b>¿Deseás enviarlo igualmente a contacto@leasingscoring.com para revisión humana?</b></p>
+        <div className="prequalActions">
+          <button className="prequalPrimary" disabled={busy} onClick={() => saveStage2(true)}>Sí, enviar igualmente</button>
+          <button className="prequalSecondary" disabled={busy} onClick={() => {
+            setShowManualSendConfirmation(false);
+            setMessage('El expediente no fue enviado. Podés agregar o corregir información y volver a recalcular.');
+          }}>No enviar; seguir completando</button>
+        </div>
+      </div>}
       {!!documentReadProgress.length && <div className="prequalReadProgress" aria-live="polite">
         <b>{documentLoadState === 'loading' ? 'Archivos que se están leyendo' : 'Resultado de la lectura'}</b>
         {documentReadProgress.map(file => <span className={`status-${file.status}`} key={file.name}>

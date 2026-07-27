@@ -133,6 +133,7 @@ export function stage2NotificationHtml(input: {
     excludedDocuments: string[];
     unreadableDocuments: string[];
   };
+  submittedForManualReview?: boolean;
 }) {
   const money = (value: number | null) => value == null
     ? 'No estimable'
@@ -156,6 +157,7 @@ export function stage2NotificationHtml(input: {
     <p><b>Expediente:</b> ${escapeHtml(input.caseNumber)}</p>
     <p><b>Solicitante:</b> ${escapeHtml(input.subject)}</p>
     <div style="padding:14px;border-radius:10px;background:#ede9fe"><b>${statusLabel}</b> · ${input.economicScore}/100</div>
+    ${input.submittedForManualReview ? '<div style="margin-top:14px;padding:14px;border:1px solid #f59e0b;border-radius:10px;background:#fffbeb"><b>ENVIADO PARA REVISIÓN HUMANA.</b> La evaluación automática fue incompleta o no concluyente. El expediente se conserva como recopilación de datos y documentos, con conclusiones parciales y validaciones pendientes.</div>' : ''}
     <p><b>Respaldo de ingresos:</b> ${escapeHtml(input.confidence)}</p>
     <p><b>Ingreso mensual computable:</b> ${money(input.normalizedMonthlyIncome)}</p>
     ${input.declaredMonthlyIncome != null || input.documentedMonthlyIncome != null ? `
