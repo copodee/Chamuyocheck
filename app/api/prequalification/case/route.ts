@@ -186,7 +186,7 @@ export async function POST(request: Request) {
         reason: error instanceof Error ? error.message : 'provider-error',
       }));
       if (!notification.sent) {
-        return NextResponse.json({ error: `La operación calificó, pero el correo no pudo enviarse: ${notification.reason}` }, { status: 502 });
+        return NextResponse.json({ error: `El expediente se generó, pero el correo no pudo enviarse: ${notification.reason}` }, { status: 502 });
       }
       await update(auth.token, body.caseId, {
         stage: 2, contact, economic_inputs: inputs, economic_assessment: { ...assessment, documentReview, submittedForManualReview: sendForManualReview },
@@ -195,7 +195,7 @@ export async function POST(request: Request) {
         notification_status: notification.sent ? 'stage2-administrator-notified' : 'email-configuration-required',
         updated_at: new Date().toISOString(),
       });
-      return NextResponse.json({ assessment, notification });
+      return NextResponse.json({ assessment, notification, submittedForManualReview: sendForManualReview });
     }
     if (body.action === 'stage3') {
       const compliance = body.compliance as ComplianceDeclarations;

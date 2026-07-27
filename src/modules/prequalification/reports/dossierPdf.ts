@@ -194,7 +194,8 @@ export async function buildDossierPdf(data: PdfData) {
     }
   }
   if (data.documents?.length) {
-    section('Documentación analizada');
+    section('Documentación incorporada al expediente');
+    text('La incorporación de un archivo no implica que haya podido validarse o extraerse íntegramente. El estado de lectura y las advertencias se detallan a continuación.', 9, regular, muted);
     for (const document of data.documents) row(document.name, `${document.kind}${document.status ? ` · ${document.status}` : ''}`);
   }
   const documentReviewItems = [

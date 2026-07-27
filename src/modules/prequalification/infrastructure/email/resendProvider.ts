@@ -203,7 +203,9 @@ export function stage2NotificationHtml(input: {
       <ul>${reviewItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
     </div>` : ''}
     ${downloadLinksHtml(input.downloadLinks)}
-    <p>La operación calificó por relación cuota/ingreso y puede continuar a Precalificación 3.</p>
+    <p>${input.submittedForManualReview
+      ? 'El expediente fue remitido por decisión expresa del usuario para revisión humana. No debe interpretarse como una calificación favorable.'
+      : 'La operación superó la evaluación automática preliminar y puede continuar a Precalificación 3.'}</p>
     <p style="font-size:12px;color:#64748b">Evaluación preliminar. No constituye aprobación crediticia ni oferta de financiación.</p>
   </div>`;
 }
