@@ -12,7 +12,7 @@ type EmailMessage = {
 export function getPrequalificationEmailConfig() {
   return {
     provider: 'resend' as const,
-    administratorEmail: process.env.PREQUALIFICATION_ADMIN_EMAIL || DEFAULT_EMAIL,
+    administratorEmail: DEFAULT_EMAIL,
     from: process.env.PREQUALIFICATION_FROM_EMAIL || `LeasingScoring <${DEFAULT_EMAIL}>`,
     apiKey: process.env.RESEND_API_KEY || '',
   };
@@ -63,7 +63,7 @@ export function adminNotificationHtml(input: {
     <p><b>Expediente:</b> ${escapeHtml(input.caseNumber)}</p>
     <p><b>Solicitante:</b> ${escapeHtml(input.subject)}</p>
     <p><b>Decisión preliminar:</b> ${escapeHtml(input.decision)}</p>
-    <p><b>Correo de respuesta:</b> ${escapeHtml(input.responseEmail)}</p>
+    <p><b>Correo de contacto del solicitante:</b> ${escapeHtml(input.responseEmail)}</p>
     <h2 style="font-size:18px">Documentación del expediente (${input.documents.length})</h2>
     <ul>${input.documents.map(document => `<li>${escapeHtml(document.name)} · ${escapeHtml(document.kind)}</li>`).join('') || '<li>Sin documentos adjuntos.</li>'}</ul>
     ${downloadLinksHtml(input.downloadLinks)}

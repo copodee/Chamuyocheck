@@ -217,10 +217,6 @@ export function PrequalificationStages(props: Props) {
     taxResidenceArgentina: true, administratorMayRequestEvidence: false,
   });
   const [decision, setDecision] = useState('ready');
-  const [responseEmail, setResponseEmail] = useState('');
-  const [administratorEmail, setAdministratorEmail] = useState('contacto@leasingscoring.com');
-  const [emailProvider] = useState('resend');
-  const [responseMessage, setResponseMessage] = useState('');
   const [effectiveCaseId, setEffectiveCaseId] = useState(props.caseId);
   const [effectiveCaseNumber, setEffectiveCaseNumber] = useState(props.caseNumber);
   const applyUsdDebtExchangeRate = (rate: number) => {
@@ -578,7 +574,7 @@ export function PrequalificationStages(props: Props) {
         caseNumber: recovered.caseNumber, subject: props.subject.denomination,
         cuitMasked: props.subject.cuitMasked, stage1: props.stage1, documentReview,
       }, recovered.caseId);
-      setAssessment(data.assessment); setStage(3); setResponseEmail(contact.email);
+      setAssessment(data.assessment); setStage(3);
       setMessage(data.notification?.sent
         ? `Expediente ${recovered.caseNumber} generado y enviado a contacto@leasingscoring.com.`
         : `Expediente ${recovered.caseNumber} generado. No se pudo enviar la notificación.`);
@@ -589,7 +585,7 @@ export function PrequalificationStages(props: Props) {
     setBusy(true); setMessage('');
     try {
       const data = await api({
-        action: 'stage3', compliance, decision, responseEmail, documents,
+        action: 'stage3', compliance, decision, responseEmail: contact.email, documents,
         caseNumber: effectiveCaseNumber, subject: props.subject.denomination,
         cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact,
         economic: { ...assessment, declaredMonthlyDebtService: economic.declaredMonthlyDebtService, proposedMonthlyCanon: economic.proposedMonthlyCanon },
@@ -604,7 +600,7 @@ export function PrequalificationStages(props: Props) {
     setBusy(true);
     const response = await fetch('/api/prequalification/pdf', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${props.session.access_token}` },
-      body: JSON.stringify({ caseNumber: effectiveCaseNumber, subject: props.subject.denomination, cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact, economic: { ...assessment, declaredMonthlyDebtService: economic.declaredMonthlyDebtService, proposedMonthlyCanon: economic.proposedMonthlyCanon, proposedAdvancePercent: economic.proposedAdvancePercent, proposedAdvanceAmount: economic.proposedAdvanceAmount, requestedFinancing: economic.requestedFinancing }, compliance, decision, responseEmail, documents }),
+      body: JSON.stringify({ caseNumber: effectiveCaseNumber, subject: props.subject.denomination, cuitMasked: props.subject.cuitMasked, stage1: props.stage1, contact, economic: { ...assessment, declaredMonthlyDebtService: economic.declaredMonthlyDebtService, proposedMonthlyCanon: economic.proposedMonthlyCanon, proposedAdvancePercent: economic.proposedAdvancePercent, proposedAdvanceAmount: economic.proposedAdvanceAmount, requestedFinancing: economic.requestedFinancing }, compliance, decision, responseEmail: contact.email, documents }),
     });
     if (response.ok) {
       const url = URL.createObjectURL(await response.blob());
@@ -916,20 +912,22 @@ export function PrequalificationStages(props: Props) {
         })}
       </div>
       <label>Decisión<select value={decision} onChange={e => setDecision(e.target.value)}>{decisions.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
-      <label>Correo donde desea recibir la calificación<input type="email" required value={responseEmail} onChange={e => setResponseEmail(e.target.value)} /></label>
+      <div className="prequalCalculatedField">
+        <b>Correo de contacto del solicitante</b>
+        <span>{contact.email}</span>
+        <small>Se incorpora al expediente únicamente como dato de contacto.</small>
+      </div>
+      <div className="prequalDocumentWarning">
+        <b>Destino del expediente</b>
+        <span>El expediente y sus anexos se enviarán únicamente a contacto@leasingscoring.com.</span>
+      </div>
       <button className="prequalPrimary" disabled={busy} onClick={saveStage3}>Cerrar Precalificación 3</button>
     </div>}
     {stage === 4 && <div className="prequalForm">
       <h3>Precalificación 3 completada</h3>
-      <p>El expediente quedó listo para revisión administrativa. La respuesta se dirigirá a <b>{responseEmail}</b>.</p>
+      <p>El expediente quedó listo para revisión administrativa y fue dirigido únicamente a <b>contacto@leasingscoring.com</b>.</p>
+      <p>El correo <b>{contact.email}</b> figura solamente como dato de contacto del solicitante dentro del expediente.</p>
       <button className="prequalPrimary" disabled={busy} onClick={downloadPdf}>Descargar expediente PDF</button>
-      <h3>Configuración del administrador</h3>
-      <label>Correo que recibirá los expedientes<input type="email" value={administratorEmail} onChange={e => setAdministratorEmail(e.target.value)} /></label>
-      <label>Proveedor de correo<select value={emailProvider} disabled><option value="resend">Resend</option></select></label>
-      <button className="prequalSecondary" onClick={async () => { try { await api({ action: 'configuration', administratorEmail, emailProvider }); setMessage('Configuración guardada. Falta conectar las credenciales del proveedor para enviar.'); } catch (error) { setMessage(error instanceof Error ? error.message : 'Error'); } }}>Guardar selección</button>
-      <h3>Responder al solicitante</h3>
-      <label>Mensaje del administrador<textarea value={responseMessage} onChange={e => setResponseMessage(e.target.value)} placeholder="Condiciones o próximos pasos para avanzar." /></label>
-      <button className="prequalPrimary" onClick={async () => { try { await api({ action: 'send-result', responseEmail, decision, message: responseMessage, caseNumber: effectiveCaseNumber }); setMessage(`Resultado enviado a ${responseEmail}.`); } catch (error) { setMessage(error instanceof Error ? error.message : 'Error'); } }}>Enviar resultado</button>
     </div>}
     {message && <div className="prequalNotice">{message}</div>}
   </section>;

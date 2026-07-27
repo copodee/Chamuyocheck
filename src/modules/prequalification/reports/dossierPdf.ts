@@ -207,7 +207,7 @@ export async function buildDossierPdf(data: PdfData) {
   if (data.compliance) {
     section('Precalificación 3 · Declaraciones y decisión');
     row('Decisión del analista', ({ ready: 'Lista para enviar a análisis', conditional: 'Avanzar con condiciones', 'additional-guarantees': 'Solicitar garantías adicionales', 'more-information': 'Solicitar más información', 'not-compatible': 'No compatible' } as Record<string, string>)[data.decision || ''] || data.decision);
-    row('Correo de respuesta', data.responseEmail);
+    row('Correo de contacto del solicitante', data.responseEmail);
     row('Condición PEP', ({ no: 'No PEP', yes: 'PEP', related: 'Familiar o allegado de PEP' } as Record<string, string>)[data.compliance.pepStatus] || data.compliance.pepStatus);
     if (data.compliance.pepDetail) row('Detalle PEP', data.compliance.pepDetail);
     row('Origen lícito de fondos declarado', data.compliance.fundsLawfulOrigin ? 'Sí' : 'No');

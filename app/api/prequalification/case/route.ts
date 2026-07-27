@@ -147,7 +147,7 @@ export async function POST(request: Request) {
       };
       const emailConfig = getPrequalificationEmailConfig();
       const notification = await sendPrequalificationEmail({
-        to: emailConfig.administratorEmail, replyTo: contact.email,
+        to: emailConfig.administratorEmail,
         subject: `Precalificación 2 · ${body.caseNumber || body.caseId}`,
         html: stage2NotificationHtml({
           caseNumber: body.caseNumber || body.caseId, subject: body.subject || contact.fullName,
@@ -196,7 +196,8 @@ export async function POST(request: Request) {
     }
     if (body.action === 'stage3') {
       const compliance = body.compliance as ComplianceDeclarations;
-      if (!emailPattern.test(body.responseEmail || '')) return NextResponse.json({ error: 'Ingresá el correo donde se recibirá la respuesta.' }, { status: 400 });
+      const contactEmail = String(body.contact?.email || '');
+      if (!emailPattern.test(contactEmail)) return NextResponse.json({ error: 'Ingresá un correo de contacto válido para incorporarlo al expediente.' }, { status: 400 });
       if (!compliance?.fundsLawfulOrigin || !compliance.ownAccount || !compliance.administratorMayRequestEvidence) return NextResponse.json({ error: 'Completá las declaraciones UIF y aceptá que el administrador pueda pedir respaldo.' }, { status: 400 });
       if (compliance.pepStatus !== 'no' && !compliance.pepDetail?.trim()) return NextResponse.json({ error: 'Detallá la condición PEP declarada.' }, { status: 400 });
       const emailConfig = getPrequalificationEmailConfig();
@@ -211,7 +212,7 @@ export async function POST(request: Request) {
         economic: body.economic,
         compliance,
         decision: body.decision,
-        responseEmail: body.responseEmail,
+        responseEmail: contactEmail,
         documents,
       });
       const reportAttachment = {
@@ -220,11 +221,10 @@ export async function POST(request: Request) {
       };
       const notification = await sendPrequalificationEmail({
         to: emailConfig.administratorEmail,
-        replyTo: body.responseEmail,
         subject: `Precalificación 3 · ${body.caseNumber || body.caseId}`,
         html: adminNotificationHtml({
           caseNumber: body.caseNumber || body.caseId, subject: body.subject || 'Titular consultado',
-          decision: body.decision, responseEmail: body.responseEmail,
+          decision: body.decision, responseEmail: contactEmail,
           documents: documents.map(document => ({ name: document.name, kind: document.kind })),
           downloadLinks: delivery.downloadLinks,
         }),
@@ -232,7 +232,7 @@ export async function POST(request: Request) {
         attachments: [reportAttachment, ...delivery.attachments],
       }).catch(() => ({ sent: false as const, reason: 'provider-error' as const }));
       await update(auth.token, body.caseId, {
-        stage: 3, compliance, stage3_decision: body.decision, response_email: body.responseEmail,
+        stage: 3, compliance, stage3_decision: body.decision, response_email: contactEmail,
         documents: documents.map(({ extractedText: _text, ...document }) => document),
         administrator_email: emailConfig.administratorEmail, email_provider: 'resend',
         notification_status: notification.sent ? 'administrator-notified' : 'email-configuration-required',
@@ -254,9 +254,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, deliveryId: delivery.id });
     }
     if (auth.role !== 'administrator') return NextResponse.json({ error: 'Sólo un administrador puede configurar el envío.' }, { status: 403 });
-    if (!emailPattern.test(body.administratorEmail || '')) return NextResponse.json({ error: 'Ingresá un correo de administrador válido.' }, { status: 400 });
     if (body.emailProvider !== 'resend') return NextResponse.json({ error: 'El proveedor configurado para esta versión es Resend.' }, { status: 400 });
-    await update(auth.token, body.caseId, { administrator_email: body.administratorEmail, email_provider: 'resend', notification_status: getPrequalificationEmailConfig().apiKey ? 'provider-ready' : 'email-configuration-required', updated_at: new Date().toISOString() });
+    await update(auth.token, body.caseId, { administrator_email: getPrequalificationEmailConfig().administratorEmail, email_provider: 'resend', notification_status: getPrequalificationEmailConfig().apiKey ? 'provider-ready' : 'email-configuration-required', updated_at: new Date().toISOString() });
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error(error);
