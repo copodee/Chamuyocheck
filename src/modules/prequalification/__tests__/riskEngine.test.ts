@@ -34,6 +34,14 @@ test('precalifica un historial limpio sin afirmar capacidad de pago', () => {
   assert.equal(result.confidence, 'alta');
 });
 
+test('no condiciona el riesgo BCRA por no informar anticipo', () => {
+  const result = evaluatePrequalification({ ...request, advance: 0 }, report());
+  assert.equal(result.status, 'prequalified');
+  assert.equal(result.score, 100);
+  assert.equal(result.paymentCapacity.advanceRatio, 0);
+  assert.ok(!result.conditions.some((condition) => condition.toLowerCase().includes('anticipo')));
+});
+
 test('envía a revisión manual una situación 3', () => {
   const current = [{ ...report().current[0], situation: 3 }];
   assert.equal(evaluatePrequalification(request, report({ current })).status, 'manual-review');

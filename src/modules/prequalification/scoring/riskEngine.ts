@@ -5,7 +5,7 @@ import type {
   PrequalificationStatus,
 } from '../domain/types';
 
-export const RISK_MODEL_VERSION = 'ls-prequal-v1.0.0';
+export const RISK_MODEL_VERSION = 'ls-prequal-v1.1.0';
 
 export function evaluatePrequalification(
   request: PrequalificationRequest,
@@ -52,12 +52,6 @@ export function evaluatePrequalification(
     score -= 20;
     reasons.push('No hay posiciones actuales suficientes para una evaluación automática robusta.');
   }
-  if (advanceRatio < 0.1) {
-    score -= 8;
-    conditions.push('Evaluar un anticipo mínimo del 10% o una garantía complementaria.');
-  } else if (advanceRatio >= 0.25) {
-    score += 3;
-  }
   score = Math.max(0, Math.min(100, Math.round(score)));
 
   let status: PrequalificationStatus;
@@ -65,7 +59,7 @@ export function evaluatePrequalification(
     status = 'not-prequalified';
   } else if (underReview || !report.current.length || currentMaximum === 3) {
     status = 'manual-review';
-  } else if (currentMaximum === 2 || unpaidChecks.length === 1 || score < 72 || advanceRatio < 0.1) {
+  } else if (currentMaximum === 2 || unpaidChecks.length === 1 || score < 72) {
     status = 'conditional';
   } else {
     status = 'prequalified';
