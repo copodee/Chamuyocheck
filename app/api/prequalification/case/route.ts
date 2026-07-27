@@ -114,7 +114,7 @@ export async function POST(request: Request) {
         body.balance as ExtractedBalance | undefined,
         body.previousBalance as ExtractedBalance | undefined,
       );
-      if (!hasAffordableMonthlyPayment(assessment, inputs.proposedMonthlyCanon)) {
+      if (!hasAffordableMonthlyPayment(assessment, inputs.proposedMonthlyCanon, inputs.profile)) {
         return NextResponse.json({
           error: assessment.maximumPrudentCanon == null
             ? 'No hay ingresos suficientes para calificar la cuota propuesta.'
@@ -136,6 +136,7 @@ export async function POST(request: Request) {
           proposedAdvancePercent: inputs.proposedAdvancePercent,
           proposedAdvanceAmount: inputs.proposedAdvanceAmount,
           requestedFinancing: inputs.requestedFinancing,
+          profile: inputs.profile,
         },
         documents: documents.filter(document => document.stage === 2),
         documentReview,
@@ -151,6 +152,7 @@ export async function POST(request: Request) {
         html: stage2NotificationHtml({
           caseNumber: body.caseNumber || body.caseId, subject: body.subject || contact.fullName,
           responseEmail: contact.email, economicStatus: assessment.status,
+          economicProfile: inputs.profile,
           economicScore: assessment.score, confidence: assessment.confidence,
           normalizedMonthlyIncome: assessment.normalizedMonthlyIncome,
           declaredMonthlyIncome: assessment.declaredMonthlyIncome,
@@ -164,6 +166,7 @@ export async function POST(request: Request) {
           declaredMonthlyDebtService: inputs.declaredMonthlyDebtService,
           maximumPrudentCanon: assessment.maximumPrudentCanon,
           installmentToIncomeRatio: assessment.installmentToIncomeRatio,
+          totalCommitmentCoverage: assessment.totalCommitmentCoverage,
           reasons: assessment.reasons,
           conditions: assessment.conditions,
           regulatoryExposure: assessment.regulatoryExposure,

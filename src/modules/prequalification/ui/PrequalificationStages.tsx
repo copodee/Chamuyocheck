@@ -240,7 +240,8 @@ export function PrequalificationStages(props: Props) {
     /salary-slip|monotributo-invoices|balance-|vat-|income-detail|post-balance-sales/.test(document.kind),
   ).length;
   const previewAssessment = evaluateEconomicCapacity(economic, incomeDocumentCount, balance, previousBalance);
-  const paymentCapacityQualifies = hasAffordableMonthlyPayment(previewAssessment, economic.proposedMonthlyCanon);
+  const paymentCapacityQualifies = hasAffordableMonthlyPayment(previewAssessment, economic.proposedMonthlyCanon, economic.profile);
+  const usesPersonalCapacityPolicy = economic.profile === 'employee' || economic.profile === 'monotributista';
   const automaticBalanceMargin = balance?.sales && (balance.operatingProfit ?? balance.netProfit) != null
     ? Math.max(0, ((balance.operatingProfit ?? balance.netProfit) as number) / balance.sales) * 100
     : null;
@@ -828,12 +829,14 @@ export function PrequalificationStages(props: Props) {
       <div className={`prequalCapacity prequalEconomic-${previewAssessment.status}`}>
         <h3>Calificación económica antes del envío</h3>
         {paymentCapacityQualifies
-          ? <p><b>La cuota califica por capacidad de pago.</b> La relación total cuota/ingreso está dentro del máximo del 30%.{previewAssessment.status !== 'compatible' ? ' La operación continuará con las condiciones y observaciones indicadas para revisión.' : ''}</p>
+          ? <p><b>La cuota califica por capacidad de pago.</b> {usesPersonalCapacityPolicy ? 'La relación total cuota/ingreso está dentro del máximo del 30%.' : 'La cobertura estimada de los compromisos alcanza el mínimo prudencial de 1,25 veces.'}{previewAssessment.status !== 'compatible' ? ' La operación continuará con las condiciones y observaciones indicadas para revisión.' : ''}</p>
           : previewAssessment.maximumPrudentCanon == null
             ? <p><b>Todavía no puede calificarse.</b> Ingresá un ingreso o facturación mensual computable.</p>
             : <p><b>La cuota propuesta no califica.</b> Para continuar, reducí el canon hasta un máximo estimado de <b>{pesos.format(previewAssessment.maximumPrudentCanon)}</b>.</p>}
         <p>Ingreso computable: <b>{previewAssessment.normalizedMonthlyIncome == null ? 'No estimable' : pesos.format(previewAssessment.normalizedMonthlyIncome)}</b> · Canon propuesto: <b>{pesos.format(economic.proposedMonthlyCanon)}</b></p>
-        <p>Relación compromisos/ingreso: <b>{previewAssessment.installmentToIncomeRatio == null ? 'No estimable' : `${(previewAssessment.installmentToIncomeRatio * 100).toFixed(1)}%`}</b> · Score económico: <b>{previewAssessment.score}/100</b></p>
+        <p>{usesPersonalCapacityPolicy ? 'Relación compromisos/ingreso' : 'Cobertura de compromisos'}: <b>{usesPersonalCapacityPolicy
+          ? (previewAssessment.installmentToIncomeRatio == null ? 'No estimable' : `${(previewAssessment.installmentToIncomeRatio * 100).toFixed(1)}%`)
+          : (previewAssessment.totalCommitmentCoverage == null ? 'No calculable' : `${previewAssessment.totalCommitmentCoverage.toFixed(2)} veces`)}</b> · Score económico: <b>{previewAssessment.score}/100</b></p>
         {previewAssessment.regulatoryExposure.applicable && <div className="prequalRegulatory">
           <h3>Encuadre patrimonial y regulatorio</h3>
           <p><b>{previewAssessment.regulatoryExposure.label}</b></p>
@@ -885,7 +888,9 @@ export function PrequalificationStages(props: Props) {
     </div>}
     {stage === 3 && <div className="prequalForm">
       <h3>Precalificación 3 · Validación y cumplimiento UIF</h3>
-      {assessment && <div className="prequalCapacity"><b>Resultado económico: {assessment.status} · {assessment.score}/100</b><p>Relación cuota/ingreso: {assessment.installmentToIncomeRatio == null ? 'no estimable' : `${(assessment.installmentToIncomeRatio * 100).toFixed(1)}%`} (política de referencia: 30%).</p><p>Respaldo de ingresos: <b>{assessment.confidence}</b>.</p>{assessment.confidence === 'declarativa' && <p>Los ingresos no tienen comprobantes adjuntos. Deben solicitarse antes de una decisión definitiva.</p>}</div>}
+      {assessment && <div className="prequalCapacity"><b>Resultado económico: {assessment.status} · {assessment.score}/100</b><p>{usesPersonalCapacityPolicy
+        ? `Relación cuota/ingreso: ${assessment.installmentToIncomeRatio == null ? 'no estimable' : `${(assessment.installmentToIncomeRatio * 100).toFixed(1)}%`} (referencia: 30%).`
+        : `Cobertura de compromisos: ${assessment.totalCommitmentCoverage == null ? 'no calculable' : `${assessment.totalCommitmentCoverage.toFixed(2)} veces`} (referencia prudencial: 1,25 veces).`}</p><p>Respaldo de ingresos: <b>{assessment.confidence}</b>.</p>{assessment.confidence === 'declarativa' && <p>Los ingresos no tienen comprobantes adjuntos. Deben solicitarse antes de una decisión definitiva.</p>}</div>}
       <p>Estas declaraciones son preliminares. El administrador podrá pedir formularios firmados, certificaciones, identidad, estatuto, autoridades, poderes o garantías antes de enviar a una entidad.</p>
       <label>Condición PEP<select value={compliance.pepStatus} onChange={e => setCompliance({ ...compliance, pepStatus: e.target.value as ComplianceDeclarations['pepStatus'] })}><option value="no">No soy PEP</option><option value="yes">Soy PEP</option><option value="related">Soy familiar/allegado de PEP</option></select></label>
       {compliance.pepStatus !== 'no' && <label>Detalle PEP<textarea value={compliance.pepDetail || ''} onChange={e => setCompliance({ ...compliance, pepDetail: e.target.value })} /></label>}

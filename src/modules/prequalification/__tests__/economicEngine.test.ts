@@ -14,7 +14,7 @@ test('aplica la política del 30% a una persona en relación de dependencia', ()
   assert.equal(result.maximumPrudentCanon, 500_000);
 });
 
-test('permite enviar si la cuota entra en 30% aunque el encuadre general tenga condiciones', () => {
+test('permite enviar si la empresa cubre sus compromisos aunque el encuadre general tenga condiciones', () => {
   const result = evaluateEconomicCapacity({
     profile: 'legal-entity', activity: 'Servicios', activitySeniorityMonths: 36,
     declaredMonthlyDebtService: 0, proposedMonthlyCanon: 4_000_000,
@@ -27,7 +27,35 @@ test('permite enviar si la cuota entra en 30% aunque el encuadre general tenga c
   });
   assert.equal(result.status, 'conditional');
   assert.ok((result.installmentToIncomeRatio || 0) < 0.3);
-  assert.equal(hasAffordableMonthlyPayment(result, 4_000_000), true);
+  assert.equal(hasAffordableMonthlyPayment(result, 4_000_000, 'legal-entity'), true);
+});
+
+test('persona jurídica usa cobertura 1,25 veces y no el límite personal del 30%', () => {
+  const result = evaluateEconomicCapacity({
+    profile: 'legal-entity', activity: 'Servicios', activitySeniorityMonths: 36,
+    declaredMonthlyDebtService: 1_000_000, proposedMonthlyCanon: 7_000_000,
+    monthlySales: Array(6).fill(100_000_000),
+    requestedFinancing: 80_000_000, computableNetWorth: 200_000_000,
+  }, 2, {
+    sales: 1_200_000_000, operatingProfit: 120_000_000,
+    equity: 200_000_000, extractionConfidence: 100, missingFields: [],
+  });
+  assert.equal(result.installmentToIncomeRatio, 0.8);
+  assert.equal(result.totalCommitmentCoverage, 1.25);
+  assert.equal(result.status, 'compatible');
+  assert.equal(hasAffordableMonthlyPayment(result, 7_000_000, 'legal-entity'), true);
+});
+
+test('responsable inscripto usa cobertura del negocio y no relación personal del 30%', () => {
+  const result = evaluateEconomicCapacity({
+    profile: 'responsable-inscripto', activity: 'Comercio', activitySeniorityMonths: 36,
+    declaredMonthlyDebtService: 500_000, proposedMonthlyCanon: 1_500_000,
+    monthlySales: Array(6).fill(10_000_000), declaredOperatingMargin: 25,
+  }, 2);
+  assert.equal(result.installmentToIncomeRatio, 0.8);
+  assert.equal(result.totalCommitmentCoverage, 1.25);
+  assert.equal(result.status, 'compatible');
+  assert.equal(hasAffordableMonthlyPayment(result, 1_500_000, 'responsable-inscripto'), true);
 });
 
 test('extrae rubros centrales de un balance para revisión crediticia', () => {

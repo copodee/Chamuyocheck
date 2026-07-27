@@ -2,14 +2,17 @@ import type { EconomicAssessment, EconomicInputs, ExtractedBalance, RegulatoryEx
 import { analyzeCorporateEvolution, analyzeCorporateFinancials } from './corporateFinancialAnalysis';
 
 const POLICY_RATIO = 0.3;
+const BUSINESS_MINIMUM_COVERAGE = 1.25;
 
 export function hasAffordableMonthlyPayment(
   assessment: Pick<EconomicAssessment, 'installmentToIncomeRatio'>,
   proposedMonthlyCanon: number,
+  profile: EconomicInputs['profile'],
 ): boolean {
-  return proposedMonthlyCanon > 0
-    && assessment.installmentToIncomeRatio !== null
-    && assessment.installmentToIncomeRatio <= POLICY_RATIO;
+  if (!(proposedMonthlyCanon > 0) || assessment.installmentToIncomeRatio === null) return false;
+  return profile === 'employee' || profile === 'monotributista'
+    ? assessment.installmentToIncomeRatio <= POLICY_RATIO
+    : (1 / assessment.installmentToIncomeRatio) >= BUSINESS_MINIMUM_COVERAGE;
 }
 
 function average(values: number[]): number {
@@ -148,8 +151,11 @@ export function evaluateEconomicCapacity(
 
   const commitments = Math.max(0, inputs.declaredMonthlyDebtService) + Math.max(0, inputs.proposedMonthlyCanon);
   const ratio = normalizedMonthlyIncome ? commitments / normalizedMonthlyIncome : null;
+  const isPersonalPolicy = inputs.profile === 'employee' || inputs.profile === 'monotributista';
   const maximumPrudentCanon = normalizedMonthlyIncome
-    ? Math.max(0, normalizedMonthlyIncome * POLICY_RATIO - Math.max(0, inputs.declaredMonthlyDebtService))
+    ? Math.max(0, (isPersonalPolicy
+      ? normalizedMonthlyIncome * POLICY_RATIO
+      : normalizedMonthlyIncome / BUSINESS_MINIMUM_COVERAGE) - Math.max(0, inputs.declaredMonthlyDebtService))
     : null;
   const canonCoverage = inputs.proposedMonthlyCanon > 0 && normalizedMonthlyIncome
     ? normalizedMonthlyIncome / inputs.proposedMonthlyCanon
@@ -173,7 +179,7 @@ export function evaluateEconomicCapacity(
   let score = 50;
   if (!(inputs.proposedMonthlyCanon > 0)) {
     conditions.push('Ingresá el canon mensual propuesto para evaluar la relación cuota/ingreso.');
-  } else if (ratio !== null) {
+  } else if (ratio !== null && isPersonalPolicy) {
     if (ratio <= POLICY_RATIO) {
       status = 'compatible';
       score = 84;
@@ -185,6 +191,19 @@ export function evaluateEconomicCapacity(
       status = 'not-compatible';
       score = 38;
       conditions.push('La suma de compromisos supera el 35% del ingreso computable.');
+    }
+  } else if (totalCommitmentCoverage !== null) {
+    if (totalCommitmentCoverage >= BUSINESS_MINIMUM_COVERAGE) {
+      status = 'compatible';
+      score = 84;
+    } else if (totalCommitmentCoverage >= 1) {
+      status = 'conditional';
+      score = 68;
+      conditions.push('La cobertura del servicio de deuda es inferior a 1,25 veces: reducir el canon, aumentar el anticipo o justificar mayor flujo operativo.');
+    } else {
+      status = 'not-compatible';
+      score = 38;
+      conditions.push('El flujo operativo estimado no cubre la totalidad de los compromisos mensuales.');
     }
   } else {
     conditions.push('Falta información suficiente para estimar capacidad mensual.');

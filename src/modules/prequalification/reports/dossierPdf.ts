@@ -101,7 +101,11 @@ export async function buildDossierPdf(data: PdfData) {
     row('Cuotas mensuales de financiaciones vigentes', money(data.economic?.declaredMonthlyDebtService));
     row('Canon mensual propuesto', money(data.economic?.proposedMonthlyCanon));
     row('Canon máximo prudente', money(data.economic?.maximumPrudentCanon));
-    row('Relación compromisos / ingreso', data.economic?.installmentToIncomeRatio == null ? 'No estimable' : `${(data.economic.installmentToIncomeRatio * 100).toFixed(1)}%`);
+    if (data.economic?.profile === 'employee' || data.economic?.profile === 'monotributista') {
+      row('Relación compromisos / ingreso', data.economic?.installmentToIncomeRatio == null ? 'No estimable' : `${(data.economic.installmentToIncomeRatio * 100).toFixed(1)}% (referencia máxima 30%)`);
+    } else {
+      row('Cobertura de compromisos', data.economic?.totalCommitmentCoverage == null ? 'No calculable' : `${data.economic.totalCommitmentCoverage.toFixed(2)} veces (referencia mínima 1,25)`);
+    }
     section('Síntesis del director de riesgos');
     row('Decisión económica preliminar', ({ compatible: 'Compatible', conditional: 'Compatible con condiciones', 'manual-review': 'Revisión manual', 'not-compatible': 'No compatible' } as Record<string, string>)[data.economic?.status] || data.economic?.status);
     if (data.economic?.proposedAdvancePercent != null) {

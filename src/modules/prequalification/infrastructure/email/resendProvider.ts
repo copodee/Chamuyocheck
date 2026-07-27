@@ -77,6 +77,7 @@ export function stage2NotificationHtml(input: {
   subject: string;
   responseEmail: string;
   economicStatus: string;
+  economicProfile: string;
   economicScore: number;
   confidence: string;
   normalizedMonthlyIncome: number | null;
@@ -91,6 +92,7 @@ export function stage2NotificationHtml(input: {
   declaredMonthlyDebtService: number;
   maximumPrudentCanon: number | null;
   installmentToIncomeRatio: number | null;
+  totalCommitmentCoverage: number | null;
   reasons: string[];
   conditions: string[];
   regulatoryExposure: {
@@ -138,7 +140,7 @@ export function stage2NotificationHtml(input: {
   const statusLabel = input.economicStatus === 'compatible'
     ? 'CALIFICADO PARA CONTINUAR'
     : input.economicStatus === 'conditional'
-      ? 'DEBE REDUCIR LA CUOTA'
+      ? 'CALIFICADO CON CONDICIONES'
       : input.economicStatus === 'not-compatible'
         ? 'NO CALIFICA CON LA CUOTA PROPUESTA'
         : 'REVISIÓN MANUAL';
@@ -164,7 +166,9 @@ export function stage2NotificationHtml(input: {
     ${input.proposedAdvancePercent != null ? `<p><b>Anticipo definitivo:</b> ${input.proposedAdvancePercent}% · ${money(input.proposedAdvanceAmount ?? null)}</p>
     <p><b>Saldo a financiar:</b> ${money(input.requestedFinancing ?? null)}</p>` : ''}
     <p><b>Cuotas mensuales de financiaciones vigentes:</b> ${money(input.declaredMonthlyDebtService)}</p>
-    <p><b>Relación compromisos/ingreso:</b> ${input.installmentToIncomeRatio == null ? 'No estimable' : `${(input.installmentToIncomeRatio * 100).toFixed(1)}%`} · política máxima 30%</p>
+    ${input.economicProfile === 'employee' || input.economicProfile === 'monotributista'
+      ? `<p><b>Relación compromisos/ingreso:</b> ${input.installmentToIncomeRatio == null ? 'No estimable' : `${(input.installmentToIncomeRatio * 100).toFixed(1)}%`} · referencia máxima 30%</p>`
+      : `<p><b>Cobertura de compromisos:</b> ${input.totalCommitmentCoverage == null ? 'No calculable' : `${input.totalCommitmentCoverage.toFixed(2)} veces`} · referencia prudencial mínima 1,25 veces</p>`}
     <p><b>Canon máximo estimado:</b> ${money(input.maximumPrudentCanon)}</p>
     ${input.regulatoryExposure.applicable ? `<h2 style="font-size:18px">Encuadre patrimonial y regulatorio</h2>
     <p><b>Resultado:</b> ${escapeHtml(input.regulatoryExposure.label)}</p>
