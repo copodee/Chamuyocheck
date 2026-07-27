@@ -1018,7 +1018,7 @@ body:has(.leasingAppShell){
 .prequalError{border:1px solid rgba(251,113,133,.48);background:rgba(136,19,55,.25);color:#fecdd3;border-radius:11px;padding:12px 14px}
 .prequalResult{margin-top:24px}.prequalResult>div:nth-child(2){margin:18px 0}.prequalResult h2{margin:0;color:#fff}.prequalStatus{display:inline-flex;border-radius:99px;padding:10px 15px;font-weight:900}.status-prequalified{background:rgba(21,128,61,.25);color:#86efac}.status-conditional{background:rgba(161,98,7,.28);color:#fde68a}.status-manual-review{background:rgba(194,65,12,.26);color:#fdba74}.status-not-prequalified{background:rgba(185,28,28,.26);color:#fda4af}
 .prequalMetrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.prequalMetrics>div{display:grid;gap:8px;background:#102832;border:1px solid rgba(141,202,211,.15);padding:16px;border-radius:14px}.prequalMetrics span{color:#9fbdc5;font-size:.82rem}.prequalMetrics b{color:#fff;font-size:1.08rem;text-transform:capitalize}
-.prequalCapacity{margin-top:16px;padding:20px;border-radius:14px;background:#16233d;border:2px solid #788bb5;box-shadow:0 12px 32px rgba(0,0,0,.2)}.prequalCapacity h3{margin-top:0;color:#fff}.prequalCapacity p{color:#e5edf7;line-height:1.55}.prequalCapacity small{color:#c8d7e9}
+.prequalCapacity{margin-top:16px;padding:20px;border-radius:14px;background:#16233d;border:2px solid #788bb5;box-shadow:0 12px 32px rgba(0,0,0,.2)}.prequalCapacity h3{margin-top:0;color:#fff}.prequalCapacity p{color:#e5edf7;line-height:1.55}.prequalCapacity>b{display:block;margin-top:12px;color:#fff;font-weight:850}.prequalCapacity small{color:#c8d7e9}
 .prequalEconomic-compatible{background:#0d3b32;border-color:#38d39f}.prequalEconomic-compatible h3,.prequalEconomic-compatible b{color:#edfff9}.prequalEconomic-compatible small{color:#bcebdc}
 .prequalEconomic-conditional{background:#44330e;border-color:#f2b84b}.prequalEconomic-conditional h3,.prequalEconomic-conditional b{color:#fff7dc}.prequalEconomic-conditional small{color:#f6dda3}
 .prequalEconomic-manual-review{background:#49270f;border-color:#fb923c}.prequalEconomic-manual-review h3,.prequalEconomic-manual-review b{color:#fff4e8}.prequalEconomic-manual-review small{color:#fed7aa}
@@ -1053,6 +1053,7 @@ body:has(.prequalPage){color:#102f3b;background:radial-gradient(circle at 82% 0%
 .prequalMetrics>div,.prequalUploadItem{background:#f5fafb;border-color:rgba(20,72,88,.16)}
 .prequalMetrics span,.prequalUploadRow small{color:#607b84}
 .prequalMetrics b,.prequalUploadRow b{color:#102f3b}
+.prequalPage .status-prequalified{background:#d8f3e2;color:#11613b}
 .prequalEntityDetail,.prequalColumns>div{background:#f5fafb;border-color:rgba(20,72,88,.16)}
 .prequalEntityDetail>p,.prequalColumns li{color:#405e69}
 .prequalEntityDetail th{color:#496873}.prequalEntityDetail td,.prequalEntityDetail tfoot th{color:#102f3b}
