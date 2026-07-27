@@ -1051,6 +1051,7 @@ body:has(.prequalPage){color:#102f3b;background:radial-gradient(circle at 82% 0%
 .prequalForm .prequalCheckRow{border-color:rgba(20,72,88,.18);background:#f6fafb}
 .prequalForm .prequalCheckRow small{color:#607b84}
 .prequalWarning{margin-top:16px;padding:18px;border:1px solid #e5a420;border-radius:14px;background:#fff7df;color:#5f4100}.prequalWarning h3{margin:0 0 8px;color:#5f4100}.prequalWarning p{margin:8px 0;line-height:1.5}.prequalActions{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px}.prequalActions button{margin:0}
+.prequalManualReviewSummary{margin:14px 0;padding:14px 16px;border:1px solid #f2c15d;border-radius:12px;background:#fffdf7;color:#2f2614}.prequalManualReviewSummary p{margin:6px 0}.prequalManualReviewSummary ul{margin:6px 0 10px;padding-left:22px}.prequalManualReviewSummary li{margin:3px 0}
 .prequalMetrics>div,.prequalUploadItem{background:#f5fafb;border-color:rgba(20,72,88,.16)}
 .prequalMetrics span,.prequalUploadRow small{color:#607b84}
 .prequalMetrics b,.prequalUploadRow b{color:#102f3b}

@@ -556,6 +556,15 @@ export function PrequalificationStages(props: Props) {
     setEffectiveCaseNumber(recovered.caseNumber);
     return recovered as { caseId: string; caseNumber: string };
   }
+  const recalculateWithoutSending = () => {
+    setAssessment(previewAssessment);
+    setShowManualSendConfirmation(false);
+    setMessage(paymentCapacityQualifies
+      ? 'Capacidad de pago recalculada. La operación puede enviarse con los datos actuales.'
+      : previewAssessment.maximumPrudentCanon == null
+        ? 'Capacidad de pago recalculada. Con la información actual no puede estimarse un canon máximo.'
+        : `Capacidad de pago recalculada. Canon máximo estimado: $ ${Math.round(previewAssessment.maximumPrudentCanon).toLocaleString('es-AR')}. Podés corregir datos, agregar documentos o enviar para revisión humana.`);
+  };
   const saveStage2 = async (sendForManualReview = false) => {
     const applicableRequirements = [
       ...stage2Requirements[economic.profile],
@@ -908,12 +917,38 @@ export function PrequalificationStages(props: Props) {
       <label><input type="checkbox" checked={contact.dataConsent} onChange={e => setContact({ ...contact, dataConsent: e.target.checked })} /> Autorizo el tratamiento de datos para esta evaluación.</label>
       <label><input type="checkbox" checked={contact.contactConsent} onChange={e => setContact({ ...contact, contactConsent: e.target.checked })} /> Autorizo el contacto sobre este expediente.</label>
       <label><input type="checkbox" checked={contact.accuracyDeclaration} onChange={e => setContact({ ...contact, accuracyDeclaration: e.target.checked })} /> Declaro que los datos son completos y veraces.</label>
-      <button className="prequalPrimary" disabled={busy} onClick={() => saveStage2(false)}>
-        {paymentCapacityQualifies ? 'Calificar y enviar expediente' : 'Recalcular capacidad de pago'}
-      </button>
+      <div className="prequalActions">
+        <button className="prequalSecondary" disabled={busy || documentLoadState === 'loading'} onClick={recalculateWithoutSending}>
+          Recalcular sin enviar
+        </button>
+        <button className="prequalPrimary" disabled={busy || documentLoadState === 'loading'} onClick={() => saveStage2(false)}>
+          {paymentCapacityQualifies ? 'Calificar y enviar expediente' : 'Evaluar envío para revisión'}
+        </button>
+      </div>
       {showManualSendConfirmation && <div className="prequalWarning" role="alert">
         <h3>No se pudo completar la evaluación automática</h3>
         <p>La documentación puede estar incompleta, no haberse identificado o no haberse podido validar. El expediente conservará los datos, archivos y conclusiones parciales disponibles.</p>
+        <div className="prequalManualReviewSummary">
+          <p><b>Resultado parcial:</b> {previewAssessment.status} · {previewAssessment.score}/100</p>
+          <p><b>Ingreso computable:</b> $ {Math.round(previewAssessment.normalizedMonthlyIncome || 0).toLocaleString('es-AR')} · <b>Canon propuesto:</b> $ {Math.round(economic.proposedMonthlyCanon || 0).toLocaleString('es-AR')}</p>
+          <p><b>Archivos incorporados:</b> {documents.filter(document => document.stage === 2).length}</p>
+          {!!missingStage2Documents.length && <div>
+            <b>No encontrados o pendientes de identificar:</b>
+            <ul>{missingStage2Documents.map(item => <li key={item}>{item}</li>)}</ul>
+          </div>}
+          {!!documents.filter(document => document.status === 'needs-review').length && <div>
+            <b>Tipo documental pendiente de confirmar:</b>
+            <ul>{documents.filter(document => document.status === 'needs-review').map(document => <li key={document.id}>{document.name}</li>)}</ul>
+          </div>}
+          {!!documentReadProgress.filter(document => document.status === 'error').length && <div>
+            <b>Archivos cuya lectura automática falló:</b>
+            <ul>{documentReadProgress.filter(document => document.status === 'error').map(document => <li key={document.name}>{document.name}{document.detail ? `: ${document.detail}` : ''}</li>)}</ul>
+          </div>}
+          {!!excludedDocuments.length && <div>
+            <b>Archivos no incorporados:</b>
+            <ul>{excludedDocuments.map(document => <li key={`${document.name}-${document.reason}`}>{document.name}: {document.reason}</li>)}</ul>
+          </div>}
+        </div>
         <p><b>¿Deseás enviarlo igualmente a contacto@leasingscoring.com para revisión humana?</b></p>
         <div className="prequalActions">
           <button className="prequalPrimary" disabled={busy} onClick={() => saveStage2(true)}>Sí, enviar igualmente</button>
