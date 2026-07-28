@@ -7,6 +7,19 @@ export const runtime = 'nodejs';
 
 type ReportSection = { title: string; items: string[] };
 type ComparisonTable = { columns: string[]; rows: Array<{ label: string; values: string[] }> };
+type LeasingQuoteSummary = {
+  clientName?: string;
+  assetType?: string;
+  vehicleDescription?: string;
+  assetValue?: number;
+  advancePercent?: number;
+  advanceAmount?: number;
+  financedPercent?: number;
+  financedAmount?: number;
+  structuringFeePercent?: number;
+  structuringFeeAmount?: number;
+  guaranteeCanons?: number;
+};
 type LeasingReportPayload = {
   date: string;
   category: string;
@@ -20,6 +33,7 @@ type LeasingReportPayload = {
   findings?: string[];
   nextActions?: string[];
   limitations?: string[];
+  quote?: LeasingQuoteSummary;
   disclaimer: string;
 };
 
@@ -36,6 +50,16 @@ const BODY_LEADING = 15;
 
 function sanitize(value: unknown, fallback = '') {
   return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : fallback;
+}
+
+function formatCurrency(value: unknown) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 'No informado';
+  return amount.toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 2,
+  });
 }
 
 function wrapText(text: string, font: PDFFont, size: number, maxWidth: number) {
@@ -185,6 +209,22 @@ export async function POST(request: Request) {
       gap: 12,
     });
 
+    if (payload.quote) {
+      const quote = payload.quote;
+      heading('Datos centrales de la operación');
+      const items = [
+        quote.clientName ? `Cliente: ${sanitize(quote.clientName)}` : '',
+        `Bien: ${sanitize(quote.assetType, 'No informado')}`,
+        quote.vehicleDescription ? `Marca, modelo y versión: ${sanitize(quote.vehicleDescription)}` : '',
+        `Valor neto de IVA: ${formatCurrency(quote.assetValue)}`,
+        `Anticipo: ${Number(quote.advancePercent) || 0}% (${formatCurrency(quote.advanceAmount)})`,
+        `Monto a financiar: ${formatCurrency(quote.financedAmount)} (${Number(quote.financedPercent) || 0}%)`,
+        `Costo de estructuración: ${Number(quote.structuringFeePercent) || 0}% (${formatCurrency(quote.structuringFeeAmount)})`,
+        `Cánones de garantía: ${Number(quote.guaranteeCanons) || 0}`,
+      ].filter(Boolean);
+      bulletList(items);
+    }
+
     if (payload.comparisonTable?.rows?.length) {
       heading('Comparación');
       payload.comparisonTable.rows.forEach((row) => {
@@ -213,7 +253,9 @@ export async function POST(request: Request) {
       bulletList(payload.limitations);
     }
     heading('Aviso legal');
-    paragraph(sanitize(payload.disclaimer, 'Resultado automatizado, orientativo y sujeto a revisión humana.'), {
+    const fixedLegalSafeguard =
+      'Este informe es un ejercicio estimativo y no constituye una oferta, aprobación crediticia ni asesoramiento legal, impositivo o financiero. Los importes y condiciones definitivos dependen del dador del leasing, de la documentación respaldatoria, de la normativa vigente y de su evaluación. LeasingScoring no garantiza la aprobación ni responde por decisiones adoptadas exclusivamente sobre este resultado automatizado.';
+    paragraph(`${sanitize(payload.disclaimer)} ${fixedLegalSafeguard}`.trim(), {
       size: DISCLAIMER_SIZE,
       color: rgb(0.34, 0.40, 0.43),
       gap: 0,

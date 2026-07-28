@@ -244,6 +244,24 @@ function fmt(bytes: number) {
   return bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function parseLeasingAmount(value: string) {
+  const cleaned = value.trim().replace(/\s/g, '');
+  if (!cleaned) return 0;
+  if (cleaned.includes(',') && cleaned.includes('.')) {
+    return Number(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
+  }
+  if (cleaned.includes(',')) return Number(cleaned.replace(',', '.')) || 0;
+  return Number(cleaned.replace(/[^\d.-]/g, '')) || 0;
+}
+
+function formatLeasingCurrency(value: number) {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 function friendlyAuthError(message: string) {
   if (/invalid login credentials/i.test(message)) return 'El email o la clave no son correctos.';
   if (/user already registered/i.test(message)) return 'Ese email ya tiene una cuenta. Probá ingresar.';
@@ -606,13 +624,17 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [leasingComparisonProvince, setLeasingComparisonProvince] = useState('');
   const [leasingProvinceError, setLeasingProvinceError] = useState('');
   const [leasingAssetType, setLeasingAssetType] = useState('Maquinaria o equipo');
+  const [leasingClientName, setLeasingClientName] = useState('');
   const [leasingAssetValue, setLeasingAssetValue] = useState('');
   const [leasingVehicleDescription, setLeasingVehicleDescription] = useState('');
   const [leasingVehicleYear, setLeasingVehicleYear] = useState('');
   const [leasingVehicleCondition, setLeasingVehicleCondition] = useState<'new' | 'used'>('new');
-  const [leasingFiscalValuation, setLeasingFiscalValuation] = useState('');
-  const [leasingPriorYearPatent, setLeasingPriorYearPatent] = useState('');
-  const [leasingFinancedPercent, setLeasingFinancedPercent] = useState('100');
+  const [leasingAdvancePercent, setLeasingAdvancePercent] = useState('10');
+  const leasingAssetValueNumber = parseLeasingAmount(leasingAssetValue);
+  const leasingAdvancePercentNumber = Math.min(50, Math.max(10, Number(leasingAdvancePercent) || 10));
+  const leasingAdvanceAmountNumber = (leasingAssetValueNumber * leasingAdvancePercentNumber) / 100;
+  const leasingFinancedAmountNumber = Math.max(0, leasingAssetValueNumber - leasingAdvanceAmountNumber);
+  const leasingFinancedPercentNumber = 100 - leasingAdvancePercentNumber;
   const [leasingMonths, setLeasingMonths] = useState('36');
   const [leasingTna, setLeasingTna] = useState('');
   const [leasingOptionPercent, setLeasingOptionPercent] = useState('5');
@@ -946,14 +968,16 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         if (leasingComparisonProvince) form.append('leasingComparisonProvince', leasingComparisonProvince);
         form.append('leasingQuoteUploaded', file ? 'true' : 'false');
         if (!file) {
+          if (leasingClientName.trim()) form.append('leasingClientName', leasingClientName.trim());
           if (leasingConfirmedFields.has('assetType')) form.append('leasingAssetType', leasingAssetType);
           if (leasingAssetValue.trim()) form.append('leasingAssetValue', leasingAssetValue);
           if (leasingVehicleDescription.trim()) form.append('leasingVehicleDescription', leasingVehicleDescription);
           if (leasingVehicleCondition === 'used' && leasingVehicleYear.trim()) form.append('leasingVehicleYear', leasingVehicleYear);
-          if (leasingAssetType === 'Automotor') form.append('leasingVehicleCondition', leasingVehicleCondition);
-          if (leasingFiscalValuation.trim()) form.append('leasingFiscalValuation', leasingFiscalValuation);
-          if (leasingPriorYearPatent.trim()) form.append('leasingPriorYearPatent', leasingPriorYearPatent);
-          if (leasingConfirmedFields.has('financedPercent')) form.append('leasingFinancedPercent', leasingFinancedPercent);
+          if (leasingAssetType === 'Automotor / rodado') form.append('leasingVehicleCondition', leasingVehicleCondition);
+          form.append('leasingAdvancePercent', String(leasingAdvancePercentNumber));
+          form.append('leasingAdvanceAmount', String(leasingAdvanceAmountNumber));
+          form.append('leasingFinancedAmount', String(leasingFinancedAmountNumber));
+          form.append('leasingFinancedPercent', String(leasingFinancedPercentNumber));
           if (leasingConfirmedFields.has('months')) form.append('leasingMonths', leasingMonths);
           if (leasingTna.trim()) form.append('leasingTna', leasingTna);
           if (leasingConfirmedFields.has('option')) {
@@ -1026,7 +1050,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
           manualFields: file ? {} : {
             assetType: leasingConfirmedFields.has('assetType') ? leasingAssetType : '',
             assetValue: leasingAssetValue,
-            financedPercent: leasingConfirmedFields.has('financedPercent') ? `${leasingFinancedPercent}%` : '',
+            financedPercent: `${leasingFinancedPercentNumber}%`,
             months: leasingConfirmedFields.has('months') ? `${leasingMonths} meses` : '',
             tna: leasingTna ? `${leasingTna}%` : '',
             option: leasingConfirmedFields.has('option') ? (leasingOptionMode === 'percent' ? `${leasingOptionPercent}%` : leasingOptionAmount) : '',
@@ -1084,7 +1108,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     manualFields: file ? {} : {
       assetType: leasingConfirmedFields.has('assetType') ? leasingAssetType : '',
       assetValue: leasingAssetValue,
-      financedPercent: leasingConfirmedFields.has('financedPercent') ? `${leasingFinancedPercent}%` : '',
+      financedPercent: `${leasingFinancedPercentNumber}%`,
       months: leasingConfirmedFields.has('months') ? `${leasingMonths} meses` : '',
       tna: leasingTna ? `${leasingTna}%` : '',
       option: leasingConfirmedFields.has('option') ? (leasingOptionMode === 'percent' ? `${leasingOptionPercent}%` : leasingOptionAmount) : '',
@@ -1176,6 +1200,20 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
             findings: answer?.findings,
             nextActions: answer?.nextActions,
             limitations: answer?.limitations,
+            quote: {
+              clientName: leasingClientName.trim(),
+              assetType: leasingAssetType,
+              vehicleDescription: leasingVehicleDescription.trim(),
+              assetValue: leasingAssetValueNumber,
+              advancePercent: leasingAdvancePercentNumber,
+              advanceAmount: leasingAdvanceAmountNumber,
+              financedPercent: leasingFinancedPercentNumber,
+              financedAmount: leasingFinancedAmountNumber,
+              structuringFeePercent: parseLeasingAmount(leasingStructuringFeePercent),
+              structuringFeeAmount:
+                (leasingFinancedAmountNumber * parseLeasingAmount(leasingStructuringFeePercent)) / 100,
+              guaranteeCanons: Number(leasingGuaranteeCanons) || 0,
+            },
             disclaimer: analysis.legalSafeguard || 'Resultado automatizado, orientativo y sujeto a revisión humana.',
           }),
         });
@@ -1262,11 +1300,11 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setLegalJurisdiction('');
     setLeasingConfirmedFields(new Set());
     setLeasingAssetValue('');
+    setLeasingClientName('');
     setLeasingVehicleDescription('');
     setLeasingVehicleYear('');
     setLeasingVehicleCondition('new');
-    setLeasingFiscalValuation('');
-    setLeasingPriorYearPatent('');
+    setLeasingAdvancePercent('10');
     setCategoryError('');
     setInstructionError('');
     if (typeof window !== 'undefined') {
@@ -1528,7 +1566,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
       </div>}
       <div className="topbar">
         <div className="status"><div className="check">✓</div><div><b>{analysis ? 'Análisis finalizado' : 'Nuevo análisis'}</b><div className="hint">9 de julio de 2026</div></div></div>
-        <div className="topActions"><button type="button" className="ghost" onClick={startNewAnalysis}>Analizar otro</button><button type="button" className="ghost" disabled={!analysis} onClick={downloadAnalysisReport}>Descargar informe</button><button type="button" className="iconBtn" aria-label="Abrir ayuda" title="Ayuda" onClick={openHelp}>?</button></div>
+        <div className="topActions"><button type="button" className="ghost" onClick={startNewAnalysis}>Analizar otro</button>{analysis && <button type="button" className="ghost" onClick={downloadAnalysisReport}>Descargar informe</button>}<button type="button" className="iconBtn" aria-label="Abrir ayuda" title="Ayuda" onClick={openHelp}>?</button></div>
       </div>
       {activeView === 'inicio' ? <>
         {!session && !sessionLoading && <section id="registro" className="panel authPanel" aria-labelledby="auth-title">
@@ -1629,16 +1667,15 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                 <h3>Datos del caso práctico</h3>
                 <p>Completá lo que conozcas. LeasingScoring analizará por defecto un leasing financiero; cuando deba simular un caso usará cánones calculados por sistema francés.</p>
                 <div className="leasingProvinceGrid">
-                  <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => { setLeasingAssetType(event.target.value); confirmLeasingField('assetType'); }}><option>Maquinaria o equipo</option><option>Automotor</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
+                  <label>Nombre y apellido del cliente<input value={leasingClientName} onChange={(event) => setLeasingClientName(event.target.value)} placeholder="Ingresá el nombre completo" autoComplete="name" /></label>
+                  <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => { setLeasingAssetType(event.target.value); confirmLeasingField('assetType'); }}><option>Maquinaria o equipo</option><option>Automotor / rodado</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
                   <label>Valor del bien sin IVA<input inputMode="decimal" value={leasingAssetValue} onChange={(event) => setLeasingAssetValue(event.target.value)} placeholder="Ej.: 100000000" /><small>Ingresá el precio neto. El IVA se calcula y analiza por separado.</small></label>
-                  {leasingAssetType === 'Automotor' && <>
-                    <label>Condición del vehículo<select value={leasingVehicleCondition} onChange={(event) => { const condition = event.target.value as 'new' | 'used'; setLeasingVehicleCondition(condition); if (condition === 'new') setLeasingVehicleYear(''); }}><option value="new">0 km</option><option value="used">Usado / rodado</option></select><small>En Provincia de Buenos Aires, el usado aplica el coeficiente 0,95; el 0 km toma la valuación completa.</small></label>
-                    <label>Marca, modelo y versión<input value={leasingVehicleDescription} onChange={(event) => setLeasingVehicleDescription(event.target.value)} placeholder="Ingresá marca, modelo y versión" autoComplete="off" /><small>La versión exacta evita usar una valuación fiscal incorrecta.</small></label>
+                  {leasingAssetType === 'Automotor / rodado' && <>
+                    <label>Condición del vehículo<select value={leasingVehicleCondition} onChange={(event) => { const condition = event.target.value as 'new' | 'used'; setLeasingVehicleCondition(condition); if (condition === 'new') setLeasingVehicleYear(''); }}><option value="new">0 km</option><option value="used">Usado / rodado</option></select></label>
+                    <label>Marca, modelo y versión<input value={leasingVehicleDescription} onChange={(event) => setLeasingVehicleDescription(event.target.value)} placeholder="Ingresá marca, modelo y versión" autoComplete="off" /></label>
                     {leasingVehicleCondition === 'used' && <label>Año modelo del usado<input type="number" min="1900" max="2030" value={leasingVehicleYear} onChange={(event) => setLeasingVehicleYear(event.target.value)} placeholder="Ej.: 2023" /></label>}
-                    <label>Valuación fiscal 2026<input inputMode="decimal" value={leasingFiscalValuation} onChange={(event) => setLeasingFiscalValuation(event.target.value.replace(/[^\d.,]/g, ''))} placeholder="Ej.: 79916000" /><small>Usá la valuación de AGIP, ARBA o DNRPA aplicable; no necesariamente coincide con el precio de compra.</small></label>
-                    <label>Patente total 2025 (opcional)<input inputMode="decimal" value={leasingPriorYearPatent} onChange={(event) => setLeasingPriorYearPatent(event.target.value.replace(/[^\d.,]/g, ''))} placeholder="Necesaria para el tope CABA 2026" /><small>Permite controlar la bonificación extraordinaria que limita el aumento por IPCBA.</small></label>
                   </>}
-                  <label>Porcentaje a financiar<input type="number" min="1" max="100" value={leasingFinancedPercent} onChange={(event) => { setLeasingFinancedPercent(event.target.value); confirmLeasingField('financedPercent'); }} /><small>100% financia todo; 80% implica 20% de aporte inicial.</small></label>
+                  <label>Anticipo<select value={leasingAdvancePercent} onChange={(event) => { setLeasingAdvancePercent(event.target.value); confirmLeasingField('financedPercent'); }}>{[10, 15, 20, 25, 30, 35, 40, 45, 50].map((percent) => <option key={percent} value={percent}>{percent}%</option>)}</select><small>Anticipo estimado: {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(leasingAdvanceAmountNumber)} · Saldo a financiar: {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(leasingFinancedAmountNumber)}</small></label>
                   <label>Plazo en meses<input type="number" min="1" max="240" value={leasingMonths} onChange={(event) => { setLeasingMonths(event.target.value); confirmLeasingField('months'); }} /></label>
                   <label>TNA estimada (opcional)<input type="number" min="0" step="0.01" value={leasingTna} onChange={(event) => setLeasingTna(event.target.value)} placeholder="Ej.: 42" /></label>
                   <label>Cómo está pactada la opción<select value={leasingOptionMode} onChange={(event) => { setLeasingOptionMode(event.target.value as 'percent' | 'amount'); confirmLeasingField('option'); }}><option value="percent">Porcentaje del valor del bien</option><option value="amount">Importe fijo</option></select></label>
