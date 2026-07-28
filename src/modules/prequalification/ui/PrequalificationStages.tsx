@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { extractPdfTextInBrowser } from '../../../lib/extractors/browserPdfOcr';
+import type { StructuredPdfDocument } from '../../../lib/extractors/browserPdfStructure';
 import { extractImageTextInBrowser } from '../../../lib/extractors/browserOcr';
 import { extractBalanceData } from '../scoring/balanceExtractor';
 import { evaluateEconomicCapacity, hasAffordableMonthlyPayment } from '../scoring/economicEngine';
@@ -13,6 +14,10 @@ import { reconcileFinancialDebt } from '../scoring/debtReconciliation';
 import { analyzeInvoiceIncome, analyzeSalaryIncome, extractInvoiceTotal, type InvoiceIncomeAnalysis } from '../scoring/incomeDocumentExtractor';
 import type { ContactData, DossierDocument, EconomicAssessment, EconomicInputs, EconomicProfile, ExtractedBalance } from '../domain/dossier';
 import type { PrequalificationResult } from '../domain/types';
+import {
+  processStructuredBalance,
+  type BalanceAccountingControl,
+} from '../balanceStructuredAdapter';
 
 type Props = {
   session: Session;
@@ -163,6 +168,11 @@ export function PrequalificationStages(props: Props) {
   const [excludedDocuments, setExcludedDocuments] = useState<Array<{ name: string; reason: string }>>([]);
   const [balance, setBalance] = useState<ExtractedBalance>();
   const [previousBalance, setPreviousBalance] = useState<ExtractedBalance>();
+  const [balanceAccountingControl, setBalanceAccountingControl] = useState<{
+    current?: BalanceAccountingControl;
+    previous?: BalanceAccountingControl;
+  }>({});
+  const structuredDocuments = useRef(new Map<string, StructuredPdfDocument>());
   const [debtExtraction, setDebtExtraction] = useState<ExtractedFinancialDebt>();
   const [invoiceIncomeAnalysis, setInvoiceIncomeAnalysis] = useState<InvoiceIncomeAnalysis>();
   const [usdDebtExchangeRate, setUsdDebtExchangeRate] = useState(0);
@@ -319,6 +329,7 @@ export function PrequalificationStages(props: Props) {
         let extractedPages: number | undefined;
         let extractionNeedsReview = false;
         let extractionDetail = '';
+        let structuredDocument: StructuredPdfDocument | undefined;
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
           const extraction = await extractPdfTextInBrowser(file, (progress) => {
             const detail = `Leyendo página ${progress.page} de ${progress.totalPages}…`;
@@ -330,6 +341,7 @@ export function PrequalificationStages(props: Props) {
           extractedPages = extraction.pages;
           extractionNeedsReview = extraction.partial;
           extractionDetail = extraction.note;
+          structuredDocument = extraction.structuredDocument;
         } else if (/\.docx$/i.test(file.name) || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
           setMessage(`Leyendo ${file.name}…`);
           const mammoth = await import('mammoth');
@@ -370,13 +382,17 @@ export function PrequalificationStages(props: Props) {
         const documentStage = documentKind === 'auto' ? admission.stage : stage === 3 ? 3 : 2;
         const storagePath = await uploadDocumentDirectly(file, recovered.caseId, documentStage);
         fileStored = true;
+        const documentId = crypto.randomUUID();
         added.push({
-          id: crypto.randomUUID(), stage: documentStage, kind: resolvedKind, name: file.name, size: file.size,
+          id: documentId, stage: documentStage, kind: resolvedKind, name: file.name, size: file.size,
           pages: extractedPages, extractionConfidence, extractedText, storagePath,
           status: admission.action === 'review' || extractionNeedsReview || (extractedText && extractionConfidence < 55)
             ? 'needs-review'
             : extractedText ? 'read' : 'uploaded',
         });
+        if (structuredDocument?.pages.some(page => page.tokens.length > 0)) {
+          structuredDocuments.current.set(documentId, structuredDocument);
+        }
         updateReadProgress(file.name, 'complete', [admission.reason, extractionDetail].filter(Boolean).join(' '));
         } catch (error) {
           const detail = error instanceof Error ? error.message : 'No se pudo leer o guardar el archivo.';
@@ -483,13 +499,30 @@ export function PrequalificationStages(props: Props) {
           && (document.kind === 'balance-1' || document.kind === 'balance-2')
           && Boolean(document.extractedText))
         .map(document => {
+          const structuredDocument = structuredDocuments.current.get(document.id);
+          if (structuredDocument?.pages.some(page => page.tokens.length > 0)) {
+            const structured = processStructuredBalance(
+              structuredDocument,
+              document.extractedText || '',
+            );
+            structured.balance.extractionConfidence = Math.round(Math.min(
+              structured.balance.extractionConfidence,
+              document.extractionConfidence ?? 100,
+            ));
+            return { balance: structured.balance, control: structured.control };
+          }
           const extracted = extractBalanceData(`${document.extractedText || ''}\n${document.kind === 'balance-1' ? balanceNotesText : ''}`);
           extracted.extractionConfidence = Math.round(Math.min(extracted.extractionConfidence, document.extractionConfidence ?? 100));
-          return extracted;
+          return { balance: extracted, control: undefined };
         })
-        .sort((left, right) => balanceDateValue(right.closingDate) - balanceDateValue(left.closingDate));
-      const latestBalance = extractedBalances[0];
-      const priorBalance = extractedBalances[1];
+        .sort((left, right) => balanceDateValue(right.balance.closingDate) - balanceDateValue(left.balance.closingDate));
+      const latestBalance = extractedBalances[0]?.balance;
+      const priorBalance = extractedBalances[1]?.balance;
+      const latestAccountingControl = extractedBalances[0]?.control;
+      setBalanceAccountingControl({
+        current: extractedBalances[0]?.control,
+        previous: extractedBalances[1]?.control,
+      });
       if (latestBalance) {
         const extractedBalance = latestBalance;
         const extractedAssets = extractedBalance.totalAssets
@@ -507,9 +540,13 @@ export function PrequalificationStages(props: Props) {
         setEconomic(current => ({
           ...current,
           activity: current.activity || extractedBalance.activity || '',
-          computableNetWorth: current.computableNetWorth
-            || (coherentBalance ? extractedBalance.equity || 0 : 0),
-          existingComputableFinancing: current.existingComputableFinancing || extractedBalance.financialDebt || 0,
+          computableNetWorth: latestAccountingControl
+            ? (coherentBalance ? extractedBalance.equity || 0 : 0)
+            : current.computableNetWorth || (coherentBalance ? extractedBalance.equity || 0 : 0),
+          existingComputableFinancing: latestAccountingControl
+            && !combinedDocuments.some(document => document.kind === 'financial-debt')
+            ? extractedBalance.financialDebt || 0
+            : current.existingComputableFinancing || extractedBalance.financialDebt || 0,
         }));
       }
       if (priorBalance) setPreviousBalance(priorBalance);
@@ -586,6 +623,7 @@ export function PrequalificationStages(props: Props) {
       .map(([, label]) => label);
     const requiresManualReview = !paymentCapacityQualifies
       || missingDocuments.length > 0
+      || balanceAccountingControl.current?.automaticPrequalificationBlocked === true
       || documents.some(document => document.status === 'needs-review')
       || excludedDocuments.length > 0
       || documentReadProgress.some(document => document.status === 'error');
@@ -611,6 +649,7 @@ export function PrequalificationStages(props: Props) {
       };
       const data = await api({
         action: 'stage2', contact, economicInputs: economicForAssessment, documents, balance, previousBalance,
+        balanceAccountingControl,
         caseNumber: recovered.caseNumber, subject: props.subject.denomination,
         cuitMasked: props.subject.cuitMasked, stage1: props.stage1, documentReview,
         sendForManualReview,

@@ -7,6 +7,12 @@ import { adminNotificationHtml, applicantResponseHtml, getPrequalificationEmailC
 import { isValidCuit, normalizeCuit } from '../../../../src/modules/prequalification/domain/cuit';
 import { getPrequalificationSupabaseConfig } from '../../../../src/modules/prequalification/infrastructure/supabase/config';
 import { buildDossierPdf } from '../../../../src/modules/prequalification/reports/dossierPdf';
+import {
+  isBalanceAccountingControl,
+  sanitizeBalanceDerivedEconomicInputs,
+  sanitizeExtractedBalanceWithControl,
+  type BalanceAccountingControl,
+} from '../../../../src/modules/prequalification/balanceStructuredAdapter';
 
 export const runtime = 'nodejs';
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -95,7 +101,22 @@ export async function POST(request: Request) {
     }
     if (body.action === 'stage2') {
       const contact = body.contact as ContactData;
-      const inputs = body.economicInputs as EconomicInputs;
+      const receivedInputs = body.economicInputs as EconomicInputs;
+      const receivedControl = body.balanceAccountingControl as {
+        current?: BalanceAccountingControl;
+        previous?: BalanceAccountingControl;
+      } | undefined;
+      const currentControl = isBalanceAccountingControl(receivedControl?.current)
+        ? receivedControl.current : undefined;
+      const previousControl = isBalanceAccountingControl(receivedControl?.previous)
+        ? receivedControl.previous : undefined;
+      const invalidStructuredControl = receivedControl?.current != null && !currentControl;
+      const accountingBlocked = invalidStructuredControl
+        || currentControl?.automaticPrequalificationBlocked === true
+        || currentControl?.extractionStatus === 'manual_review_required';
+      const hasIndependentDebtDocument = (body.documents || []).some(
+        (document: DossierDocument) => document.kind === 'financial-debt',
+      );
       const documents = (body.documents || []) as DossierDocument[];
       const documentReview = {
         missingDocuments: Array.isArray(body.documentReview?.missingDocuments) ? body.documentReview.missingDocuments.map(String) : [],
@@ -108,14 +129,36 @@ export async function POST(request: Request) {
       const incomeDocumentCount = documents.filter(document =>
         /salary-slip|monotributo-invoices|balance-|vat-|income-detail|post-balance-sales/.test(document.kind),
       ).length;
+      const authoritativeBalance = invalidStructuredControl ? undefined
+        : sanitizeExtractedBalanceWithControl(
+          body.balance as ExtractedBalance | undefined,
+          currentControl,
+        );
+      const authoritativePreviousBalance = sanitizeExtractedBalanceWithControl(
+        body.previousBalance as ExtractedBalance | undefined,
+        previousControl,
+      );
+      const inputs = invalidStructuredControl ? {
+        ...receivedInputs,
+        computableNetWorth: 0,
+        existingComputableFinancing: hasIndependentDebtDocument
+          ? receivedInputs.existingComputableFinancing : 0,
+      } : sanitizeBalanceDerivedEconomicInputs(
+        receivedInputs,
+        authoritativeBalance,
+        currentControl,
+        hasIndependentDebtDocument,
+      );
       const assessment = evaluateEconomicCapacity(
         inputs,
         incomeDocumentCount,
-        body.balance as ExtractedBalance | undefined,
-        body.previousBalance as ExtractedBalance | undefined,
+        authoritativeBalance,
+        authoritativePreviousBalance,
       );
       const sendForManualReview = body.sendForManualReview === true;
-      if (!hasAffordableMonthlyPayment(assessment, inputs.proposedMonthlyCanon, inputs.profile) && !sendForManualReview) {
+      if ((accountingBlocked
+        || !hasAffordableMonthlyPayment(assessment, inputs.proposedMonthlyCanon, inputs.profile))
+        && !sendForManualReview) {
         return NextResponse.json({
           error: assessment.maximumPrudentCanon == null
             ? 'No hay ingresos suficientes para calificar la cuota propuesta.'
@@ -189,7 +232,14 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: `El expediente se generó, pero el correo no pudo enviarse: ${notification.reason}` }, { status: 502 });
       }
       await update(auth.token, body.caseId, {
-        stage: 2, contact, economic_inputs: inputs, economic_assessment: { ...assessment, documentReview, submittedForManualReview: sendForManualReview },
+        stage: 2, contact, economic_inputs: inputs, economic_assessment: {
+          ...assessment,
+          documentReview,
+          submittedForManualReview: sendForManualReview,
+          accountingControl: currentControl || previousControl
+            ? { current: currentControl, previous: previousControl }
+            : undefined,
+        },
         documents: documents.map(({ extractedText: _text, ...document }) => document),
         administrator_email: emailConfig.administratorEmail, email_provider: 'resend',
         notification_status: notification.sent ? 'stage2-administrator-notified' : 'email-configuration-required',
