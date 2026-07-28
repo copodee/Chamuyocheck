@@ -1,4 +1,11 @@
 import type { BrowserOcrResult } from './browserOcr';
+import {
+  groupPdfTokensIntoRows,
+  normalizePdfToken,
+  type AbsolutePdfToken,
+  type StructuredPdfDocument,
+  type StructuredPdfPage,
+} from './browserPdfStructure';
 
 const MAX_PDF_BYTES = 40 * 1024 * 1024;
 const MAX_PDF_PAGES = 180;
@@ -15,6 +22,7 @@ export type BrowserPdfOcrResult = BrowserOcrResult & {
   ocrPages: number;
   unreadablePages: number[];
   partial: boolean;
+  structuredDocument?: StructuredPdfDocument;
 };
 
 type PdfTextItem = {
@@ -110,6 +118,7 @@ export async function extractPdfTextInBrowser(
   const texts: string[] = [];
   const confidences: number[] = [];
   const unreadablePages: number[] = [];
+  const structuredPages: StructuredPdfPage[] = [];
   let nativePages = 0;
   let ocrPages = 0;
   try {
@@ -139,6 +148,31 @@ export async function extractPdfTextInBrowser(
       const content = await page.getTextContent();
       const nativeText = reconstructPdfText(content.items);
       if (nativeTextIsReliable(nativeText)) {
+        const nativeViewport = page.getViewport({ scale: 1 });
+        const absoluteTokens: AbsolutePdfToken[] = content.items.flatMap((item: PdfTextItem) => {
+          if (typeof item.str !== 'string' || !item.str.trim() || !Array.isArray(item.transform)) return [];
+          const transform = pdfjs.Util.transform(nativeViewport.transform, item.transform);
+          const height = Math.hypot(transform[2], transform[3]) || Number(item.height) || 0;
+          return [{
+            text: item.str,
+            page: pageNumber,
+            x: transform[4],
+            y: transform[5] - height,
+            width: Math.abs(Number(item.width) || 0),
+            height,
+            origin: 'pdfjs' as const,
+            confidence: 100,
+          }];
+        });
+        const tokens = absoluteTokens.map(token =>
+          normalizePdfToken(token, nativeViewport.width, nativeViewport.height));
+        structuredPages.push({
+          page: pageNumber,
+          width: nativeViewport.width,
+          height: nativeViewport.height,
+          tokens,
+          rows: groupPdfTokensIntoRows(tokens),
+        });
         texts.push(`[Página ${pageNumber}]\n${nativeText}`);
         confidences.push(100);
         nativePages += 1;
@@ -166,9 +200,11 @@ export async function extractPdfTextInBrowser(
       const context = canvas.getContext('2d', { alpha: false });
       if (!context) throw new Error('CANVAS_UNAVAILABLE');
       await page.render({ canvasContext: context, canvas, viewport }).promise;
-      let result = await worker.recognize(canvas, { rotateAuto: true });
+      let result = await worker.recognize(canvas, { rotateAuto: true }, { blocks: true, text: true });
       let text = String(result.data.text || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
       let confidence = Number(result.data.confidence || 0);
+      let selectedWidth = canvas.width;
+      let selectedHeight = canvas.height;
       const accountingPage = /activo|pasivo|patrimonio|estado de resultados|ventas|resultado/i.test(text);
       if (confidence < 68 || text.length < 180 || accountingPage) {
         // Los EECC escaneados suelen mezclar páginas verticales y apaisadas.
@@ -176,18 +212,45 @@ export async function extractPdfTextInBrowser(
         // más completa, no simplemente la de mayor confianza general.
         for (const quarterTurns of [1, 3] as const) {
           const rotated = rotateCanvas(canvas, quarterTurns);
-          const rotatedResult = await worker.recognize(rotated, { rotateAuto: false });
+          const rotatedResult = await worker.recognize(rotated, { rotateAuto: false }, { blocks: true, text: true });
           const rotatedText = String(rotatedResult.data.text || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
           const rotatedConfidence = Number(rotatedResult.data.confidence || 0);
           if (financialTextQuality(rotatedText, rotatedConfidence) > financialTextQuality(text, confidence)) {
             result = rotatedResult;
             text = rotatedText;
             confidence = rotatedConfidence;
+            selectedWidth = rotated.width;
+            selectedHeight = rotated.height;
           }
           rotated.width = 1;
           rotated.height = 1;
         }
       }
+      const absoluteTokens: AbsolutePdfToken[] = (result.data.blocks || []).flatMap((block: any) =>
+        (block.paragraphs || []).flatMap((paragraph: any) =>
+          (paragraph.lines || []).flatMap((line: any) =>
+            (line.words || []).flatMap((word: any) => {
+              const box = word?.bbox;
+              if (typeof word?.text !== 'string' || !word.text.trim() || !box) return [];
+              return [{
+                text: word.text,
+                page: pageNumber,
+                x: Number(box.x0) || 0,
+                y: Number(box.y0) || 0,
+                width: Math.max(0, (Number(box.x1) || 0) - (Number(box.x0) || 0)),
+                height: Math.max(0, (Number(box.y1) || 0) - (Number(box.y0) || 0)),
+                origin: 'ocr' as const,
+                confidence: Number(word.confidence) || 0,
+              }];
+            }))));
+      const tokens = absoluteTokens.map(token => normalizePdfToken(token, selectedWidth, selectedHeight));
+      structuredPages.push({
+        page: pageNumber,
+        width: selectedWidth,
+        height: selectedHeight,
+        tokens,
+        rows: groupPdfTokensIntoRows(tokens),
+      });
       if (text) texts.push(`[Página ${pageNumber}]\n${text}`);
       if (text.length >= 30) {
         confidences.push(confidence);
@@ -210,6 +273,7 @@ export async function extractPdfTextInBrowser(
       ocrPages,
       unreadablePages,
       partial: true,
+      structuredDocument: { pages: structuredPages },
       note: detail && detail !== 'Error'
         ? `No se pudo leer el PDF en este dispositivo: ${detail}`
         : 'No se pudo iniciar la lectura del PDF en este navegador. Actualizá el navegador o probá desde una computadora.',
@@ -232,6 +296,7 @@ export async function extractPdfTextInBrowser(
     ocrPages,
     unreadablePages,
     partial: unreadablePages.length > 0,
+    structuredDocument: { pages: structuredPages },
     note: text.length >= 20
       ? unreadablePages.length
         ? `Lectura parcial: ${nativePages} página(s) con texto nativo, ${ocrPages} mediante OCR y ${unreadablePages.length} pendiente(s) de revisión humana (${unreadablePages.join(', ')}).`
