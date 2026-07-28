@@ -10,3 +10,4 @@ node_modules
 .next-validation/
 output/
 corpus/public-eecc/downloads/
+tmp/
