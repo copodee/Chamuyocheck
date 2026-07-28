@@ -629,9 +629,9 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [leasingVehicleDescription, setLeasingVehicleDescription] = useState('');
   const [leasingVehicleYear, setLeasingVehicleYear] = useState('');
   const [leasingVehicleCondition, setLeasingVehicleCondition] = useState<'new' | 'used'>('new');
-  const [leasingAdvancePercent, setLeasingAdvancePercent] = useState('10');
+  const [leasingAdvancePercent, setLeasingAdvancePercent] = useState('0');
   const leasingAssetValueNumber = parseLeasingAmount(leasingAssetValue);
-  const leasingAdvancePercentNumber = Math.min(50, Math.max(10, Number(leasingAdvancePercent) || 10));
+  const leasingAdvancePercentNumber = Math.min(50, Math.max(0, Number(leasingAdvancePercent) || 0));
   const leasingAdvanceAmountNumber = (leasingAssetValueNumber * leasingAdvancePercentNumber) / 100;
   const leasingFinancedAmountNumber = Math.max(0, leasingAssetValueNumber - leasingAdvanceAmountNumber);
   const leasingFinancedPercentNumber = 100 - leasingAdvancePercentNumber;
@@ -1306,7 +1306,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     setLeasingVehicleDescription('');
     setLeasingVehicleYear('');
     setLeasingVehicleCondition('new');
-    setLeasingAdvancePercent('10');
+    setLeasingAdvancePercent('0');
     setCategoryError('');
     setInstructionError('');
     if (typeof window !== 'undefined') {
@@ -1677,7 +1677,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                     <label>Marca, modelo y versión<input value={leasingVehicleDescription} onChange={(event) => setLeasingVehicleDescription(event.target.value)} placeholder="Ingresá marca, modelo y versión" autoComplete="off" /></label>
                     {leasingVehicleCondition === 'used' && <label>Año modelo del usado<input type="number" min="1900" max="2030" value={leasingVehicleYear} onChange={(event) => setLeasingVehicleYear(event.target.value)} placeholder="Ej.: 2023" /></label>}
                   </>}
-                  <label>Anticipo<select value={leasingAdvancePercent} onChange={(event) => { setLeasingAdvancePercent(event.target.value); confirmLeasingField('financedPercent'); }}>{[10, 15, 20, 25, 30, 35, 40, 45, 50].map((percent) => <option key={percent} value={percent}>{percent}%</option>)}</select><small>Anticipo estimado: {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(leasingAdvanceAmountNumber)} · Saldo a financiar: {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(leasingFinancedAmountNumber)}</small></label>
+                <label>Anticipo<select value={leasingAdvancePercent} onChange={(event) => { setLeasingAdvancePercent(event.target.value); confirmLeasingField('financedPercent'); }}><option value="0">Sin anticipo (financia 100%)</option>{[10, 15, 20, 25, 30, 35, 40, 45, 50].map((percent) => <option key={percent} value={percent}>{percent}%</option>)}</select><small>Anticipo estimado: {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(leasingAdvanceAmountNumber)} · Saldo a financiar: {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(leasingFinancedAmountNumber)}</small></label>
                   <label>Plazo en meses<input type="number" min="1" max="240" value={leasingMonths} onChange={(event) => { setLeasingMonths(event.target.value); confirmLeasingField('months'); }} /></label>
                   <label>TNA estimada (opcional)<input type="number" min="0" step="0.01" value={leasingTna} onChange={(event) => setLeasingTna(event.target.value)} placeholder="Ej.: 42" /></label>
                 <label>Cómo está pactada la opción de compra<select value={leasingOptionMode} onChange={(event) => { setLeasingOptionMode(event.target.value as 'percent' | 'amount'); confirmLeasingField('option'); }}><option value="percent">Porcentaje del valor del bien</option><option value="amount">Importe fijo</option></select></label>
