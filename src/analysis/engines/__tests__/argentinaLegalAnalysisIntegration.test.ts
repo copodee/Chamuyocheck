@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLocalAnalysis, normalizeAI } from '../../../../app/api/analyze/route';
+import { buildLocalAnalysis, normalizeAI } from '../../../../app/api/analyze/analyzeHandler';
 
 test('integra fragmentos y fuentes jurídicas en el análisis principal', () => {
   const result = buildLocalAnalysis('Contrato en Argentina. La empresa podrá modificar unilateralmente las condiciones sin aviso y aplicar una penalidad de $50.000.', 'Texto', '', null);

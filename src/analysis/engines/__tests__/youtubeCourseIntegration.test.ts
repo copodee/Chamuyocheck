@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handleAnalyzeRequest } from '../../../../app/api/analyze/route';
+import { handleAnalyzeRequest } from '../../../../app/api/analyze/analyzeHandler';
 import { TERMS_VERSION } from '../../../lib/legal/terms';
 
 function formRequest(url: string) {

@@ -14,7 +14,7 @@ import { runClaimFirstPipeline } from '../claimFirstPipeline';
 import { detectClaimNature } from '../claimNatureDetector';
 import { detectTopic } from '../topicClassifier';
 import { calculateDomainWeightedScore } from '../domainWeightedScoringEngine';
-import { buildLocalAnalysis } from '../../../../app/api/analyze/route';
+import { buildLocalAnalysis } from '../../../../app/api/analyze/analyzeHandler';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CASE A: Serious unverified allegation about an identifiable public figure

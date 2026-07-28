@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { runExternalVerificationWorkflow } from '../externalVerificationWorkflow';
-import { externalVerificationExecutionEnabled, POST } from '../../../../app/api/verify/route';
+import { POST } from '../../../../app/api/verify/route';
+import { externalVerificationExecutionEnabled } from '../../../../app/api/verify/verifyHandler';
 
 test('workflow plans locally without touching network by default', async () => {
   let calls = 0;

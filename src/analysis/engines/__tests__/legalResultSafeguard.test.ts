@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLegalResultPresentation } from '../legalResultSafeguard';
-import { buildLocalAnalysis, normalizeAI } from '../../../../app/api/analyze/route';
+import { buildLocalAnalysis, normalizeAI } from '../../../../app/api/analyze/analyzeHandler';
 
 test('legal presentation explains score basis and verification limits', () => {
   const result = buildLegalResultPresentation({

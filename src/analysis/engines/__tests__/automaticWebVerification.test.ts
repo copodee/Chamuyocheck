@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { runAutomaticWebVerification } from '../automaticWebVerification';
 import { runClaimFirstPipeline } from '../claimFirstPipeline';
-import { buildLocalAnalysis, handleAnalyzeRequest, normalizeAI, openAIAnalysisEnabled } from '../../../../app/api/analyze/route';
+import { buildLocalAnalysis, handleAnalyzeRequest, normalizeAI, openAIAnalysisEnabled } from '../../../../app/api/analyze/analyzeHandler';
 import { TERMS_VERSION } from '../../../lib/legal/terms';
 
 test('automatic web verification only registers real cited trusted URLs', async () => {

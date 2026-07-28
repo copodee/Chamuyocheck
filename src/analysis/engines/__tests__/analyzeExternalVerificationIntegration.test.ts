@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLocalAnalysis, normalizeAI } from '../../../../app/api/analyze/route';
+import { buildLocalAnalysis, normalizeAI } from '../../../../app/api/analyze/analyzeHandler';
 
 test('PDF analysis exposes a local external verification plan without execution', () => {
   const text = 'Este contrato es ilegal en Argentina: https://www.argentina.gob.ar/normativa/nacional/ley-27275-265949';

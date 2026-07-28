@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeAcademicAuthorship } from '../academicAuthorshipAlertEngine';
-import { buildLocalAnalysis, handleAnalyzeRequest, normalizeAI } from '../../../../app/api/analyze/route';
+import { buildLocalAnalysis, handleAnalyzeRequest, normalizeAI } from '../../../../app/api/analyze/analyzeHandler';
 import { TERMS_VERSION } from '../../../lib/legal/terms';
 
 test('academic alert never claims authorship verification or detector execution', () => {

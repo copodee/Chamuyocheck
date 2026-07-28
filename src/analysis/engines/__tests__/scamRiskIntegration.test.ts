@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLocalAnalysis, normalizeAI } from '../../../../app/api/analyze/route';
+import { buildLocalAnalysis, normalizeAI } from '../../../../app/api/analyze/analyzeHandler';
 
 test('el análisis principal expone señales justificadas de posible estafa', () => {
   const result = buildLocalAnalysis(
