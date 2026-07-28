@@ -623,7 +623,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
   const [leasingLessorProvince, setLeasingLessorProvince] = useState('Ciudad Autónoma de Buenos Aires');
   const [leasingComparisonProvince, setLeasingComparisonProvince] = useState('');
   const [leasingProvinceError, setLeasingProvinceError] = useState('');
-  const [leasingAssetType, setLeasingAssetType] = useState('Maquinaria o equipo');
+  const [leasingAssetType, setLeasingAssetType] = useState('Automotor / rodado');
   const [leasingClientName, setLeasingClientName] = useState('');
   const [leasingAssetValue, setLeasingAssetValue] = useState('');
   const [leasingVehicleDescription, setLeasingVehicleDescription] = useState('');
@@ -969,7 +969,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
         form.append('leasingQuoteUploaded', file ? 'true' : 'false');
         if (!file) {
           if (leasingClientName.trim()) form.append('leasingClientName', leasingClientName.trim());
-          if (leasingConfirmedFields.has('assetType')) form.append('leasingAssetType', leasingAssetType);
+          form.append('leasingAssetType', leasingAssetType);
           if (leasingAssetValue.trim()) form.append('leasingAssetValue', leasingAssetValue);
           if (leasingVehicleDescription.trim()) form.append('leasingVehicleDescription', leasingVehicleDescription);
           if (leasingVehicleCondition === 'used' && leasingVehicleYear.trim()) form.append('leasingVehicleYear', leasingVehicleYear);
@@ -978,15 +978,13 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
           form.append('leasingAdvanceAmount', String(leasingAdvanceAmountNumber));
           form.append('leasingFinancedAmount', String(leasingFinancedAmountNumber));
           form.append('leasingFinancedPercent', String(leasingFinancedPercentNumber));
-          if (leasingConfirmedFields.has('months')) form.append('leasingMonths', leasingMonths);
+          if (leasingMonths.trim()) form.append('leasingMonths', leasingMonths);
           if (leasingTna.trim()) form.append('leasingTna', leasingTna);
-          if (leasingConfirmedFields.has('option')) {
-            form.append('leasingOptionMode', leasingOptionMode);
-            if (leasingOptionMode === 'percent') form.append('leasingOptionPercent', leasingOptionPercent);
-            else form.append('leasingOptionAmount', leasingOptionAmount);
-          }
-          if (leasingConfirmedFields.has('guaranteeCanons')) form.append('leasingGuaranteeCanons', leasingGuaranteeCanons);
-          if (leasingConfirmedFields.has('structuringFee')) form.append('leasingStructuringFeePercent', leasingStructuringFeePercent);
+          form.append('leasingOptionMode', leasingOptionMode);
+          if (leasingOptionMode === 'percent' && leasingOptionPercent.trim()) form.append('leasingOptionPercent', leasingOptionPercent);
+          else if (leasingOptionAmount.trim()) form.append('leasingOptionAmount', leasingOptionAmount);
+          if (leasingGuaranteeCanons.trim()) form.append('leasingGuaranteeCanons', leasingGuaranteeCanons);
+          if (leasingStructuringFeePercent.trim()) form.append('leasingStructuringFeePercent', leasingStructuringFeePercent);
         }
       }
       form.append('termsAccepted', 'true');
@@ -1048,14 +1046,16 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
           documentText: data.leasingEvidenceText || data.extractedPreview || '',
           userText: analysisInstruction,
           manualFields: file ? {} : {
-            assetType: leasingConfirmedFields.has('assetType') ? leasingAssetType : '',
+            assetType: leasingAssetType,
             assetValue: leasingAssetValue,
             financedPercent: `${leasingFinancedPercentNumber}%`,
-            months: leasingConfirmedFields.has('months') ? `${leasingMonths} meses` : '',
+            months: leasingMonths ? `${leasingMonths} meses` : '',
             tna: leasingTna ? `${leasingTna}%` : '',
-            option: leasingConfirmedFields.has('option') ? (leasingOptionMode === 'percent' ? `${leasingOptionPercent}%` : leasingOptionAmount) : '',
-            structuringFee: leasingConfirmedFields.has('structuringFee') ? `${leasingStructuringFeePercent}%` : '',
-            guaranteeCanons: leasingConfirmedFields.has('guaranteeCanons') ? leasingGuaranteeCanons : '',
+            option: leasingOptionMode === 'percent'
+              ? (leasingOptionPercent ? `${leasingOptionPercent}%` : '')
+              : leasingOptionAmount,
+            structuringFee: leasingStructuringFeePercent ? `${leasingStructuringFeePercent}%` : '',
+            guaranteeCanons: leasingGuaranteeCanons,
             jurisdiction: leasingProvince,
           },
         })).score
@@ -1106,15 +1106,17 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
     documentText: analysis?.leasingEvidenceText || analysis?.extractedPreview || '',
     userText: text,
     manualFields: file ? {} : {
-      assetType: leasingConfirmedFields.has('assetType') ? leasingAssetType : '',
-      assetValue: leasingAssetValue,
-      financedPercent: `${leasingFinancedPercentNumber}%`,
-      months: leasingConfirmedFields.has('months') ? `${leasingMonths} meses` : '',
-      tna: leasingTna ? `${leasingTna}%` : '',
-      option: leasingConfirmedFields.has('option') ? (leasingOptionMode === 'percent' ? `${leasingOptionPercent}%` : leasingOptionAmount) : '',
-      structuringFee: leasingConfirmedFields.has('structuringFee') ? `${leasingStructuringFeePercent}%` : '',
-      guaranteeCanons: leasingConfirmedFields.has('guaranteeCanons') ? leasingGuaranteeCanons : '',
-      jurisdiction: leasingProvince,
+          assetType: leasingAssetType,
+          assetValue: leasingAssetValue,
+          financedPercent: `${leasingFinancedPercentNumber}%`,
+          months: leasingMonths ? `${leasingMonths} meses` : '',
+          tna: leasingTna ? `${leasingTna}%` : '',
+          option: leasingOptionMode === 'percent'
+            ? (leasingOptionPercent ? `${leasingOptionPercent}%` : '')
+            : leasingOptionAmount,
+          structuringFee: leasingStructuringFeePercent ? `${leasingStructuringFeePercent}%` : '',
+          guaranteeCanons: leasingGuaranteeCanons,
+          jurisdiction: leasingProvince,
     },
   });
   const leasingScore = calculateLeasingTransparencyScore(leasingScoreSource);
@@ -1668,7 +1670,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                 <p>Completá lo que conozcas. LeasingScoring analizará por defecto un leasing financiero; cuando deba simular un caso usará cánones calculados por sistema francés.</p>
                 <div className="leasingProvinceGrid">
                   <label>Nombre y apellido del cliente<input value={leasingClientName} onChange={(event) => setLeasingClientName(event.target.value)} placeholder="Ingresá el nombre completo" autoComplete="name" /></label>
-                  <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => { setLeasingAssetType(event.target.value); confirmLeasingField('assetType'); }}><option>Maquinaria o equipo</option><option>Automotor / rodado</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
+                <label>Tipo de bien<select value={leasingAssetType} onChange={(event) => { setLeasingAssetType(event.target.value); confirmLeasingField('assetType'); }}><option>Automotor / rodado</option><option>Maquinaria o equipo</option><option>Inmueble</option><option>Embarcación</option><option>Aeronave</option><option>Otro bien mueble</option></select></label>
                   <label>Valor del bien sin IVA<input inputMode="decimal" value={leasingAssetValue} onChange={(event) => setLeasingAssetValue(event.target.value)} placeholder="Ej.: 100000000" /><small>Ingresá el precio neto. El IVA se calcula y analiza por separado.</small></label>
                   {leasingAssetType === 'Automotor / rodado' && <>
                     <label>Condición del vehículo<select value={leasingVehicleCondition} onChange={(event) => { const condition = event.target.value as 'new' | 'used'; setLeasingVehicleCondition(condition); if (condition === 'new') setLeasingVehicleYear(''); }}><option value="new">0 km</option><option value="used">Usado / rodado</option></select></label>
@@ -1678,7 +1680,7 @@ export function ChamuyoCheckApp({ leasingPage = false }: { leasingPage?: boolean
                   <label>Anticipo<select value={leasingAdvancePercent} onChange={(event) => { setLeasingAdvancePercent(event.target.value); confirmLeasingField('financedPercent'); }}>{[10, 15, 20, 25, 30, 35, 40, 45, 50].map((percent) => <option key={percent} value={percent}>{percent}%</option>)}</select><small>Anticipo estimado: {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(leasingAdvanceAmountNumber)} · Saldo a financiar: {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(leasingFinancedAmountNumber)}</small></label>
                   <label>Plazo en meses<input type="number" min="1" max="240" value={leasingMonths} onChange={(event) => { setLeasingMonths(event.target.value); confirmLeasingField('months'); }} /></label>
                   <label>TNA estimada (opcional)<input type="number" min="0" step="0.01" value={leasingTna} onChange={(event) => setLeasingTna(event.target.value)} placeholder="Ej.: 42" /></label>
-                  <label>Cómo está pactada la opción<select value={leasingOptionMode} onChange={(event) => { setLeasingOptionMode(event.target.value as 'percent' | 'amount'); confirmLeasingField('option'); }}><option value="percent">Porcentaje del valor del bien</option><option value="amount">Importe fijo</option></select></label>
+                <label>Cómo está pactada la opción de compra<select value={leasingOptionMode} onChange={(event) => { setLeasingOptionMode(event.target.value as 'percent' | 'amount'); confirmLeasingField('option'); }}><option value="percent">Porcentaje del valor del bien</option><option value="amount">Importe fijo</option></select></label>
                   {leasingOptionMode === 'percent'
                     ? <label>Opción de compra (% del bien)<input type="number" min="0" step="0.01" value={leasingOptionPercent} onChange={(event) => { setLeasingOptionPercent(event.target.value); confirmLeasingField('option'); }} placeholder="Ej.: 5" /></label>
                     : <label>Valor pactado de la opción<input inputMode="decimal" value={leasingOptionAmount} onChange={(event) => { setLeasingOptionAmount(event.target.value); confirmLeasingField('option'); }} placeholder="Ej.: 5000000" /></label>}

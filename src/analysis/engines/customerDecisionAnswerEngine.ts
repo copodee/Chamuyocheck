@@ -735,7 +735,20 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
   };
   const naturalData = extractLeasingNaturalLanguage(question);
   const assetValue = numericField('Valor del bien sin IVA') ?? numericField('Valor del bien') ?? naturalData.assetValue ?? null;
-  const financedPercent = numericField('Porcentaje financiado') ?? naturalData.financedPercent ?? null;
+  const financedPercentFromBalance = (() => {
+    const match = question.match(/Saldo financiado:[^(]*\(\s*([\d.,]+)\s*%\s*\)/i);
+    if (!match?.[1]) return null;
+    const raw = match[1].trim();
+    const normalized = raw.includes(',') && raw.includes('.')
+      ? raw.replace(/\./g, '').replace(',', '.')
+      : raw.replace(',', '.');
+    const value = Number(normalized);
+    return Number.isFinite(value) ? value : null;
+  })();
+  const financedPercent = numericField('Porcentaje financiado')
+    ?? financedPercentFromBalance
+    ?? naturalData.financedPercent
+    ?? null;
   const months = numericField('Plazo') ?? naturalData.months ?? null;
   const tna = numericField('TNA') ?? naturalData.annualNominalRatePercent ?? null;
   const optionPercentField = numericField('Opción de compra porcentual');
@@ -745,10 +758,12 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     : assetValue && optionAmountField !== null
       ? optionAmountField / assetValue * 100
       : naturalData.optionPercent ?? (assetValue && naturalData.optionAmount !== undefined ? naturalData.optionAmount / assetValue * 100 : null);
-  const guaranteeCanons = numericField('Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas');
+  const guaranteeCanons =
+    numericField('Cánones de garantía recibidos al inicio y aplicados a las últimas cuotas') ??
+    numericField('Cánones de garantía recibidos al inicio y aplicados a las ultimas cuotas');
   const structuringFeePercent = numericField('Gasto de estructuración');
   const quoteData = extractLeasingQuoteData(question);
-  const financeResult = assetValue && financedPercent && months && tna !== null && optionPercent !== null && guaranteeCanons !== null && structuringFeePercent !== null
+  const financeResult = assetValue !== null && financedPercent !== null && months !== null && tna !== null && optionPercent !== null && guaranteeCanons !== null && structuringFeePercent !== null
     ? calculateFinancialLeasing({ assetValue, financedPercent, months, annualNominalRatePercent: tna, optionPercent, guaranteeCanons, structuringFeePercent })
     : null;
   const amount = (value: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(value);
@@ -828,7 +843,7 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
     `Gasto de estructuración: ${decimal(structuringFeePercent)}% del valor financiado, equivalente a ${amount(financeResult.structuringFee)}. Debe confirmarse si se paga aparte, se financia o lleva IVA.`,
     financeResult.lessorEffectiveAnnualIrrPercent === null ? 'No pudo determinarse una TIR única del dador con este flujo.' : `TIR estimada del dador incorporando garantía y gasto inicial: ${financeResult.lessorMonthlyIrrPercent?.toFixed(3)}% mensual; ${(financeResult.lessorEffectiveAnnualIrrPercent).toFixed(3)}% efectiva anual. No incluye IVA ni impuestos no cuantificados.`,
   ] : [
-    ...(assetValue && financedPercent !== null && months && tna !== null ? (() => {
+    ...(assetValue !== null && financedPercent !== null && months !== null && tna !== null ? (() => {
       const monthlyRate = tna / 100 / 12;
       const financedAmount = assetValue * financedPercent / 100;
       const preliminaryCanon = monthlyRate === 0
@@ -841,14 +856,14 @@ function buildLeasingAnswer(selectedCategory: string | undefined, question: stri
       ];
     })() : []),
     `Para cerrar el cálculo faltan: ${[
-      !assetValue ? 'valor del bien' : '',
+      assetValue === null ? 'valor del bien' : '',
       financedPercent === null ? 'porcentaje financiado o maxi canon' : '',
-      !months ? 'cantidad de cuotas' : '',
+      months === null ? 'cantidad de cuotas' : '',
       tna === null ? 'TNA' : '',
       optionPercent === null ? 'importe o porcentaje de la opción de compra' : '',
       guaranteeCanons === null ? 'cánones de garantía (si existen)' : '',
       structuringFeePercent === null ? 'gasto de estructuración (si existe)' : '',
-    ].filter(Boolean).join(', ')}. Indicá también provincia de radicación, marca/modelo/año o valuación fiscal DNRPA para calcular patente, más IVA, seguro y gastos registrales.`,
+    ].filter(Boolean).join(', ')}. Indicá también la provincia de radicación para contextualizar la alícuota porcentual de patente, más IVA, seguro y gastos registrales.`,
   ];
   if (buenosAiresPatent) {
     financialCaseFindings.push(
